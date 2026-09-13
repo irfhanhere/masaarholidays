@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/*
+  Masaar Holidays brand system (locked — see masaar-holidays-website-brief.md, "Brand system")
+  Ratio guidance: 70% ivory/white · 20% black · 10% gold
+*/
+:root {
+  --color-masaar-black: #0a0a08;
+  --color-pure-gold: #c9a227;
+  --color-white: #ffffff;
+  --color-warm-ivory: #f7f4ed;
+  --color-light-gold: #e6c65c;
+  --color-deep-gold: #a87f12;
+
+  /*
+    Admin Portal accents — sampled directly from the approved admin screens
+    (inspirations/DASBOARD.png, ADMIN - LOGIN.png). The admin panel uses its
+    own dark green ink + a near-white surface, distinct from the public
+    site's pure black/gold system — this is what the approved designs show,
+    not a new choice.
+  */
+  --color-admin-ink: #182523;
+  --color-admin-ink-active: #313d3e;
+  --color-admin-primary: #163a31;
+  --color-admin-primary-dark: #0f2b24;
+  --color-admin-surface: #f7f8f7;
+
+  --background: var(--color-warm-ivory);
+  --foreground: var(--color-masaar-black);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-masaar-black: var(--color-masaar-black);
+  --color-pure-gold: var(--color-pure-gold);
+  --color-warm-ivory: var(--color-warm-ivory);
+  --color-light-gold: var(--color-light-gold);
+  --color-deep-gold: var(--color-deep-gold);
+
+  --color-admin-ink: var(--color-admin-ink);
+  --color-admin-ink-active: var(--color-admin-ink-active);
+  --color-admin-primary: var(--color-admin-primary);
+  --color-admin-primary-dark: var(--color-admin-primary-dark);
+  --color-admin-surface: var(--color-admin-surface);
+
+  --font-sans: var(--font-montserrat);
+  --font-display: var(--font-cormorant);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
