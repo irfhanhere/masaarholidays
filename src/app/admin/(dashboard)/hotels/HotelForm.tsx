@@ -52,12 +52,21 @@ export function HotelForm({ hotelId, initial }: { hotelId?: string; initial?: Ho
               className={inputClass}
             />
           </Field>
-          <Field label="Walk Time (minutes)">
+          <Field label="Walk Time (minutes)" hint="Lower bound if it's a range, e.g. 3 for &quot;3-4 min&quot;.">
             <input
               type="number"
               name="walk_time_minutes"
               defaultValue={initial?.walk_time_minutes ?? ""}
               placeholder="e.g. 3"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Walk Time Max (minutes)" hint="Upper bound if it's a range — leave blank for a single value.">
+            <input
+              type="number"
+              name="walk_time_minutes_max"
+              defaultValue={initial?.walk_time_minutes_max ?? ""}
+              placeholder="e.g. 4"
               className={inputClass}
             />
           </Field>
@@ -87,7 +96,13 @@ export function HotelForm({ hotelId, initial }: { hotelId?: string; initial?: Ho
             <input type="number" name="price_from_aed" defaultValue={initial?.price_from_aed ?? ""} className={inputClass} />
           </Field>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 grid gap-4">
+          <Field
+            label="Terrain Note"
+            hint="Real proximity description, e.g. &quot;Flat, open plaza facing King Fahd Gate&quot; — shown instead of Category where present."
+          >
+            <textarea name="terrain_note" defaultValue={initial?.terrain_note ?? ""} rows={2} className={inputClass} />
+          </Field>
           <Field label="Short Description" hint="Keep it short and helpful — key facilities, location, what makes this hotel suitable.">
             <textarea name="description" defaultValue={initial?.description ?? ""} rows={3} maxLength={300} className={inputClass} />
           </Field>

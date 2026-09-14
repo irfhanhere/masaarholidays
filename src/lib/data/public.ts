@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
+  HotelRoomRow,
   HotelRow,
   PackageType,
   PackageRow,
@@ -46,6 +47,38 @@ export async function getActiveHotels(city?: "Makkah" | "Madinah"): Promise<Hote
   const { data, error } = await query.order("display_order", { ascending: true });
   if (error) {
     console.error("getActiveHotels", error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+export async function getHotelBySlug(slug: string): Promise<HotelRow | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("hotels")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) {
+    console.error("getHotelBySlug", error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getHotelRooms(hotelId: string): Promise<HotelRoomRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("hotel_rooms")
+    .select("*")
+    .eq("hotel_id", hotelId)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  if (error) {
+    console.error("getHotelRooms", error.message);
     return [];
   }
   return data ?? [];

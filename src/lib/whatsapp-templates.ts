@@ -19,6 +19,8 @@ export const WHATSAPP_TEMPLATES = {
   hajj: "Assalamu Alaikum, I'd like to register my interest in Masaar's Hajj packages.",
   hotel: (hotelName: string) =>
     `Assalamu Alaikum, I'd like more information on ${hotelName}.`,
+  hotelRoom: (hotelName: string, roomType: string) =>
+    `Assalamu Alaikum, I'd like more information on the ${roomType} room at ${hotelName}.`,
   transfer: (route: string) =>
     `Assalamu Alaikum, I'd like to arrange a private transfer: ${route}.`,
   visa: (visaType: string) =>

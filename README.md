@@ -84,9 +84,28 @@ not just hidden in the UI).
 `0007_package_transfer_addons.sql` — lets a package attach specific
 transfer routes/vehicles as add-ons (Section 3).
 
-**None of 0003–0007 have been applied to the live project yet** — write
-them, verify them, but don't assume the data is there until you've run
-them (Step 3 above).
+`0008_hotel_walk_terrain.sql` — real walk-time/distance/terrain data
+(masaar-client-data-round3.md Section 1) for 18 of the 19 Round 2 hotels
+(all but Elaf Kinda, which the source doesn't cover), reconciling 4 of
+them against Round 3's slightly different names rather than inserting
+duplicates (see the comment at the top of the file), plus 11 more new
+Makkah hotels (seeded inactive, same pattern as 0003).
+
+`0009_hotel_rooms.sql` + `0010_seed_hotel_rooms.sql` — a `hotel_rooms`
+table (one hotel, many room types) and the 17 real room prices from the
+Oct 1–30, 2026 rate sheet (Section 2), matched to hotels via the same
+reconciliation.
+
+`0011_seed_placeholder_packages.sql` — 6 sample Umrah/Hajj packages
+(Essential/Signature/Privé × 2) with placeholder pricing (Section 4),
+seeded `is_active = false` — visible in Admin → Packages for
+layout-testing, never on the public Umrah/Hajj pages.
+
+**0001–0007 have been applied to the live project already (verified);
+0008–0011 have not yet** — write them, verify them, but don't assume the
+data is live until you've run them (Step 3 above). The app degrades
+gracefully either way (empty states, not crashes) if you view it before
+running a given migration — that's deliberate, not a bug to chase.
 
 Regenerate `src/lib/types/database.ts` from the live schema once connected:
 
@@ -143,6 +162,33 @@ requested schema) and Media Library (needs Supabase Storage buckets).
   Package Edit's new "4. Transfer Add-on" section. Not yet surfaced on
   the public package card/page — admin-side only, matching what was asked.
 - **English + Arabic routing** — see next section.
+
+## Round 3 (masaar-client-data-round3.md)
+
+- **Hotel walk-time/terrain data** — real distance/walk-time/terrain
+  replaces the vague category label on cards and the new
+  `/hotels/[slug]` detail page (falls back to `category` when
+  `terrain_note` isn't set — see `HotelCard.tsx`). 4 Round 2 hotels were
+  reconciled to Round 3's slightly different names (updated in place, no
+  duplicates) per the source's own naming table.
+- **Hotel detail page** (`/hotels/[slug]`) — hero, proximity info, a room
+  list from `hotel_rooms` with a per-room "Enquire about this room"
+  WhatsApp CTA (pre-filled hotel + room type), and a sticky "Enquire
+  about this hotel" CTA for the property overall. Listing cards
+  (`HotelCard.tsx`) now link through via "View Rooms", alongside (not
+  instead of) their own WhatsApp button.
+- **No admin UI for editing individual `hotel_rooms` rows yet** — wasn't
+  asked for in this pass; rows are managed via the SQL Editor/Supabase
+  Studio for now. Worth a follow-up admin screen once room data is
+  edited often.
+- **Placeholder packages** — see above. `rate_period_label` (e.g. "Oct
+  1-30, 2026") keeps the date-bound room pricing visibly scoped rather
+  than presented as a permanent rate — no seasonal-pricing engine was
+  built, per the source's own explicit "don't build this unless asked."
+- **Price Match widget — deliberately not built.** Section 5 flagged it
+  as an unapproved business commitment (a 12-hour response-time promise)
+  — left out entirely pending Haseeb's explicit sign-off, per the source
+  document's own instruction.
 
 ## Language routing (English + Arabic)
 

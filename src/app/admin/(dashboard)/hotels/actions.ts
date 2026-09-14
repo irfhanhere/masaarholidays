@@ -31,6 +31,10 @@ export async function saveHotel(
       ? Number(formData.get("distance_from_haram_meters"))
       : null,
     walk_time_minutes: formData.get("walk_time_minutes") ? Number(formData.get("walk_time_minutes")) : null,
+    walk_time_minutes_max: formData.get("walk_time_minutes_max")
+      ? Number(formData.get("walk_time_minutes_max"))
+      : null,
+    terrain_note: String(formData.get("terrain_note") ?? "").trim() || null,
     room_type: String(formData.get("room_type") ?? "").trim() || null,
     board_basis: String(formData.get("board_basis") ?? "").trim() || null,
     cancellation_policy: String(formData.get("cancellation_policy") ?? "").trim() || null,

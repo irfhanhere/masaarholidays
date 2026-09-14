@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ContentPending, EmptyState, SectionHeading } from "@/components/site/SectionHeading";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
@@ -96,7 +97,7 @@ export default async function UmrahPage() {
 
       <section className="py-16">
         <Container className="grid gap-6 sm:grid-cols-2">
-          <a
+          <Link
             href="/hotels"
             className="rounded-lg border border-black/10 bg-white p-6 hover:border-pure-gold"
           >
@@ -105,8 +106,8 @@ export default async function UmrahPage() {
             <div className="mt-2">
               <ContentPending />
             </div>
-          </a>
-          <a
+          </Link>
+          <Link
             href="/transfers"
             className="rounded-lg border border-black/10 bg-white p-6 hover:border-pure-gold"
           >
@@ -115,7 +116,7 @@ export default async function UmrahPage() {
             <div className="mt-2">
               <ContentPending />
             </div>
-          </a>
+          </Link>
         </Container>
       </section>
     </>

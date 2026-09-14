@@ -90,6 +90,8 @@ type HotelRowShape = {
   star_rating: number | null;
   distance_from_haram_meters: number | null;
   walk_time_minutes: number | null;
+  walk_time_minutes_max: number | null;
+  terrain_note: string | null;
   room_type: string | null;
   board_basis: string | null;
   cancellation_policy: string | null;
@@ -97,6 +99,21 @@ type HotelRowShape = {
   price_from_aed: number | null;
   description: string | null;
   image_url: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type HotelRoomRowShape = {
+  id: string;
+  hotel_id: string;
+  room_type: string;
+  price_ro: number | null;
+  price_bb: number | null;
+  bed_type: string | null;
+  notes: string | null;
+  rate_period_label: string | null;
   is_active: boolean;
   display_order: number;
   created_at: string;
@@ -262,6 +279,7 @@ export interface Database {
         "upgrade_id" | "room_type" | "price_aed"
       >;
       hotels: Table<HotelRowShape, "name" | "slug" | "city">;
+      hotel_rooms: Table<HotelRoomRowShape, "hotel_id" | "room_type">;
       package_hotels: Table<PackageHotelRowShape, "package_id" | "hotel_id" | "nights">;
       package_transfer_addons: Table<PackageTransferAddonRowShape, "package_id" | "transfer_id">;
       transfers: Table<TransferRowShape, "route_name" | "slug">;
@@ -286,6 +304,7 @@ export interface Database {
 
 export type PackageRow = Database["public"]["Tables"]["packages"]["Row"];
 export type HotelRow = Database["public"]["Tables"]["hotels"]["Row"];
+export type HotelRoomRow = Database["public"]["Tables"]["hotel_rooms"]["Row"];
 export type TransferRow = Database["public"]["Tables"]["transfers"]["Row"];
 export type TransferVehicleRow = Database["public"]["Tables"]["transfer_vehicles"]["Row"];
 export type PackageTransferAddonRow =
