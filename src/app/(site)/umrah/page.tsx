@@ -7,14 +7,18 @@ import { PackageCard } from "@/components/site/PackageCard";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { CarIcon, DocumentIcon, PlaneIcon, ShieldIcon, BedIcon } from "@/components/site/icons";
 import { getPublishedPackages } from "@/lib/data/public";
+import { buildPageMetadata } from "@/lib/i18n";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 // SEO Master Map — starter-kit Section 2; H2 outline — starter-kit Section 3.
-export const metadata: Metadata = {
-  title: "Umrah Packages UAE | Masaar Holidays",
-  description:
-    "Umrah packages from the UAE, thoughtfully planned around your family — accommodation, transfers and personal support at every level of comfort.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/umrah",
+    title: "Umrah Packages UAE | Masaar Holidays",
+    description:
+      "Umrah packages from the UAE, thoughtfully planned around your family — accommodation, transfers and personal support at every level of comfort.",
+  });
+}
 
 export default async function UmrahPage() {
   const packages = await getPublishedPackages("umrah");

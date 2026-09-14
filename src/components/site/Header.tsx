@@ -5,9 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MAIN_NAV } from "@/lib/nav";
+import { localizedPath, type Locale } from "@/lib/locale-constants";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import { Container } from "./Container";
 import { CurrencySwitcher } from "./CurrencySwitcher";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { TopBar } from "./TopBar";
 import { WhatsAppButton } from "./WhatsAppButton";
 
@@ -16,15 +18,23 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  // Nav hrefs are authored unprefixed (English); localize them against
+  // whichever locale the visitor is currently on so clicking a nav item
+  // on /ar/... doesn't silently bounce them back to English.
+  const locale: Locale = pathname.startsWith("/ar") ? "ar" : "en";
+  const href = (path: string) => localizedPath(locale, path);
+
+  const isActive = (path: string) => {
+    const target = href(path);
+    return path === "/" ? pathname === target : pathname.startsWith(target);
+  };
 
   return (
     <header className="sticky top-0 z-30">
       <TopBar />
       <div className="border-b border-black/5 bg-white">
         <Container className="flex h-20 items-center justify-between gap-6">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
+          <Link href={href("/")} className="flex items-center gap-2 shrink-0">
             <Image
               src="/brand/logo.png"
               alt="Masaar Holidays"
@@ -44,7 +54,7 @@ export function Header() {
                 onMouseLeave={() => item.children && setOpenDropdown(null)}
               >
                 <Link
-                  href={item.href}
+                  href={href(item.href)}
                   className={`text-sm font-medium tracking-wide transition-colors ${
                     isActive(item.href)
                       ? "text-pure-gold"
@@ -61,7 +71,7 @@ export function Header() {
                     {item.children.map((child) => (
                       <Link
                         key={child.href}
-                        href={child.href}
+                        href={href(child.href)}
                         className="block px-4 py-2 text-sm text-masaar-black hover:bg-warm-ivory"
                       >
                         {child.label}
@@ -74,6 +84,7 @@ export function Header() {
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
+            <LanguageSwitcher />
             <CurrencySwitcher />
             <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>
               WhatsApp Us
@@ -103,7 +114,7 @@ export function Header() {
             {MAIN_NAV.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={href(item.href)}
                 onClick={() => setMobileOpen(false)}
                 className={`rounded-md px-3 py-2 text-sm font-medium ${
                   isActive(item.href)
@@ -115,8 +126,11 @@ export function Header() {
               </Link>
             ))}
             <div className="mt-3 flex items-center gap-3 px-3">
+              <LanguageSwitcher />
               <CurrencySwitcher />
-              <WhatsAppButton message={WHATSAPP_TEMPLATES.general} className="flex-1">
+            </div>
+            <div className="mt-3 px-3">
+              <WhatsAppButton message={WHATSAPP_TEMPLATES.general} className="w-full">
                 WhatsApp Us
               </WhatsAppButton>
             </div>

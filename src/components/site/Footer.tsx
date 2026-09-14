@@ -1,10 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CONTACT } from "@/lib/contact";
+import { localizedPath, type Locale } from "@/lib/locale-constants";
 import { FOOTER_COMPANY_NAV, FOOTER_SERVICES_NAV } from "@/lib/nav";
 import { Container } from "./Container";
 
-export function Footer() {
+export function Footer({ locale }: { locale: Locale }) {
   const year = new Date().getFullYear();
 
   return (
@@ -23,8 +24,8 @@ export function Footer() {
               screens; confirm before shipping. */}
         </div>
 
-        <FooterColumn title="Our Services" links={FOOTER_SERVICES_NAV} />
-        <FooterColumn title="Company" links={FOOTER_COMPANY_NAV} />
+        <FooterColumn title="Our Services" links={FOOTER_SERVICES_NAV} locale={locale} />
+        <FooterColumn title="Company" links={FOOTER_COMPANY_NAV} locale={locale} />
 
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-pure-gold">
@@ -54,9 +55,11 @@ export function Footer() {
 function FooterColumn({
   title,
   links,
+  locale,
 }: {
   title: string;
   links: { label: string; href: string }[];
+  locale: Locale;
 }) {
   return (
     <div>
@@ -66,7 +69,7 @@ function FooterColumn({
       <ul className="mt-4 space-y-2 text-sm text-white/80">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="hover:text-light-gold">
+            <Link href={localizedPath(locale, link.href)} className="hover:text-light-gold">
               {link.label}
             </Link>
           </li>

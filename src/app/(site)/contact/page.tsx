@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { CONTACT } from "@/lib/contact";
+import { buildPageMetadata } from "@/lib/i18n";
 import { ContactForm } from "./ContactForm";
 
-export const metadata: Metadata = {
-  title: "Contact Masaar Holidays | Umrah & Hajj Enquiries",
-  description:
-    "Reach Masaar Holidays by WhatsApp, phone, or email — a dedicated advisor responds personally to every Umrah or Hajj enquiry.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/contact",
+    title: "Contact Masaar Holidays | Umrah & Hajj Enquiries",
+    description:
+      "Reach Masaar Holidays by WhatsApp, phone, or email — a dedicated advisor responds personally to every Umrah or Hajj enquiry.",
+  });
+}
 
 export default function ContactPage() {
   return (

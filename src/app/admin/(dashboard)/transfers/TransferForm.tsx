@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Field, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import type { TransferRow } from "@/lib/types/database";
@@ -24,17 +25,10 @@ export function TransferForm({ transferId, initial }: { transferId?: string; ini
               <option value="airport">Airport</option>
               <option value="train">Haramain Train</option>
               <option value="intercity">Intercity</option>
+              <option value="ziyarat">Ziyarat</option>
+              <option value="day-trip">Day Trip</option>
               <option value="other">Other</option>
             </select>
-          </Field>
-          <Field label="Vehicle Type">
-            <input name="vehicle_type" defaultValue={initial?.vehicle_type ?? ""} placeholder="e.g. Private Sedan" className={inputClass} />
-          </Field>
-          <Field label="Vehicle Capacity">
-            <input name="vehicle_capacity" defaultValue={initial?.vehicle_capacity ?? ""} placeholder="e.g. 4 Passengers" className={inputClass} />
-          </Field>
-          <Field label="Price From (AED)" required>
-            <input type="number" name="price_from_aed" defaultValue={initial?.price_from_aed ?? ""} required className={inputClass} />
           </Field>
         </div>
         <div className="mt-4">
@@ -42,6 +36,11 @@ export function TransferForm({ transferId, initial }: { transferId?: string; ini
             <textarea name="description" defaultValue={initial?.description ?? ""} rows={3} maxLength={300} className={inputClass} />
           </Field>
         </div>
+        <p className="mt-4 text-xs text-masaar-black/50">
+          Per-vehicle pricing (Camry, Staria, GMC XL Yukon, Hiace Grand Cabin, Coaster) is set in
+          the <Link href="/admin/transfers/rate-card" className="text-admin-primary underline">Rate Card</Link>,
+          not here &mdash; that&apos;s the admin-only reference the public page never shows.
+        </p>
       </Card>
 
       <div className="space-y-6">

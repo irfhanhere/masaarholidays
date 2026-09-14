@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/site/LegalPage";
+import { buildPageMetadata } from "@/lib/i18n";
 
-export const metadata: Metadata = { title: "Privacy Policy | Masaar Holidays" };
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({ path: "/privacy-policy", title: "Privacy Policy | Masaar Holidays" });
+}
 
 export default function PrivacyPolicyPage() {
   return (

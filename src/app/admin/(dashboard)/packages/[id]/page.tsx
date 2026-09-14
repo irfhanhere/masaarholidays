@@ -13,11 +13,15 @@ export default async function EditPackagePage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: pkg }, { data: roomPrices }, { data: upgrade }] = await Promise.all([
-    supabase.from("packages").select("*").eq("id", id).maybeSingle(),
-    supabase.from("package_room_prices").select("room_type, price_aed").eq("package_id", id).order("display_order"),
-    supabase.from("package_upgrades").select("id, label").eq("package_id", id).maybeSingle(),
-  ]);
+  const [{ data: pkg }, { data: roomPrices }, { data: upgrade }, { data: transferOptions }, { data: vehicleOptions }, { data: transferAddons }] =
+    await Promise.all([
+      supabase.from("packages").select("*").eq("id", id).maybeSingle(),
+      supabase.from("package_room_prices").select("room_type, price_aed").eq("package_id", id).order("display_order"),
+      supabase.from("package_upgrades").select("id, label").eq("package_id", id).maybeSingle(),
+      supabase.from("transfers").select("*").eq("is_active", true).order("display_order"),
+      supabase.from("transfer_vehicles").select("*").eq("is_active", true).order("display_order"),
+      supabase.from("package_transfer_addons").select("transfer_id, vehicle_id").eq("package_id", id).order("display_order"),
+    ]);
 
   if (!pkg) notFound();
 
@@ -47,6 +51,9 @@ export default async function EditPackagePage({
         initialRoomPrices={roomPrices ?? []}
         initialUpgrade={upgrade}
         initialUpgradeRoomPrices={upgradeRoomPrices}
+        initialTransferAddons={transferAddons ?? []}
+        transferOptions={transferOptions ?? []}
+        vehicleOptions={vehicleOptions ?? []}
       />
     </div>
   );

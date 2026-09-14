@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/site/LegalPage";
+import { buildPageMetadata } from "@/lib/i18n";
 
-export const metadata: Metadata = { title: "Terms & Conditions | Masaar Holidays" };
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({ path: "/terms-conditions", title: "Terms & Conditions | Masaar Holidays" });
+}
 
 export default function TermsConditionsPage() {
   return (

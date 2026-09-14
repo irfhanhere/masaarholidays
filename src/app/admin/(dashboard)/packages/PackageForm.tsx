@@ -3,10 +3,17 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Field, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
-import type { PackageItineraryDay, PackageRow, PackageType } from "@/lib/types/database";
+import type {
+  PackageItineraryDay,
+  PackageRow,
+  PackageType,
+  TransferRow,
+  TransferVehicleRow,
+} from "@/lib/types/database";
 import { savePackage, type PackageFormState } from "./actions";
 
 type RoomPrice = { room_type: string; price_aed: string };
+type TransferAddon = { transfer_id: string; vehicle_id: string };
 
 export function PackageForm({
   packageId,
@@ -14,6 +21,9 @@ export function PackageForm({
   initialRoomPrices,
   initialUpgrade,
   initialUpgradeRoomPrices,
+  initialTransferAddons,
+  transferOptions,
+  vehicleOptions,
   defaultType,
 }: {
   packageId?: string;
@@ -21,6 +31,9 @@ export function PackageForm({
   initialRoomPrices?: { room_type: string; price_aed: number }[];
   initialUpgrade?: { label: string } | null;
   initialUpgradeRoomPrices?: { room_type: string; price_aed: number }[];
+  initialTransferAddons?: { transfer_id: string; vehicle_id: string | null }[];
+  transferOptions?: TransferRow[];
+  vehicleOptions?: TransferVehicleRow[];
   defaultType?: PackageType;
 }) {
   const router = useRouter();
@@ -39,6 +52,12 @@ export function PackageForm({
     initialUpgradeRoomPrices?.length
       ? initialUpgradeRoomPrices.map((r) => ({ room_type: r.room_type, price_aed: String(r.price_aed) }))
       : [{ room_type: "Quad", price_aed: "" }]
+  );
+
+  const [transferAddons, setTransferAddons] = useState<TransferAddon[]>(
+    initialTransferAddons?.length
+      ? initialTransferAddons.map((a) => ({ transfer_id: a.transfer_id, vehicle_id: a.vehicle_id ?? "" }))
+      : []
   );
 
   const itineraryText = (initial?.itinerary as PackageItineraryDay[] | undefined)
@@ -210,6 +229,75 @@ export function PackageForm({
           </div>
         )}
       </Card>
+
+      {transferOptions && transferOptions.length > 0 && (
+        <Card>
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="font-semibold text-masaar-black">4. Transfer Add-on (Optional)</h2>
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setTransferAddons((prev) => [...prev, { transfer_id: transferOptions[0].id, vehicle_id: "" }])
+              }
+            >
+              + Add Transfer Option
+            </SecondaryButton>
+          </div>
+          <p className="mb-3 text-sm text-masaar-black/60">
+            Offer specific routes/vehicles from the Transfer Rate Card as part of this package —
+            per masaar-client-data-round2.md Section 3. Leave vehicle as &quot;Any&quot; to offer the
+            route without committing to a specific vehicle.
+          </p>
+          <div className="space-y-2">
+            {transferAddons.map((addon, i) => (
+              <div key={i} className="flex gap-2">
+                <select
+                  name="transfer_addon_transfer_id"
+                  value={addon.transfer_id}
+                  onChange={(e) =>
+                    setTransferAddons((prev) =>
+                      prev.map((a, idx) => (idx === i ? { ...a, transfer_id: e.target.value } : a))
+                    )
+                  }
+                  className={inputClass}
+                >
+                  {transferOptions.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.route_name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  name="transfer_addon_vehicle_id"
+                  value={addon.vehicle_id}
+                  onChange={(e) =>
+                    setTransferAddons((prev) =>
+                      prev.map((a, idx) => (idx === i ? { ...a, vehicle_id: e.target.value } : a))
+                    )
+                  }
+                  className={inputClass}
+                >
+                  <option value="">Any vehicle</option>
+                  {(vehicleOptions ?? []).map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                <SecondaryButton
+                  type="button"
+                  onClick={() => setTransferAddons((prev) => prev.filter((_, idx) => idx !== i))}
+                >
+                  Remove
+                </SecondaryButton>
+              </div>
+            ))}
+            {transferAddons.length === 0 && (
+              <p className="text-sm italic text-masaar-black/40">No transfer add-ons attached yet.</p>
+            )}
+          </div>
+        </Card>
+      )}
 
       {state.status === "error" && <p className="text-sm text-red-600">{state.message}</p>}
 

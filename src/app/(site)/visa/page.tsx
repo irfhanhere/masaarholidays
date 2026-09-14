@@ -5,14 +5,18 @@ import { Hero } from "@/components/site/Hero";
 import { ImportantNotice } from "@/components/site/ImportantNotice";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getActiveVisaTypes, getVisaDocumentContext } from "@/lib/data/public";
+import { buildPageMetadata } from "@/lib/i18n";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import type { VisaDocumentContextKey } from "@/lib/types/database";
 
-export const metadata: Metadata = {
-  title: "Umrah Visa Requirements | Masaar Holidays",
-  description:
-    "Umrah visa requirements and documents, explained clearly — Masaar facilitates applications but always recommends verifying current rules with the relevant authority.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/visa",
+    title: "Umrah Visa Requirements | Masaar Holidays",
+    description:
+      "Umrah visa requirements and documents, explained clearly — Masaar facilitates applications but always recommends verifying current rules with the relevant authority.",
+  });
+}
 
 const CONTEXTS: VisaDocumentContextKey[] = [
   "umrah_package",

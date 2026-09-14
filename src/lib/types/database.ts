@@ -92,6 +92,8 @@ type HotelRowShape = {
   walk_time_minutes: number | null;
   room_type: string | null;
   board_basis: string | null;
+  cancellation_policy: string | null;
+  view_type: string | null;
   price_from_aed: number | null;
   description: string | null;
   image_url: string | null;
@@ -109,11 +111,22 @@ type PackageHotelRowShape = {
   display_order: number;
 };
 
+type PackageTransferAddonRowShape = {
+  id: string;
+  package_id: string;
+  transfer_id: string;
+  vehicle_id: string | null;
+  is_active: boolean;
+  display_order: number;
+};
+
+export type TransferType = "airport" | "train" | "intercity" | "ziyarat" | "day-trip" | "other";
+
 type TransferRowShape = {
   id: string;
   route_name: string;
   slug: string;
-  transfer_type: "airport" | "train" | "intercity" | "other";
+  transfer_type: TransferType;
   vehicle_type: string | null;
   vehicle_capacity: string | null;
   price_from_aed: number | null;
@@ -123,6 +136,34 @@ type TransferRowShape = {
   display_order: number;
   created_at: string;
   updated_at: string;
+};
+
+type TransferVehicleRowShape = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TransferRouteRateRowShape = {
+  id: string;
+  transfer_id: string;
+  vehicle_id: string;
+  price_aed: number;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Public-safe view — vehicle availability per route, no price column. */
+type TransferRouteAvailableVehicleRowShape = {
+  transfer_id: string;
+  vehicle_id: string;
+  vehicle_name: string;
+  display_order: number;
 };
 
 type VisaDocumentContextRowShape = {
@@ -204,6 +245,12 @@ type Table<Row, RequiredKeys extends keyof Row> = {
   Relationships: [];
 };
 
+/** Helper for read-only views (no Insert/Update). */
+type View<Row> = {
+  Row: Row;
+  Relationships: [];
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -216,7 +263,10 @@ export interface Database {
       >;
       hotels: Table<HotelRowShape, "name" | "slug" | "city">;
       package_hotels: Table<PackageHotelRowShape, "package_id" | "hotel_id" | "nights">;
+      package_transfer_addons: Table<PackageTransferAddonRowShape, "package_id" | "transfer_id">;
       transfers: Table<TransferRowShape, "route_name" | "slug">;
+      transfer_vehicles: Table<TransferVehicleRowShape, "name">;
+      transfer_route_rates: Table<TransferRouteRateRowShape, "transfer_id" | "vehicle_id" | "price_aed">;
       visa_document_contexts: Table<VisaDocumentContextRowShape, "context_key" | "label">;
       visa_documents: Table<VisaDocumentRowShape, "context_id" | "title">;
       visa_types: Table<VisaTypeRowShape, "slug" | "name">;
@@ -227,7 +277,9 @@ export interface Database {
       enquiries: Table<EnquiryRowShape, "name" | "enquiry_type">;
       currency_rates: Table<CurrencyRateRowShape, keyof CurrencyRateRowShape>;
     };
-    Views: Record<string, never>;
+    Views: {
+      transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
+    };
     Functions: Record<string, never>;
   };
 };
@@ -235,6 +287,12 @@ export interface Database {
 export type PackageRow = Database["public"]["Tables"]["packages"]["Row"];
 export type HotelRow = Database["public"]["Tables"]["hotels"]["Row"];
 export type TransferRow = Database["public"]["Tables"]["transfers"]["Row"];
+export type TransferVehicleRow = Database["public"]["Tables"]["transfer_vehicles"]["Row"];
+export type PackageTransferAddonRow =
+  Database["public"]["Tables"]["package_transfer_addons"]["Row"];
+export type TransferRouteRateRow = Database["public"]["Tables"]["transfer_route_rates"]["Row"];
+export type TransferRouteAvailableVehicleRow =
+  Database["public"]["Views"]["transfer_route_available_vehicles"]["Row"];
 export type TestimonialRow = Database["public"]["Tables"]["testimonials"]["Row"];
 export type EnquiryRow = Database["public"]["Tables"]["enquiries"]["Row"];
 export type CurrencyRateRow = Database["public"]["Tables"]["currency_rates"]["Row"];

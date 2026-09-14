@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/site/Container";
 import { EmptyState, SectionHeading } from "@/components/site/SectionHeading";
+import { buildPageMetadata } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "Masaar Journal — Umrah & Hajj Travel Guides",
-  description:
-    "Practical, honest guides for Umrah and Hajj travel — preparation, packing, family planning, and what to expect in Makkah and Madinah.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/blog",
+    title: "Masaar Journal — Umrah & Hajj Travel Guides",
+    description:
+      "Practical, honest guides for Umrah and Hajj travel — preparation, packing, family planning, and what to expect in Makkah and Madinah.",
+  });
+}
 
 export default function BlogPage() {
   return (

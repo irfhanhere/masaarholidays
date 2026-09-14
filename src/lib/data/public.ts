@@ -7,6 +7,7 @@ import type {
   PackageRow,
   TestimonialRow,
   TransferRow,
+  TransferRouteAvailableVehicleRow,
   VisaDocumentContextKey,
   VisaTypeRow,
 } from "@/lib/types/database";
@@ -63,6 +64,34 @@ export async function getActiveTransfers(): Promise<TransferRow[]> {
     return [];
   }
   return data ?? [];
+}
+
+/**
+ * Vehicle names available per route, grouped by transfer_id — deliberately
+ * NOT price. Reads the public-safe `transfer_route_available_vehicles`
+ * view (0005_transfer_rate_card.sql), which never selects price_aed, so
+ * there's no numeric rate for this function to even accidentally return.
+ */
+export async function getTransferAvailableVehicles(): Promise<
+  Map<string, TransferRouteAvailableVehicleRow[]>
+> {
+  const byTransfer = new Map<string, TransferRouteAvailableVehicleRow[]>();
+  if (!isSupabaseConfigured()) return byTransfer;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transfer_route_available_vehicles")
+    .select("*")
+    .order("display_order", { ascending: true });
+  if (error) {
+    console.error("getTransferAvailableVehicles", error.message);
+    return byTransfer;
+  }
+  for (const row of data ?? []) {
+    const list = byTransfer.get(row.transfer_id) ?? [];
+    list.push(row);
+    byTransfer.set(row.transfer_id, list);
+  }
+  return byTransfer;
 }
 
 export async function getPublishedTestimonials(limit?: number): Promise<TestimonialRow[]> {

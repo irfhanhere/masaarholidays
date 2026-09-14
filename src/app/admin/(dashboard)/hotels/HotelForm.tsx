@@ -64,8 +64,24 @@ export function HotelForm({ hotelId, initial }: { hotelId?: string; initial?: Ho
           <Field label="Room Type">
             <input name="room_type" defaultValue={initial?.room_type ?? ""} placeholder="e.g. Twin / Triple / Quad" className={inputClass} />
           </Field>
-          <Field label="Board Basis">
-            <input name="board_basis" defaultValue={initial?.board_basis ?? ""} placeholder="e.g. Room Only / B&B" className={inputClass} />
+          <Field label="Board Basis" hint="Filter dimension — leave blank until confirmed.">
+            <input name="board_basis" defaultValue={initial?.board_basis ?? ""} placeholder="e.g. Room Only / Breakfast / Half Board" className={inputClass} />
+          </Field>
+          <Field label="Cancellation Policy" hint="Filter dimension — leave blank until confirmed.">
+            <input
+              name="cancellation_policy"
+              defaultValue={initial?.cancellation_policy ?? ""}
+              placeholder="e.g. Non-refundable / Part-refundable / Free cancellation"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="View Type" hint="Leave blank unless confirmed — not every room has a view.">
+            <input
+              name="view_type"
+              defaultValue={initial?.view_type ?? ""}
+              placeholder="e.g. Kaaba View / Haram View"
+              className={inputClass}
+            />
           </Field>
           <Field label="Price From (AED)">
             <input type="number" name="price_from_aed" defaultValue={initial?.price_from_aed ?? ""} className={inputClass} />

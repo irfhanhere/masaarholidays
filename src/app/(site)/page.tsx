@@ -12,14 +12,18 @@ import {
   DocumentIcon,
 } from "@/components/site/icons";
 import { getPublishedPackages, getPublishedTestimonials } from "@/lib/data/public";
+import { buildPageMetadata } from "@/lib/i18n";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 // SEO Master Map — masaar-holidays-content-seo-starter-kit.md, Section 2.
-export const metadata: Metadata = {
-  title: "Umrah Travel Agency UAE | Masaar Holidays",
-  description:
-    "Masaar Holidays plans private, family-paced Umrah journeys from the UAE — personalised support, curated accommodation, and one dedicated point of contact throughout.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/",
+    title: "Umrah Travel Agency UAE | Masaar Holidays",
+    description:
+      "Masaar Holidays plans private, family-paced Umrah journeys from the UAE — personalised support, curated accommodation, and one dedicated point of contact throughout.",
+  });
+}
 
 export default async function HomePage() {
   const [umrahPackages, testimonials] = await Promise.all([

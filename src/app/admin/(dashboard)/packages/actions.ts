@@ -138,6 +138,26 @@ export async function savePackage(
     await supabase.from("package_upgrades").delete().eq("package_id", id);
   }
 
+  // Transfer add-ons (masaar-client-data-round2.md Section 3) — same
+  // "replace wholesale" pattern as room prices.
+  const addonTransferIds = formData.getAll("transfer_addon_transfer_id") as string[];
+  const addonVehicleIds = formData.getAll("transfer_addon_vehicle_id") as string[];
+  const transferAddons = addonTransferIds
+    .map((transfer_id, i) => ({ transfer_id, vehicle_id: addonVehicleIds[i] || null }))
+    .filter((a) => a.transfer_id);
+
+  await supabase.from("package_transfer_addons").delete().eq("package_id", id);
+  if (transferAddons.length > 0) {
+    await supabase.from("package_transfer_addons").insert(
+      transferAddons.map((a, i) => ({
+        package_id: id,
+        transfer_id: a.transfer_id,
+        vehicle_id: a.vehicle_id,
+        display_order: i,
+      }))
+    );
+  }
+
   revalidatePath("/admin/packages");
   redirect("/admin/packages");
 }

@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/site/Container";
+import { buildAlternates, getRequestLocale } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "Cookie Preferences | Masaar Holidays",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return {
+    title: "Cookie Preferences | Masaar Holidays",
+    alternates: buildAlternates(locale, "/cookie-preferences"),
+    // Always noindex regardless of locale — not a buildPageMetadata()
+    // call because that only defaults to noindex for /ar/*.
+    robots: { index: false, follow: false },
+  };
+}
 
 export default function CookiePreferencesPage() {
   return (

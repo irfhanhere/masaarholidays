@@ -33,6 +33,8 @@ export async function saveHotel(
     walk_time_minutes: formData.get("walk_time_minutes") ? Number(formData.get("walk_time_minutes")) : null,
     room_type: String(formData.get("room_type") ?? "").trim() || null,
     board_basis: String(formData.get("board_basis") ?? "").trim() || null,
+    cancellation_policy: String(formData.get("cancellation_policy") ?? "").trim() || null,
+    view_type: String(formData.get("view_type") ?? "").trim() || null,
     price_from_aed: formData.get("price_from_aed") ? Number(formData.get("price_from_aed")) : null,
     description: String(formData.get("description") ?? "").trim() || null,
     image_url: String(formData.get("image_url") ?? "").trim() || null,

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Badge, EmptyRow, PageHeader, PrimaryButton } from "@/components/admin/ui";
+import { Badge, EmptyRow, PageHeader, PrimaryButton, SecondaryButton } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { TransferRow } from "@/lib/types/database";
@@ -20,12 +20,17 @@ export default async function AdminTransfersPage() {
     <div>
       <PageHeader
         title="Transfers"
-        description="Manage the transfer routes displayed on your website."
+        description="Manage the transfer routes displayed on your website. Per-vehicle pricing lives in the Rate Card, not shown to visitors."
         breadcrumb={[{ label: "Dashboard", href: "/admin" }, { label: "Transfers" }]}
         actions={
-          <Link href="/admin/transfers/new">
-            <PrimaryButton>+ Add Transfer</PrimaryButton>
-          </Link>
+          <>
+            <Link href="/admin/transfers/rate-card">
+              <SecondaryButton>Rate Card</SecondaryButton>
+            </Link>
+            <Link href="/admin/transfers/new">
+              <PrimaryButton>+ Add Transfer</PrimaryButton>
+            </Link>
+          </>
         }
       />
 
@@ -35,22 +40,16 @@ export default async function AdminTransfersPage() {
             <tr>
               <th className="px-4 py-3">Route</th>
               <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Vehicle</th>
-              <th className="px-4 py-3">From (AED)</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">
-            {transfers.length === 0 && <EmptyRow colSpan={6}>No transfer routes yet.</EmptyRow>}
+            {transfers.length === 0 && <EmptyRow colSpan={4}>No transfer routes yet.</EmptyRow>}
             {transfers.map((transfer) => (
               <tr key={transfer.id}>
                 <td className="px-4 py-3 font-medium text-masaar-black">{transfer.route_name}</td>
                 <td className="px-4 py-3 text-masaar-black/70 capitalize">{transfer.transfer_type}</td>
-                <td className="px-4 py-3 text-masaar-black/70">{transfer.vehicle_type ?? "—"}</td>
-                <td className="px-4 py-3 text-masaar-black/70">
-                  {transfer.price_from_aed != null ? `AED ${transfer.price_from_aed.toLocaleString()}` : "—"}
-                </td>
                 <td className="px-4 py-3">
                   <Badge tone={transfer.is_active ? "green" : "gray"}>{transfer.is_active ? "Active" : "Inactive"}</Badge>
                 </td>

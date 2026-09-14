@@ -3,12 +3,16 @@ import { ContentPending, SectionHeading } from "@/components/site/SectionHeading
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { FamilyIcon, HeartHandIcon, LocationIcon } from "@/components/site/icons";
+import { buildPageMetadata } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "About Masaar Holidays | Family-Focused Umrah Travel",
-  description:
-    "Masaar Holidays is an Umrah travel company serving families from the UAE with thoughtfully planned journeys, personal support and considered arrangements.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/about",
+    title: "About Masaar Holidays | Family-Focused Umrah Travel",
+    description:
+      "Masaar Holidays is an Umrah travel company serving families from the UAE with thoughtfully planned journeys, personal support and considered arrangements.",
+  });
+}
 
 // Values grid is structural placeholder — labels only, per brief's "Guided
 // by What Matters" values row. Descriptions pending final copy.

@@ -6,13 +6,17 @@ import { ImportantNotice } from "@/components/site/ImportantNotice";
 import { PackageCard } from "@/components/site/PackageCard";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getPublishedPackages } from "@/lib/data/public";
+import { buildPageMetadata } from "@/lib/i18n";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
-export const metadata: Metadata = {
-  title: "Hajj Packages UAE | Masaar Holidays",
-  description:
-    "Hajj packages from the UAE with clear accommodation, transfers and guidance — planned around your family, not manufactured urgency.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata({
+    path: "/hajj",
+    title: "Hajj Packages UAE | Masaar Holidays",
+    description:
+      "Hajj packages from the UAE with clear accommodation, transfers and guidance — planned around your family, not manufactured urgency.",
+  });
+}
 
 export default async function HajjPage() {
   const packages = await getPublishedPackages("hajj");

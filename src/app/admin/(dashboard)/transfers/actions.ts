@@ -22,12 +22,13 @@ export async function saveTransfer(
   const routeName = String(formData.get("route_name") ?? "").trim();
   if (!routeName) return { status: "error", message: "Route name is required." };
 
+  // vehicle_type/vehicle_capacity/price_from_aed are no longer editable
+  // here — per-vehicle pricing moved to the Rate Card
+  // (transfer_route_rates, admin-only). Not touched on save, so existing
+  // values just sit unused rather than being wiped.
   const payload = {
     route_name: routeName,
     transfer_type: String(formData.get("transfer_type") ?? "other") as TransferRow["transfer_type"],
-    vehicle_type: String(formData.get("vehicle_type") ?? "").trim() || null,
-    vehicle_capacity: String(formData.get("vehicle_capacity") ?? "").trim() || null,
-    price_from_aed: formData.get("price_from_aed") ? Number(formData.get("price_from_aed")) : null,
     description: String(formData.get("description") ?? "").trim() || null,
     image_url: String(formData.get("image_url") ?? "").trim() || null,
     is_active: formData.get("is_active") === "on",
