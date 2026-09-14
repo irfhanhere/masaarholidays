@@ -38,6 +38,12 @@ type PackageRowShape = {
   slug: string;
   city_destination: string | null;
   duration_days: number;
+  duration_label: string | null;
+  validity_label: string | null;
+  inclusions_text: string | null;
+  advance_booking_note: string | null;
+  flight_note: string | null;
+  rate_disclaimer: string | null;
   itinerary: PackageItineraryDay[];
   hero_image_url: string | null;
   starting_price_aed: number | null;

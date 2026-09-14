@@ -1,5 +1,6 @@
+import Link from "next/link";
 import type { PackageRow } from "@/lib/types/database";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
+import { packageGeneralMessage } from "@/lib/whatsapp-templates";
 import { ExternalImage } from "./ExternalImage";
 import { WhatsAppButton } from "./WhatsAppButton";
 
@@ -17,6 +18,7 @@ export function PackageCard({
   roomPrices?: { room_type: string; price_aed: number }[];
 }) {
   const featured = pkg.is_featured;
+  const detailHref = `/${pkg.type}/${pkg.slug}`;
 
   return (
     <div
@@ -24,7 +26,7 @@ export function PackageCard({
         featured ? "border-pure-gold ring-1 ring-pure-gold" : "border-black/10"
       }`}
     >
-      <div className="relative h-44 w-full bg-warm-ivory">
+      <Link href={detailHref} className="relative block h-44 w-full bg-warm-ivory">
         {pkg.hero_image_url && (
           <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill className="object-cover" />
         )}
@@ -36,17 +38,19 @@ export function PackageCard({
             Most Chosen
           </span>
         )}
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div>
-          <h3 className="text-lg font-semibold text-masaar-black">{pkg.title}</h3>
+          <Link href={detailHref}>
+            <h3 className="text-lg font-semibold text-masaar-black hover:text-deep-gold">{pkg.title}</h3>
+          </Link>
           {pkg.city_destination && (
             <p className="text-sm text-masaar-black/60">{pkg.city_destination}</p>
           )}
         </div>
 
-        <p className="text-sm text-masaar-black/70">{pkg.duration_days} Days</p>
+        <p className="text-sm text-masaar-black/70">{pkg.duration_label || `${pkg.duration_days} Days`}</p>
 
         {roomPrices && roomPrices.length > 0 && (
           <div className="rounded-md bg-warm-ivory p-3 text-sm">
@@ -72,18 +76,17 @@ export function PackageCard({
           )}
         </div>
 
-        <WhatsAppButton
-          message={
-            pkg.tier === "essential"
-              ? WHATSAPP_TEMPLATES.umrahEssential
-              : pkg.tier === "signature"
-                ? WHATSAPP_TEMPLATES.umrahSignature
-                : WHATSAPP_TEMPLATES.umrahPrive
-          }
-          className="w-full"
-        >
-          Enquire on WhatsApp
-        </WhatsAppButton>
+        <div className="flex gap-2">
+          <Link
+            href={detailHref}
+            className="flex-1 rounded-md border border-black/15 px-4 py-2.5 text-center text-sm font-semibold text-masaar-black hover:bg-warm-ivory"
+          >
+            View Details
+          </Link>
+          <WhatsAppButton message={packageGeneralMessage(pkg.type, pkg.tier)} className="flex-1">
+            WhatsApp
+          </WhatsAppButton>
+        </div>
       </div>
     </div>
   );

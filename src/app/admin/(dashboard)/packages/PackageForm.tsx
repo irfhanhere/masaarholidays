@@ -107,6 +107,9 @@ export function PackageForm({
               className={inputClass}
             />
           </Field>
+          <Field label="Duration Label" hint='Display string, e.g. "6 Nights / 7 Days".'>
+            <input name="duration_label" defaultValue={initial?.duration_label ?? ""} placeholder="e.g. 6 Nights / 7 Days" className={inputClass} />
+          </Field>
           <Field label="Hero Image URL" hint="Supabase Storage upload UI is a follow-up — paste a URL for now.">
             <input name="hero_image_url" defaultValue={initial?.hero_image_url ?? ""} className={inputClass} />
           </Field>
@@ -124,7 +127,59 @@ export function PackageForm({
       </Card>
 
       <Card>
-        <h2 className="mb-1 font-semibold text-masaar-black">2. Itinerary</h2>
+        <h2 className="mb-1 font-semibold text-masaar-black">2. Package Details</h2>
+        <p className="mb-3 text-sm text-masaar-black/60">
+          Shown on the public package detail page alongside the room pricing table.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Validity" hint='Display string, e.g. a date range once real dates are confirmed.'>
+            <input
+              name="validity_label"
+              defaultValue={initial?.validity_label ?? ""}
+              placeholder="e.g. Travel dates arranged directly with your advisor"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Advance Booking Note">
+            <input
+              name="advance_booking_note"
+              defaultValue={initial?.advance_booking_note ?? ""}
+              placeholder="e.g. Recommended to book 3-4 weeks in advance."
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Flight Note">
+            <input
+              name="flight_note"
+              defaultValue={initial?.flight_note ?? ""}
+              placeholder="e.g. International flights not included."
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Rate Disclaimer">
+            <input
+              name="rate_disclaimer"
+              defaultValue={initial?.rate_disclaimer ?? ""}
+              placeholder="e.g. Prices are per person and subject to availability."
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <div className="mt-4">
+          <Field label="Inclusions" hint="One line per inclusion.">
+            <textarea
+              name="inclusions_text"
+              rows={4}
+              defaultValue={initial?.inclusions_text ?? ""}
+              placeholder={"Comfortable hotel stay\nShared shuttle transport\nVisa processing\nAirport transfers"}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-1 font-semibold text-masaar-black">3. Itinerary</h2>
         <p className="mb-3 text-sm text-masaar-black/60">One line per day.</p>
         <textarea
           name="itinerary_text"
@@ -137,7 +192,7 @@ export function PackageForm({
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold text-masaar-black">3. Room Pricing (AED)</h2>
+          <h2 className="font-semibold text-masaar-black">4. Room Pricing (AED)</h2>
           <SecondaryButton type="button" onClick={() => setRoomPrices((rp) => [...rp, { room_type: "", price_aed: "" }])}>
             + Add Room Type
           </SecondaryButton>
@@ -233,7 +288,7 @@ export function PackageForm({
       {transferOptions && transferOptions.length > 0 && (
         <Card>
           <div className="mb-1 flex items-center justify-between">
-            <h2 className="font-semibold text-masaar-black">4. Transfer Add-on (Optional)</h2>
+            <h2 className="font-semibold text-masaar-black">5. Transfer Add-on (Optional)</h2>
             <SecondaryButton
               type="button"
               onClick={() =>

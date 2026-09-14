@@ -101,8 +101,15 @@ reconciliation.
 seeded `is_active = false` — visible in Admin → Packages for
 layout-testing, never on the public Umrah/Hajj pages.
 
+`0012_package_extra_fields.sql` — adds `duration_label`, `validity_label`,
+`inclusions_text`, `advance_booking_note`, `flight_note`,
+`rate_disclaimer` to `packages`, and populates the 6 placeholder packages
+with tier-appropriate text (Essential/Signature/Privé's own positioning
+from the original brief — not invented pricing/hotel specifics; no
+specific dates either, since none are confirmed yet).
+
 **0001–0007 have been applied to the live project already (verified);
-0008–0011 have not yet** — write them, verify them, but don't assume the
+0008–0012 have not yet** — write them, verify them, but don't assume the
 data is live until you've run them (Step 3 above). The app degrades
 gracefully either way (empty states, not crashes) if you view it before
 running a given migration — that's deliberate, not a bug to chase.
@@ -189,6 +196,29 @@ requested schema) and Media Library (needs Supabase Storage buckets).
   as an unapproved business commitment (a 12-hour response-time promise)
   — left out entirely pending Haseeb's explicit sign-off, per the source
   document's own instruction.
+
+## Package detail pages (`/umrah/[slug]`, `/hajj/[slug]`)
+
+Same two-CTA pattern as the hotel detail page, translated to packages:
+room-type rows (from `package_room_prices`, same table the room pricing
+card already used) each get their own "Enquire about this room option"
+WhatsApp deep-link, plus one sticky "Enquire about this package" CTA for
+the package overall — using the tier-specific templates
+(`umrahEssential`/`umrahSignature`/`umrahPrive`) for Umrah and the single
+generic template for Hajj (the brief only gives one Hajj message, no tier
+variants — see `packageGeneralMessage()` in `lib/whatsapp-templates.ts`).
+Listing cards (`PackageCard.tsx`) now link through via "View Details",
+alongside their existing WhatsApp button — same pattern as `HotelCard.tsx`.
+While fixing that link-through I also fixed a pre-existing bug:
+`PackageCard` was using Umrah-tier WhatsApp messages for Hajj packages
+too; it now branches on the package's own `type`.
+
+Verified end-to-end against the live database: temporarily inserted a
+real package + room prices via the service-role key (the new
+`duration_label`/`validity_label`/etc. columns don't exist yet since
+0012 hasn't been applied, so this test used only the columns that do),
+confirmed the detail page, per-room CTAs, and listing card link-through
+all render correctly, then deleted it — nothing was left behind.
 
 ## Language routing (English + Arabic)
 

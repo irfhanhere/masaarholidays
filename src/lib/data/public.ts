@@ -39,6 +39,49 @@ export async function getPublishedPackages(type: PackageType): Promise<PackageRo
   return data ?? [];
 }
 
+export interface PackageDetail {
+  pkg: PackageRow;
+  roomPrices: { room_type: string; price_aed: number }[];
+}
+
+/**
+ * Same visibility rule as getPublishedPackages (is_active + show_on_website)
+ * — the 6 placeholder packages from 0011_seed_placeholder_packages.sql
+ * stay 404 on the public site until Haseeb activates one from Admin.
+ */
+export async function getPackageBySlugAndType(
+  slug: string,
+  type: PackageType
+): Promise<PackageDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data: pkg, error } = await supabase
+    .from("packages")
+    .select("*")
+    .eq("slug", slug)
+    .eq("type", type)
+    .eq("show_on_website", true)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) {
+    console.error("getPackageBySlugAndType", error.message);
+    return null;
+  }
+  if (!pkg) return null;
+
+  const { data: roomPrices, error: roomPricesError } = await supabase
+    .from("package_room_prices")
+    .select("room_type, price_aed")
+    .eq("package_id", pkg.id)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  if (roomPricesError) {
+    console.error("getPackageBySlugAndType roomPrices", roomPricesError.message);
+  }
+
+  return { pkg, roomPrices: roomPrices ?? [] };
+}
+
 export async function getActiveHotels(city?: "Makkah" | "Madinah"): Promise<HotelRow[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();

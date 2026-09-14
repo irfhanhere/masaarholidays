@@ -59,12 +59,20 @@ export async function savePackage(
 
   const supabase = await createClient();
 
+  const textField = (name: string) => String(formData.get(name) ?? "").trim() || null;
+
   const payload = {
     type,
     tier,
     title,
     city_destination: cityDestination || null,
     duration_days: durationDays,
+    duration_label: textField("duration_label"),
+    validity_label: textField("validity_label"),
+    inclusions_text: textField("inclusions_text"),
+    advance_booking_note: textField("advance_booking_note"),
+    flight_note: textField("flight_note"),
+    rate_disclaimer: textField("rate_disclaimer"),
     is_active: isActive,
     is_featured: isFeatured,
     show_on_website: isActive,

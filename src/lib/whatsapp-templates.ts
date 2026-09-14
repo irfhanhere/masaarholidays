@@ -21,9 +21,29 @@ export const WHATSAPP_TEMPLATES = {
     `Assalamu Alaikum, I'd like more information on ${hotelName}.`,
   hotelRoom: (hotelName: string, roomType: string) =>
     `Assalamu Alaikum, I'd like more information on the ${roomType} room at ${hotelName}.`,
+  packageRoom: (packageTitle: string, roomType: string) =>
+    `Assalamu Alaikum, I'd like more information on the ${roomType} room option for the ${packageTitle} package.`,
   transfer: (route: string) =>
     `Assalamu Alaikum, I'd like to arrange a private transfer: ${route}.`,
   visa: (visaType: string) =>
     `Assalamu Alaikum, I'd like help with a visa: ${visaType}.`,
   contact: "Assalamu Alaikum, I'd like to speak with the Masaar team.",
 } as const;
+
+/**
+ * General "enquire about this package" message for a package card/detail
+ * page. Hajj packages always use the one generic Hajj template — the
+ * brief only gives that single message (Part 6), no tier variants, so
+ * there's nothing tier-specific to pick between for Hajj.
+ */
+export function packageGeneralMessage(
+  type: "umrah" | "hajj",
+  tier: "essential" | "signature" | "prive"
+): string {
+  if (type === "hajj") return WHATSAPP_TEMPLATES.hajj;
+  return tier === "essential"
+    ? WHATSAPP_TEMPLATES.umrahEssential
+    : tier === "signature"
+      ? WHATSAPP_TEMPLATES.umrahSignature
+      : WHATSAPP_TEMPLATES.umrahPrive;
+}
