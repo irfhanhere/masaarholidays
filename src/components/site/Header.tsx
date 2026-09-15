@@ -9,7 +9,6 @@ import { localizedPath, type Locale } from "@/lib/locale-constants";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import { Container } from "./Container";
 import { CurrencySwitcher } from "./CurrencySwitcher";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import { TopBar } from "./TopBar";
 import { WhatsAppButton } from "./WhatsAppButton";
 
@@ -84,7 +83,6 @@ export function Header() {
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
-            <LanguageSwitcher />
             <CurrencySwitcher />
             <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>
               WhatsApp Us
@@ -126,7 +124,6 @@ export function Header() {
               </Link>
             ))}
             <div className="mt-3 flex items-center gap-3 px-3">
-              <LanguageSwitcher />
               <CurrencySwitcher />
             </div>
             <div className="mt-3 px-3">

@@ -231,9 +231,30 @@ public page's `generateMetadata` for hreflang/canonical via
 same Umrah page component as `/umrah`, correctly tagged `lang="ar"
 dir="rtl"` — same "Copy pending" placeholders, no invented Arabic text.
 
-- Header (`LanguageSwitcher.tsx`) and a one-time first-visit banner
-  (`LanguagePrompt.tsx`, browser-language-detected, Arabic-only for now,
-  never auto-redirects) both live in `src/components/site/`.
+- **No permanent language toggle in the header/nav.** The primary way a
+  visitor gets offered a switch is `LanguagePrompt.tsx` — a one-time,
+  browser-language-detected banner (similar to a browser's native
+  translate bar), symmetric in both directions: offers Arabic when the
+  browser looks Arabic and you're on the English site, offers English
+  back when it doesn't and you're on the Arabic site. Only real,
+  translated locales are ever offered (English + Arabic — no Urdu/Hindi
+  detection, since neither is actually built; extend
+  `SUPPORTED_LOCALES` in `lib/locale-constants.ts` if that changes).
+  Never auto-redirects, and a dismissal is remembered in `localStorage`
+  (`masaar-language-prompt-dismissed`) so it doesn't reappear on every
+  page load — verified live by dismissing it and reloading. A small
+  `LanguageSwitcher.tsx` (globe icon + EN/AR) lives only in the footer's
+  bottom bar, for anyone who dismissed the prompt or whose browser
+  didn't signal a language it detects.
+- **Both language-switching links use a real `<a>`/`window.location`,
+  not `next/link`/`router.push`.** Root `layout.tsx` computes `<html
+  lang/dir>` server-side from the `x-locale` header, and Next reuses
+  the cached root layout across a client-side transition between `/`
+  and `/ar` (they're the same underlying route once the middleware
+  rewrite resolves) — a `<Link>` there left `lang`/`dir` stale until a
+  manual reload. Caught this live while verifying the relocated footer
+  switcher; a full navigation is what actually keeps them correct, so
+  both `LanguageSwitcher` and `LanguagePrompt`'s switch action force one.
 - `/ar/*` is `noindex` until real Arabic copy exists — a deliberate call
   (see the comment in `lib/i18n.ts#localeRobots`) so hreflang doesn't
   tell Google "this is the Arabic version" of what's actually English

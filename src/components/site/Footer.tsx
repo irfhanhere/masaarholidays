@@ -4,6 +4,7 @@ import { CONTACT } from "@/lib/contact";
 import { localizedPath, type Locale } from "@/lib/locale-constants";
 import { FOOTER_COMPANY_NAV, FOOTER_SERVICES_NAV } from "@/lib/nav";
 import { Container } from "./Container";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 export function Footer({ locale }: { locale: Locale }) {
   const year = new Date().getFullYear();
@@ -40,11 +41,12 @@ export function Footer({ locale }: { locale: Locale }) {
       </Container>
 
       <div className="border-t border-white/10">
-        <Container className="flex flex-col items-center justify-between gap-2 py-5 text-xs text-white/60 sm:flex-row">
+        <Container className="flex flex-col items-center justify-between gap-3 py-5 text-xs text-white/60 sm:flex-row">
           <p>
             © {year} Masaar Holidays. All rights reserved.
             {/* TODO: registration/protection details — placeholder per brief */}
           </p>
+          <LanguageSwitcher variant="onDark" />
           <p className="tracking-widest">FAITH &nbsp;·&nbsp; CLARITY &nbsp;·&nbsp; CARE &nbsp;·&nbsp; PEACE</p>
         </Container>
       </div>
