@@ -3,6 +3,7 @@ import type { HotelRow } from "@/lib/types/database";
 import { formatWalkTime } from "@/lib/hotel-format";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import { ExternalImage } from "./ExternalImage";
+import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 export function HotelCard({ hotel }: { hotel: HotelRow }) {
@@ -44,7 +45,7 @@ export function HotelCard({ hotel }: { hotel: HotelRow }) {
           <div>
             <p className="text-xs text-masaar-black/50">From</p>
             <p className="text-lg font-semibold text-masaar-black">
-              AED {hotel.price_from_aed.toLocaleString()}
+              <Price amountAed={hotel.price_from_aed} />
               <span className="text-xs font-normal text-masaar-black/50"> per room per night</span>
             </p>
           </div>

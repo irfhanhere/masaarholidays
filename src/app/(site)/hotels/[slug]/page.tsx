@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { ExternalImage } from "@/components/site/ExternalImage";
+import { Price } from "@/components/site/Price";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { formatDistance, formatWalkTime } from "@/lib/hotel-format";
 import { getHotelBySlug, getHotelRooms } from "@/lib/data/public";
@@ -101,12 +102,12 @@ export default async function HotelDetailPage({
                       <div className="text-right">
                         {room.price_ro != null && (
                           <p className="text-sm text-masaar-black/70">
-                            Room Only <span className="font-semibold text-masaar-black">AED {room.price_ro.toLocaleString()}</span>
+                            Room Only <span className="font-semibold text-masaar-black"><Price amountAed={room.price_ro} /></span>
                           </p>
                         )}
                         {room.price_bb != null && (
                           <p className="text-sm text-masaar-black/70">
-                            B&amp;B <span className="font-semibold text-masaar-black">AED {room.price_bb.toLocaleString()}</span>
+                            B&amp;B <span className="font-semibold text-masaar-black"><Price amountAed={room.price_bb} /></span>
                           </p>
                         )}
                         {room.rate_period_label && (

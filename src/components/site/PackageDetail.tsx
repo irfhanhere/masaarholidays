@@ -6,6 +6,7 @@ import type { PackageType } from "@/lib/types/database";
 import { WHATSAPP_TEMPLATES, packageGeneralMessage } from "@/lib/whatsapp-templates";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
+import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 const TIER_LABEL = { essential: "Essential", signature: "Signature", prive: "Privé" } as const;
@@ -92,7 +93,7 @@ export async function PackageDetail({ type, slug }: { type: PackageType; slug: s
                     <div>
                       <h3 className="font-semibold text-masaar-black">{room.room_type}</h3>
                       <p className="text-sm text-masaar-black/70">
-                        AED {room.price_aed.toLocaleString()}
+                        <Price amountAed={room.price_aed} />
                         <span className="text-xs text-masaar-black/50"> per person</span>
                       </p>
                     </div>

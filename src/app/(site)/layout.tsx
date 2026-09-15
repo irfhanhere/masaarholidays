@@ -1,3 +1,4 @@
+import { CurrencyProvider } from "@/components/site/CurrencyProvider";
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { LanguagePrompt } from "@/components/site/LanguagePrompt";
@@ -8,12 +9,12 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const locale = await getRequestLocale();
 
   return (
-    <>
+    <CurrencyProvider>
       <Header />
       <main className="flex-1">{children}</main>
       <Footer locale={locale} />
       <WhatsAppFloat />
       <LanguagePrompt />
-    </>
+    </CurrencyProvider>
   );
 }

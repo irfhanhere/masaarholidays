@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { PackageRow } from "@/lib/types/database";
 import { packageGeneralMessage } from "@/lib/whatsapp-templates";
 import { ExternalImage } from "./ExternalImage";
+import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 const TIER_LABEL: Record<PackageRow["tier"], string> = {
@@ -58,7 +59,7 @@ export function PackageCard({
               <div key={rp.room_type} className="flex justify-between py-0.5">
                 <span className="text-masaar-black/70">{rp.room_type}</span>
                 <span className="font-medium text-masaar-black">
-                  AED {rp.price_aed.toLocaleString()}
+                  <Price amountAed={rp.price_aed} />
                 </span>
               </div>
             ))}
@@ -70,7 +71,7 @@ export function PackageCard({
             <div>
               <p className="text-xs text-masaar-black/50">From</p>
               <p className="text-xl font-semibold text-masaar-black">
-                AED {pkg.starting_price_aed.toLocaleString()}
+                <Price amountAed={pkg.starting_price_aed} />
               </p>
             </div>
           )}

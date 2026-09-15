@@ -255,6 +255,35 @@ dir="rtl"` — same "Copy pending" placeholders, no invented Arabic text.
   every request. Reasonable trade-off for correct hreflang; revisit with
   ISR/PPR if it matters at scale.
 
+## Currency conversion (display-layer only)
+
+`CurrencyProvider` (`src/components/site/CurrencyProvider.tsx`, wrapping
+the whole `(site)` layout) fetches `currency_rates` once client-side
+(public RLS read) and holds the visitor's chosen display currency —
+persisted per-browser in `localStorage`, read back after mount rather
+than in a `useState` initializer, specifically to avoid a hydration
+mismatch (server always renders AED first, since there's no
+`localStorage` on the server). `CurrencySwitcher` reads/writes that same
+context instead of its own local state now.
+
+Every price on the site goes through `<Price amountAed={...} />`
+(`src/components/site/Price.tsx`), which converts using
+`rate_to_aed` (documented on the admin Currency & Pricing screen as
+"Rate (to 1 AED)") and falls back to AED with a small "(rate
+unavailable)" note — never `$0`, never a crash — when the selected
+currency has no row in `currency_rates` yet. **Stored/quoted prices stay
+AED everywhere** (database, admin screens, WhatsApp message text) — this
+is purely what's rendered to a visitor.
+
+Wired into: `HotelCard` (from-price), the hotel detail page (RO/BB room
+prices), `PackageCard` (from-price + room price list), and the package
+detail page (per-room prices). Verified live against the real database:
+temporarily deleted the GBP rate to confirm the fallback note actually
+appears instead of `£0`, then restored it exactly; also temporarily
+inserted/deleted a real package to confirm USD/INR conversions matched
+the seeded rates precisely (1,000 AED → $272 / ₹22,482) before removing
+it. Nothing was left behind either way.
+
 ## Known simplifications (flagged for a follow-up pass)
 
 - Image fields are plain URL inputs — Supabase Storage upload UI isn't wired yet.
@@ -262,7 +291,5 @@ dir="rtl"` — same "Copy pending" placeholders, no invented Arabic text.
   multi-item day accordion in `ADMIN-PACKAGE-EDIT.png`.
 - Enquiry detail is its own page, not the slide-over panel in
   `ADMIN-EQNUIRIES.png`.
-- Currency conversion: the switcher in the header is UI-only — it doesn't
-  yet convert displayed AED prices using `currency_rates`.
 - WhatsApp templates (brief Part 6) are code constants in
   `src/lib/whatsapp-templates.ts`, not an admin-editable table yet.
