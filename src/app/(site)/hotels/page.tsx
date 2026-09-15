@@ -5,7 +5,6 @@ import { HotelsBrowser } from "@/components/site/HotelsBrowser";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getActiveHotels } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
@@ -27,7 +26,7 @@ export default async function HotelsPage() {
         image="/brand/banners/hotel.png"
       >
         <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>Enquire on WhatsApp</WhatsAppButton>
+          <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
       </Hero>
 

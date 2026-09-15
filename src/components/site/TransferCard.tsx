@@ -1,5 +1,4 @@
 import type { TransferRow, TransferRouteAvailableVehicleRow } from "@/lib/types/database";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import { ExternalImage } from "./ExternalImage";
 import { WhatsAppButton } from "./WhatsAppButton";
 
@@ -43,7 +42,7 @@ export function TransferCard({
             </div>
           )}
         </div>
-        <WhatsAppButton message={WHATSAPP_TEMPLATES.transfer(transfer.route_name)}>
+        <WhatsAppButton templateKey="transfer" params={{ route: transfer.route_name }}>
           Enquire on WhatsApp
         </WhatsAppButton>
       </div>

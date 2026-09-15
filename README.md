@@ -220,52 +220,69 @@ real package + room prices via the service-role key (the new
 confirmed the detail page, per-room CTAs, and listing card link-through
 all render correctly, then deleted it — nothing was left behind.
 
-## Language routing (English + Arabic)
+## Language routing (English + Arabic + Urdu + Hindi)
 
-No page files are duplicated per locale. `middleware.ts` rewrites
-`/ar/*` internally to the same unprefixed route tree and stamps an
-`x-locale` request header; `lib/i18n.ts#getRequestLocale()` reads it back
-in Server Components (root `layout.tsx` for `<html lang/dir>`, every
-public page's `generateMetadata` for hreflang/canonical via
-`buildPageMetadata()`). Practical effect: `/ar/umrah` renders the exact
-same Umrah page component as `/umrah`, correctly tagged `lang="ar"
-dir="rtl"` — same "Copy pending" placeholders, no invented Arabic text.
+No page files are duplicated per locale. `middleware.ts` rewrites a
+non-default locale prefix (`/ar/*`, `/ur/*`, `/hi/*`) internally to the
+same unprefixed route tree and stamps an `x-locale` request header;
+`lib/i18n.ts#getRequestLocale()` reads it back in Server Components (root
+`layout.tsx` for `<html lang/dir>`, every public page's `generateMetadata`
+for hreflang/canonical via `buildPageMetadata()`). Practical effect:
+`/ar/umrah`, `/ur/umrah`, and `/hi/umrah` all render the exact same Umrah
+page component as `/umrah`, each correctly tagged with its own
+`lang`/`dir` — same "Copy pending" placeholders, no invented translated
+text for any of them.
 
-- **No permanent language toggle in the header/nav.** The primary way a
-  visitor gets offered a switch is `LanguagePrompt.tsx` — a one-time,
-  browser-language-detected banner (similar to a browser's native
-  translate bar), symmetric in both directions: offers Arabic when the
-  browser looks Arabic and you're on the English site, offers English
-  back when it doesn't and you're on the Arabic site. Only real,
-  translated locales are ever offered (English + Arabic — no Urdu/Hindi
-  detection, since neither is actually built; extend
-  `SUPPORTED_LOCALES` in `lib/locale-constants.ts` if that changes).
-  Never auto-redirects, and a dismissal is remembered in `localStorage`
+Everything is driven off `SUPPORTED_LOCALES` in `lib/locale-constants.ts`
+(currently `["en", "ar", "ur", "hi"]`, English the default) plus three
+per-locale maps next to it — `LOCALE_DIR` (ar/ur are RTL, en/hi are LTR),
+`LOCALE_HREFLANG` (`{locale}-AE`, all four target the UAE audience), and
+`LOCALE_LABEL`/`LOCALE_CODE` (native name / short code for the UI).
+Adding a 5th real locale is meant to be just another entry in
+`SUPPORTED_LOCALES` + those maps — routing, `<html lang/dir>`, hreflang,
+noindex, and both switcher/prompt components all read from them rather
+than special-casing "ar" anywhere.
+
+- **No persistent language switcher anywhere — header or footer.**
+  `LanguagePrompt.tsx` is the ONLY way a visitor is offered a switch: a
+  one-time, browser-language-detected banner (same idea as a browser's
+  native translate bar — it offers, it never forces, and there's no
+  standing manual control sitting in the chrome). Locale-count-agnostic:
+  it finds the visitor's most-preferred browser language that matches
+  one of `SUPPORTED_LOCALES` and, if that's not the locale currently
+  being viewed, offers it — in any direction (English -> Urdu, Hindi ->
+  Arabic, etc.), falling back to offering English back when the browser
+  doesn't match any of the four at all. Never auto-redirects, and a
+  dismissal is remembered in `localStorage`
   (`masaar-language-prompt-dismissed`) so it doesn't reappear on every
-  page load — verified live by dismissing it and reloading. A small
-  `LanguageSwitcher.tsx` (globe icon + EN/AR) lives only in the footer's
-  bottom bar, for anyone who dismissed the prompt or whose browser
-  didn't signal a language it detects.
-- **Both language-switching links use a real `<a>`/`window.location`,
-  not `next/link`/`router.push`.** Root `layout.tsx` computes `<html
-  lang/dir>` server-side from the `x-locale` header, and Next reuses
-  the cached root layout across a client-side transition between `/`
-  and `/ar` (they're the same underlying route once the middleware
-  rewrite resolves) — a `<Link>` there left `lang`/`dir` stale until a
-  manual reload. Caught this live while verifying the relocated footer
-  switcher; a full navigation is what actually keeps them correct, so
-  both `LanguageSwitcher` and `LanguagePrompt`'s switch action force one.
-- `/ar/*` is `noindex` until real Arabic copy exists — a deliberate call
-  (see the comment in `lib/i18n.ts#localeRobots`) so hreflang doesn't
-  tell Google "this is the Arabic version" of what's actually English
-  text. Flip it once real translation lands.
-- **RTL is document-direction-correct, not visually re-flowed.**
+  page load — verified live by dismissing it and reloading. (There was
+  briefly a small footer-only `LanguageSwitcher.tsx` fallback for anyone
+  who dismissed the prompt; a later instruction removed that too, so it
+  no longer exists in the codebase — resurrect it from git history if a
+  manual control is wanted again rather than rebuilding from scratch.)
+- **`LanguagePrompt`'s switch action uses a real `window.location`, not
+  `router.push`.** Root `layout.tsx` computes `<html lang/dir>`
+  server-side from the `x-locale` header, and Next reuses the cached
+  root layout across a client-side transition between locale prefixes
+  (they're the same underlying route once the middleware rewrite
+  resolves) — `router.push` there left `lang`/`dir` stale until a manual
+  reload. Caught this live while the manual switcher still existed; a
+  full navigation is what actually keeps them correct.
+- `/ar/*`, `/ur/*`, and `/hi/*` are all `noindex` until real translated
+  copy exists for that specific locale — a deliberate call (see the
+  comment in `lib/i18n.ts#localeRobots`) so hreflang doesn't tell Google
+  "this is the Arabic/Urdu/Hindi version" of what's actually English
+  text. Flip it per-locale once real translation lands for that one.
+- **RTL (ar, ur) is document-direction-correct, not visually re-flowed.**
   `dir="rtl"` is set correctly and the browser's default RTL flow
   mirrors most of the layout reasonably well (flexbox rows reverse
   automatically), but no pass was done converting physical Tailwind
   utilities (`ml-`, `pl-`, `text-left`) to logical ones (`ms-`, `ps-`,
   `text-start`) — some spacing will look slightly off in RTL until that
-  pass happens.
+  pass happens. Verified live: `/ur/hotels/conrad-jabal-omar` renders
+  `dir="rtl"`, `/hi/hotels/conrad-jabal-omar` renders `dir="ltr"`, both
+  with correct self-canonical + all 4 hreflang alternates + `x-default`
+  + `noindex, follow` in the actual page source.
 - Locale-aware links: Header + Footer nav are localized. Not yet done:
   in-page links (Hero breadcrumbs, hotel page `#makkah`/`#madinah`
   anchors are fine since they're fragments, but a hardcoded `/contact`
@@ -305,6 +322,50 @@ inserted/deleted a real package to confirm USD/INR conversions matched
 the seeded rates precisely (1,000 AED → $272 / ₹22,482) before removing
 it. Nothing was left behind either way.
 
+## WhatsApp templates (admin-editable)
+
+The 12 pre-filled WhatsApp message templates (brief Part 6) live in the
+`whatsapp_templates` table (`supabase/migrations/0013_whatsapp_templates.sql`,
+seeded by `0014_seed_whatsapp_templates.sql` with the exact text that used
+to be hardcoded in `src/lib/whatsapp-templates.ts` — nothing changed for
+visitors when this migration ran). The destination number (wa.me deep
+link) is a separate one-row `whatsapp_settings` table, editable on the
+same screen.
+
+- `src/lib/whatsapp-templates.ts` now only holds the fixed list of keys
+  (`WHATSAPP_TEMPLATE_KEYS`), the hardcoded `WHATSAPP_TEMPLATE_DEFAULTS`
+  (used as a fallback — see below), and `interpolate()` for `{{token}}`
+  substitution. It's no longer read directly by page components.
+- `WhatsAppTemplatesProvider` (`src/components/site/`, wraps the `(site)`
+  layout, the admin dashboard layout, and the standalone `/maintenance`
+  page) fetches both tables once client-side on mount (public RLS read)
+  and exposes `useWhatsAppTemplates()` — every `<WhatsAppButton
+  templateKey="..." params={{...}} />` resolves its message and the
+  destination number from that context. Because the fetch happens fresh
+  each page load, an admin edit shows up for visitors on their next page
+  load — no rebuild or redeploy needed.
+- If a key's DB row is missing or the fetch fails, `getMessage()` falls
+  back to `WHATSAPP_TEMPLATE_DEFAULTS[key]` rather than crashing or
+  sending a blank message; the destination number falls back to
+  `WHATSAPP_DEFAULT_PHONE`.
+- `is_active` in the admin screen is a status label only, not a
+  visibility gate — the public RLS read (`whatsapp_templates_public_read`)
+  returns every row unconditionally, because every key is required by a
+  live CTA somewhere on the site. Toggling it off doesn't hide the
+  button; it's there for Haseeb to flag a template that needs review.
+- `upgradeToPlus` is seeded but not yet wired to any button — reserved
+  for a future Plus-upgrade CTA (brief mentions the upgrade path but no
+  page implements it yet).
+- The Enquiries admin detail page's "WhatsApp" action uses a personalized
+  per-lead greeting (`Assalamu Alaikum {name}, thank you...`) built with
+  `buildWhatsAppLink()` directly — it's not one of the 12 managed
+  template keys, since it's specific to each enquiry rather than a fixed
+  CTA copy.
+
+**Migrations 0013 and 0014 have not been applied to the live database yet**
+(I can only run DML via the service-role key, not DDL) — run them via the
+Supabase SQL Editor or `supabase db push` before this feature works live.
+
 ## Known simplifications (flagged for a follow-up pass)
 
 - Image fields are plain URL inputs — Supabase Storage upload UI isn't wired yet.
@@ -312,5 +373,3 @@ it. Nothing was left behind either way.
   multi-item day accordion in `ADMIN-PACKAGE-EDIT.png`.
 - Enquiry detail is its own page, not the slide-over panel in
   `ADMIN-EQNUIRIES.png`.
-- WhatsApp templates (brief Part 6) are code constants in
-  `src/lib/whatsapp-templates.ts`, not an admin-editable table yet.

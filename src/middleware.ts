@@ -5,20 +5,24 @@ import { resolveLocaleFromPath } from "@/lib/locale-constants";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Resolve locale first so the /admin guard automatically covers every
+  // supported locale's prefix ("/ar/admin", "/ur/admin", "/hi/admin", …)
+  // without listing them one by one.
+  const { locale, internalPath } = resolveLocaleFromPath(pathname);
+
   // /admin/** stays English-only and keeps its own auth/session logic —
-  // not part of the public-site locale routing below. Guards against
-  // "/ar/admin/..." too, so there's no accidental locale-prefixed alias
-  // into the admin panel.
-  if (pathname.startsWith("/admin") || pathname.startsWith("/ar/admin")) {
+  // not part of the public-site locale routing below. Uses the ORIGINAL
+  // request (no rewrite, no x-locale header): there's no locale-prefixed
+  // alias into the admin panel.
+  if (internalPath.startsWith("/admin")) {
     return updateSession(request);
   }
 
-  // Public site: `/ar/*` is internally rewritten to the same (unprefixed,
-  // English-authored) route tree, tagged with an `x-locale` header that
-  // layouts/pages read via lib/i18n.ts#getRequestLocale. No route files
-  // are duplicated per locale — see lib/i18n.ts for the full rationale.
-  const { locale, internalPath } = resolveLocaleFromPath(pathname);
-
+  // Public site: a non-default locale prefix (e.g. `/ar/*`) is internally
+  // rewritten to the same (unprefixed, English-authored) route tree,
+  // tagged with an `x-locale` header that layouts/pages read via
+  // lib/i18n.ts#getRequestLocale. No route files are duplicated per
+  // locale — see lib/i18n.ts for the full rationale.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-locale", locale);
 

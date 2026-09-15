@@ -1,16 +1,30 @@
-import { buildWhatsAppLink } from "@/lib/contact";
+"use client";
 
+import { buildWhatsAppLink } from "@/lib/contact";
+import type { WhatsAppTemplateKey } from "@/lib/whatsapp-templates";
+import { useWhatsAppTemplates } from "./WhatsAppTemplatesProvider";
+
+/**
+ * Resolves its message from the live `whatsapp_templates` table (via
+ * WhatsAppTemplatesProvider) rather than taking pre-built text — this is
+ * what makes an admin edit show up on every button using that key
+ * without a rebuild. `params` fills {{placeholders}} the template uses,
+ * e.g. templateKey="hotel" params={{ hotelName: hotel.name }}.
+ */
 export function WhatsAppButton({
-  message,
+  templateKey,
+  params,
   children,
   variant = "solid",
   className = "",
 }: {
-  message: string;
+  templateKey: WhatsAppTemplateKey;
+  params?: Record<string, string>;
   children: React.ReactNode;
   variant?: "solid" | "outline";
   className?: string;
 }) {
+  const { getMessage, phoneNumber } = useWhatsAppTemplates();
   const base =
     "inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-semibold transition-colors";
   const styles =
@@ -20,7 +34,7 @@ export function WhatsAppButton({
 
   return (
     <a
-      href={buildWhatsAppLink(message)}
+      href={buildWhatsAppLink(getMessage(templateKey, params), phoneNumber)}
       target="_blank"
       rel="noopener noreferrer"
       className={`${base} ${styles} ${className}`}

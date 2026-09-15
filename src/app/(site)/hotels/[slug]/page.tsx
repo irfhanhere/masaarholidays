@@ -9,7 +9,6 @@ import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { formatDistance, formatWalkTime } from "@/lib/hotel-format";
 import { getHotelBySlug, getHotelRooms } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 export async function generateMetadata({
   params,
@@ -116,7 +115,10 @@ export default async function HotelDetailPage({
                       </div>
                     </div>
                     <div className="mt-4">
-                      <WhatsAppButton message={WHATSAPP_TEMPLATES.hotelRoom(hotel.name, room.room_type)}>
+                      <WhatsAppButton
+                        templateKey="hotelRoom"
+                        params={{ hotelName: hotel.name, roomType: room.room_type }}
+                      >
                         Enquire about this room
                       </WhatsAppButton>
                     </div>
@@ -140,7 +142,7 @@ export default async function HotelDetailPage({
                 Speak with our team for availability, pricing and booking.
               </p>
               <div className="mt-4">
-                <WhatsAppButton message={WHATSAPP_TEMPLATES.hotel(hotel.name)} className="w-full">
+                <WhatsAppButton templateKey="hotel" params={{ hotelName: hotel.name }} className="w-full">
                   Enquire about this hotel
                 </WhatsAppButton>
               </div>

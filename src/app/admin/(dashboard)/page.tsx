@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { Badge, Card, StatCard } from "@/components/admin/ui";
 import { getDashboardStats, getRecentEnquiries } from "@/lib/data/admin";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 export const metadata: Metadata = { title: "Dashboard | Masaar Admin", robots: { index: false } };
 
@@ -104,7 +103,7 @@ export default async function AdminDashboardPage() {
             <p className="text-sm font-medium text-masaar-black">Need Help?</p>
             <p className="mt-1 text-xs text-masaar-black/60">For technical issues or support, reach out directly.</p>
             <div className="mt-3">
-              <WhatsAppButton message={WHATSAPP_TEMPLATES.general} className="w-full">
+              <WhatsAppButton templateKey="general" className="w-full">
                 Chat on WhatsApp
               </WhatsAppButton>
             </div>

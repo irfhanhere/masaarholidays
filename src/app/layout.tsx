@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat, Cormorant_Garamond } from "next/font/google";
-import { getRequestLocale } from "@/lib/i18n";
+import { LOCALE_DIR, getRequestLocale } from "@/lib/i18n";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={locale}
-      dir={locale === "ar" ? "rtl" : "ltr"}
+      dir={LOCALE_DIR[locale]}
       className={`${montserrat.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-warm-ivory text-masaar-black">

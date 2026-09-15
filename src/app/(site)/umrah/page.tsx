@@ -9,7 +9,6 @@ import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { CarIcon, DocumentIcon, PlaneIcon, ShieldIcon, BedIcon } from "@/components/site/icons";
 import { getPublishedPackages } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 // SEO Master Map — starter-kit Section 2; H2 outline — starter-kit Section 3.
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +31,7 @@ export default async function UmrahPage() {
         image="/brand/banners/umrah.png"
       >
         <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>Enquire on WhatsApp</WhatsAppButton>
+          <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
       </Hero>
 

@@ -260,6 +260,24 @@ type CurrencyRateRowShape = {
   updated_at: string;
 };
 
+type WhatsAppTemplateRowShape = {
+  id: string;
+  key: string;
+  label: string;
+  template_text: string;
+  placeholders: string[];
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type WhatsAppSettingsRowShape = {
+  id: number;
+  phone_number: string;
+  updated_at: string;
+};
+
 /** Helper so every table follows the exact same Row/Insert/Update/Relationships shape. */
 type Table<Row, RequiredKeys extends keyof Row> = {
   Row: Row;
@@ -300,6 +318,8 @@ export interface Database {
       >;
       enquiries: Table<EnquiryRowShape, "name" | "enquiry_type">;
       currency_rates: Table<CurrencyRateRowShape, keyof CurrencyRateRowShape>;
+      whatsapp_templates: Table<WhatsAppTemplateRowShape, "key" | "label" | "template_text">;
+      whatsapp_settings: Table<WhatsAppSettingsRowShape, "id" | "phone_number">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -325,3 +345,5 @@ export type VisaTypeRow = Database["public"]["Tables"]["visa_types"]["Row"];
 export type VisaDocumentContextRow =
   Database["public"]["Tables"]["visa_document_contexts"]["Row"];
 export type VisaDocumentRow = Database["public"]["Tables"]["visa_documents"]["Row"];
+export type WhatsAppTemplateRow = Database["public"]["Tables"]["whatsapp_templates"]["Row"];
+export type WhatsAppSettingsRow = Database["public"]["Tables"]["whatsapp_settings"]["Row"];

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { HotelRow } from "@/lib/types/database";
 import { formatWalkTime } from "@/lib/hotel-format";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import { ExternalImage } from "./ExternalImage";
 import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
@@ -57,7 +56,7 @@ export function HotelCard({ hotel }: { hotel: HotelRow }) {
           >
             View Rooms
           </Link>
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.hotel(hotel.name)} className="flex-1">
+          <WhatsAppButton templateKey="hotel" params={{ hotelName: hotel.name }} className="flex-1">
             WhatsApp
           </WhatsAppButton>
         </div>

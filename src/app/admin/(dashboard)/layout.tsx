@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/admin/Sidebar";
 import { Topbar } from "@/components/admin/Topbar";
+import { WhatsAppTemplatesProvider } from "@/components/site/WhatsAppTemplatesProvider";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminDashboardLayout({
@@ -13,12 +14,14 @@ export default async function AdminDashboardLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <div className="flex min-h-screen bg-admin-surface">
-      <Sidebar userEmail={user?.email ?? null} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
-        <main className="flex-1 p-6">{children}</main>
+    <WhatsAppTemplatesProvider>
+      <div className="flex min-h-screen bg-admin-surface">
+        <Sidebar userEmail={user?.email ?? null} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar />
+          <main className="flex-1 p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </WhatsAppTemplatesProvider>
   );
 }

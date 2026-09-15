@@ -6,7 +6,6 @@ import { TransferCard } from "@/components/site/TransferCard";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getActiveTransfers, getTransferAvailableVehicles } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import type { TransferType } from "@/lib/types/database";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -45,7 +44,7 @@ export default async function TransfersPage() {
         image="/brand/banners/default.png"
       >
         <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>Enquire on WhatsApp</WhatsAppButton>
+          <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
       </Hero>
 

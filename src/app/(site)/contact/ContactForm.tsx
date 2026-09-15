@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import { submitEnquiry, type SubmitEnquiryState } from "./actions";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 const initialState: SubmitEnquiryState = { status: "idle" };
 
@@ -70,7 +69,7 @@ export function ContactForm() {
       )}
 
       <WhatsAppButton
-        message={WHATSAPP_TEMPLATES.contact}
+        templateKey="contact"
         variant="outline"
         className="w-full !border-[#25D366] !text-[#128C7E] hover:!bg-[#25D366]/10"
       >

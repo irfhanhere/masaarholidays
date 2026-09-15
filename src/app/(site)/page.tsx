@@ -13,7 +13,6 @@ import {
 } from "@/components/site/icons";
 import { getPublishedPackages, getPublishedTestimonials } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 // SEO Master Map — masaar-holidays-content-seo-starter-kit.md, Section 2.
 export async function generateMetadata(): Promise<Metadata> {
@@ -42,7 +41,7 @@ export default async function HomePage() {
           <ContentPending note="Hero intro line pending final copy (brand + SEO phrase combined per starter-kit Section 0)." />
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>Plan Your Umrah</WhatsAppButton>
+          <WhatsAppButton templateKey="general">Plan Your Umrah</WhatsAppButton>
           <Link
             href="/contact"
             className="inline-flex items-center justify-center rounded-md border border-white px-5 py-3 text-sm font-semibold text-white hover:bg-white hover:text-masaar-black"
@@ -157,7 +156,7 @@ export default async function HomePage() {
               Have questions or ready to plan your journey? We&apos;re here to help.
             </p>
           </div>
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>WhatsApp Us Today</WhatsAppButton>
+          <WhatsAppButton templateKey="general">WhatsApp Us Today</WhatsAppButton>
         </Container>
       </section>
     </>

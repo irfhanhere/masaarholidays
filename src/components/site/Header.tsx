@@ -5,8 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MAIN_NAV } from "@/lib/nav";
-import { localizedPath, type Locale } from "@/lib/locale-constants";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
+import { localizedPath, resolveLocaleFromPath } from "@/lib/locale-constants";
 import { Container } from "./Container";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { TopBar } from "./TopBar";
@@ -19,8 +18,8 @@ export function Header() {
 
   // Nav hrefs are authored unprefixed (English); localize them against
   // whichever locale the visitor is currently on so clicking a nav item
-  // on /ar/... doesn't silently bounce them back to English.
-  const locale: Locale = pathname.startsWith("/ar") ? "ar" : "en";
+  // on /ar/... (or /ur/…, /hi/…) doesn't silently bounce them back to English.
+  const { locale } = resolveLocaleFromPath(pathname);
   const href = (path: string) => localizedPath(locale, path);
 
   const isActive = (path: string) => {
@@ -84,7 +83,7 @@ export function Header() {
 
           <div className="hidden items-center gap-3 lg:flex">
             <CurrencySwitcher />
-            <WhatsAppButton message={WHATSAPP_TEMPLATES.general}>
+            <WhatsAppButton templateKey="general">
               WhatsApp Us
             </WhatsAppButton>
           </div>
@@ -127,7 +126,7 @@ export function Header() {
               <CurrencySwitcher />
             </div>
             <div className="mt-3 px-3">
-              <WhatsAppButton message={WHATSAPP_TEMPLATES.general} className="w-full">
+              <WhatsAppButton templateKey="general" className="w-full">
                 WhatsApp Us
               </WhatsAppButton>
             </div>

@@ -11,6 +11,11 @@ export const CONTACT = {
   emailAccounts: "accounts@masaarholidays.com",
 } as const;
 
-export function buildWhatsAppLink(message: string): string {
-  return `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(message)}`;
+/**
+ * `phone` defaults to the confirmed brief number but is meant to be
+ * passed explicitly from whatsapp_settings (admin-editable) — see
+ * components/site/WhatsAppTemplatesProvider.tsx.
+ */
+export function buildWhatsAppLink(message: string, phone: string = CONTACT.whatsappPhoneIntl): string {
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }

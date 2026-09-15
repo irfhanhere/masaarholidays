@@ -6,7 +6,6 @@ import { ImportantNotice } from "@/components/site/ImportantNotice";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getActiveVisaTypes, getVisaDocumentContext } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import type { VisaDocumentContextKey } from "@/lib/types/database";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,7 +38,7 @@ export default async function VisaPage() {
         image="/brand/banners/default.png"
       >
         <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.visa("General enquiry")}>
+          <WhatsAppButton templateKey="visa" params={{ visaType: "General enquiry" }}>
             Enquire on WhatsApp
           </WhatsAppButton>
         </div>
@@ -62,7 +61,7 @@ export default async function VisaPage() {
                       <p className="mt-2 text-xs text-masaar-black/50">{visa.audience_text}</p>
                     )}
                     <div className="mt-4">
-                      <WhatsAppButton message={WHATSAPP_TEMPLATES.visa(visa.name)}>
+                      <WhatsAppButton templateKey="visa" params={{ visaType: visa.name }}>
                         Enquire on WhatsApp
                       </WhatsAppButton>
                     </div>

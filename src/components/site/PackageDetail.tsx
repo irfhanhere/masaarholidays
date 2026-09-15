@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPackageBySlugAndType } from "@/lib/data/public";
 import type { PackageType } from "@/lib/types/database";
-import { WHATSAPP_TEMPLATES, packageGeneralMessage } from "@/lib/whatsapp-templates";
+import { packageGeneralTemplateKey } from "@/lib/whatsapp-templates";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
 import { Price } from "./Price";
@@ -97,7 +97,10 @@ export async function PackageDetail({ type, slug }: { type: PackageType; slug: s
                         <span className="text-xs text-masaar-black/50"> per person</span>
                       </p>
                     </div>
-                    <WhatsAppButton message={WHATSAPP_TEMPLATES.packageRoom(pkg.title, room.room_type)}>
+                    <WhatsAppButton
+                      templateKey="packageRoom"
+                      params={{ packageTitle: pkg.title, roomType: room.room_type }}
+                    >
                       Enquire about this room option
                     </WhatsAppButton>
                   </div>
@@ -124,7 +127,7 @@ export async function PackageDetail({ type, slug }: { type: PackageType; slug: s
                 Speak with our team for availability, pricing and booking.
               </p>
               <div className="mt-4">
-                <WhatsAppButton message={packageGeneralMessage(type, pkg.tier)} className="w-full">
+                <WhatsAppButton templateKey={packageGeneralTemplateKey(type, pkg.tier)} className="w-full">
                   Enquire about this package
                 </WhatsAppButton>
               </div>

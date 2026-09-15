@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PackageRow } from "@/lib/types/database";
-import { packageGeneralMessage } from "@/lib/whatsapp-templates";
+import { packageGeneralTemplateKey } from "@/lib/whatsapp-templates";
 import { ExternalImage } from "./ExternalImage";
 import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
@@ -84,7 +84,7 @@ export function PackageCard({
           >
             View Details
           </Link>
-          <WhatsAppButton message={packageGeneralMessage(pkg.type, pkg.tier)} className="flex-1">
+          <WhatsAppButton templateKey={packageGeneralTemplateKey(pkg.type, pkg.tier)} className="flex-1">
             WhatsApp
           </WhatsAppButton>
         </div>

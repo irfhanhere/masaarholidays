@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { Badge, Card, PageHeader, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
-import { WhatsAppButton } from "@/components/site/WhatsAppButton";
+import { WhatsAppGlyph } from "@/components/site/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/contact";
 import { setEnquiryStatus, saveEnquiryNotes, deleteEnquiry } from "../actions";
 
 export const metadata = { title: "Enquiry Details | Masaar Admin", robots: { index: false } };
@@ -52,9 +53,19 @@ export default async function EnquiryDetailPage({ params }: { params: Promise<{ 
       <Card className="mb-6">
         <div className="flex flex-wrap gap-2">
           {enquiry.phone && (
-            <WhatsAppButton message={`Assalamu Alaikum ${enquiry.name}, thank you for your enquiry with Masaar Holidays.`}>
+            // Personalized per-lead greeting — not one of the admin-managed
+            // WhatsApp Templates keys, so it isn't DB-driven like WhatsAppButton.
+            <a
+              href={buildWhatsAppLink(
+                `Assalamu Alaikum ${enquiry.name}, thank you for your enquiry with Masaar Holidays.`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-pure-gold px-5 py-3 text-sm font-semibold text-masaar-black transition-colors hover:bg-light-gold"
+            >
+              <WhatsAppGlyph />
               WhatsApp
-            </WhatsAppButton>
+            </a>
           )}
           <form action={setEnquiryStatus.bind(null, enquiry.id, "contacted")}>
             <SecondaryButton type="submit">Mark Contacted</SecondaryButton>

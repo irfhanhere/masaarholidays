@@ -7,7 +7,6 @@ import { PackageCard } from "@/components/site/PackageCard";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getPublishedPackages } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
@@ -29,7 +28,7 @@ export default async function HajjPage() {
         image="/brand/banners/hajj.png"
       >
         <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton message={WHATSAPP_TEMPLATES.hajj}>
+          <WhatsAppButton templateKey="hajj">
             Register Interest on WhatsApp
           </WhatsAppButton>
         </div>

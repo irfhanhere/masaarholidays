@@ -1,12 +1,16 @@
+"use client";
+
 import { buildWhatsAppLink } from "@/lib/contact";
-import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp-templates";
 import { WhatsAppGlyph } from "./WhatsAppButton";
+import { useWhatsAppTemplates } from "./WhatsAppTemplatesProvider";
 
 /** The fixed bottom-right WhatsApp bubble present on every approved screen. */
 export function WhatsAppFloat() {
+  const { getMessage, phoneNumber } = useWhatsAppTemplates();
+
   return (
     <a
-      href={buildWhatsAppLink(WHATSAPP_TEMPLATES.general)}
+      href={buildWhatsAppLink(getMessage("general"), phoneNumber)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with Masaar Holidays on WhatsApp"
