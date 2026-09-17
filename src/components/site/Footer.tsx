@@ -19,9 +19,9 @@ export function Footer({ locale }: { locale: Locale }) {
             height={48}
             className="h-11 w-auto"
           />
-          {/* TODO: brand line pending final copy — brief uses
-              "A Journey of Faith, A Legacy of Service." on inspiration
-              screens; confirm before shipping. */}
+          <p className="mt-3 text-sm text-white/60">
+            Faith-led travel, with clarity, care and peace at every step.
+          </p>
         </div>
 
         <FooterColumn title="Our Services" links={FOOTER_SERVICES_NAV} locale={locale} />

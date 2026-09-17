@@ -1,12 +1,12 @@
 import Link from "next/link";
-import type { HotelRow } from "@/lib/types/database";
-import { formatWalkTime } from "@/lib/hotel-format";
+import { formatCardWalkTime, type HotelWithSummary } from "@/lib/hotel-format";
 import { ExternalImage } from "./ExternalImage";
+import { LocationIcon } from "./icons";
 import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
 
-export function HotelCard({ hotel }: { hotel: HotelRow }) {
-  const walkTime = formatWalkTime(hotel);
+export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
+  const walkTime = formatCardWalkTime(hotel);
 
   return (
     <div className="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
@@ -14,6 +14,11 @@ export function HotelCard({ hotel }: { hotel: HotelRow }) {
         <div className="relative h-40 w-full bg-warm-ivory">
           {hotel.image_url && (
             <ExternalImage src={hotel.image_url} alt={hotel.name} fill className="object-cover" />
+          )}
+          {hotel.minPriceAed != null && (
+            <span className="absolute left-3 top-3 rounded bg-pure-gold px-2 py-1 text-[11px] font-bold text-masaar-black">
+              From <Price amountAed={hotel.minPriceAed} />
+            </span>
           )}
           {walkTime && (
             <span className="absolute right-3 top-3 rounded bg-masaar-black/80 px-2 py-1 text-[11px] font-medium text-white">
@@ -31,20 +36,22 @@ export function HotelCard({ hotel }: { hotel: HotelRow }) {
             <span className="text-xs text-pure-gold">{"★".repeat(hotel.star_rating)}</span>
           )}
         </div>
-        {hotel.terrain_note ? (
+        <p className="flex items-center gap-1 text-xs text-masaar-black/50">
+          <LocationIcon className="size-3.5" />
+          {hotel.zone ? `${hotel.zone.split(":")[0]}, ${hotel.city}` : hotel.city}
+        </p>
+        {hotel.description ? (
+          <p className="text-xs text-masaar-black/60">{hotel.description}</p>
+        ) : hotel.terrain_note ? (
           <p className="text-xs text-masaar-black/60">{hotel.terrain_note}</p>
         ) : (
           hotel.category && <p className="text-xs text-masaar-black/60">{hotel.category}</p>
         )}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-masaar-black/60">
-          {hotel.room_type && <span>Room Type: {hotel.room_type}</span>}
-          {hotel.board_basis && <span>Board Basis: {hotel.board_basis}</span>}
-        </div>
-        {hotel.price_from_aed != null && (
+        {hotel.minPriceAed != null && (
           <div>
             <p className="text-xs text-masaar-black/50">From</p>
             <p className="text-lg font-semibold text-masaar-black">
-              <Price amountAed={hotel.price_from_aed} />
+              <Price amountAed={hotel.minPriceAed} />
               <span className="text-xs font-normal text-masaar-black/50"> per room per night</span>
             </p>
           </div>

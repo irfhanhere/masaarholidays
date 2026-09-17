@@ -57,3 +57,48 @@ export async function getRecentEnquiries(limit = 5): Promise<EnquiryRow[]> {
   }
   return data ?? [];
 }
+
+export async function getAdminPrivateTrips() {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("private_trips")
+    .select("*")
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("getAdminPrivateTrips", error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+export async function getAdminPrivateTripById(id: string) {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("private_trips")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("getAdminPrivateTripById", error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getAdminPrivateTripStops(tripId: string) {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("private_trip_stops")
+    .select("*")
+    .eq("trip_id", tripId)
+    .order("stop_number", { ascending: true });
+  if (error) {
+    console.error("getAdminPrivateTripStops", error.message);
+    return [];
+  }
+  return data ?? [];
+}

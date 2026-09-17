@@ -33,6 +33,15 @@ export function PlaneIcon(props: IconProps) {
   );
 }
 
+export function CompassIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </Svg>
+  );
+}
+
 export function BedIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -153,6 +162,118 @@ export function TrainIcon(props: IconProps) {
   );
 }
 
+export function PaymentIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="1.5" />
+      <path d="M3 9.5h18M6.5 14.5h4" />
+    </Svg>
+  );
+}
+
+export function SizeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 4h6M4 4v6M4 4l6 6M20 20h-6M20 20v-6M20 20l-6-6" />
+    </Svg>
+  );
+}
+
+export function BathroomIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3Z" />
+      <path d="M6 12V6a2 2 0 0 1 3-1.7M4 19v1.5M18 19v1.5" />
+    </Svg>
+  );
+}
+
+export function DiningIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 2.5v8a2 2 0 0 1-2 2v9M7 2.5v19M5 2.5v6M9 2.5v6M17 2.5c-1.7 0-3 2-3 5s1.3 5 3 5v9M17 2.5v19" />
+    </Svg>
+  );
+}
+
+export function MapPinFilledIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 21s7-6.1 7-11.5S16.4 3 12 3 5 5.1 5 9.5 12 21 12 21Z" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function EyeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  );
+}
+
+export function MountainFlagIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m3 20 6.5-12L14 15l2-3 5 8H3Z" />
+      <path d="M13 4v6M13 4l5 2-5 2" />
+    </Svg>
+  );
+}
+
+export function DomeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 20h14M6 20v-6a6 6 0 0 1 12 0v6M12 3v3M10.5 4.5h3" />
+    </Svg>
+  );
+}
+
+export function HandshakeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m2 12 4-4 4 2 2-2 4 4-2 2-3-3-3 3-2-2Z" />
+      <path d="m8 14 3 3a1.5 1.5 0 0 0 2-2l-3.5-3.5M14 10l4-4 4 4-4 4" />
+    </Svg>
+  );
+}
+
+export function KaabaIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 8 12 4l8 4v9l-8 4-8-4Z" />
+      <path d="M4 8h16M8 6.2v11.6" fill="currentColor" fillOpacity="0.15" />
+    </Svg>
+  );
+}
+
+export function PhoneIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 0 0 6.5 6.5l1.5-2 4 1.5v3a2 2 0 0 1-2 2A15.5 15.5 0 0 1 4.5 5a2 2 0 0 1 2-2Z" />
+    </Svg>
+  );
+}
+
+export function MailIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 6.5 8 6 8-6" />
+    </Svg>
+  );
+}
+
+export function WarningTriangleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 4 3 20h18L12 4Z" />
+      <path d="M12 10v4M12 17h.01" />
+    </Svg>
+  );
+}
+
 export function CheckIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -160,3 +281,37 @@ export function CheckIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** Maps visa_documents.icon_key / visa_types.features[].icon_key to a component — unrecognized/unset keys fall back to DocumentIcon. */
+export const VISA_ICON_MAP: Record<string, (props: IconProps) => React.ReactElement> = {
+  passport: PassportIcon,
+  photo: PhotoIcon,
+  document: DocumentIcon,
+  flight: PlaneIcon,
+  hotel: BedIcon,
+  shield: ShieldIcon,
+  payment: PaymentIcon,
+  group: FamilyIcon,
+  // Feature-strip-only additions (visa_types.features) — the fixed
+  // icon_key set above is specifically for document cards (visa_documents).
+  clock: ClockIcon,
+  headset: HeadsetIcon,
+  heart: HeartHandIcon,
+  // About page additions (about_content.core_values / .differentiators).
+  dome: DomeIcon,
+  "giving-hand": HeartHandIcon,
+  family: FamilyIcon,
+  kaaba: KaabaIcon,
+  handshake: HandshakeIcon,
+  eye: EyeIcon,
+  "mountain-flag": MountainFlagIcon,
+  compass: CompassIcon,
+};
+
+export function VisaIcon({ iconKey, className }: { iconKey: string | null | undefined; className?: string }) {
+  const Icon = (iconKey && VISA_ICON_MAP[iconKey]) || DocumentIcon;
+  return <Icon className={className} />;
+}
+
+/** Same lookup as VisaIcon, under a neutral name — used outside the Visa section (e.g. About page's core_values/differentiators icon_key fields). */
+export const IconByKey = VisaIcon;

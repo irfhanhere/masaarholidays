@@ -37,12 +37,13 @@ export default async function AdminHotelsPage() {
               <th className="px-4 py-3">City</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">From (AED)</th>
+              <th className="px-4 py-3">Data Confidence</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">
-            {hotels.length === 0 && <EmptyRow colSpan={6}>No hotels yet.</EmptyRow>}
+            {hotels.length === 0 && <EmptyRow colSpan={7}>No hotels yet.</EmptyRow>}
             {hotels.map((hotel) => (
               <tr key={hotel.id}>
                 <td className="px-4 py-3 font-medium text-masaar-black">{hotel.name}</td>
@@ -50,6 +51,23 @@ export default async function AdminHotelsPage() {
                 <td className="px-4 py-3 text-masaar-black/70">{hotel.category ?? "—"}</td>
                 <td className="px-4 py-3 text-masaar-black/70">
                   {hotel.price_from_aed != null ? `AED ${hotel.price_from_aed.toLocaleString()}` : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  {hotel.data_confidence ? (
+                    <Badge
+                      tone={
+                        hotel.data_confidence === "verified"
+                          ? "green"
+                          : hotel.data_confidence === "estimated"
+                            ? "amber"
+                            : "gray"
+                      }
+                    >
+                      {hotel.data_confidence === "needs_verification" ? "Needs Verification" : hotel.data_confidence === "estimated" ? "Estimated" : "Verified"}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-masaar-black/30">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <Badge tone={hotel.is_active ? "green" : "gray"}>{hotel.is_active ? "Active" : "Inactive"}</Badge>

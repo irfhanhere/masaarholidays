@@ -5,14 +5,16 @@ import { Hero } from "@/components/site/Hero";
 import { TransferCard } from "@/components/site/TransferCard";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getActiveTransfers, getTransferAvailableVehicles } from "@/lib/data/public";
-import { buildPageMetadata } from "@/lib/i18n";
+import { buildStaticPageMetadata } from "@/lib/i18n";
 import type { TransferType } from "@/lib/types/database";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 
+// Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({
+  return buildStaticPageMetadata({
     path: "/transfers",
-    title: "Private Umrah Transfers | Masaar Holidays",
-    description:
+    fallbackTitle: "Private Umrah Transfers | Masaar Holidays",
+    fallbackDescription:
       "Private transfers for your Umrah journey — Jeddah and Madinah airports, the Haramain train, and intercity routes, arranged as part of the care of the journey.",
   });
 }
@@ -82,6 +84,8 @@ export default async function TransfersPage() {
           </div>
         </Container>
       </section>
+
+      <CrossLinkServices exclude="transfers" />
     </>
   );
 }

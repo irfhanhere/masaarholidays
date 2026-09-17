@@ -16,11 +16,14 @@ const cormorant = Cormorant_Garamond({
   style: ["normal", "italic"],
 });
 
-// TODO: final title/description copy pending client pricing/package document
-// (see masaar-holidays-content-seo-starter-kit.md, Section 2 — SEO Master Map)
+// Fallback shell only — every real page overrides title/description via
+// its own generateMetadata (see lib/i18n.ts#buildPageMetadata, which
+// every page.tsx calls). metadataBase lets root-relative OG image paths
+// (e.g. "/brand/banners/umrah.png") resolve to absolute URLs.
 export const metadata: Metadata = {
   title: "Masaar Holidays",
   description: "",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

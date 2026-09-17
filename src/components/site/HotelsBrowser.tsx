@@ -1,156 +1,145 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { HotelRow } from "@/lib/types/database";
+import { getWalkBucket, type HotelWithSummary, type WalkBucket } from "@/lib/hotel-format";
 import { EmptyState, SectionHeading } from "./SectionHeading";
 import { HotelCard } from "./HotelCard";
+import { BedIcon, DocumentIcon } from "./icons";
 
-type FacetKey = "board_basis" | "cancellation_policy" | "view_type";
+type City = "Makkah" | "Madinah";
+type WalkFilter = "all" | WalkBucket;
+type RefundableFilter = "all" | "refundable" | "non-refundable";
+type SortOrder = "default" | "price-asc" | "price-desc";
 
-const FACETS: { key: FacetKey; label: string }[] = [
-  { key: "board_basis", label: "Board Basis" },
-  { key: "cancellation_policy", label: "Cancellation Policy" },
-  { key: "view_type", label: "View" },
+const CITY_TABS: { city: City; icon: (props: { className?: string }) => React.ReactElement }[] = [
+  { city: "Makkah", icon: DocumentIcon },
+  { city: "Madinah", icon: BedIcon },
 ];
 
+const WALK_OPTIONS: { value: WalkFilter; label: string }[] = [
+  { value: "all", label: "Any Walking Distance" },
+  { value: "under5", label: "Under 5 min" },
+  { value: "5to10", label: "5-10 min" },
+  { value: "10plus", label: "10+ min" },
+];
+
+const selectClass =
+  "flex-1 rounded-md border border-black/15 px-4 py-2.5 text-sm text-masaar-black focus:border-admin-primary focus:outline-none";
+
 /**
- * Faceted filters (masaar-client-data-round2.md, Section 2) — checkbox
- * options per facet are derived from whatever distinct values already
- * exist on active hotels (not a hardcoded list), so this stays correct as
- * real data is entered rather than needing a code change per value.
- * Counts recompute live against the hotels that already match every
- * OTHER selected facet, same "faceted count" behaviour as the reference.
+ * Makkah/Madinah toggle plus REAL client-side filters (walking distance,
+ * refundable, price sort) against the hotels already loaded for this
+ * page — a browsing aid, not a live availability search, so everything
+ * here runs against `hotels` in memory rather than issuing new queries.
  */
-export function HotelsBrowser({ hotels }: { hotels: HotelRow[] }) {
-  const [selected, setSelected] = useState<Record<FacetKey, Set<string>>>({
-    board_basis: new Set(),
-    cancellation_policy: new Set(),
-    view_type: new Set(),
-  });
+export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
+  const [activeCity, setActiveCity] = useState<City>("Makkah");
+  const [walkFilter, setWalkFilter] = useState<WalkFilter>("all");
+  const [refundableFilter, setRefundableFilter] = useState<RefundableFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("default");
 
-  const facetOptions = useMemo(() => {
-    const options: Record<FacetKey, string[]> = {
-      board_basis: [],
-      cancellation_policy: [],
-      view_type: [],
-    };
-    for (const key of FACETS.map((f) => f.key)) {
-      const values = new Set<string>();
-      for (const hotel of hotels) {
-        const value = hotel[key];
-        if (value) values.add(value);
-      }
-      options[key] = [...values].sort();
+  const cityLabel = activeCity === "Makkah" ? "Makkah" : "Madinah";
+
+  const visibleHotels = useMemo(() => {
+    let result = hotels.filter((h) => h.city === activeCity);
+
+    if (walkFilter !== "all") {
+      result = result.filter((h) => getWalkBucket(h) === walkFilter);
     }
-    return options;
-  }, [hotels]);
-
-  function matchesFacetsExcept(hotel: HotelRow, except: FacetKey | null) {
-    for (const { key } of FACETS) {
-      if (key === except) continue;
-      const chosen = selected[key];
-      if (chosen.size > 0 && !(hotel[key] && chosen.has(hotel[key]))) return false;
+    if (refundableFilter !== "all") {
+      result = result.filter((h) => h.isRefundable === (refundableFilter === "refundable"));
     }
-    return true;
-  }
 
-  const filteredHotels = useMemo(
-    () => hotels.filter((h) => matchesFacetsExcept(h, null)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hotels, selected]
-  );
+    if (sortOrder !== "default") {
+      result = [...result].sort((a, b) => {
+        // Hotels with no known price sort to the end regardless of direction.
+        if (a.minPriceAed == null) return 1;
+        if (b.minPriceAed == null) return -1;
+        return sortOrder === "price-asc" ? a.minPriceAed - b.minPriceAed : b.minPriceAed - a.minPriceAed;
+      });
+    }
 
-  function toggle(key: FacetKey, value: string) {
-    setSelected((prev) => {
-      const next = new Set(prev[key]);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return { ...prev, [key]: next };
-    });
-  }
-
-  const hasAnyFacetOptions = FACETS.some((f) => facetOptions[f.key].length > 0);
-
-  const makkahHotels = filteredHotels.filter((h) => h.city === "Makkah");
-  const madinahHotels = filteredHotels.filter((h) => h.city === "Madinah");
+    return result;
+  }, [hotels, activeCity, walkFilter, refundableFilter, sortOrder]);
 
   return (
     <div>
-      {hasAnyFacetOptions && (
-        <div className="mb-10 rounded-lg border border-black/10 bg-white p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            {FACETS.map(({ key, label }) =>
-              facetOptions[key].length > 0 ? (
-                <fieldset key={key}>
-                  <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-masaar-black/60">
-                    {label}
-                  </legend>
-                  <div className="flex flex-col gap-1.5">
-                    {facetOptions[key].map((value) => {
-                      const count = hotels.filter(
-                        (h) => h[key] === value && matchesFacetsExcept(h, key)
-                      ).length;
-                      const checked = selected[key].has(value);
-                      return (
-                        <label key={value} className="flex items-center gap-2 text-sm text-masaar-black/80">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={count === 0 && !checked}
-                            onChange={() => toggle(key, value)}
-                            className="accent-[var(--color-pure-gold)]"
-                          />
-                          {value}
-                          <span className="text-xs text-masaar-black/40">({count})</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              ) : null
-            )}
+      <div className="mb-10 flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-5 lg:flex-row lg:items-center">
+        <div className="flex gap-2">
+          {CITY_TABS.map(({ city, icon: Icon }) => (
+            <button
+              key={city}
+              type="button"
+              onClick={() => setActiveCity(city)}
+              className={`inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition-colors ${
+                activeCity === city
+                  ? "bg-pure-gold text-masaar-black"
+                  : "border border-black/15 text-masaar-black hover:bg-warm-ivory"
+              }`}
+            >
+              <Icon className="size-4" />
+              {city}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+          <select
+            value={walkFilter}
+            onChange={(e) => setWalkFilter(e.target.value as WalkFilter)}
+            className={selectClass}
+          >
+            {WALK_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={refundableFilter}
+            onChange={(e) => setRefundableFilter(e.target.value as RefundableFilter)}
+            className={selectClass}
+          >
+            <option value="all">Any Cancellation Policy</option>
+            <option value="refundable">Refundable</option>
+            <option value="non-refundable">Non-refundable</option>
+          </select>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+            className={selectClass}
+          >
+            <option value="default">Sort: Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+          </select>
+        </div>
+      </div>
+
+      <section className="scroll-mt-24">
+        <div>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <SectionHeading eyebrow={cityLabel} title={`Hotels in ${cityLabel}`} align="left" />
+            <p className="text-sm text-masaar-black/50">{visibleHotels.length} hotels available</p>
           </div>
-          <p className="mt-4 text-xs text-masaar-black/50">
-            Showing {filteredHotels.length} of {hotels.length} hotels.
+          <p className="mt-2 text-sm text-masaar-black/70">
+            From value stays to five-star comfort, each hotel is chosen for its proximity to the Haram and the quality of the stay — not simply the lowest rate.
           </p>
         </div>
-      )}
-
-      <section id="makkah" className="scroll-mt-24">
-        <SectionHeading eyebrow="Makkah" title="Makkah Hotels Near Haram" align="left" />
         <div className="mt-8">
-          {makkahHotels.length > 0 ? (
+          {visibleHotels.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {makkahHotels.map((hotel) => (
+              {visibleHotels.map((hotel) => (
                 <HotelCard key={hotel.id} hotel={hotel} />
               ))}
             </div>
-          ) : (
+          ) : hotels.some((h) => h.city === activeCity) ? (
             <EmptyState
-              title={hotels.some((h) => h.city === "Makkah") ? "No Makkah hotels match these filters" : "No Makkah hotels published yet"}
+              title={`No ${cityLabel} hotels match these filters`}
+              note="Try a different walking distance or cancellation policy."
             />
-          )}
-        </div>
-      </section>
-
-      <section id="madinah" className="mt-16 scroll-mt-24">
-        <SectionHeading eyebrow="Madinah" title="Madinah Accommodation" align="left" />
-        <div className="mt-8">
-          {madinahHotels.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {madinahHotels.map((hotel) => (
-                <HotelCard key={hotel.id} hotel={hotel} />
-              ))}
-            </div>
           ) : (
-            <EmptyState
-              title={hotels.some((h) => h.city === "Madinah") ? "No Madinah hotels match these filters" : "No Madinah hotels published yet"}
-              note={
-                hotels.some((h) => h.city === "Madinah")
-                  ? undefined
-                  : "Real hotel names, categories and prices are pending the client's pricing/package document."
-              }
-            />
+            <EmptyState title={`No ${cityLabel} hotels published yet`} />
           )}
         </div>
       </section>

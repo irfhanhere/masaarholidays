@@ -1,25 +1,46 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPackageBySlugAndType } from "@/lib/data/public";
+import { getActiveUmrahDepartureMonthBySlug, getPackageBySlugAndType } from "@/lib/data/public";
 import type { PackageType } from "@/lib/types/database";
-import { packageGeneralTemplateKey } from "@/lib/whatsapp-templates";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
+import { PackageEnquiryButton } from "./PackageEnquiryButton";
 import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
 
-const TIER_LABEL = { essential: "Essential", signature: "Signature", prive: "Privé" } as const;
+const TIER_LABEL = { essential: "Essential", signature: "Signature", exclusive: "Exclusive" } as const;
 
-/** Shared by /umrah/[slug] and /hajj/[slug] — same two-CTA pattern as the hotel detail page. */
-export async function PackageDetail({ type, slug }: { type: PackageType; slug: string }) {
+/**
+ * Shared by /umrah/[slug] and /hajj/[slug] — same two-CTA pattern as the
+ * hotel detail page. `departureMonthSlug` is only ever set for Umrah,
+ * carried forward via a `?month=` query param when a visitor reaches
+ * this page from a card on an Umrah departure-month page (see
+ * PackageCard.tsx) — looked up here so the sidebar enquiry popup can
+ * mention that month too, exactly like the card it came from.
+ */
+export async function PackageDetail({
+  type,
+  slug,
+  departureMonthSlug,
+}: {
+  type: PackageType;
+  slug: string;
+  departureMonthSlug?: string;
+}) {
   const detail = await getPackageBySlugAndType(slug, type);
   if (!detail) notFound();
   const { pkg, roomPrices } = detail;
 
+  const departureMonth =
+    type === "umrah" && departureMonthSlug ? await getActiveUmrahDepartureMonthBySlug(departureMonthSlug) : null;
+
   const inclusions = pkg.inclusions_text?.split("\n").map((line) => line.trim()).filter(Boolean) ?? [];
   const listHref = type === "hajj" ? "/hajj" : "/umrah";
   const listLabel = type === "hajj" ? "Hajj" : "Umrah";
+  // `?? []` guards against migration 0019 not being applied yet — the
+  // column simply wouldn't exist on `pkg` in that case, not an error.
+  const itinerarySegments = pkg.itinerary_segments ?? [];
 
   return (
     <>
@@ -43,6 +64,7 @@ export async function PackageDetail({ type, slug }: { type: PackageType; slug: s
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/80">
             {pkg.city_destination && <span>{pkg.city_destination}</span>}
             <span>{pkg.duration_label || `${pkg.duration_days} Days`}</span>
+            {type === "hajj" && pkg.maktab_category && <span>{pkg.maktab_category} Maktab</span>}
           </div>
         </Container>
       </div>
@@ -78,6 +100,51 @@ export async function PackageDetail({ type, slug }: { type: PackageType; slug: s
                   </div>
                 )}
               </div>
+            )}
+
+            {type === "hajj" ? (
+              itinerarySegments.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="mb-4 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
+                    Itinerary
+                  </h2>
+                  <ul className="space-y-3">
+                    {itinerarySegments.map((segment, i) => (
+                      <li key={i} className="rounded-lg border border-black/10 bg-white p-4">
+                        <p className="text-sm text-masaar-black">
+                          <span className="font-semibold text-masaar-black">{segment.location}</span>
+                          <span className="text-masaar-black/70">
+                            {" "}
+                            — {segment.nights} {segment.nights === 1 ? "Night" : "Nights"}
+                            {segment.board_type && ` · ${segment.board_type}`}
+                          </span>
+                        </p>
+                        {segment.note && <p className="mt-1 text-sm text-masaar-black/60">{segment.note}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            ) : (
+              pkg.itinerary.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="mb-4 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
+                    Itinerary
+                  </h2>
+                  <div className="space-y-3">
+                    {pkg.itinerary.map((day) => (
+                      <div key={day.day} className="rounded-lg border border-black/10 bg-white p-4">
+                        <p className="text-sm font-semibold text-masaar-black">Day {day.day}</p>
+                        <ul className="mt-1 space-y-1 text-sm text-masaar-black/70">
+                          {day.items.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
             )}
 
             <h2 className="mb-4 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
@@ -127,9 +194,13 @@ export async function PackageDetail({ type, slug }: { type: PackageType; slug: s
                 Speak with our team for availability, pricing and booking.
               </p>
               <div className="mt-4">
-                <WhatsAppButton templateKey={packageGeneralTemplateKey(type, pkg.tier)} className="w-full">
-                  Enquire about this package
-                </WhatsAppButton>
+                <PackageEnquiryButton
+                  packageTitle={pkg.title}
+                  tier={TIER_LABEL[pkg.tier]}
+                  duration={pkg.duration_label || `${pkg.duration_days} Days`}
+                  departureMonth={departureMonth?.display_label}
+                  className="w-full"
+                />
               </div>
             </div>
           </aside>

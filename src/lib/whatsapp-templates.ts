@@ -26,7 +26,7 @@ export const WHATSAPP_TEMPLATE_KEYS = [
   "general",
   "umrahEssential",
   "umrahSignature",
-  "umrahPrive",
+  "umrahExclusive",
   "upgradeToPlus",
   "hajj",
   "hotel",
@@ -35,6 +35,9 @@ export const WHATSAPP_TEMPLATE_KEYS = [
   "transfer",
   "visa",
   "contact",
+  "packageEnquiry",
+  "privateTripEnquiry",
+  "guidedUmrah",
 ] as const;
 
 export type WhatsAppTemplateKey = (typeof WHATSAPP_TEMPLATE_KEYS)[number];
@@ -42,9 +45,15 @@ export type WhatsAppTemplateKey = (typeof WHATSAPP_TEMPLATE_KEYS)[number];
 /** Fallback text if the DB row for a key is missing or the fetch failed — exactly the values seeded in 0014_seed_whatsapp_templates.sql. */
 export const WHATSAPP_TEMPLATE_DEFAULTS: Record<WhatsAppTemplateKey, string> = {
   general: "Assalamu Alaikum, I'd like to know more about Masaar Holidays.",
+  // umrahEssential/Signature/Exclusive: no longer wired to a button — the
+  // package card/detail "Enquire on WhatsApp" popup now always opens
+  // with the single `packageEnquiry` template instead (see
+  // PackageEnquiryButton.tsx). Left as-is (row, key and default all
+  // still here) rather than deleted, same as `upgradeToPlus` below —
+  // Haseeb may still want this wording for a future use.
   umrahEssential: "Assalamu Alaikum, I'd like more details on the Masaar Essential Umrah package.",
   umrahSignature: "Assalamu Alaikum, I'd like more details on the Masaar Signature Umrah package.",
-  umrahPrive: "Assalamu Alaikum, I'd like more details on the Masaar Privé Umrah experience.",
+  umrahExclusive: "Assalamu Alaikum, I'd like more details on the Masaar Exclusive Umrah experience.",
   upgradeToPlus: "Assalamu Alaikum, I'd like to know more about upgrading to {{tier}} Plus.",
   hajj: "Assalamu Alaikum, I'd like to register my interest in Masaar's Hajj packages.",
   hotel: "Assalamu Alaikum, I'd like more information on {{hotelName}}.",
@@ -54,6 +63,12 @@ export const WHATSAPP_TEMPLATE_DEFAULTS: Record<WhatsAppTemplateKey, string> = {
   transfer: "Assalamu Alaikum, I'd like to arrange a private transfer: {{route}}.",
   visa: "Assalamu Alaikum, I'd like help with a visa: {{visaType}}.",
   contact: "Assalamu Alaikum, I'd like to speak with the Masaar team.",
+  packageEnquiry:
+    "Assalamu Alaikum, I'd like to enquire about {{packageTitle}} ({{tier}} — {{duration}}).",
+  privateTripEnquiry:
+    "Assalamu Alaikum, I'd like to enquire about the {{tripName}} private trip ({{destination}} — {{duration}}).",
+  guidedUmrah:
+    "Assalamu Alaikum, I'd like to enquire about the Guided Umrah Assistance service.",
 };
 
 /** Fallback destination number if whatsapp_settings is missing/unfetched — brief "Contact details (confirmed)". */
@@ -65,18 +80,4 @@ export function interpolate(template: string, params?: Record<string, string>): 
   return template.replace(/\{\{(\w+)\}\}/g, (match, token: string) =>
     Object.prototype.hasOwnProperty.call(params, token) ? params[token] : match
   );
-}
-
-/**
- * General "enquire about this package" template KEY for a package
- * card/detail page. Hajj packages always use the one generic Hajj
- * template — the brief only gives that single message (Part 6), no tier
- * variants, so there's nothing tier-specific to pick between for Hajj.
- */
-export function packageGeneralTemplateKey(
-  type: "umrah" | "hajj",
-  tier: "essential" | "signature" | "prive"
-): WhatsAppTemplateKey {
-  if (type === "hajj") return "hajj";
-  return tier === "essential" ? "umrahEssential" : tier === "signature" ? "umrahSignature" : "umrahPrive";
 }

@@ -13,8 +13,11 @@ export async function generateMetadata({
   if (!detail) return buildPageMetadata({ path: `/hajj/${slug}`, title: "Hajj Package | Masaar Holidays" });
   return buildPageMetadata({
     path: `/hajj/${slug}`,
-    title: `${detail.pkg.title} | Masaar Holidays`,
-    description: `${detail.pkg.title} — ${detail.pkg.duration_label ?? `${detail.pkg.duration_days} days`}, arranged through Masaar Holidays.`,
+    title: detail.pkg.meta_title || `${detail.pkg.title} | Masaar Holidays`,
+    description:
+      detail.pkg.meta_description ||
+      `${detail.pkg.title} — ${detail.pkg.duration_label ?? `${detail.pkg.duration_days} days`}, arranged through Masaar Holidays.`,
+    ogImageUrl: detail.pkg.hero_image_url,
   });
 }
 

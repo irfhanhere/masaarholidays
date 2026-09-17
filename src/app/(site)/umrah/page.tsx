@@ -1,27 +1,31 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ContentPending, EmptyState, SectionHeading } from "@/components/site/SectionHeading";
+import { SectionHeading } from "@/components/site/SectionHeading";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { ImportantNotice } from "@/components/site/ImportantNotice";
-import { PackageCard } from "@/components/site/PackageCard";
+import { PackageGrid } from "@/components/site/PackageGrid";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
-import { CarIcon, DocumentIcon, PlaneIcon, ShieldIcon, BedIcon } from "@/components/site/icons";
-import { getPublishedPackages } from "@/lib/data/public";
-import { buildPageMetadata } from "@/lib/i18n";
+import { CarIcon, PlaneIcon, ShieldIcon, BedIcon } from "@/components/site/icons";
+import { getPublishedPackages, getUmrahContent } from "@/lib/data/public";
+import { buildStaticPageMetadata } from "@/lib/i18n";
+import { GuidedUmrahAssistance } from "@/components/site/GuidedUmrahAssistance";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 
-// SEO Master Map — starter-kit Section 2; H2 outline — starter-kit Section 3.
+// Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({
+  return buildStaticPageMetadata({
     path: "/umrah",
-    title: "Umrah Packages UAE | Masaar Holidays",
-    description:
+    fallbackTitle: "Umrah Packages UAE | Masaar Holidays",
+    fallbackDescription:
       "Umrah packages from the UAE, thoughtfully planned around your family — accommodation, transfers and personal support at every level of comfort.",
   });
 }
 
 export default async function UmrahPage() {
-  const packages = await getPublishedPackages("umrah");
+  const [packages, umrahContent] = await Promise.all([
+    getPublishedPackages("umrah"),
+    getUmrahContent(),
+  ]);
 
   return (
     <>
@@ -30,6 +34,10 @@ export default async function UmrahPage() {
         h1="Your Umrah Journey, Thoughtfully Planned"
         image="/brand/banners/umrah.png"
       >
+        {/* Draft copy pending Haseeb's approval */}
+        <p className="mt-4 max-w-xl text-sm text-white/80 sm:text-base">
+          Every family&apos;s Umrah is different. We take care of hotels, transport and documentation so yours can be spent in worship, not logistics.
+        </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
@@ -38,26 +46,22 @@ export default async function UmrahPage() {
       <section className="py-16">
         <Container>
           <SectionHeading eyebrow="Choose the Right Level of Comfort" title="Umrah Packages for Every Family" />
-          <div className="mx-auto mt-4 max-w-2xl text-center">
-            <ContentPending note="Section intro pending final copy — three comfort levels (Essential, Signature, Privé) hold the same standard of care." />
-          </div>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-masaar-black/70 sm:text-base">
+            Three levels of comfort, each carrying the same standard of care — Essential, Signature and Exclusive. Choose what suits your family, and we&apos;ll take it from there.
+          </p>
 
           <div className="mt-10">
-            {packages.length > 0 ? (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {packages.map((pkg) => (
-                  <PackageCard key={pkg.id} pkg={pkg} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title="No Umrah packages published yet"
-                note="Waiting on the client's pricing/package document (brief Part 5) before packages, room pricing and Plus upgrades are entered in Admin → Packages."
-              />
-            )}
+            <PackageGrid
+              packages={packages}
+              emptyTitle="No Umrah packages published yet"
+              emptyNote="Waiting on the client's pricing/package document (brief Part 5) before packages, room pricing and Plus upgrades are entered in Admin → Packages."
+            />
           </div>
         </Container>
       </section>
+
+      {/* Guided Umrah Assistance (Admin-editable) */}
+      <GuidedUmrahAssistance content={umrahContent} />
 
       <section className="bg-warm-ivory py-16">
         <Container className="grid gap-8 lg:grid-cols-2">
@@ -94,30 +98,7 @@ export default async function UmrahPage() {
         </Container>
       </section>
 
-      <section className="py-16">
-        <Container className="grid gap-6 sm:grid-cols-2">
-          <Link
-            href="/hotels"
-            className="rounded-lg border border-black/10 bg-white p-6 hover:border-pure-gold"
-          >
-            <DocumentIcon className="size-6 text-deep-gold" />
-            <h3 className="mt-3 font-semibold text-masaar-black">Makkah & Madinah Accommodation</h3>
-            <div className="mt-2">
-              <ContentPending />
-            </div>
-          </Link>
-          <Link
-            href="/transfers"
-            className="rounded-lg border border-black/10 bg-white p-6 hover:border-pure-gold"
-          >
-            <CarIcon className="size-6 text-deep-gold" />
-            <h3 className="mt-3 font-semibold text-masaar-black">Private Transfers & Travel Support</h3>
-            <div className="mt-2">
-              <ContentPending />
-            </div>
-          </Link>
-        </Container>
-      </section>
+      <CrossLinkServices exclude="umrah" />
     </>
   );
 }

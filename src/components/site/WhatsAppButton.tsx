@@ -21,7 +21,7 @@ export function WhatsAppButton({
   templateKey: WhatsAppTemplateKey;
   params?: Record<string, string>;
   children: React.ReactNode;
-  variant?: "solid" | "outline";
+  variant?: "solid" | "outline" | "whatsapp-green";
   className?: string;
 }) {
   const { getMessage, phoneNumber } = useWhatsAppTemplates();
@@ -30,7 +30,9 @@ export function WhatsAppButton({
   const styles =
     variant === "solid"
       ? "bg-pure-gold text-masaar-black hover:bg-light-gold"
-      : "border border-masaar-black text-masaar-black hover:bg-masaar-black hover:text-white";
+      : variant === "whatsapp-green"
+        ? "bg-[#25D366] text-white hover:bg-[#1fb959]"
+        : "border border-masaar-black text-masaar-black hover:bg-masaar-black hover:text-white";
 
   return (
     <a

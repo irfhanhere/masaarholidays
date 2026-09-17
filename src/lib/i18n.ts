@@ -1,6 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
+import { getPageSeo } from "./data/public";
 import {
   DEFAULT_LOCALE,
   LOCALE_HREFLANG,
@@ -71,21 +72,74 @@ export function localeRobots(locale: Locale): Metadata["robots"] {
   return locale !== DEFAULT_LOCALE ? { index: false, follow: true } : undefined;
 }
 
-/** One-call helper most pages use: title/description unchanged, plus locale alternates + robots. */
+/**
+ * One-call helper most pages use: title/description unchanged, plus
+ * locale alternates + robots + Open Graph.
+ *
+ * `noindex` (from a page's own admin-editable page_seo/meta_* row) and
+ * the existing locale-based noindex (non-English locales have no real
+ * translation yet — see localeRobots above) are two independent reasons
+ * a page might not want to be indexed; a page is noindexed if EITHER
+ * applies, not just the locale one.
+ */
 export async function buildPageMetadata({
   path,
   title,
   description,
+  ogImageUrl,
+  noindex,
 }: {
   path: string;
   title: string;
   description?: string;
+  /** Absolute URL, or a root-relative path (e.g. "/brand/banners/umrah.png") resolved against NEXT_PUBLIC_SITE_URL. */
+  ogImageUrl?: string | null;
+  /** Admin-set noindex for this specific page — combined with (not replacing) locale-based noindex. */
+  noindex?: boolean | null;
 }): Promise<Metadata> {
   const locale = await getRequestLocale();
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const resolvedImage = ogImageUrl ? (ogImageUrl.startsWith("http") ? ogImageUrl : `${origin}${ogImageUrl}`) : undefined;
+
   return {
     title,
     description,
     alternates: buildAlternates(locale, path),
-    robots: localeRobots(locale),
+    robots: noindex ? { index: false, follow: true } : localeRobots(locale),
+    openGraph: {
+      title,
+      description,
+      url: `${origin}${localizedPath(locale, path)}`,
+      siteName: "Masaar Holidays",
+      type: "website",
+      images: resolvedImage ? [{ url: resolvedImage }] : undefined,
+    },
   };
+}
+
+/**
+ * What every static top-level page's generateMetadata calls — looks up
+ * this path's admin-editable page_seo row (Admin → Page SEO) and prefers
+ * its meta_title/meta_description/og_image_url/noindex, falling back to
+ * the caller's own hardcoded copy when the row is missing/empty so
+ * nothing ever goes blank. Keeps the same 8 call sites from repeating
+ * this fetch-then-fallback pattern individually.
+ */
+export async function buildStaticPageMetadata({
+  path,
+  fallbackTitle,
+  fallbackDescription,
+}: {
+  path: string;
+  fallbackTitle: string;
+  fallbackDescription?: string;
+}): Promise<Metadata> {
+  const seo = await getPageSeo(path);
+  return buildPageMetadata({
+    path,
+    title: seo?.meta_title || fallbackTitle,
+    description: seo?.meta_description || fallbackDescription,
+    ogImageUrl: seo?.og_image_url,
+    noindex: seo?.noindex,
+  });
 }

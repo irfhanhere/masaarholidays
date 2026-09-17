@@ -1,56 +1,103 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
+import { WhatsAppButton, WhatsAppGlyph } from "@/components/site/WhatsAppButton";
+import { MailIcon, PhoneIcon } from "@/components/site/icons";
 import { CONTACT } from "@/lib/contact";
-import { buildPageMetadata } from "@/lib/i18n";
+import { buildStaticPageMetadata } from "@/lib/i18n";
 import { ContactForm } from "./ContactForm";
 
+// Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({
+  return buildStaticPageMetadata({
     path: "/contact",
-    title: "Contact Masaar Holidays | Umrah & Hajj Enquiries",
-    description:
+    fallbackTitle: "Contact Masaar Holidays | Umrah & Hajj Enquiries",
+    fallbackDescription:
       "Reach Masaar Holidays by WhatsApp, phone, or email — a dedicated advisor responds personally to every Umrah or Hajj enquiry.",
   });
 }
 
+// Masaar operates fully remote/WhatsApp-first, with no physical office —
+// this page deliberately shows no address and no map, and doesn't claim
+// specific working hours nowhere else on the site states.
 export default function ContactPage() {
   return (
     <>
       <Hero
         eyebrow="Contact"
-        h1="Get in Touch"
+        h1="We're Here to Help"
         image="/brand/banners/default.png"
         breadcrumb={[
           { label: "Home", href: "/" },
           { label: "Contact", href: "/contact" },
         ]}
-      />
+      >
+        <p className="mt-4 max-w-xl text-sm text-white/80 sm:text-base">
+          Questions about a package, a booking already in progress, or just want to talk it through?
+          Reach out however suits you — we&apos;ll take it from there.
+        </p>
+      </Hero>
 
       <section className="py-16">
         <Container className="grid gap-10 lg:grid-cols-2">
           <div className="space-y-4">
-            <ContactCard title="Phone / WhatsApp" line1={CONTACT.phoneDisplay} line2="We're available to assist you." />
-            <ContactCard
-              title="General Enquiries"
-              line1={CONTACT.emailGeneral}
-              line2="For package information, travel advice or any questions."
-            />
-            <ContactCard
-              title="Partnerships"
-              line1={CONTACT.emailPartnerships}
-              line2="For B2B enquiries, agents or collaboration opportunities."
-            />
-            <ContactCard
-              title="Accounts & Billing"
-              line1={CONTACT.emailAccounts}
-              line2="For invoices, payments and billing-related queries."
-            />
-            <ContactCard
-              title="Our Office"
-              line1="Masaar Holidays, Dubai, United Arab Emirates"
-              line2="(Meetings by appointment only)"
-            />
+            <div className="rounded-lg border border-pure-gold/30 bg-warm-ivory p-6">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-[#25D366]">
+                  <WhatsAppGlyph className="size-5" />
+                </span>
+                <div>
+                  <h2 className="font-semibold text-masaar-black">WhatsApp</h2>
+                  <p className="text-sm text-masaar-black/60">The fastest way to reach us.</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <WhatsAppButton templateKey="contact" variant="whatsapp-green" className="w-full">
+                  Chat with Masaar on WhatsApp
+                </WhatsAppButton>
+              </div>
+            </div>
+
+            <a
+              href={`tel:+${CONTACT.whatsappPhoneIntl}`}
+              className="flex items-center gap-3 rounded-lg border border-black/10 bg-white p-5 transition-colors hover:border-pure-gold"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-deep-gold">
+                <PhoneIcon className="size-5" />
+              </span>
+              <div>
+                <h3 className="font-semibold text-masaar-black">Call Us</h3>
+                <p className="text-sm text-masaar-black/60">{CONTACT.phoneDisplay}</p>
+              </div>
+            </a>
+
+            <div className="rounded-lg border border-black/10 bg-white p-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-deep-gold">
+                  <MailIcon className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-semibold text-masaar-black">Email</h3>
+                  <a href={`mailto:${CONTACT.emailGeneral}`} className="text-sm text-deep-gold hover:underline">
+                    {CONTACT.emailGeneral}
+                  </a>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-1 border-t border-black/10 pt-3 text-xs text-masaar-black/50">
+                <span>
+                  Partnerships & agents:{" "}
+                  <a href={`mailto:${CONTACT.emailPartnerships}`} className="text-masaar-black/70 hover:text-deep-gold hover:underline">
+                    {CONTACT.emailPartnerships}
+                  </a>
+                </span>
+                <span>
+                  Accounts & billing:{" "}
+                  <a href={`mailto:${CONTACT.emailAccounts}`} className="text-masaar-black/70 hover:text-deep-gold hover:underline">
+                    {CONTACT.emailAccounts}
+                  </a>
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-lg border border-black/10 bg-white p-6">
@@ -67,15 +114,5 @@ export default function ContactPage() {
         </Container>
       </section>
     </>
-  );
-}
-
-function ContactCard({ title, line1, line2 }: { title: string; line1: string; line2: string }) {
-  return (
-    <div className="rounded-lg border border-black/10 bg-white p-5">
-      <h3 className="font-semibold text-masaar-black">{title}</h3>
-      <p className="mt-1 text-sm text-masaar-black/60">{line2}</p>
-      <p className="mt-1 font-medium text-deep-gold">{line1}</p>
-    </div>
   );
 }

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Field, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import type {
+  HajjItinerarySegment,
   PackageItineraryDay,
   PackageRow,
   PackageType,
@@ -14,6 +15,7 @@ import { savePackage, type PackageFormState } from "./actions";
 
 type RoomPrice = { room_type: string; price_aed: string };
 type TransferAddon = { transfer_id: string; vehicle_id: string };
+type SegmentField = { location: string; nights: string; board_type: string; note: string };
 
 export function PackageForm({
   packageId,
@@ -60,20 +62,48 @@ export function PackageForm({
       : []
   );
 
+  // Controlled so the Hajj-only fields (maktab category, segmented
+  // itinerary) can show/hide live as the admin picks a type, rather than
+  // only reflecting whatever type the package already had on load.
+  const [type, setType] = useState<PackageType>(initial?.type ?? defaultType ?? "umrah");
+
   const itineraryText = (initial?.itinerary as PackageItineraryDay[] | undefined)
     ?.map((d) => d.items.join("; "))
     .join("\n");
 
+  const [segments, setSegments] = useState<SegmentField[]>(
+    initial?.itinerary_segments?.length
+      ? (initial.itinerary_segments as HajjItinerarySegment[]).map((s) => ({
+          location: s.location,
+          nights: String(s.nights),
+          board_type: s.board_type,
+          note: s.note ?? "",
+        }))
+      : [{ location: "", nights: "", board_type: "", note: "" }]
+  );
+
   return (
     <form action={formAction} className="space-y-6">
       <Card>
-        <h2 className="mb-4 font-semibold text-masaar-black">1. Basic Information</h2>
+        <h2 className="mb-1 font-semibold text-masaar-black">1. Basic Information</h2>
+        <p className="mb-4 text-sm text-masaar-black/60">
+          Title, city/destination and the fields in &ldquo;2. Package Details&rdquo; below apply to
+          the whole tier — saving here updates every duration variant of this same tier
+          automatically, so you only enter that copy once.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Package Type" required>
             <div className="flex gap-4 pt-2">
               {(["umrah", "hajj"] as PackageType[]).map((t) => (
                 <label key={t} className="flex items-center gap-2 text-sm capitalize">
-                  <input type="radio" name="type" value={t} defaultChecked={(initial?.type ?? defaultType ?? "umrah") === t} required />
+                  <input
+                    type="radio"
+                    name="type"
+                    value={t}
+                    checked={type === t}
+                    onChange={() => setType(t)}
+                    required
+                  />
                   {t}
                 </label>
               ))}
@@ -83,7 +113,7 @@ export function PackageForm({
             <select name="tier" defaultValue={initial?.tier ?? "essential"} className={inputClass}>
               <option value="essential">Essential</option>
               <option value="signature">Signature</option>
-              <option value="prive">Privé</option>
+              <option value="exclusive">Exclusive</option>
             </select>
           </Field>
           <Field label="Package Title" required>
@@ -97,17 +127,46 @@ export function PackageForm({
               className={inputClass}
             />
           </Field>
-          <Field label="Duration (Days)" required>
+          <Field
+            label="Short Description"
+            hint="1-2 sentences, shown under the tier heading on the listing pages, above the card(s) for this tier."
+            className="sm:col-span-2"
+          >
+            <textarea
+              name="short_description"
+              rows={2}
+              defaultValue={initial?.short_description ?? ""}
+              placeholder="e.g. A warm, comfortable introduction to Umrah, without compromising on care."
+              className={inputClass}
+            />
+          </Field>
+          {type === "hajj" && (
+            <Field
+              label="Maktab Category"
+              hint='Hajj only. Free text — phrase it however fits, e.g. "A-Category" or "VIP A-Category". Tier-level, shared across this tier&apos;s duration variants.'
+            >
+              <input
+                name="maktab_category"
+                defaultValue={initial?.maktab_category ?? ""}
+                placeholder="e.g. A-Category"
+                className={inputClass}
+              />
+            </Field>
+          )}
+          <Field label="Duration (Nights)" required hint="This tier's own duration variants share the same title/copy below but each have their own nights, slug, hotels and pricing.">
             <input
               type="number"
               min={1}
-              name="duration_days"
-              defaultValue={initial?.duration_days}
+              name="duration_nights"
+              defaultValue={initial?.duration_nights}
               required
               className={inputClass}
             />
           </Field>
-          <Field label="Duration Label" hint='Display string, e.g. "6 Nights / 7 Days".'>
+          <Field
+            label="Duration Label"
+            hint='Display text only, e.g. "6 Nights / 7 Days" — does not affect Duration (Nights) above, or which duration section this package appears under on the site. Keep it matching, or it will read inconsistently.'
+          >
             <input name="duration_label" defaultValue={initial?.duration_label ?? ""} placeholder="e.g. 6 Nights / 7 Days" className={inputClass} />
           </Field>
           <Field label="Hero Image URL" hint="Supabase Storage upload UI is a follow-up — paste a URL for now.">
@@ -117,7 +176,7 @@ export function PackageForm({
         <div className="mt-4 flex gap-6">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_active" defaultChecked={initial?.is_active ?? true} />
-            Active (visible on website)
+            Active (visible on website — set per duration, independent of siblings)
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_featured" defaultChecked={initial?.is_featured ?? false} />
@@ -179,16 +238,90 @@ export function PackageForm({
       </Card>
 
       <Card>
-        <h2 className="mb-1 font-semibold text-masaar-black">3. Itinerary</h2>
-        <p className="mb-3 text-sm text-masaar-black/60">One line per day.</p>
-        <textarea
-          name="itinerary_text"
-          rows={5}
-          defaultValue={itineraryText}
-          placeholder={"Arrival in Jeddah / Transfer to Makkah\nHotel check-in; Umrah guidance"}
-          className={inputClass}
-        />
+        <h2 className="mb-1 font-semibold text-masaar-black">Page SEO</h2>
+        <p className="mb-3 text-sm text-masaar-black/60">
+          Per-duration — this specific duration&apos;s detail page. Falls back to a generated title/description
+          from this package&apos;s content when left blank.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Meta Title">
+            <input name="meta_title" defaultValue={initial?.meta_title ?? ""} className={inputClass} />
+          </Field>
+          <Field label="Meta Description">
+            <input name="meta_description" defaultValue={initial?.meta_description ?? ""} className={inputClass} />
+          </Field>
+        </div>
       </Card>
+
+      {type === "hajj" ? (
+        <Card>
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="font-semibold text-masaar-black">3. Itinerary Segments</h2>
+            <SecondaryButton
+              type="button"
+              onClick={() =>
+                setSegments((prev) => [...prev, { location: "", nights: "", board_type: "", note: "" }])
+              }
+            >
+              + Add Segment
+            </SecondaryButton>
+          </div>
+          <p className="mb-3 text-sm text-masaar-black/60">
+            Hajj only — one row per city/location, e.g. Madinah, Makkah, Aziziyah, Mina &amp; Arafat.
+            Specific to this duration, not shared with sibling variants.
+          </p>
+          <div className="space-y-3">
+            {segments.map((seg, i) => (
+              <div key={i} className="grid gap-2 rounded-md border border-black/10 p-3 sm:grid-cols-[2fr_1fr_1fr_2fr_auto] sm:items-start">
+                <input
+                  name="segment_location"
+                  defaultValue={seg.location}
+                  placeholder="Location (e.g. Madinah)"
+                  className={inputClass}
+                />
+                <input
+                  name="segment_nights"
+                  type="number"
+                  min={1}
+                  defaultValue={seg.nights}
+                  placeholder="Nights"
+                  className={inputClass}
+                />
+                <input
+                  name="segment_board_type"
+                  defaultValue={seg.board_type}
+                  placeholder="Board (e.g. Half Board)"
+                  className={inputClass}
+                />
+                <input
+                  name="segment_note"
+                  defaultValue={seg.note}
+                  placeholder="Note (optional)"
+                  className={inputClass}
+                />
+                <SecondaryButton
+                  type="button"
+                  onClick={() => setSegments((prev) => prev.filter((_, idx) => idx !== i))}
+                >
+                  Remove
+                </SecondaryButton>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : (
+        <Card>
+          <h2 className="mb-1 font-semibold text-masaar-black">3. Itinerary</h2>
+          <p className="mb-3 text-sm text-masaar-black/60">One line per day.</p>
+          <textarea
+            name="itinerary_text"
+            rows={5}
+            defaultValue={itineraryText}
+            placeholder={"Arrival in Jeddah / Transfer to Makkah\nHotel check-in; Umrah guidance"}
+            className={inputClass}
+          />
+        </Card>
+      )}
 
       <Card>
         <div className="mb-4 flex items-center justify-between">

@@ -13,16 +13,22 @@ export async function generateMetadata({
   if (!detail) return buildPageMetadata({ path: `/umrah/${slug}`, title: "Umrah Package | Masaar Holidays" });
   return buildPageMetadata({
     path: `/umrah/${slug}`,
-    title: `${detail.pkg.title} | Masaar Holidays`,
-    description: `${detail.pkg.title} — ${detail.pkg.duration_label ?? `${detail.pkg.duration_days} days`}, arranged through Masaar Holidays.`,
+    title: detail.pkg.meta_title || `${detail.pkg.title} | Masaar Holidays`,
+    description:
+      detail.pkg.meta_description ||
+      `${detail.pkg.title} — ${detail.pkg.duration_label ?? `${detail.pkg.duration_days} days`}, arranged through Masaar Holidays.`,
+    ogImageUrl: detail.pkg.hero_image_url,
   });
 }
 
 export default async function UmrahPackageDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ month?: string }>;
 }) {
   const { slug } = await params;
-  return <PackageDetail type="umrah" slug={slug} />;
+  const { month } = await searchParams;
+  return <PackageDetail type="umrah" slug={slug} departureMonthSlug={month} />;
 }

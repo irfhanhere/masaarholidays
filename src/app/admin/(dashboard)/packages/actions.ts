@@ -3,19 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { PackageItineraryDay, PackageType, PackageTier } from "@/lib/types/database";
+import type { HajjItinerarySegment, PackageItineraryDay, PackageType, PackageTier } from "@/lib/types/database";
 
 export interface PackageFormState {
   status: "idle" | "error";
   message?: string;
 }
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+/** e.g. "umrah-essential-7-nights" — unique by construction since (type, tier, duration_nights) is a DB unique constraint. */
+function buildDurationSlug(type: PackageType, tier: PackageTier, durationNights: number) {
+  return `${type}-${tier}-${durationNights}-nights`;
 }
 
 function parseRoomPrices(formData: FormData) {
@@ -35,6 +32,22 @@ function parseItinerary(formData: FormData): PackageItineraryDay[] {
     .map((line, i) => ({ day: i + 1, items: [line] }));
 }
 
+/** Hajj-only structured itinerary — one row per submitted segment, in the order given. */
+function parseItinerarySegments(formData: FormData): HajjItinerarySegment[] {
+  const locations = formData.getAll("segment_location") as string[];
+  const nights = formData.getAll("segment_nights") as string[];
+  const boardTypes = formData.getAll("segment_board_type") as string[];
+  const notes = formData.getAll("segment_note") as string[];
+  return locations
+    .map((location, i) => ({
+      location: location.trim(),
+      nights: Number(nights[i]),
+      board_type: (boardTypes[i] ?? "").trim(),
+      note: (notes[i] ?? "").trim() || null,
+    }))
+    .filter((s) => s.location && s.nights > 0);
+}
+
 export async function savePackage(
   packageId: string | null,
   _prevState: PackageFormState,
@@ -44,17 +57,22 @@ export async function savePackage(
   const tier = String(formData.get("tier")) as PackageTier;
   const title = String(formData.get("title") ?? "").trim();
   const cityDestination = String(formData.get("city_destination") ?? "").trim();
-  const durationDays = Number(formData.get("duration_days"));
+  const durationNights = Number(formData.get("duration_nights"));
+  const durationDays = durationNights > 0 ? durationNights + 1 : 0;
   const isActive = formData.get("is_active") === "on";
   const isFeatured = formData.get("is_featured") === "on";
   const heroImageUrl = String(formData.get("hero_image_url") ?? "").trim() || null;
 
-  if (!title || !type || !tier || !durationDays) {
-    return { status: "error", message: "Title, type, tier and duration are required." };
+  if (!title || !type || !tier || !durationNights) {
+    return { status: "error", message: "Title, type, tier and duration (nights) are required." };
   }
 
   const roomPrices = parseRoomPrices(formData);
-  const itinerary = parseItinerary(formData);
+  // Hajj uses itinerary_segments instead of the day-by-day itinerary field
+  // — only one of the two is ever populated per row, matching whichever
+  // one the form actually rendered for this package's type.
+  const itinerary = type === "hajj" ? [] : parseItinerary(formData);
+  const itinerarySegments = type === "hajj" ? parseItinerarySegments(formData) : [];
   const startingPrice = roomPrices.length > 0 ? Math.min(...roomPrices.map((r) => r.price_aed)) : null;
 
   const supabase = await createClient();
@@ -66,18 +84,29 @@ export async function savePackage(
     tier,
     title,
     city_destination: cityDestination || null,
+    short_description: textField("short_description"),
+    // Hajj-only fields — always null/empty for Umrah, since the form
+    // never renders these inputs for Umrah in the first place.
+    maktab_category: type === "hajj" ? textField("maktab_category") : null,
     duration_days: durationDays,
+    duration_nights: durationNights,
     duration_label: textField("duration_label"),
     validity_label: textField("validity_label"),
     inclusions_text: textField("inclusions_text"),
     advance_booking_note: textField("advance_booking_note"),
     flight_note: textField("flight_note"),
     rate_disclaimer: textField("rate_disclaimer"),
+    // Per-duration, not synced across tier siblings — each duration
+    // variant has its own detail-page URL/slug (same reasoning as slug
+    // itself, unlike title/inclusions_text which ARE synced below).
+    meta_title: textField("meta_title"),
+    meta_description: textField("meta_description"),
     is_active: isActive,
     is_featured: isFeatured,
     show_on_website: isActive,
     hero_image_url: heroImageUrl,
     itinerary,
+    itinerary_segments: itinerarySegments,
     starting_price_aed: startingPrice,
   };
 
@@ -85,17 +114,49 @@ export async function savePackage(
 
   if (id) {
     const { error } = await supabase.from("packages").update(payload).eq("id", id);
-    if (error) return { status: "error", message: error.message };
+    if (error) {
+      if (error.code === "23505") {
+        return { status: "error", message: `This tier already has a ${durationNights}-night duration option.` };
+      }
+      return { status: "error", message: error.message };
+    }
   } else {
-    const slug = `${slugify(title)}-${Date.now().toString(36)}`;
+    const slug = buildDurationSlug(type, tier, durationNights);
     const { data, error } = await supabase
       .from("packages")
       .insert({ ...payload, slug })
       .select("id")
       .single();
-    if (error) return { status: "error", message: error.message };
+    if (error) {
+      if (error.code === "23505") {
+        return { status: "error", message: `This tier already has a ${durationNights}-night duration option.` };
+      }
+      return { status: "error", message: error.message };
+    }
     id = data.id;
   }
+
+  // Tier-level copy (title, city/destination, inclusions, notes, featured
+  // flag) is shared across every duration variant of this same tier — keep
+  // siblings in sync so it's entered once, not duplicated per duration.
+  // is_active/show_on_website, slug, duration and pricing stay per-row.
+  await supabase
+    .from("packages")
+    .update({
+      title: payload.title,
+      city_destination: payload.city_destination,
+      short_description: payload.short_description,
+      maktab_category: payload.maktab_category,
+      inclusions_text: payload.inclusions_text,
+      advance_booking_note: payload.advance_booking_note,
+      flight_note: payload.flight_note,
+      rate_disclaimer: payload.rate_disclaimer,
+      validity_label: payload.validity_label,
+      is_featured: payload.is_featured,
+    })
+    .eq("type", type)
+    .eq("tier", tier)
+    .neq("id", id);
 
   // Replace room prices wholesale — simplest consistent approach for a
   // small, fully-resubmitted list.

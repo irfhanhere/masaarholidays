@@ -1,0 +1,22 @@
+-- Renames the "Privé" tier to "Exclusive" system-wide (Umrah and Hajj
+-- both) — a real enum-value rename, not a display-label patch. Postgres
+-- renames an enum VALUE as a metadata-only operation: every existing row
+-- using 'prive' is automatically repointed to 'exclusive' by this single
+-- statement — there is no separate per-row UPDATE to run, and no data
+-- loss risk (this doesn't touch pricing, itinerary, or any other column).
+--
+-- Everything else about this rename (the 5 affected packages' slugs and
+-- titles, and the `umrahPrive` WhatsApp template's key/label/text) was
+-- already renamed via DML ahead of this migration, since slugs/titles/
+-- template text are plain text columns with no dependency on the enum
+-- type — only this statement, which requires DDL access, was blocked
+-- pending this file being applied.
+--
+-- Until this runs, application code that now expects tier value
+-- 'exclusive' (this rename's code changes ship in the same commit as
+-- this migration) will not match the 5 rows still tagged 'prive' at the
+-- database level — e.g. their tier label will render blank/undefined.
+-- This is a breaking rename, unlike the additive columns in prior
+-- migrations, so it's worth applying this one promptly rather than
+-- leaving it queued.
+alter type public.package_tier rename value 'prive' to 'exclusive';

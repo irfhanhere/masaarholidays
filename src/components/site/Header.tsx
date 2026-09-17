@@ -3,18 +3,35 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { MAIN_NAV } from "@/lib/nav";
+import { useMemo, useState } from "react";
+import { MAIN_NAV, type NavChild } from "@/lib/nav";
 import { localizedPath, resolveLocaleFromPath } from "@/lib/locale-constants";
 import { Container } from "./Container";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { TopBar } from "./TopBar";
 import { WhatsAppButton } from "./WhatsAppButton";
 
-export function Header() {
+export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: NavChild[] }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Umrah's dropdown is the only dynamic piece of MAIN_NAV — built here
+  // from the active `umrah_departure_months` rows passed down from
+  // (site)/layout.tsx (server-fetched, so the dropdown is present on
+  // first paint, not a client-side fetch flash). No active months means
+  // no `children` at all, so "Umrah" falls back to a plain link exactly
+  // like every other item — Hajj has no departure-month layer and is
+  // untouched.
+  const navItems = useMemo(
+    () =>
+      MAIN_NAV.map((item) =>
+        item.label === "Umrah" && umrahDepartureMonths.length > 0
+          ? { ...item, children: umrahDepartureMonths }
+          : item
+      ),
+    [umrahDepartureMonths]
+  );
 
   // Nav hrefs are authored unprefixed (English); localize them against
   // whichever locale the visitor is currently on so clicking a nav item
@@ -44,7 +61,7 @@ export function Header() {
           </Link>
 
           <nav className="hidden items-center gap-7 lg:flex">
-            {MAIN_NAV.map((item) => (
+            {navItems.map((item) => (
               <div
                 key={item.href}
                 className="relative"
