@@ -21,11 +21,16 @@ export function UmrahAddonsCartModal({ isOpen, onClose, addons, initialAddonId }
   const [flightDate, setFlightDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
+  // Pre-check the addon that opened the basket — tracked as a render-time
+  // adjustment (not an effect) since it only needs to react to isOpen's
+  // false->true transition, comparing against its own previous value.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (isOpen && initialAddonId) {
       setSelectedIds((prev) => new Set(prev).add(initialAddonId));
     }
-  }, [isOpen, initialAddonId]);
+  }
 
   useEffect(() => {
     if (!isOpen) return;

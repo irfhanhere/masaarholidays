@@ -30,6 +30,7 @@ import type {
   ZiyaratVehicleTypeRow,
   ZiyaratPricingRow,
   PackageItineraryDay,
+  UmrahInventoryConfigurationRow,
 } from "@/lib/types/database";
 import { FALLBACK_FAQS } from "@/lib/data/fallback-faqs";
 
@@ -727,6 +728,16 @@ export interface PublicUmrahInventoryConfig {
   status: "published" | "draft";
 }
 
+/** Shape of a row from getPublishedUmrahInventoryConfigurations' joined select — the base config row plus its resolved relations, keyed by the query's join aliases. */
+type UmrahInventoryConfigJoinRow = UmrahInventoryConfigurationRow & {
+  packages: PackageRow;
+  umrah_departure_months: UmrahDepartureMonthRow | null;
+  makkah_hotel: PublicHotelRow | null;
+  madinah_hotel: PublicHotelRow | null;
+  makkah_hotel_alt: PublicHotelRow | null;
+  madinah_hotel_alt: PublicHotelRow | null;
+};
+
 export async function getPublishedUmrahInventoryConfigurations(): Promise<PublicUmrahInventoryConfig[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
@@ -752,7 +763,8 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
 
   if (!configs || configs.length === 0) return [];
 
-  const configIds = (configs as any[]).map((c) => c.id);
+  const typedConfigs = configs as unknown as UmrahInventoryConfigJoinRow[];
+  const configIds = typedConfigs.map((c) => c.id);
 
   const [{ data: prices }, { data: tripJunctions }] = await Promise.all([
     supabase
@@ -773,8 +785,14 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
     pricesByConfig.set(p.configuration_id, list);
   });
 
+  interface TripJunctionRow {
+    configuration_id: string;
+    private_trips: { id: string; name: string; destination: string; short_description: string } | null;
+  }
+  const typedTripJunctions = (tripJunctions ?? []) as unknown as TripJunctionRow[];
+
   const tripsByConfig = new Map<string, Array<{ id: string; name: string; destination: string; short_description: string }>>();
-  (tripJunctions ?? []).forEach((j: any) => {
+  typedTripJunctions.forEach((j) => {
     if (j.private_trips) {
       const list = tripsByConfig.get(j.configuration_id) ?? [];
       list.push(j.private_trips);
@@ -782,7 +800,7 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
     }
   });
 
-  return configs.map((c: any) => {
+  return typedConfigs.map((c) => {
     const rPrices = pricesByConfig.get(c.id) ?? [];
     const minPrice = rPrices.length > 0 ? Math.min(...rPrices.map((p) => p.price_aed)) : null;
 

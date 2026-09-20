@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { ExternalImage } from "./ExternalImage";
 
@@ -37,8 +37,12 @@ export function UmrahEnquiryModal({ isOpen, onClose, packageInfo, initialAddon }
 
   const [selectedTrips, setSelectedTrips] = useState<string[]>([]);
 
-  // Apply initial addon if passed
-  useEffect(() => {
+  // Apply initial addon if passed — a render-time adjustment (not an
+  // effect) reacting to initialAddon changing, per React's "adjusting
+  // state when a prop changes" pattern.
+  const [prevInitialAddon, setPrevInitialAddon] = useState(initialAddon);
+  if (initialAddon !== prevInitialAddon) {
+    setPrevInitialAddon(initialAddon);
     if (initialAddon) {
       if (initialAddon.toLowerCase().includes("visa")) setVisaNeeded(true);
       if (initialAddon.toLowerCase().includes("flight")) setFlightNeeded(true);
@@ -52,7 +56,7 @@ export function UmrahEnquiryModal({ isOpen, onClose, packageInfo, initialAddon }
         }
       }
     }
-  }, [initialAddon]);
+  }
 
   if (!isOpen) return null;
 

@@ -132,7 +132,7 @@ export function RichTextEditor({
           1.≡
         </ToolbarButton>
         <ToolbarButton label="Quote" active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
-          "
+          &quot;
         </ToolbarButton>
         <div className="mx-1 h-5 w-px bg-black/10" />
         <ToolbarButton label="Link" active={editor.isActive("link")} onClick={handleSetLink}>

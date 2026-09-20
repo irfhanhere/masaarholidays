@@ -52,8 +52,9 @@ export function VehiclesManager({ vehicles, pricing }: Props) {
 
       await savePricingMatrix(itemsToSave);
       setSaveMessage("Pricing matrix saved successfully!");
-    } catch (err: any) {
-      setSaveMessage(`Error saving matrix: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setSaveMessage(`Error saving matrix: ${message}`);
     } finally {
       setIsSaving(false);
     }

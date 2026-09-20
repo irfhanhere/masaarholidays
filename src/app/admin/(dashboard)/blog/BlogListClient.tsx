@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge, PrimaryButton } from "@/components/admin/ui";
@@ -55,9 +55,11 @@ function KebabMenu({
 export function BlogListClient({ posts: initialPosts, categories }: { posts: BlogPostRow[]; categories: BlogCategoryRow[] }) {
   const router = useRouter();
   const [posts, setPosts] = useState(initialPosts);
-  useEffect(() => {
+  const [prevInitialPosts, setPrevInitialPosts] = useState(initialPosts);
+  if (initialPosts !== prevInitialPosts) {
+    setPrevInitialPosts(initialPosts);
     setPosts(initialPosts);
-  }, [initialPosts]);
+  }
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");

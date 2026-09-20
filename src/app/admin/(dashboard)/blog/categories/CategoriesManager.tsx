@@ -115,10 +115,11 @@ export function CategoriesManager({
 }) {
   const [categories, setCategories] = useState(initialCategories);
   const [panelFor, setPanelFor] = useState<BlogCategoryRow | null | undefined>(undefined);
-
-  useEffect(() => {
+  const [prevInitialCategories, setPrevInitialCategories] = useState(initialCategories);
+  if (initialCategories !== prevInitialCategories) {
+    setPrevInitialCategories(initialCategories);
     setCategories(initialCategories);
-  }, [initialCategories]);
+  }
 
   async function handleDelete(cat: BlogCategoryRow) {
     if (!confirm(`Delete "${cat.name}"? Posts in this category will become uncategorized.`)) return;
