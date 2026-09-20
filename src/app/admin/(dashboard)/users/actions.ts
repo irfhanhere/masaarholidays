@@ -155,6 +155,14 @@ export async function updateStaffUser(
     return { status: "error", message: "Name and email are required." };
   }
 
+  if (!isActive) {
+    const supabase = await createClient();
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.id === userId) {
+      return { status: "error", message: "You can't deactivate your own account from here." };
+    }
+  }
+
   const admin = await getAdminClient();
 
   const { error } = await admin.auth.admin.updateUserById(userId, {
@@ -172,6 +180,14 @@ export async function updateStaffUser(
 }
 
 export async function setStaffUserActive(userId: string, isActive: boolean) {
+  if (!isActive) {
+    const supabase = await createClient();
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.id === userId) {
+      throw new Error("You can't deactivate your own account from here.");
+    }
+  }
+
   const admin = await getAdminClient();
   const { error } = await admin.auth.admin.updateUserById(userId, {
     ban_duration: isActive ? "none" : "876000h",

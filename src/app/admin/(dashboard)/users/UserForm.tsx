@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, Field, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import { createStaffUser, updateStaffUser, type StaffUser, type StaffUserFormState } from "./actions";
 
-export function UserForm({ user }: { user?: StaffUser }) {
+export function UserForm({ user, isSelf = false }: { user?: StaffUser; isSelf?: boolean }) {
   const action = user ? updateStaffUser.bind(null, user.id) : createStaffUser;
   const [state, formAction, isPending] = useActionState<StaffUserFormState, FormData>(action, { status: "idle" });
 
@@ -56,13 +56,18 @@ export function UserForm({ user }: { user?: StaffUser }) {
               </select>
             </Field>
 
-            <label className="flex items-center gap-2 pb-2.5 text-sm font-medium text-masaar-black">
+            <label
+              className={`flex items-center gap-2 pb-2.5 text-sm font-medium text-masaar-black ${isSelf ? "opacity-60" : ""}`}
+              title={isSelf ? "You can't deactivate your own account from here" : undefined}
+            >
               <span>Status</span>
               <span className="relative inline-flex items-center">
+                {isSelf && <input type="hidden" name="is_active" value="on" />}
                 <input
                   type="checkbox"
-                  name="is_active"
-                  defaultChecked={user?.isActive ?? true}
+                  name={isSelf ? undefined : "is_active"}
+                  defaultChecked={isSelf ? true : (user?.isActive ?? true)}
+                  disabled={isSelf}
                   className="peer sr-only"
                 />
                 <span className="h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-emerald-600" />
