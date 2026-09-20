@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EmptyState, SectionHeading } from "@/components/site/SectionHeading";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { TransferCard } from "@/components/site/TransferCard";
@@ -8,6 +9,7 @@ import { getActiveTransfers, getTransferAvailableVehicles } from "@/lib/data/pub
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import type { TransferType } from "@/lib/types/database";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { FaqSection } from "@/components/site/FaqSection";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,11 +42,16 @@ export default async function TransfersPage() {
 
   return (
     <>
+      <Breadcrumbs items={[{ label: "Transfers" }]} />
       <Hero
         eyebrow="Transfers"
-        h1="Private Transfers for Your Umrah Journey"
+        h1="Arrive With Ease,"
+        h1Gold="Leave With Peace"
         image="/brand/banners/default.png"
       >
+        <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
+          Private transfers for your Umrah journey — airports, the Haramain train, and intercity routes, arranged with care.
+        </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
@@ -86,6 +93,8 @@ export default async function TransfersPage() {
       </section>
 
       <CrossLinkServices exclude="transfers" />
+
+      <FaqSection category="transfers" />
     </>
   );
 }

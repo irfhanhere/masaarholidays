@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { EmptyState, SectionHeading } from "@/components/site/SectionHeading";
 import { Hero } from "@/components/site/Hero";
@@ -35,8 +36,9 @@ export function VisaDetailTemplate({
 
   return (
     <>
+      <Breadcrumbs items={[{ label: "Visa", href: "/visa" }, { label: visaType.name }]} />
       <Hero eyebrow={eyebrow} h1={headline} image={heroImage}>
-        {visaType.hero_intro && <p className="mt-4 text-sm text-white/80 sm:text-base">{visaType.hero_intro}</p>}
+        {visaType.hero_intro && <p className="mt-4 text-sm text-masaar-black/75 sm:text-base">{visaType.hero_intro}</p>}
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="visa" params={{ visaType: visaType.name }}>
             Enquire on WhatsApp

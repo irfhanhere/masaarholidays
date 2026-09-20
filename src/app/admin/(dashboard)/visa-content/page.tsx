@@ -49,7 +49,7 @@ export default async function VisaContentPage({
     <div>
       <PageHeader
         title="Visa Content"
-        description="Manage the visa document checklists shown on your website — kept separate per product (brief Part 2)."
+        description="Manage the visa document checklists shown on your website — kept separate per product."
         breadcrumb={[{ label: "Dashboard", href: "/admin" }, { label: "Visa Content" }]}
       />
 

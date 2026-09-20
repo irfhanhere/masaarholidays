@@ -12,7 +12,7 @@ const FEATURE_ICON_OPTIONS = [
   { value: "clock", label: "Clock / Up-to-date" },
   { value: "heart", label: "Heart / Care" },
   { value: "group", label: "Group / People" },
-  { value: "shield", label: "Shield / Insurance" },
+  { value: "shield", label: "Shield / Protection" },
   { value: "passport", label: "Passport" },
   { value: "flight", label: "Flight" },
 ];

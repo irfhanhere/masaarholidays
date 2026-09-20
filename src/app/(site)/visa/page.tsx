@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { EmptyState, SectionHeading } from "@/components/site/SectionHeading";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
@@ -16,6 +17,7 @@ import { CONTACT } from "@/lib/contact";
 import { getActiveVisaTypes, getVisaLandingContent } from "@/lib/data/public";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { FaqSection } from "@/components/site/FaqSection";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const FALLBACK_IMPORTANT_INFO =
   "Visa requirements, processing times and fees vary by visa type and nationality, and can change frequently. Please always verify the latest information with the relevant embassy, consulate or authority.\nMasaar Holidays facilitates visa applications and provides guidance throughout the process, but cannot guarantee approval — the final decision rests solely with the relevant authorities.";
 
-/** Landing-page card icon per visa type — not admin-editable, brief Part 2 doesn't ask for it. */
+/** Landing-page card icon per visa type — not admin-editable. */
 const CARD_ICONS: Record<string, (props: { className?: string }) => React.ReactElement> = {
   umrah: PassportIcon,
   uae: DocumentIcon,
@@ -49,10 +51,10 @@ export default async function VisaPage() {
 
   return (
     <>
-      <Hero eyebrow="Visa Assistance" h1="Visa Assistance With Clarity" image="/brand/banners/default.png">
-        {/* Draft copy pending Haseeb's approval */}
-        <p className="mt-4 max-w-xl text-sm text-white/80 sm:text-base">
-          Visa processes can be confusing and change often. We guide you through each step, so paperwork is never what stands between you and your journey.
+      <Breadcrumbs items={[{ label: "Visa" }]} />
+      <Hero eyebrow="Visa Assistance" h1="Visa Assistance," h1Gold="With Clarity" image="/brand/banners/destination.png">
+        <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
+          Guidance through the documentation and application process, so you know what is needed before your journey.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="visa" params={{ visaType: "General enquiry" }}>
@@ -165,6 +167,8 @@ export default async function VisaPage() {
       </section>
 
       <CrossLinkServices exclude="visa" />
+
+      <FaqSection category="visa" />
     </>
   );
 }
