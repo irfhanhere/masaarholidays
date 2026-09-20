@@ -6,12 +6,7 @@
 -- (see app/admin/(dashboard)/packages/actions.ts#savePackage's
 -- sibling-sync update) — not duplicated per duration.
 --
--- Nullable, no backfill: no real copy has been provided for the 6
--- existing placeholder packages, and inventing marketing copy isn't
--- this project's call to make (same "no invented content" rule already
--- applied to itineraries, testimonials, etc.) — the public pages show a
--- neutral "Description pending" fallback instead until Haseeb writes
--- real text per tier.
+-- Nullable so packages can be drafted before their tier copy is approved.
 alter table public.packages
   add column if not exists short_description text;
 

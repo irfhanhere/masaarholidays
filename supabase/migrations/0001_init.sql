@@ -107,7 +107,7 @@ create table public.package_upgrades (
   label text not null, -- e.g. "Essential Plus"
   nights_makkah integer,
   nights_madinah integer,
-  transport_note text, -- e.g. "Private Transport" vs base "Shared Transport"
+  transport_note text, -- e.g. "Private Transport"
   support_note text,
   is_active boolean not null default false, -- Haseeb's per-package toggle
   display_order integer not null default 0,

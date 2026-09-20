@@ -36,7 +36,7 @@ comment on column public.packages.rate_disclaimer is 'Pricing caveat shown near 
 update public.packages set
   duration_label = '6 Nights / 7 Days',
   validity_label = 'Travel dates arranged directly with your advisor',
-  inclusions_text = E'Comfortable hotel stay\nShared shuttle transport\nVisa processing\nAirport transfers',
+  inclusions_text = E'Comfortable hotel stay\nPrivate shuttle transport\nVisa processing\nAirport transfers',
   advance_booking_note = 'Recommended to book at least 3-4 weeks in advance to secure availability.',
   flight_note = 'International flights are not included — we can help arrange these separately on request.',
   rate_disclaimer = 'Prices shown are per person, indicative, and subject to availability. Final price is confirmed on WhatsApp.'
@@ -45,7 +45,7 @@ where slug = 'umrah-essential-placeholder';
 update public.packages set
   duration_label = '9 Nights / 10 Days',
   validity_label = 'Travel dates arranged directly with your advisor',
-  inclusions_text = E'Closer hotel, within walking distance to the Haram\nPrivate/shared transport\nVisa processing\nGuided support throughout your journey',
+  inclusions_text = E'Closer hotel, within walking distance to the Haram\nPrivate transport\nVisa processing\nGuided support throughout your journey',
   advance_booking_note = 'Recommended to book at least 3-4 weeks in advance to secure availability.',
   flight_note = 'International flights are not included — we can help arrange these separately on request.',
   rate_disclaimer = 'Prices shown are per person, indicative, and subject to availability. Final price is confirmed on WhatsApp.'
@@ -63,7 +63,7 @@ where slug = 'umrah-prive-placeholder';
 update public.packages set
   duration_label = '13 Nights / 14 Days',
   validity_label = 'Travel dates arranged directly with your advisor',
-  inclusions_text = E'Comfortable hotel stay\nShared shuttle transport\nVisa processing\nAirport transfers',
+  inclusions_text = E'Comfortable hotel stay\nPrivate shuttle transport\nVisa processing\nAirport transfers',
   advance_booking_note = 'Hajj travel fills up early — recommended to register your interest well ahead of the season.',
   flight_note = 'International flights are not included — we can help arrange these separately on request.',
   rate_disclaimer = 'Prices shown are per person, indicative, and subject to availability. Final price is confirmed on WhatsApp.'
@@ -72,7 +72,7 @@ where slug = 'hajj-essential-placeholder';
 update public.packages set
   duration_label = '13 Nights / 14 Days',
   validity_label = 'Travel dates arranged directly with your advisor',
-  inclusions_text = E'Closer hotel, within walking distance to the Haram\nPrivate/shared transport\nVisa processing\nGuided support throughout your journey',
+  inclusions_text = E'Closer hotel, within walking distance to the Haram\nPrivate transport\nVisa processing\nGuided support throughout your journey',
   advance_booking_note = 'Hajj travel fills up early — recommended to register your interest well ahead of the season.',
   flight_note = 'International flights are not included — we can help arrange these separately on request.',
   rate_disclaimer = 'Prices shown are per person, indicative, and subject to availability. Final price is confirmed on WhatsApp.'

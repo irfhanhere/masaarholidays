@@ -20,13 +20,13 @@
 with tier_copy(tier, title, city_destination, inclusions_text, advance_booking_note, flight_note, rate_disclaimer, validity_label, is_featured) as (
   values
     ('essential'::public.package_tier, 'Essential Hajj', 'Makkah / Madinah',
-     E'Comfortable hotel stay\nShared shuttle transport\nVisa processing\nAirport transfers',
+    E'Comfortable hotel stay\nPrivate shuttle transport\nVisa processing\nAirport transfers',
      'Hajj travel fills up early — recommended to register your interest well ahead of the season.',
      'International flights are not included — we can help arrange these separately on request.',
      'Prices shown are per person, indicative, and subject to availability. Final price is confirmed on WhatsApp.',
      'Travel dates arranged directly with your advisor', false),
     ('signature'::public.package_tier, 'Signature Hajj', 'Makkah / Madinah',
-     E'Closer hotel, within walking distance to the Haram\nPrivate/shared transport\nVisa processing\nGuided support throughout your journey',
+    E'Closer hotel, within walking distance to the Haram\nPrivate transport\nVisa processing\nGuided support throughout your journey',
      'Hajj travel fills up early — recommended to register your interest well ahead of the season.',
      'International flights are not included — we can help arrange these separately on request.',
      'Prices shown are per person, indicative, and subject to availability. Final price is confirmed on WhatsApp.',
