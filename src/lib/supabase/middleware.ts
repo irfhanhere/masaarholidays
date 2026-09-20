@@ -13,9 +13,14 @@ import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env"
  * browsable; /admin/** isn't auth-gated yet either) rather than throwing
  * on every request — Supabase connection and "can I preview the scaffold"
  * are separate concerns.
+ *
+ * `requestHeaders` defaults to a copy of the incoming request's own
+ * headers when the caller doesn't need to stamp anything extra — but
+ * middleware.ts always passes one with x-pathname set, so every
+ * NextResponse.next() built below carries it through to Server Components.
  */
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+export async function updateSession(request: NextRequest, requestHeaders: Headers = new Headers(request.headers)) {
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (!isSupabaseConfigured()) {
     return supabaseResponse;
@@ -33,7 +38,7 @@ export async function updateSession(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
           for (const { name, value, options } of cookiesToSet) {
             supabaseResponse.cookies.set(name, value, options);
           }

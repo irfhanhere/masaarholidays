@@ -1,13 +1,25 @@
 import Link from "next/link";
 import { CONTACT } from "@/lib/contact";
-import { getSiteOrigin } from "@/lib/site-url";
 
 export interface BreadcrumbItem {
   label: string;
   href?: string;
 }
 
-const SITE_ORIGIN = getSiteOrigin();
+// Reads NEXT_PUBLIC_SITE_URL directly rather than via
+// lib/site-url.ts#getSiteOrigin() — that helper is deliberately guarded
+// with `import "server-only"` (correctly, since most of its seven other
+// callers are genuinely server-only: sitemap.ts, robots.ts, etc.), but
+// this file is statically imported by several Client Components
+// (UmrahLandingClient.tsx, UmrahJourneyPageClient.tsx,
+// UmrahMonthPageClient.tsx, UmrahInventoryDetailClient.tsx —
+// Breadcrumbs/OrganizationSchema render identically from client and
+// server pages), so it can't pull in anything server-only without
+// breaking their build ("You're importing a module that depends on
+// 'server-only'..."). NEXT_PUBLIC_ vars are safe to read in either
+// context (inlined at build time both ways), so this duplicates
+// getSiteOrigin()'s fallback logic locally instead of sharing it.
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://masaarholidays.com").replace(/\/$/, "");
 
 /**
  * Visual breadcrumb trail + matching BreadcrumbList JSON-LD in one place,
@@ -57,13 +69,12 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
  * Site-wide Organization/TravelAgency schema — added once in the root layout,
  * describing the business itself rather than any one page. Only includes
  * facts already established elsewhere on the site (contact.ts) — no
- * invented registration/address/social-profile details.
+ * invented registration/address details.
  *
- * No street address or social profile links are included: the site has no
- * real ones anywhere (Contact page explicitly shows neither by design —
- * see its own comment — and Footer.tsx has a standing
- * "TODO: social icons pending handles from Haseeb"). Add both here the
- * moment either becomes real.
+ * No street address is included: Masaar operates fully remote/WhatsApp-first
+ * with no physical office (see the Contact page's own comment). Social
+ * profile links (sameAs) are the real, confirmed ones from contact.ts —
+ * same handles as the Footer icons.
  */
 export function OrganizationSchema() {
   const schema = {
@@ -75,6 +86,7 @@ export function OrganizationSchema() {
     image: `${SITE_ORIGIN}/brand/logo.png`,
     telephone: `+${CONTACT.whatsappPhoneIntl}`,
     email: CONTACT.emailGeneral,
+    sameAs: [CONTACT.instagramUrl, CONTACT.facebookUrl, CONTACT.linkedinUrl],
     areaServed: [
       { "@type": "Country", name: "United Arab Emirates" },
       { "@type": "Country", name: "Saudi Arabia" },

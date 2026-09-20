@@ -10,12 +10,20 @@ export async function middleware(request: NextRequest) {
   // without listing them one by one.
   const { locale, internalPath } = resolveLocaleFromPath(pathname);
 
+  // Stamped on every request (admin included) so the root layout — which
+  // renders both the public site and /admin/** through the same <body>,
+  // with no separate boundary — can tell admin traffic apart from public
+  // traffic without its own pathname-matching logic. Currently used to
+  // keep GA4 (app/layout.tsx) off admin pages; x-locale below is public-
+  // site-only since /admin/** isn't locale-routed.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+
   // /admin/** stays English-only and keeps its own auth/session logic —
-  // not part of the public-site locale routing below. Uses the ORIGINAL
-  // request (no rewrite, no x-locale header): there's no locale-prefixed
-  // alias into the admin panel.
+  // not part of the public-site locale routing below. No locale-prefixed
+  // alias into the admin panel, so no x-locale header here.
   if (internalPath.startsWith("/admin")) {
-    return updateSession(request);
+    return updateSession(request, requestHeaders);
   }
 
   // Public site: a non-default locale prefix (e.g. `/ar/*`) is internally
@@ -23,7 +31,6 @@ export async function middleware(request: NextRequest) {
   // tagged with an `x-locale` header that layouts/pages read via
   // lib/i18n.ts#getRequestLocale. No route files are duplicated per
   // locale — see lib/i18n.ts for the full rationale.
-  const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-locale", locale);
 
   if (internalPath !== pathname) {

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import Script from "next/script";
 import { Montserrat, Cormorant_Garamond } from "next/font/google";
 import { LOCALE_DIR, getRequestLocale } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
@@ -34,6 +36,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // duplicated page files.
   const locale = await getRequestLocale();
 
+  // This layout wraps both the public site and /admin/** through the same
+  // <html>/<body> — there's no separate root layout for admin routes —
+  // so GA4 below is gated on the `x-pathname` header middleware.ts stamps
+  // on every request, rather than relying on route structure to keep
+  // admin traffic out of analytics.
+  const h = await headers();
+  const isAdminRoute = (h.get("x-pathname") ?? "").startsWith("/admin");
+  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
   return (
     <html
       lang={locale}
@@ -42,6 +53,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-warm-ivory text-masaar-black">
         {children}
+        {gaId && !isAdminRoute && (
+          <>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${gaId}');
+              `}
+            </Script>
+          </>
+        )}
       </body>
     </html>
   );
