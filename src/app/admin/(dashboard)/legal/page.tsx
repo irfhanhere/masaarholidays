@@ -1,13 +1,23 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { LegalPageRow } from "@/lib/types/database";
+import { LegalManager } from "./LegalManager";
 
-export const metadata = { title: "Legal & Cookies | Masaar Admin", robots: { index: false } };
+export const metadata: Metadata = { title: "Legal & Cookies | Masaar Admin", robots: { index: false } };
 
-export default function LegalPage() {
-  return (
-    <ComingSoon
-      title="Legal & Cookies"
-      description="Edit Privacy Policy, Terms & Conditions, Accessibility and Cookie preferences copy — all pending legal review."
-      inspirationFile="ADMIN-PRIVACY-POLICY.png"
-    />
-  );
+async function getData(): Promise<LegalPageRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("legal_pages").select("*").order("key");
+  if (error) {
+    console.error("admin legal getData", error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+export default async function AdminLegalPage() {
+  const pages = await getData();
+  return <LegalManager pages={pages} />;
 }

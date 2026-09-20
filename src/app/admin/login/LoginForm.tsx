@@ -65,10 +65,8 @@ export function LoginForm({ next }: { next?: string }) {
         {isPending ? "Signing In…" : "Sign In →"}
       </button>
 
-      <p className="text-center text-sm">
-        <a href="#" className="text-admin-primary underline">
-          Forgot password?
-        </a>
+      <p className="text-center text-xs text-masaar-black/50">
+        Forgot your password? Contact your site administrator for a reset.
       </p>
     </form>
   );

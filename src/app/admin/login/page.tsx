@@ -26,7 +26,7 @@ export default async function AdminLoginPage({
 
       <div className="w-full max-w-md rounded-xl border border-black/5 bg-white p-8 shadow-xl">
         <div className="flex flex-col items-center text-center">
-          <Image src="/brand/logo.png" alt="Masaar Holidays" width={140} height={42} className="h-12 w-auto" />
+          <Image src="/brand/logo.png" alt="Masaar Holidays" width={200} height={60} className="h-16 w-auto" />
           <h1 className="mt-4 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
             Admin Portal
           </h1>

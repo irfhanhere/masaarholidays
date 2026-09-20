@@ -84,7 +84,7 @@ export default async function CurrencyPricingPage() {
         <h2 className="mb-1 font-semibold text-masaar-black">Update Exchange Rates</h2>
         <p className="mb-4 text-sm text-masaar-black/60">
           Manual override — the primary method is the scheduled daily Supabase Edge Function pull
-          from a free-tier FX API (brief Part 7).
+          from a free-tier FX API.
         </p>
         <form action={updateExchangeRates} className="grid gap-4 sm:grid-cols-5">
           {(["INR", "USD", "EUR", "GBP", "SAR"] as const).map((code) => (

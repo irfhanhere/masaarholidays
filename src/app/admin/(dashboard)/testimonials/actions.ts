@@ -27,7 +27,7 @@ export async function saveTestimonial(
   if (status === "published" && !consentGiven) {
     return {
       status: "error",
-      message: "Consent must be confirmed before a testimonial can be published (brief Part 4).",
+      message: "Consent must be confirmed before a testimonial can be published.",
     };
   }
 

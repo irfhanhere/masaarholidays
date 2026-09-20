@@ -24,17 +24,18 @@ export default function ContactPage() {
   return (
     <>
       <Hero
-        eyebrow="Contact"
-        h1="We're Here to Help"
+        eyebrow="Contact Masaar"
+        h1="Let's Plan Your"
+        h1Gold="Journey Together"
         image="/brand/banners/default.png"
         breadcrumb={[
           { label: "Home", href: "/" },
           { label: "Contact", href: "/contact" },
         ]}
       >
-        <p className="mt-4 max-w-xl text-sm text-white/80 sm:text-base">
-          Questions about a package, a booking already in progress, or just want to talk it through?
-          Reach out however suits you — we&apos;ll take it from there.
+        <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
+          Questions about a package, hotel, visa or journey?
+          Reach out and our team will help you with the next step.
         </p>
       </Hero>
 

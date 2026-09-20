@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { submitEnquiry, type SubmitEnquiryState } from "./actions";
+import { PhoneNumberField } from "@/components/site/PhoneNumberField";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 
 const initialState: SubmitEnquiryState = { status: "idle" };
@@ -13,7 +14,7 @@ export function ContactForm() {
     <form action={formAction} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full Name" name="name" required placeholder="Your full name" />
-        <Field label="Phone / WhatsApp" name="phone" required placeholder="+971 5X XXX XXXX" />
+        <PhoneNumberField name="phone" />
       </div>
       <Field label="Email Address" name="email" type="email" placeholder="Your email address" />
       <div>

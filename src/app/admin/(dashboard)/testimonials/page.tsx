@@ -52,7 +52,7 @@ export default async function AdminTestimonialsPage() {
           <tbody className="divide-y divide-black/5">
             {testimonials.length === 0 && (
               <EmptyRow colSpan={5}>
-                No testimonials yet — brief Part 4: never add fake ones, leave empty until real reviews exist.
+                No testimonials yet — never add fake ones, leave empty until real reviews exist.
               </EmptyRow>
             )}
             {testimonials.map((t) => (

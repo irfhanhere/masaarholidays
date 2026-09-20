@@ -21,6 +21,16 @@ export async function submitEnquiry(
     return { status: "error", message: "Please fill in your name, phone and enquiry type." };
   }
 
+  // The form always sends "{country code}{national number}" (e.g. "+971501234567") —
+  // built from a country-code dropdown + digits-only field, so a bare/missing "+"
+  // here means the request bypassed the UI rather than a genuine local number.
+  if (!/^\+[1-9]\d{6,14}$/.test(phone)) {
+    return {
+      status: "error",
+      message: "Please enter a valid phone number with country code (e.g. +971 5X XXX XXXX).",
+    };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("enquiries").insert({
     name,

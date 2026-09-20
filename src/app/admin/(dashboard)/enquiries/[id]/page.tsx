@@ -1,15 +1,31 @@
 import { notFound } from "next/navigation";
 import { Badge, Card, PageHeader, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { WhatsAppGlyph } from "@/components/site/WhatsAppButton";
 import { buildWhatsAppLink } from "@/lib/contact";
 import { setEnquiryStatus, saveEnquiryNotes, deleteEnquiry } from "../actions";
 
 export const metadata = { title: "Enquiry Details | Masaar Admin", robots: { index: false } };
 
+async function getClient() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    return supabase;
+  }
+
+  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+    return createAdminClient();
+  }
+
+  return supabase;
+}
+
 export default async function EnquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = await getClient();
   const { data: enquiry } = await supabase.from("enquiries").select("*").eq("id", id).maybeSingle();
   if (!enquiry) notFound();
 
