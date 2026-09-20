@@ -1,13 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { getWalkBucket, type HotelWithSummary, type WalkBucket } from "@/lib/hotel-format";
+import {
+  getListingTag,
+  getTerrainCategory,
+  getWalkBucket,
+  type HotelWithSummary,
+  type ListingTag,
+  type TerrainCategory,
+  type WalkBucket,
+} from "@/lib/hotel-format";
 import { EmptyState, SectionHeading } from "./SectionHeading";
 import { HotelCard } from "./HotelCard";
 import { BedIcon, DocumentIcon } from "./icons";
 
 type City = "Makkah" | "Madinah";
 type WalkFilter = "all" | WalkBucket;
+type CategoryFilter = "all" | ListingTag;
+type TerrainFilter = "all" | TerrainCategory;
 type RefundableFilter = "all" | "refundable" | "non-refundable";
 type SortOrder = "default" | "price-asc" | "price-desc";
 
@@ -23,8 +33,26 @@ const WALK_OPTIONS: { value: WalkFilter; label: string }[] = [
   { value: "10plus", label: "10+ min" },
 ];
 
+const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
+  { value: "all", label: "Any Category" },
+  { value: "Closest to Haram", label: "Closest to Haram" },
+  { value: "Easy Walking Access", label: "Easy Walking Access" },
+  { value: "Value + Shuttle", label: "Value + Shuttle" },
+  { value: "Premium", label: "Premium" },
+];
+
+/** A separate filter dimension from CATEGORY_OPTIONS — terrain difficulty alone, regardless of distance or star rating. */
+const TERRAIN_OPTIONS: { value: TerrainFilter; label: string }[] = [
+  { value: "all", label: "Any Path & Terrain" },
+  { value: "Flat", label: "Flat" },
+  { value: "Flat with mild incline", label: "Flat with Mild Incline" },
+  { value: "Uphill return", label: "Uphill Return" },
+  { value: "Steep, shuttle recommended", label: "Steep, Shuttle Recommended" },
+  { value: "Long distance, vehicle required", label: "Long Distance, Vehicle Required" },
+];
+
 const selectClass =
-  "flex-1 rounded-md border border-black/15 px-4 py-2.5 text-sm text-masaar-black focus:border-admin-primary focus:outline-none";
+  "flex-1 min-w-[170px] rounded-md border border-black/15 px-4 py-2.5 text-sm text-masaar-black focus:border-admin-primary focus:outline-none";
 
 /**
  * Makkah/Madinah toggle plus REAL client-side filters (walking distance,
@@ -35,6 +63,8 @@ const selectClass =
 export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
   const [activeCity, setActiveCity] = useState<City>("Makkah");
   const [walkFilter, setWalkFilter] = useState<WalkFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [terrainFilter, setTerrainFilter] = useState<TerrainFilter>("all");
   const [refundableFilter, setRefundableFilter] = useState<RefundableFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("default");
 
@@ -45,6 +75,12 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
 
     if (walkFilter !== "all") {
       result = result.filter((h) => getWalkBucket(h) === walkFilter);
+    }
+    if (categoryFilter !== "all") {
+      result = result.filter((h) => getListingTag(h) === categoryFilter);
+    }
+    if (terrainFilter !== "all") {
+      result = result.filter((h) => getTerrainCategory(h) === terrainFilter);
     }
     if (refundableFilter !== "all") {
       result = result.filter((h) => h.isRefundable === (refundableFilter === "refundable"));
@@ -60,7 +96,7 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
     }
 
     return result;
-  }, [hotels, activeCity, walkFilter, refundableFilter, sortOrder]);
+  }, [hotels, activeCity, walkFilter, categoryFilter, terrainFilter, refundableFilter, sortOrder]);
 
   return (
     <div>
@@ -83,13 +119,35 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
           ))}
         </div>
 
-        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <select
             value={walkFilter}
             onChange={(e) => setWalkFilter(e.target.value as WalkFilter)}
             className={selectClass}
           >
             {WALK_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+            className={selectClass}
+          >
+            {CATEGORY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={terrainFilter}
+            onChange={(e) => setTerrainFilter(e.target.value as TerrainFilter)}
+            className={selectClass}
+          >
+            {TERRAIN_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -125,6 +183,17 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
           <p className="mt-2 text-sm text-masaar-black/70">
             From value stays to five-star comfort, each hotel is chosen for its proximity to the Haram and the quality of the stay — not simply the lowest rate.
           </p>
+          {/* Category Tags */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {["Closest to Haram", "Easy Walking Access", "Value + Shuttle", "Premium"].map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-warm-ivory px-3 py-1 text-xs font-semibold text-deep-gold border border-black/5 shadow-2xs"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="mt-8">
           {visibleHotels.length > 0 ? (

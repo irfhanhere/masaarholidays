@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { ExternalImage } from "@/components/site/ExternalImage";
 import { Price } from "@/components/site/Price";
@@ -20,6 +21,8 @@ import {
   formatLadiesGateWalkTime,
   formatMensGateWalkTime,
   formatWalkTime,
+  isRenderableImageUrl,
+  splitTerrainNote,
 } from "@/lib/hotel-format";
 import { getHotelBySlug, getHotelRooms } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
@@ -70,15 +73,17 @@ export default async function HotelDetailPage({
   const ladiesWalk = formatLadiesGateWalkTime(hotel);
   const walkTime = formatWalkTime(hotel);
   const distance = formatDistance(hotel);
+  const terrainLines = splitTerrainNote(hotel.terrain_note);
   const galleryPhotos = hotel.gallery_image_urls.slice(0, 4);
 
   return (
     <>
+      <Breadcrumbs items={[{ label: "Hotels", href: "/hotels" }, { label: hotel.name }]} />
       <div className="relative h-72 w-full bg-masaar-black sm:h-96">
         {hotel.image_url ? (
           <ExternalImage src={hotel.image_url} alt={hotel.name} fill priority className="object-cover opacity-90" />
         ) : (
-          <Image src="/brand/banners/hotel.png" alt="" fill priority className="object-cover opacity-70" />
+          <Image src="/brand/banners/hotel.png" alt={`${hotel.name} in ${hotel.city}`} fill priority className="object-cover opacity-70" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-masaar-black/90 via-masaar-black/30 to-transparent" />
         <Container className="relative flex h-full flex-col justify-end pb-8 text-white">
@@ -168,7 +173,7 @@ export default async function HotelDetailPage({
               </div>
             </div>
 
-            {(hotel.zone || hotel.route_type || hotel.elderly_family_suitability_note || hotel.shuttle_note || hotel.accessibility_note || hotel.shuttle_available) && (
+            {(hotel.zone || hotel.route_type || hotel.elderly_family_suitability_note || hotel.shuttle_note || hotel.accessibility_note || hotel.shuttle_available || terrainLines.length > 0) && (
               <div className="mt-6 grid gap-3 border-t border-black/10 pt-5 sm:grid-cols-2">
                 {hotel.zone && (
                   <p className="text-xs text-masaar-black/60">
@@ -180,6 +185,20 @@ export default async function HotelDetailPage({
                   <p className="text-xs text-masaar-black/60">
                     <span className="font-semibold text-masaar-black">Route: </span>
                     {hotel.route_type}
+                  </p>
+                )}
+                {terrainLines.length > 0 && (
+                  <p className="text-xs text-masaar-black/60 sm:col-span-2">
+                    <span className="font-semibold text-masaar-black">Path &amp; Terrain: </span>
+                    {terrainLines.length > 1 ? (
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {terrainLines.map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      terrainLines[0]
+                    )}
                   </p>
                 )}
                 {hotel.elderly_family_suitability_note && (
@@ -239,11 +258,16 @@ export default async function HotelDetailPage({
               {rooms.map((room) => (
                 <div key={room.id} className="grid gap-4 rounded-lg border border-black/10 bg-white p-5 sm:grid-cols-[140px_1fr_auto]">
                   <div className="relative h-28 w-full overflow-hidden rounded-md bg-warm-ivory sm:h-full">
-                    {room.image_url ? (
+                    {isRenderableImageUrl(room.image_url) ? (
                       <ExternalImage src={room.image_url} alt={room.room_type} fill className="object-cover" />
-                    ) : hotel.image_url ? (
+                    ) : isRenderableImageUrl(hotel.image_url) ? (
                       <ExternalImage src={hotel.image_url} alt={room.room_type} fill className="object-cover opacity-70" />
-                    ) : null}
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-masaar-black/30">
+                        <BedIcon className="size-6" />
+                        <span className="text-[10px] font-medium">Image pending</span>
+                      </div>
+                    )}
                   </div>
 
                   <div>

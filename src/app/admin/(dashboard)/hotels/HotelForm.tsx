@@ -105,10 +105,10 @@ export function HotelForm({ hotelId, initial }: { hotelId?: string; initial?: Ho
         </div>
         <div className="mt-4 grid gap-4">
           <Field
-            label="Terrain Note"
-            hint="Real proximity description, e.g. &quot;Flat, open plaza facing King Fahd Gate&quot; — shown instead of Category where present."
+            label="Path & Terrain"
+            hint="Shown on hotel cards and the package 'Your Stay' card, just above Best For. E.g. &quot;Flat, open plaza facing King Fahd Gate&quot;. For a longer, multi-part description, put one point per line — each line renders as its own bullet."
           >
-            <textarea name="terrain_note" defaultValue={initial?.terrain_note ?? ""} rows={2} className={inputClass} />
+            <textarea name="terrain_note" defaultValue={initial?.terrain_note ?? ""} rows={3} className={inputClass} />
           </Field>
           <Field label="Short Description" hint="Keep it short and helpful — key facilities, location, what makes this hotel suitable.">
             <textarea name="description" defaultValue={initial?.description ?? ""} rows={3} maxLength={300} className={inputClass} />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { HotelsBrowser } from "@/components/site/HotelsBrowser";
@@ -7,6 +8,7 @@ import { computeHotelIsRefundable, computeHotelMinPrice, type HotelWithSummary }
 import { getActiveHotelRoomPriceSummaries, getActiveHotels } from "@/lib/data/public";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { FaqSection } from "@/components/site/FaqSection";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,15 +41,27 @@ export default async function HotelsPage() {
 
   return (
     <>
+      <Breadcrumbs items={[{ label: "Hotels" }]} />
       <Hero
         eyebrow="Hotels"
-        h1="Hotels in Makkah & Madinah"
+        h1="Stay Closer to"
+        h1Gold="What Matters"
         image="/brand/banners/hotel.png"
       >
-        {/* Draft copy pending Haseeb's approval */}
-        <p className="mt-4 max-w-xl text-sm text-white/80 sm:text-base">
-          Location and comfort matter as much as price. Every hotel we recommend is one we&apos;d choose for our own family, within walking distance that respects your time for prayer.
+        <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
+          Carefully selected hotels in Makkah and Madinah, chosen around location, comfort and the needs of your journey.
         </p>
+        {/* Category Tags */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {["Closest to Haram", "Easy Walking Access", "Value + Shuttle", "Premium"].map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-masaar-black/15 bg-masaar-black/5 px-3.5 py-1 text-xs font-medium text-masaar-black/70"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
@@ -60,6 +74,8 @@ export default async function HotelsPage() {
       </section>
 
       <CrossLinkServices exclude="hotels" />
+
+      <FaqSection category="hotels" />
     </>
   );
 }

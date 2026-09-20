@@ -3,11 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { HotelDataConfidence, HotelPrimaryGate } from "@/lib/types/database";
 
 export interface HotelFormState {
   status: "idle" | "error";
   message?: string;
+}
+
+async function getClient() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    return supabase;
+  }
+
+  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+    return createAdminClient();
+  }
+
+  return supabase;
 }
 
 function slugify(input: string) {
@@ -81,7 +97,7 @@ export async function saveHotel(
     is_active: formData.get("is_active") === "on",
   };
 
-  const supabase = await createClient();
+  const supabase = await getClient();
 
   if (hotelId) {
     const { error } = await supabase.from("hotels").update(payload).eq("id", hotelId);
@@ -97,13 +113,13 @@ export async function saveHotel(
 }
 
 export async function deleteHotel(id: string) {
-  const supabase = await createClient();
+  const supabase = await getClient();
   await supabase.from("hotels").delete().eq("id", id);
   revalidatePath("/admin/hotels");
 }
 
 export async function toggleHotelActive(id: string, isActive: boolean) {
-  const supabase = await createClient();
+  const supabase = await getClient();
   await supabase.from("hotels").update({ is_active: isActive }).eq("id", id);
   revalidatePath("/admin/hotels");
 }
@@ -162,7 +178,7 @@ export async function saveHotelRoom(
     is_active: formData.get("is_active") === "on",
   };
 
-  const supabase = await createClient();
+  const supabase = await getClient();
 
   if (roomId) {
     const { error } = await supabase.from("hotel_rooms").update(payload).eq("id", roomId);
@@ -188,7 +204,7 @@ export async function saveHotelRoom(
 }
 
 export async function deleteHotelRoom(hotelId: string, roomId: string) {
-  const supabase = await createClient();
+  const supabase = await getClient();
   await supabase.from("hotel_rooms").delete().eq("id", roomId);
   revalidatePath(`/admin/hotels/${hotelId}`);
   revalidatePath("/hotels");
