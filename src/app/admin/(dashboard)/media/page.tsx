@@ -1,13 +1,10 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import type { Metadata } from "next";
+import { getMediaCatalog } from "./data";
+import { MediaCatalogGrid } from "./MediaCatalogGrid";
 
-export const metadata = { title: "Media Library | Masaar Admin", robots: { index: false } };
+export const metadata: Metadata = { title: "Media Library | Masaar Admin", robots: { index: false } };
 
-export default function MediaLibraryPage() {
-  return (
-    <ComingSoon
-      title="Media Library"
-      description="Central image library backed by Supabase Storage — every content form currently takes a plain image URL as a placeholder for this."
-      inspirationFile="ADMIN-MEDIA.png"
-    />
-  );
+export default async function MediaLibraryPage() {
+  const entries = await getMediaCatalog();
+  return <MediaCatalogGrid entries={entries} />;
 }
