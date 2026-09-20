@@ -4,7 +4,7 @@ import Link from "next/link";
 import { EmptyState, SectionHeading } from "@/components/site/SectionHeading";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
-import { PackageCard } from "@/components/site/PackageCard";
+import { FeaturedPackageCard } from "@/components/site/FeaturedPackageCard";
 import { TestimonialsMarquee } from "@/components/site/TestimonialsMarquee";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import {
@@ -20,14 +20,15 @@ import {
 } from "@/components/site/icons";
 import {
   getHomeContent,
-  getPackageRoomPricesByPackageIds,
-  getPublishedPackages,
   getPublishedPrivateTrips,
   getPublishedTestimonials,
+  getPublishedUmrahInventoryConfigurations,
+  type PublicUmrahInventoryConfig,
 } from "@/lib/data/public";
 import { HomePrivateTrips } from "@/components/site/HomePrivateTrips";
+import { WhyMasaar } from "@/components/site/WhyMasaar";
 import { buildStaticPageMetadata } from "@/lib/i18n";
-import type { PackageRow, PackageTier } from "@/lib/types/database";
+import type { PackageTier } from "@/lib/types/database";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -53,47 +54,59 @@ const SERVICES = [
 
 const TIER_ORDER: PackageTier[] = ["essential", "signature", "exclusive"];
 
-/** One representative package per tier — the featured duration variant if one's marked, else the shortest. Keeps the Home page teaser to exactly our 3 tiers, never every duration variant (that's what /umrah itself is for). */
-function pickTierRepresentatives(packages: PackageRow[]): PackageRow[] {
+/** One representative inventory configuration per tier for the Home page teaser —
+ *  real duration + pricing from umrah_inventory_configurations, never the legacy
+ *  packages/package_room_prices placeholder rows. Prefers the evergreen
+ *  (month-agnostic) Makkah+Madinah configuration, shortest duration first, matching
+ *  the default shown on /umrah itself; falls back to Makkah Only, then to any month,
+ *  so a tier is only omitted if it truly has no published configuration yet. */
+function pickFeaturedUmrahConfigs(configs: PublicUmrahInventoryConfig[]): PublicUmrahInventoryConfig[] {
   return TIER_ORDER.map((tier) => {
-    const items = packages.filter((p) => p.tier === tier).sort((a, b) => a.duration_nights - b.duration_nights);
-    return items.find((p) => p.is_featured) ?? items[0];
-  }).filter((p): p is PackageRow => Boolean(p));
+    const tierConfigs = configs.filter((c) => c.package.tier === tier);
+    const shortestMatch = (journeyType: PublicUmrahInventoryConfig["journey_type"], genericOnly: boolean) =>
+      tierConfigs
+        .filter((c) => c.journey_type === journeyType && (!genericOnly || c.month_id === null))
+        .sort((a, b) => a.duration_nights - b.duration_nights)[0];
+
+    return (
+      shortestMatch("makkah_madinah", true) ??
+      shortestMatch("makkah_madinah", false) ??
+      shortestMatch("makkah_only", true) ??
+      shortestMatch("makkah_only", false) ??
+      null
+    );
+  }).filter((c): c is PublicUmrahInventoryConfig => Boolean(c));
 }
 
 export default async function HomePage() {
-  const [umrahPackages, testimonials, homeContent, privateTrips] = await Promise.all([
-    getPublishedPackages("umrah"),
+  const [inventoryConfigs, testimonials, homeContent, privateTrips] = await Promise.all([
+    getPublishedUmrahInventoryConfigurations(),
     getPublishedTestimonials(),
     getHomeContent(),
     getPublishedPrivateTrips(),
   ]);
 
-  const tierPackages = pickTierRepresentatives(umrahPackages);
-  // Same live "starting from" computation as PackageGrid (see
-  // components/site/PackageGrid.tsx) — kept here rather than switching
-  // this section to PackageGrid since it deliberately shows exactly our
-  // 3 tiers, not every duration variant.
-  const roomPricesByPackage = await getPackageRoomPricesByPackageIds(tierPackages.map((p) => p.id));
+  const featuredConfigs = pickFeaturedUmrahConfigs(inventoryConfigs);
 
   return (
     <>
       <Hero
         eyebrow="Masaar Holidays"
-        h1="Thoughtfully Planned Umrah Journeys from the UAE"
-        image="/brand/banners/default.png"
+        h1="Thoughtfully Planned Umrah Journeys from"
+        h1Gold="the UAE"
+        image="/brand/banners/umrah.png"
       >
         <div className="mt-6 max-w-lg">
-          <p className="text-sm text-white/80 sm:text-base">
-            Thoughtful planning, trusted partners and dedicated support — so you can focus on what truly
-            matters.
+          <p className="text-sm text-masaar-black/60 sm:text-base">
+            Faith-led travel, with clarity, care and peace —{" "}
+            so you can focus on what truly matters.
           </p>
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="general">Plan Your Umrah</WhatsAppButton>
           <Link
             href="/contact"
-            className="inline-flex items-center justify-center rounded-md border border-white px-5 py-3 text-sm font-semibold text-white hover:bg-white hover:text-masaar-black"
+            className="inline-flex items-center justify-center rounded-md border border-masaar-black/30 px-5 py-3 text-sm font-semibold text-masaar-black hover:border-deep-gold hover:text-deep-gold"
           >
             Talk to Us
           </Link>
@@ -101,24 +114,7 @@ export default async function HomePage() {
       </Hero>
 
       {/* Why Masaar */}
-      <section className="bg-warm-ivory py-16">
-        <Container className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <SectionHeading eyebrow="Why Masaar" title="More Than a Trip. A Meaningful Journey." align="left" />
-            <p className="mt-4 text-sm leading-relaxed text-masaar-black/70">
-              At Masaar Holidays, we believe Umrah and Hajj are deeply personal journeys. We&apos;re here to
-              make the planning simpler, more comfortable and more meaningful — with honest guidance, trusted
-              partners and genuine care at every step.
-            </p>
-            <Link href="/about" className="mt-4 inline-block text-sm font-semibold text-deep-gold hover:underline">
-              Discover Our Story →
-            </Link>
-          </div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-black/5">
-            <Image src="/brand/banners/umrah.png" alt="" fill className="object-cover" />
-          </div>
-        </Container>
-      </section>
+      <WhyMasaar />
 
       {/* Our services */}
       <section className="py-16">
@@ -152,14 +148,20 @@ export default async function HomePage() {
         <Container>
           <SectionHeading eyebrow="Featured Umrah Packages" title="Choose a Package That Suits Your Journey" />
           <div className="mt-10">
-            {tierPackages.length > 0 ? (
-              <div className="space-y-4">
-                {tierPackages.map((pkg) => (
-                  <PackageCard
-                    key={pkg.id}
-                    pkg={pkg}
-                    roomPrices={roomPricesByPackage.get(pkg.id) ?? []}
+            {featuredConfigs.length > 0 ? (
+              <div className="space-y-6">
+                {featuredConfigs.map((config) => (
+                  <FeaturedPackageCard
+                    key={config.id}
+                    pkg={config.package}
+                    roomPrices={config.room_prices.map((rp) => ({
+                      room_type: rp.occupancy_type,
+                      price_aed: rp.price_aed,
+                    }))}
+                    durationLabel={config.duration_label}
                     fallbackImageUrl="/brand/banners/umrah.png"
+                    makkahHotel={config.makkah_hotel ?? null}
+                    madinahHotel={config.madinah_hotel ?? null}
                   />
                 ))}
               </div>

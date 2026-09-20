@@ -9,19 +9,19 @@ const CORE_SERVICES = [
     href: "/hotels",
     label: "Hotels in Makkah & Madinah",
     note: "A handpicked selection of hotels to suit different needs and preferences.",
-    image: "/brand/banners/hotel.png",
+    image: "/brand/Explore cards/explore-hotels.jpg",
   },
   {
     href: "/transfers",
     label: "Private Transfers",
     note: "Reliable and comfortable transport across all major routes.",
-    image: "/brand/banners/destination.png",
+    image: "/brand/Explore cards/explore-transfers.jpg",
   },
   {
     href: "/visa",
     label: "Visa Assistance",
     note: "Simple, reliable visa processing with dedicated support.",
-    image: "/brand/banners/default.png",
+    image: "/brand/Explore cards/explore-visa.jpg",
   },
 ];
 
