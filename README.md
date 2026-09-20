@@ -561,8 +561,9 @@ the exact same `space-y-4` vertical stack.
   `actions.ts#savePackage`. `PackageGrid.tsx` renders it once per tier,
   under the tier heading and above that tier's card(s), reading
   `items[0].short_description` (any sibling has the synced value) —
-  falls back to "Description pending" so the line is never blank/broken,
-  never omitted. Added to `PackageForm.tsx`'s "1. Basic Information"
+  is rendered on each package card alongside the separate admin-editable
+  `tagline`, so the line is never blank/broken or omitted. Added to
+  `PackageForm.tsx`'s "1. Basic Information"
   section as a 2-row textarea; needed an optional `className` prop added
   to the shared `Field` component (`components/admin/ui.tsx`) to span
   both grid columns — additive, doesn't affect any of Field's other
