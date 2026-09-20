@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only scratch scripts and design reference material — not part of
+# the deployed app; keep out of the repo rather than bloating git history
+# with large binary/one-off content.
+/scratch/
+/inspirations/
+/public/Assets/
