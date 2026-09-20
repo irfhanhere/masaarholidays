@@ -37,9 +37,9 @@ export const MAIN_NAV: NavItem[] = [
   {
     label: "Visa",
     href: "/visa",
-    // The 6 confirmed visa/document types — brief Part 2. Links to each
-    // type's own /visa/[slug] detail page (see visa_types.slug), not
-    // anchor fragments on the /visa landing page.
+    // The 6 confirmed visa/document types. Links to each type's own
+    // /visa/[slug] detail page (see visa_types.slug), not anchor
+    // fragments on the /visa landing page.
     children: [
       { label: "Umrah Visa", href: "/visa/umrah" },
       { label: "UAE Visa", href: "/visa/uae" },
@@ -68,12 +68,13 @@ export const FOOTER_SERVICES_NAV: NavChild[] = [
   { label: "Hotels", href: "/hotels" },
   { label: "Transfers", href: "/transfers" },
   { label: "Visa", href: "/visa" },
-  { label: "Private Trips", href: "/#private-trips" },
+  { label: "Private Trips", href: "/private-trips" },
 ];
 
 export const FOOTER_COMPANY_NAV: NavChild[] = [
   { label: "About Us", href: "/about" },
   { label: "Contact Us", href: "/contact" },
+  { label: "FAQs", href: "/faq" },
   { label: "Blog", href: "/blog" },
   { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Terms & Conditions", href: "/terms-conditions" },

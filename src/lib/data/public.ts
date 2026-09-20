@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
   AboutContentRow,
+  BlogCategoryRow,
+  BlogPostRow,
   HomeContentRow,
+  LegalPageKey,
+  LegalPageRow,
+  PackageAddonCatalogRow,
   PackageType,
   PackageRow,
   PageSeoRow,
@@ -20,7 +25,13 @@ import type {
   PrivateTripRow,
   PrivateTripStopRow,
   UmrahContentRow,
+  FaqCategory,
+  FaqRow,
+  ZiyaratVehicleTypeRow,
+  ZiyaratPricingRow,
+  PackageItineraryDay,
 } from "@/lib/types/database";
+import { FALLBACK_FAQS } from "@/lib/data/fallback-faqs";
 
 /**
  * Server-side reads for the public site. Every function here degrades to
@@ -414,6 +425,94 @@ export async function getPageSeo(path: string): Promise<PageSeoRow | null> {
   return data;
 }
 
+export async function getPublishedBlogPosts(): Promise<BlogPostRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select("*")
+    .eq("status", "published")
+    .order("published_at", { ascending: false });
+  if (error) {
+    console.error("getPublishedBlogPosts", error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+export async function getBlogPostBySlug(slug: string): Promise<BlogPostRow | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle();
+  if (error) {
+    console.error("getBlogPostBySlug", error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getBlogCategoryById(id: string | null): Promise<BlogCategoryRow | null> {
+  if (!id || !isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("blog_categories").select("*").eq("id", id).maybeSingle();
+  return data;
+}
+
+export async function getActiveBlogCategories(): Promise<BlogCategoryRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("blog_categories")
+    .select("*")
+    .eq("status", "active")
+    .order("display_order", { ascending: true });
+  return data ?? [];
+}
+
+/** Up to 3 other published posts, preferring the same category, for the article's "Related Articles" strip. */
+export async function getRelatedBlogPosts(currentPostId: string, categoryId: string | null): Promise<BlogPostRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+
+  if (categoryId) {
+    const { data } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("status", "published")
+      .eq("category_id", categoryId)
+      .neq("id", currentPostId)
+      .order("published_at", { ascending: false })
+      .limit(3);
+    if (data && data.length > 0) return data;
+  }
+
+  const { data } = await supabase
+    .from("blog_posts")
+    .select("*")
+    .eq("status", "published")
+    .neq("id", currentPostId)
+    .order("published_at", { ascending: false })
+    .limit(3);
+  return data ?? [];
+}
+
+/** Admin-editable legal document content (Privacy Policy, Terms & Conditions, Cookie Policy, Accessibility) — Admin → Legal & Cookies. Returns null when unset; callers fall back to their own default copy. */
+export async function getLegalPage(key: LegalPageKey): Promise<LegalPageRow | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("legal_pages").select("*").eq("key", key).maybeSingle();
+  if (error) {
+    console.error("getLegalPage", error.message);
+    return null;
+  }
+  return data;
+}
+
 export async function getVisaDocumentContext(contextKey: VisaDocumentContextKey) {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
@@ -480,6 +579,28 @@ export async function getPrivateTripBySlug(
   return { trip, stops: stops ?? [] };
 }
 
+/** Real alt text for a set of image URLs, from the admin-edited media_library catalog.
+ *  Returns only entries that actually have alt_text set — callers keep their own
+ *  fallback for URLs not yet annotated, never invent one here. */
+export async function getMediaAltTextMap(urls: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!isSupabaseConfigured() || urls.length === 0) return map;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("media_library")
+    .select("url, alt_text")
+    .in("url", urls)
+    .not("alt_text", "is", null);
+  if (error) {
+    console.error("getMediaAltTextMap", error.message);
+    return map;
+  }
+  for (const row of data ?? []) {
+    if (row.alt_text) map.set(row.url, row.alt_text);
+  }
+  return map;
+}
+
 export async function getPublishedPrivateTripStops(tripId: string): Promise<PrivateTripStopRow[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
@@ -540,3 +661,205 @@ export async function getUmrahContent(): Promise<UmrahContentRow> {
   }
   return data ?? DEFAULT_UMRAH_CONTENT;
 }
+
+export async function getPublishedFaqs(category?: FaqCategory): Promise<FaqRow[]> {
+  const fallback = category
+    ? FALLBACK_FAQS.filter((f) => f.category === category && f.published)
+    : FALLBACK_FAQS.filter((f) => f.published);
+
+  if (!isSupabaseConfigured()) return fallback;
+
+  try {
+    const supabase = await createClient();
+    let query = supabase
+      .from("faqs")
+      .select("*")
+      .eq("published", true)
+      .order("display_order", { ascending: true });
+
+    if (category) {
+      query = query.eq("category", category);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      // Table might not be migrated yet in Supabase
+      console.warn("getPublishedFaqs falling back to seed data:", error.message);
+      return fallback;
+    }
+    return data && data.length > 0 ? data : fallback;
+  } catch (err) {
+    console.warn("getPublishedFaqs error, using fallback:", err);
+    return fallback;
+  }
+}
+
+export interface PublicUmrahInventoryConfig {
+  id: string;
+  package_id: string;
+  package: PackageRow;
+  journey_type: "makkah_only" | "makkah_madinah";
+  month_id: string | null;
+  departure_month?: UmrahDepartureMonthRow | null;
+  duration_nights: number;
+  duration_days: number;
+  duration_label: string;
+  /** Structured night split for a makkah_madinah journey — null for makkah_only configs. Never derive this by parsing duration_label. */
+  makkah_nights: number | null;
+  madinah_nights: number | null;
+  makkah_hotel?: PublicHotelRow | null;
+  makkah_allow_similar: boolean;
+  makkah_custom_note: string | null;
+  madinah_hotel?: PublicHotelRow | null;
+  madinah_allow_similar: boolean;
+  madinah_custom_note: string | null;
+  makkah_hotel_alt?: PublicHotelRow | null;
+  makkah_allow_similar_alt: boolean;
+  makkah_custom_note_alt: string | null;
+  madinah_hotel_alt?: PublicHotelRow | null;
+  madinah_allow_similar_alt: boolean;
+  madinah_custom_note_alt: string | null;
+  room_prices: { occupancy_type: string; price_aed: number }[];
+  min_price_aed: number | null;
+  itinerary: PackageItineraryDay[];
+  inclusions_override: string | null;
+  private_trips: Array<{ id: string; name: string; destination: string; short_description: string }>;
+  status: "published" | "draft";
+}
+
+export async function getPublishedUmrahInventoryConfigurations(): Promise<PublicUmrahInventoryConfig[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+
+  const { data: configs, error } = await supabase
+    .from("umrah_inventory_configurations")
+    .select(`
+      *,
+      packages!inner(*),
+      umrah_departure_months(*),
+      makkah_hotel:hotels!umrah_inventory_configurations_makkah_hotel_id_fkey(${PUBLIC_HOTEL_COLUMNS}),
+      madinah_hotel:hotels!umrah_inventory_configurations_madinah_hotel_id_fkey(${PUBLIC_HOTEL_COLUMNS}),
+      makkah_hotel_alt:hotels!umrah_inventory_configurations_makkah_hotel_id_alt_fkey(${PUBLIC_HOTEL_COLUMNS}),
+      madinah_hotel_alt:hotels!umrah_inventory_configurations_madinah_hotel_id_alt_fkey(${PUBLIC_HOTEL_COLUMNS})
+    `)
+    .eq("status", "published")
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.error("getPublishedUmrahInventoryConfigurations", error.message);
+    return [];
+  }
+
+  if (!configs || configs.length === 0) return [];
+
+  const configIds = (configs as any[]).map((c) => c.id);
+
+  const [{ data: prices }, { data: tripJunctions }] = await Promise.all([
+    supabase
+      .from("umrah_configuration_room_prices")
+      .select("*")
+      .in("configuration_id", configIds)
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("umrah_configuration_private_trips")
+      .select("configuration_id, private_trips(id, name, destination, short_description)")
+      .in("configuration_id", configIds),
+  ]);
+
+  const pricesByConfig = new Map<string, { occupancy_type: string; price_aed: number }[]>();
+  (prices ?? []).forEach((p) => {
+    const list = pricesByConfig.get(p.configuration_id) ?? [];
+    list.push({ occupancy_type: p.occupancy_type, price_aed: p.price_aed });
+    pricesByConfig.set(p.configuration_id, list);
+  });
+
+  const tripsByConfig = new Map<string, Array<{ id: string; name: string; destination: string; short_description: string }>>();
+  (tripJunctions ?? []).forEach((j: any) => {
+    if (j.private_trips) {
+      const list = tripsByConfig.get(j.configuration_id) ?? [];
+      list.push(j.private_trips);
+      tripsByConfig.set(j.configuration_id, list);
+    }
+  });
+
+  return configs.map((c: any) => {
+    const rPrices = pricesByConfig.get(c.id) ?? [];
+    const minPrice = rPrices.length > 0 ? Math.min(...rPrices.map((p) => p.price_aed)) : null;
+
+    return {
+      id: c.id,
+      package_id: c.package_id,
+      package: c.packages,
+      journey_type: c.journey_type,
+      month_id: c.month_id,
+      departure_month: c.umrah_departure_months,
+      duration_nights: c.duration_nights,
+      duration_days: c.duration_days,
+      duration_label: c.duration_label,
+      makkah_nights: c.makkah_nights,
+      madinah_nights: c.madinah_nights,
+      makkah_hotel: c.makkah_hotel,
+      makkah_allow_similar: c.makkah_allow_similar,
+      makkah_custom_note: c.makkah_custom_note,
+      madinah_hotel: c.madinah_hotel,
+      madinah_allow_similar: c.madinah_allow_similar,
+      madinah_custom_note: c.madinah_custom_note,
+      makkah_hotel_alt: c.makkah_hotel_alt,
+      makkah_allow_similar_alt: c.makkah_allow_similar_alt,
+      makkah_custom_note_alt: c.makkah_custom_note_alt,
+      madinah_hotel_alt: c.madinah_hotel_alt,
+      madinah_allow_similar_alt: c.madinah_allow_similar_alt,
+      madinah_custom_note_alt: c.madinah_custom_note_alt,
+      room_prices: rPrices,
+      min_price_aed: minPrice,
+      itinerary: c.itinerary ?? [],
+      inclusions_override: c.inclusions_override,
+      private_trips: tripsByConfig.get(c.id) ?? [],
+      status: c.status,
+    };
+  });
+}
+
+export async function getZiyaratPricingForPublic() {
+  if (!isSupabaseConfigured()) return { vehicleTypes: [], pricing: [] };
+  const supabase = await createClient();
+
+  const [{ data: vehicleTypes }, { data: pricing }] = await Promise.all([
+    supabase.from("ziyarat_vehicle_types").select("*").eq("is_active", true).order("display_order", { ascending: true }),
+    supabase.from("ziyarat_pricing").select("*").eq("is_active", true),
+  ]);
+
+  return {
+    vehicleTypes: (vehicleTypes ?? []) as ZiyaratVehicleTypeRow[],
+    pricing: (pricing ?? []) as ZiyaratPricingRow[],
+  };
+}
+
+export interface PublicAddonCatalogRow extends PackageAddonCatalogRow {
+  /** Real data from the linked private_trips row (null when private_trip_id is unset) — never fabricated placeholder text. */
+  linked_trip: {
+    name: string;
+    short_description: string;
+    duration: string;
+    featured_image_url: string | null;
+    slug: string;
+  } | null;
+}
+
+export async function getAddonsCatalogForPublic(): Promise<PublicAddonCatalogRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("package_addons_catalog")
+    .select("*, linked_trip:private_trips(name, short_description, duration, featured_image_url, slug)")
+    .eq("status", "published")
+    .order("display_order", { ascending: true });
+
+  if (error) {
+    console.error("getAddonsCatalogForPublic error:", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as PublicAddonCatalogRow[];
+}
+
+

@@ -114,6 +114,12 @@ export async function buildPageMetadata({
       type: "website",
       images: resolvedImage ? [{ url: resolvedImage }] : undefined,
     },
+    twitter: {
+      card: resolvedImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: resolvedImage ? [resolvedImage] : undefined,
+    },
   };
 }
 

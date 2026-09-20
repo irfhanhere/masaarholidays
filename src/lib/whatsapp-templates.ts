@@ -1,9 +1,8 @@
 /**
  * WhatsApp pre-filled message templates now live in the `whatsapp_templates`
  * table (supabase/migrations/0013_whatsapp_templates.sql), managed from
- * Admin -> WhatsApp Templates, per brief Part 6: "Keep these editable in
- * the admin's WhatsApp Templates screen so Haseeb can adjust wording
- * without a developer."
+ * Admin -> WhatsApp Templates, so wording can be adjusted from the admin
+ * screen without a developer.
  *
  * This file is now just:
  *   - the fixed list of keys every call site can reference (adding a new
@@ -38,6 +37,7 @@ export const WHATSAPP_TEMPLATE_KEYS = [
   "packageEnquiry",
   "privateTripEnquiry",
   "guidedUmrah",
+  "umrahJourney",
 ] as const;
 
 export type WhatsAppTemplateKey = (typeof WHATSAPP_TEMPLATE_KEYS)[number];
@@ -69,6 +69,8 @@ export const WHATSAPP_TEMPLATE_DEFAULTS: Record<WhatsAppTemplateKey, string> = {
     "Assalamu Alaikum, I'd like to enquire about the {{tripName}} private trip ({{destination}} — {{duration}}).",
   guidedUmrah:
     "Assalamu Alaikum, I'd like to enquire about the Guided Umrah Assistance service.",
+  umrahJourney:
+    "Assalamu Alaikum,\n\nI'm interested in:\n\n{{packageName}}\n{{journey}}\n{{month}}\n\nDuration:\n{{duration}}\n\nStay:\n{{stay}}\n\nOccupancy:\n{{occupancy}}\n\nPrice shown:\n{{price}}\n\nPlease share availability and more details.\n\nJazakAllah Khair.",
 };
 
 /** Fallback destination number if whatsapp_settings is missing/unfetched — brief "Contact details (confirmed)". */

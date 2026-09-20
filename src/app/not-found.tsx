@@ -9,7 +9,7 @@ export const metadata = { robots: { index: false, follow: false } };
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-warm-ivory px-6 text-center">
-      <Image src="/brand/logo.png" alt="Masaar Holidays" width={160} height={48} className="h-11 w-auto" />
+      <Image src="/brand/logo.png" alt="Masaar Holidays" width={200} height={60} className="h-14 w-auto" />
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
           Some journeys take a different path

@@ -14,7 +14,7 @@ export default function MaintenancePage() {
   return (
     <WhatsAppTemplatesProvider>
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-warm-ivory px-6 text-center">
-        <Image src="/brand/logo.png" alt="Masaar Holidays" width={200} height={60} className="h-14 w-auto" />
+        <Image src="/brand/logo.png" alt="Masaar Holidays" width={240} height={72} className="h-16 w-auto" />
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-4xl font-semibold text-masaar-black sm:text-5xl">
             We&apos;ll Be Back Shortly

@@ -24,11 +24,15 @@ export type VisaDocumentContextKey =
   | "hajj";
 export type TestimonialSource = "admin" | "passenger";
 export type CurrencyCode = "AED" | "INR" | "USD" | "EUR" | "GBP" | "SAR";
+export type FaqCategory = "umrah" | "hajj" | "hotels" | "visa" | "transfers" | "general";
 
 export type PackageItineraryDay = {
   day: number;
+  title?: string;
   items: string[];
 };
+
+export type UmrahJourneyType = "makkah_only" | "makkah_madinah";
 
 /** Hajj-only structured itinerary entry — replaces the day-by-day PackageItineraryDay format for Hajj specifically; Umrah keeps using `itinerary` unchanged. */
 export type HajjItinerarySegment = {
@@ -64,12 +68,42 @@ type PackageRowShape = {
   city_destination: string | null;
   /** Tier-level (1-2 sentences), shown under the tier heading on listing pages, above that tier's cards — synced across duration-variant siblings exactly like title/inclusions_text/city_destination. */
   short_description: string | null;
+  /** Tier-level short positioning line shown on package cards — synced across duration-variant siblings. */
+  tagline: string | null;
+  /** Transfer route strip shown on the package card, e.g. "Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport". Tier-level — synced across duration variants. */
+  route_line: string | null;
+  /** Hotel name for the Makkah stay on the package card, e.g. "VOCO Makkah (or similar)". Tier-level — synced. */
+  makkah_hotel_name: string | null;
+  /** Proximity/access note for the Makkah hotel, e.g. "8 mins via complimentary shuttle / 25-min walk". Never "private shuttle" for the hotel-to-Haram facility — use "complimentary" or "24/7 hotel shuttle service". Tier-level — synced. */
+  makkah_hotel_note: string | null;
+  /** Short access badge for the Makkah hotel, e.g. "Step-free access & shuttle service". Tier-level — synced. */
+  makkah_hotel_access_tag: string | null;
+  /** Hotel name for the Madinah stay on the package card. Tier-level — synced. */
+  madinah_hotel_name: string | null;
+  /** Proximity/access note for the Madinah hotel. Tier-level — synced. */
+  madinah_hotel_note: string | null;
+  /** Short access badge for the Madinah hotel. Tier-level — synced. */
+  madinah_hotel_access_tag: string | null;
+  /** Alternate (Option B) hotel name for the Makkah stay on the package card. Tier-level — synced. */
+  makkah_hotel_name_alt: string | null;
+  /** Proximity/access note for the alternate Makkah hotel. Tier-level — synced. */
+  makkah_hotel_note_alt: string | null;
+  /** Short access badge for the alternate Makkah hotel. Tier-level — synced. */
+  makkah_hotel_access_tag_alt: string | null;
+  /** Alternate (Option B) hotel name for the Madinah stay on the package card. Tier-level — synced. */
+  madinah_hotel_name_alt: string | null;
+  /** Proximity/access note for the alternate Madinah hotel. Tier-level — synced. */
+  madinah_hotel_note_alt: string | null;
+  /** Short access badge for the alternate Madinah hotel. Tier-level — synced. */
+  madinah_hotel_access_tag_alt: string | null;
   duration_days: number;
   /** Nights for this specific duration variant of the tier (e.g. 7/10/14) — duration_days is kept as duration_nights + 1. Multiple rows can share the same (type, tier) to offer several duration options. */
   duration_nights: number;
   duration_label: string | null;
   validity_label: string | null;
   inclusions_text: string | null;
+  /** key_slug values from package_addons_catalog enabled by default for this tier. Empty = not yet configured. */
+  default_addon_slugs: string[];
   advance_booking_note: string | null;
   flight_note: string | null;
   rate_disclaimer: string | null;
@@ -353,6 +387,75 @@ type PageSeoRowShape = {
   updated_at: string;
 };
 
+/** 'privacy_policy' | 'terms_conditions' | 'cookie_policy' | 'accessibility'. */
+export type LegalPageKey = "privacy_policy" | "terms_conditions" | "cookie_policy" | "accessibility";
+
+type LegalPageRowShape = {
+  key: string;
+  title: string;
+  content: string;
+  updated_at: string;
+};
+
+export type BlogContentFormat = "legacy" | "html";
+
+type MediaLibraryRowShape = {
+  id: string;
+  url: string;
+  alt_text: string | null;
+  caption: string | null;
+  file_name: string | null;
+  width: number | null;
+  height: number | null;
+  uploaded_at: string;
+};
+
+type BlogCategoryRowShape = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  seo_title: string | null;
+  meta_description: string | null;
+  status: "active" | "inactive";
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type BlogPostRowShape = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string;
+  /** 'legacy' = old ##/- plain-text markup; 'html' = real HTML from the rich-text editor. */
+  content_format: BlogContentFormat;
+  /** Legacy free-text category, kept for old rows — no longer written to by the admin UI. */
+  category: string | null;
+  category_id: string | null;
+  tags: string[];
+  author_name: string;
+  is_featured: boolean;
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  status: PublishStatus;
+  meta_title: string | null;
+  meta_description: string | null;
+  focus_keyword: string | null;
+  canonical_url: string | null;
+  noindex: boolean;
+  og_title: string | null;
+  og_description: string | null;
+  og_image_url: string | null;
+  /** Future publish time for a draft — the publish-scheduled-posts cron flips status once this passes. */
+  scheduled_at: string | null;
+  published_at: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 type AboutContentRowShape = {
   id: number;
   hero_subline: string | null;
@@ -480,6 +583,8 @@ type PrivateTripRowShape = {
   whatsapp_template_key: string | null;
   meta_title: string | null;
   meta_description: string | null;
+  gallery_images: string[];
+  whats_included: string[];
   display_order: number;
   created_at: string;
   updated_at: string;
@@ -513,6 +618,44 @@ type PrivateTripStopRowShape = {
   visit_type: PrivateTripStopVisitType;
   short_description: string | null;
   why_it_matters: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FaqRowShape = {
+  id: string;
+  category: FaqCategory;
+  question: string;
+  answer: string;
+  display_order: number;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type PackageInclusionCatalogRowShape = {
+  id: string;
+  category: string;
+  name: string;
+  icon: string;
+  is_default_included: boolean;
+  status: PublishStatus;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type PackageAddonCatalogRowShape = {
+  id: string;
+  category: string;
+  name: string;
+  key_slug: string;
+  icon: string;
+  price_type_label: string;
+  /** Optional reference to a real private_trips row — when set, the public site shows that trip's actual name/description/image/duration instead of this row's own text fields. Never fabricated: null when there's genuinely no matching trip. */
+  private_trip_id: string | null;
+  status: PublishStatus;
+  display_order: number;
   created_at: string;
   updated_at: string;
 };
@@ -565,8 +708,29 @@ export interface Database {
       about_content: Table<AboutContentRowShape, "id">;
       umrah_content: Table<UmrahContentRowShape, "id">;
       page_seo: Table<PageSeoRowShape, "path" | "meta_title">;
+      legal_pages: Table<LegalPageRowShape, "key" | "title" | "content">;
+      blog_posts: Table<BlogPostRowShape, "title" | "slug">;
+      blog_categories: Table<BlogCategoryRowShape, "name" | "slug">;
+      media_library: Table<MediaLibraryRowShape, "url">;
       private_trips: Table<PrivateTripRowShape, "name" | "slug" | "destination">;
       private_trip_stops: Table<PrivateTripStopRowShape, "trip_id" | "stop_number" | "stop_name">;
+      faqs: Table<FaqRowShape, "category" | "question" | "answer">;
+      umrah_inventory_configurations: Table<
+        UmrahInventoryConfigurationRowShape,
+        "package_id" | "journey_type" | "duration_nights" | "duration_days" | "duration_label"
+      >;
+      umrah_configuration_room_prices: Table<
+        UmrahConfigurationRoomPriceRowShape,
+        "configuration_id" | "occupancy_type" | "price_aed"
+      >;
+      umrah_configuration_private_trips: Table<
+        UmrahConfigurationPrivateTripRowShape,
+        "configuration_id" | "private_trip_id"
+      >;
+      ziyarat_vehicle_types: Table<ZiyaratVehicleTypeRowShape, "name" | "slug" | "capacity_label">;
+      ziyarat_pricing: Table<ZiyaratPricingRowShape, "city" | "vehicle_type_id" | "price_aed">;
+      package_inclusions_catalog: Table<PackageInclusionCatalogRowShape, "name">;
+      package_addons_catalog: Table<PackageAddonCatalogRowShape, "name" | "key_slug">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -604,6 +768,99 @@ export type HomeContentRow = Database["public"]["Tables"]["home_content"]["Row"]
 export type AboutContentRow = Database["public"]["Tables"]["about_content"]["Row"];
 export type UmrahContentRow = Database["public"]["Tables"]["umrah_content"]["Row"];
 export type PageSeoRow = Database["public"]["Tables"]["page_seo"]["Row"];
+export type LegalPageRow = Database["public"]["Tables"]["legal_pages"]["Row"];
+export type BlogPostRow = Database["public"]["Tables"]["blog_posts"]["Row"];
+export type BlogCategoryRow = Database["public"]["Tables"]["blog_categories"]["Row"];
+export type MediaLibraryRow = Database["public"]["Tables"]["media_library"]["Row"];
 export type PrivateTripRow = Database["public"]["Tables"]["private_trips"]["Row"];
 export type PrivateTripStopRow = Database["public"]["Tables"]["private_trip_stops"]["Row"];
+
+export type UmrahInventoryConfigurationRowShape = {
+  id: string;
+  package_id: string;
+  journey_type: UmrahJourneyType;
+  month_id: string | null;
+  duration_nights: number;
+  duration_days: number;
+  duration_label: string;
+  makkah_nights: number | null;
+  madinah_nights: number | null;
+  makkah_hotel_id: string | null;
+  makkah_allow_similar: boolean;
+  makkah_custom_note: string | null;
+  madinah_hotel_id: string | null;
+  madinah_allow_similar: boolean;
+  madinah_custom_note: string | null;
+  makkah_hotel_id_alt: string | null;
+  makkah_allow_similar_alt: boolean;
+  makkah_custom_note_alt: string | null;
+  madinah_hotel_id_alt: string | null;
+  madinah_allow_similar_alt: boolean;
+  madinah_custom_note_alt: string | null;
+  itinerary: PackageItineraryDay[];
+  inclusions_override: string | null;
+  status: PublishStatus;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UmrahConfigurationRoomPriceRowShape = {
+  id: string;
+  configuration_id: string;
+  occupancy_type: string;
+  price_aed: number;
+  display_order: number;
+};
+
+export type UmrahConfigurationPrivateTripRowShape = {
+  id: string;
+  configuration_id: string;
+  private_trip_id: string;
+  display_order: number;
+};
+
+export type ZiyaratVehicleTypeRowShape = {
+  id: string;
+  name: string;
+  slug: string;
+  capacity_label: string;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ZiyaratPricingRowShape = {
+  id: string;
+  city: "Makkah" | "Madinah";
+  vehicle_type_id: string;
+  price_aed: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UmrahInventoryConfigurationRow =
+  Database["public"]["Tables"]["umrah_inventory_configurations"]["Row"];
+export type UmrahConfigurationRoomPriceRow =
+  Database["public"]["Tables"]["umrah_configuration_room_prices"]["Row"];
+export type UmrahConfigurationPrivateTripRow =
+  Database["public"]["Tables"]["umrah_configuration_private_trips"]["Row"];
+export type ZiyaratVehicleTypeRow =
+  Database["public"]["Tables"]["ziyarat_vehicle_types"]["Row"];
+export type ZiyaratPricingRow =
+  Database["public"]["Tables"]["ziyarat_pricing"]["Row"];
+export type FaqRow =
+  Database["public"]["Tables"]["faqs"]["Row"];
+export type PackageAddonCatalogRow =
+  Database["public"]["Tables"]["package_addons_catalog"]["Row"];
+export type PackageInclusionCatalogRow =
+  Database["public"]["Tables"]["package_inclusions_catalog"]["Row"];
+
+
+
+
 

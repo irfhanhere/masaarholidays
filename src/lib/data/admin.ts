@@ -1,7 +1,18 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { EnquiryRow } from "@/lib/types/database";
+
+async function getAdminClient() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) return supabase;
+  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+    return createAdminClient();
+  }
+  return supabase;
+}
 
 export interface DashboardStats {
   activeUmrahPackages: number;
@@ -23,7 +34,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   };
   if (!isSupabaseConfigured()) return empty;
 
-  const supabase = await createClient();
+  const supabase = await getAdminClient();
   const [umrah, hajj, hotels, transfers, enquiries, currency] = await Promise.all([
     supabase.from("packages").select("id", { count: "exact", head: true }).eq("type", "umrah").eq("is_active", true),
     supabase.from("packages").select("id", { count: "exact", head: true }).eq("type", "hajj").eq("is_active", true),
@@ -45,7 +56,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
 export async function getRecentEnquiries(limit = 5): Promise<EnquiryRow[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
+  const supabase = await getAdminClient();
   const { data, error } = await supabase
     .from("enquiries")
     .select("*")
@@ -60,7 +71,7 @@ export async function getRecentEnquiries(limit = 5): Promise<EnquiryRow[]> {
 
 export async function getAdminPrivateTrips() {
   if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
+  const supabase = await getAdminClient();
   const { data, error } = await supabase
     .from("private_trips")
     .select("*")
@@ -75,7 +86,7 @@ export async function getAdminPrivateTrips() {
 
 export async function getAdminPrivateTripById(id: string) {
   if (!isSupabaseConfigured()) return null;
-  const supabase = await createClient();
+  const supabase = await getAdminClient();
   const { data, error } = await supabase
     .from("private_trips")
     .select("*")
@@ -90,7 +101,7 @@ export async function getAdminPrivateTripById(id: string) {
 
 export async function getAdminPrivateTripStops(tripId: string) {
   if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
+  const supabase = await getAdminClient();
   const { data, error } = await supabase
     .from("private_trip_stops")
     .select("*")
@@ -102,3 +113,4 @@ export async function getAdminPrivateTripStops(tripId: string) {
   }
   return data ?? [];
 }
+
