@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/site/Container";
+import { renderLegalContent } from "@/components/site/LegalPage";
+import { getLegalPage } from "@/lib/data/public";
 import { buildAlternates, getRequestLocale } from "@/lib/i18n";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -13,14 +15,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function CookiePreferencesPage() {
+export default async function CookiePreferencesPage() {
+  const cookiePolicy = await getLegalPage("cookie_policy");
+
   return (
     <section className="py-16">
       <Container className="max-w-2xl">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold text-masaar-black">
           Cookie Preferences
         </h1>
-        <div className="mt-6 space-y-4">
+
+        {cookiePolicy?.content && <div className="mt-4">{renderLegalContent(cookiePolicy.content)}</div>}
+
+        <h2 className="mt-8 text-lg font-semibold text-masaar-black">Your Preferences</h2>
+        <div className="mt-3 space-y-4">
           {[
             { name: "Necessary", desc: "Required for the site to function. Always on.", locked: true },
             { name: "Analytics", desc: "Helps us understand how visitors use the site." },

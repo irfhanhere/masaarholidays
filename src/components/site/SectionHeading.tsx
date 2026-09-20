@@ -27,7 +27,7 @@ export function SectionHeading({
 export function ContentPending({ note }: { note?: string }) {
   return (
     <p className="text-sm italic text-masaar-black/40">
-      {note ?? "Copy pending — final content arrives with the client's pricing/package document."}
+      {note ?? "This page's content is coming soon."}
     </p>
   );
 }
