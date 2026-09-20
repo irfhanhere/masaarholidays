@@ -140,39 +140,184 @@ export function PackageForm({
               className={inputClass}
             />
           </Field>
-          {type === "hajj" && (
-            <Field
-              label="Maktab Category"
-              hint='Hajj only. Free text — phrase it however fits, e.g. "A-Category" or "VIP A-Category". Tier-level, shared across this tier&apos;s duration variants.'
-            >
-              <input
-                name="maktab_category"
-                defaultValue={initial?.maktab_category ?? ""}
-                placeholder="e.g. A-Category"
-                className={inputClass}
-              />
-            </Field>
-          )}
-          <Field label="Duration (Nights)" required hint="This tier's own duration variants share the same title/copy below but each have their own nights, slug, hotels and pricing.">
+          <Field
+            label="Card Tagline"
+            hint="A short tier-level line shown on every package card, shared across this tier's duration variants."
+            className="sm:col-span-2"
+          >
             <input
-              type="number"
-              min={1}
-              name="duration_nights"
-              defaultValue={initial?.duration_nights}
-              required
+              name="tagline"
+              defaultValue={initial?.tagline ?? ""}
+              placeholder="e.g. Smart & Comfortable"
               className={inputClass}
             />
           </Field>
-          <Field
-            label="Duration Label"
-            hint='Display text only, e.g. "6 Nights / 7 Days" — does not affect Duration (Nights) above, or which duration section this package appears under on the site. Keep it matching, or it will read inconsistently.'
-          >
-            <input name="duration_label" defaultValue={initial?.duration_label ?? ""} placeholder="e.g. 6 Nights / 7 Days" className={inputClass} />
-          </Field>
-          <Field label="Hero Image URL" hint="Supabase Storage upload UI is a follow-up — paste a URL for now.">
-            <input name="hero_image_url" defaultValue={initial?.hero_image_url ?? ""} className={inputClass} />
-          </Field>
         </div>
+
+        {/* ── Package Card — Route & Hotel Notes (tier-level, synced) ── */}
+        <div className="mt-4 border-t border-black/8 pt-4">
+          <p className="mb-3 text-sm font-medium text-masaar-black">Package Card — Route & Hotel Notes</p>
+          <p className="mb-3 text-xs text-masaar-black/50">
+            Tier-level — saved here updates every duration variant of this tier automatically. Leave blank to hide the section from the card.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Route Line"
+              hint='Displayed as a transfer route strip on the card, e.g. "Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport". Use → as the separator — it will be split into labelled segments with icons.'
+              className="sm:col-span-2"
+            >
+              <input
+                name="route_line"
+                defaultValue={(initial as PackageRow & { route_line?: string | null })?.route_line ?? ""}
+                placeholder="e.g. Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Makkah Hotel Name" hint='e.g. "VOCO Makkah (or similar)"'>
+              <input
+                name="makkah_hotel_name"
+                defaultValue={(initial as PackageRow & { makkah_hotel_name?: string | null })?.makkah_hotel_name ?? ""}
+                placeholder="e.g. VOCO Makkah (or similar)"
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Makkah Hotel Access Note"
+              hint='Proximity/access description, e.g. "8 mins via complimentary shuttle / 25-min walk". ⚠ Use "complimentary shuttle" or "24/7 hotel shuttle service" — never "private shuttle" for a hotel Haram shuttle.'
+            >
+              <input
+                name="makkah_hotel_note"
+                defaultValue={(initial as PackageRow & { makkah_hotel_note?: string | null })?.makkah_hotel_note ?? ""}
+                placeholder="e.g. 8 mins via complimentary shuttle / 25-min walk"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Makkah Hotel Access Tag" hint='Short badge text, e.g. "Step-free access & 24/7 hotel shuttle service"' className="sm:col-span-2">
+              <input
+                name="makkah_hotel_access_tag"
+                defaultValue={(initial as PackageRow & { makkah_hotel_access_tag?: string | null })?.makkah_hotel_access_tag ?? ""}
+                placeholder="e.g. Step-free access & 24/7 hotel shuttle service"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Madinah Hotel Name" hint='e.g. "Zowar International Madinah"'>
+              <input
+                name="madinah_hotel_name"
+                defaultValue={(initial as PackageRow & { madinah_hotel_name?: string | null })?.madinah_hotel_name ?? ""}
+                placeholder="e.g. Zowar International Madinah"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Madinah Hotel Access Note" hint='e.g. "4-min flat walk to Northern Courtyard"'>
+              <input
+                name="madinah_hotel_note"
+                defaultValue={(initial as PackageRow & { madinah_hotel_note?: string | null })?.madinah_hotel_note ?? ""}
+                placeholder="e.g. 4-min flat walk to Northern Courtyard"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Madinah Hotel Access Tag" hint='Short badge text, e.g. "Level, pedestrian-only pathway"' className="sm:col-span-2">
+              <input
+                name="madinah_hotel_access_tag"
+                defaultValue={(initial as PackageRow & { madinah_hotel_access_tag?: string | null })?.madinah_hotel_access_tag ?? ""}
+                placeholder="e.g. Level, pedestrian-only pathway"
+                className={inputClass}
+              />
+            </Field>
+
+            <div className="sm:col-span-2 mt-2 pt-2 border-t border-black/10">
+              <p className="text-xs font-semibold uppercase tracking-wider text-deep-gold mb-2">Alternate Hotel Option (Option B)</p>
+            </div>
+
+            <Field label="Makkah Alternate Hotel Name" hint='Option B hotel name, e.g. "Al Kiswah Towers Makkah (or similar)"'>
+              <input
+                name="makkah_hotel_name_alt"
+                defaultValue={(initial as PackageRow & { makkah_hotel_name_alt?: string | null })?.makkah_hotel_name_alt ?? ""}
+                placeholder="e.g. Al Kiswah Towers Makkah (or similar)"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Makkah Alternate Hotel Note" hint='Proximity note for Option B'>
+              <input
+                name="makkah_hotel_note_alt"
+                defaultValue={(initial as PackageRow & { makkah_hotel_note_alt?: string | null })?.makkah_hotel_note_alt ?? ""}
+                placeholder="e.g. 10 mins via 24/7 hotel shuttle service"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Makkah Alternate Hotel Tag" hint='Access tag for Option B' className="sm:col-span-2">
+              <input
+                name="makkah_hotel_access_tag_alt"
+                defaultValue={(initial as PackageRow & { makkah_hotel_access_tag_alt?: string | null })?.makkah_hotel_access_tag_alt ?? ""}
+                placeholder="e.g. Step-free access & 24/7 hotel shuttle service"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Madinah Alternate Hotel Name" hint='Option B hotel name, e.g. "Emaar Mektan Madinah (or similar)"'>
+              <input
+                name="madinah_hotel_name_alt"
+                defaultValue={(initial as PackageRow & { madinah_hotel_name_alt?: string | null })?.madinah_hotel_name_alt ?? ""}
+                placeholder="e.g. Emaar Mektan Madinah (or similar)"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Madinah Alternate Hotel Note" hint='Proximity note for Option B'>
+              <input
+                name="madinah_hotel_note_alt"
+                defaultValue={(initial as PackageRow & { madinah_hotel_note_alt?: string | null })?.madinah_hotel_note_alt ?? ""}
+                placeholder="e.g. 5-min flat walk to King Saud Gate"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Madinah Alternate Hotel Tag" hint='Access tag for Option B' className="sm:col-span-2">
+              <input
+                name="madinah_hotel_access_tag_alt"
+                defaultValue={(initial as PackageRow & { madinah_hotel_access_tag_alt?: string | null })?.madinah_hotel_access_tag_alt ?? ""}
+                placeholder="e.g. Pedestrian commercial strip approach"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {type === "hajj" && (
+              <Field
+                label="Maktab Category"
+                hint='Hajj only. Free text — phrase it however fits, e.g. "A-Category" or "VIP A-Category". Tier-level, shared across this tier&apos;s duration variants.'
+              >
+                <input
+                  name="maktab_category"
+                  defaultValue={initial?.maktab_category ?? ""}
+                  placeholder="e.g. A-Category"
+                  className={inputClass}
+                />
+              </Field>
+            )}
+            <Field label="Duration (Nights)" required hint="This tier's own duration variants share the same title/copy below but each have their own nights, slug, hotels and pricing.">
+              <input
+                type="number"
+                min={1}
+                name="duration_nights"
+                defaultValue={initial?.duration_nights}
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Duration Label"
+              hint='Display text only, e.g. "6 Nights / 7 Days" — does not affect Duration (Nights) above, or which duration section this package appears under on the site. Keep it matching, or it will read inconsistently.'
+            >
+              <input name="duration_label" defaultValue={initial?.duration_label ?? ""} placeholder="e.g. 6 Nights / 7 Days" className={inputClass} />
+            </Field>
+            <Field label="Hero Image URL" hint="Supabase Storage upload UI is a follow-up — paste a URL for now.">
+              <input name="hero_image_url" defaultValue={initial?.hero_image_url ?? ""} className={inputClass} />
+            </Field>
+          </div>
+        </div>
+
         <div className="mt-4 flex gap-6">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_active" defaultChecked={initial?.is_active ?? true} />
@@ -184,6 +329,7 @@ export function PackageForm({
           </label>
         </div>
       </Card>
+
 
       <Card>
         <h2 className="mb-1 font-semibold text-masaar-black">2. Package Details</h2>
@@ -230,7 +376,7 @@ export function PackageForm({
               name="inclusions_text"
               rows={4}
               defaultValue={initial?.inclusions_text ?? ""}
-              placeholder={"Comfortable hotel stay\nShared shuttle transport\nVisa processing\nAirport transfers"}
+              placeholder={"Comfortable hotel stay\nPrivate shuttle transport\nVisa processing\nAirport transfers"}
               className={inputClass}
             />
           </Field>
@@ -370,7 +516,7 @@ export function PackageForm({
         </label>
         <p className="mt-1 text-xs text-masaar-black/50">
           Essential Plus / Signature Plus — an add-on attached to this package, not a separate
-          package type (brief Part 1).
+          package type.
         </p>
 
         {hasUpgrade && (

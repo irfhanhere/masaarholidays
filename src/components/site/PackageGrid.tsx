@@ -58,10 +58,7 @@ export async function PackageGrid({
       {tierGroups.map(({ tier, items }) => (
         <div key={tier}>
           <h3 className="text-lg font-semibold text-masaar-black">{TIER_LABEL[tier]}</h3>
-          <p className="mb-4 mt-1 text-sm text-masaar-black/60">
-            {items[0].short_description || "Description pending"}
-          </p>
-          <div className="space-y-4">
+          <div className="mt-4 space-y-4">
             {items.map((pkg) => (
               <PackageCard
                 key={pkg.id}

@@ -45,6 +45,8 @@ export function PackageEnquiryButton({
   tier,
   duration,
   departureMonth,
+  configurationId,
+  journeyType,
   variant = "solid",
   className = "",
 }: {
@@ -52,6 +54,8 @@ export function PackageEnquiryButton({
   tier: string;
   duration: string;
   departureMonth?: string;
+  configurationId?: string;
+  journeyType?: string;
   variant?: "solid" | "outline";
   className?: string;
 }) {
@@ -76,6 +80,8 @@ export function PackageEnquiryButton({
           tier={tier}
           duration={duration}
           departureMonth={departureMonth}
+          configurationId={configurationId}
+          journeyType={journeyType}
           onClose={() => setOpen(false)}
         />
       )}
@@ -88,12 +94,16 @@ function PackageEnquiryModal({
   tier,
   duration,
   departureMonth,
+  configurationId,
+  journeyType,
   onClose,
 }: {
   packageTitle: string;
   tier: string;
   duration: string;
   departureMonth?: string;
+  configurationId?: string;
+  journeyType?: string;
   onClose: () => void;
 }) {
   const { getMessage, phoneNumber } = useWhatsAppTemplates();
@@ -168,6 +178,8 @@ function PackageEnquiryModal({
   function buildFullMessage(): string {
     const lines = [getMessage("packageEnquiry", { packageTitle, tier, duration })];
 
+    if (journeyType) lines.push(`Journey Option: ${journeyType === "makkah_madinah" ? "Makkah + Madinah" : "Makkah Only"}`);
+    if (configurationId) lines.push(`[Ref Config ID: ${configurationId}]`);
     if (departureMonth) lines.push(`Interested month: ${departureMonth}`);
     if (flightNeeded) {
       lines.push(`Flight needed: yes${flightDate ? ` (preferred date: ${flightDate})` : ""}`);

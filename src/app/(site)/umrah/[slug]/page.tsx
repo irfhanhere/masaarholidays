@@ -1,7 +1,21 @@
 import type { Metadata } from "next";
-import { PackageDetail } from "@/components/site/PackageDetail";
-import { getPackageBySlugAndType } from "@/lib/data/public";
+import { notFound } from "next/navigation";
+import { UmrahInventoryDetailClient } from "@/components/site/UmrahInventoryDetailClient";
+import {
+  getPackageBySlugAndType,
+  getPublishedUmrahInventoryConfigurations,
+  getZiyaratPricingForPublic,
+} from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
+
+const SLUG_ALIASES: Record<string, string> = {
+  "essential": "umrah-essential-placeholder",
+  "essential-umrah": "umrah-essential-placeholder",
+  "signature": "umrah-signature-placeholder",
+  "signature-umrah": "umrah-signature-placeholder",
+  "exclusive": "umrah-exclusive-placeholder",
+  "exclusive-umrah": "umrah-exclusive-placeholder",
+};
 
 export async function generateMetadata({
   params,
@@ -9,7 +23,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const detail = await getPackageBySlugAndType(slug, "umrah");
+  const targetSlug = SLUG_ALIASES[slug] || slug;
+  const detail = await getPackageBySlugAndType(targetSlug, "umrah");
   if (!detail) return buildPageMetadata({ path: `/umrah/${slug}`, title: "Umrah Package | Masaar Holidays" });
   return buildPageMetadata({
     path: `/umrah/${slug}`,
@@ -23,12 +38,26 @@ export async function generateMetadata({
 
 export default async function UmrahPackageDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ month?: string }>;
 }) {
   const { slug } = await params;
-  const { month } = await searchParams;
-  return <PackageDetail type="umrah" slug={slug} departureMonthSlug={month} />;
+  const targetSlug = SLUG_ALIASES[slug] || slug;
+  const detail = await getPackageBySlugAndType(targetSlug, "umrah");
+  if (!detail) notFound();
+
+  const [allConfigs, ziyaratData] = await Promise.all([
+    getPublishedUmrahInventoryConfigurations(),
+    getZiyaratPricingForPublic(),
+  ]);
+
+  const tierConfigs = allConfigs.filter((c) => c.package_id === detail.pkg.id);
+
+  return (
+    <UmrahInventoryDetailClient
+      pkg={detail.pkg}
+      tierConfigs={tierConfigs}
+      ziyaratData={ziyaratData}
+    />
+  );
 }

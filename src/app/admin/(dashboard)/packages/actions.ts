@@ -85,6 +85,20 @@ export async function savePackage(
     title,
     city_destination: cityDestination || null,
     short_description: textField("short_description"),
+    tagline: textField("tagline"),
+    route_line: textField("route_line"),
+    makkah_hotel_name: textField("makkah_hotel_name"),
+    makkah_hotel_note: textField("makkah_hotel_note"),
+    makkah_hotel_access_tag: textField("makkah_hotel_access_tag"),
+    madinah_hotel_name: textField("madinah_hotel_name"),
+    madinah_hotel_note: textField("madinah_hotel_note"),
+    madinah_hotel_access_tag: textField("madinah_hotel_access_tag"),
+    makkah_hotel_name_alt: textField("makkah_hotel_name_alt"),
+    makkah_hotel_note_alt: textField("makkah_hotel_note_alt"),
+    makkah_hotel_access_tag_alt: textField("makkah_hotel_access_tag_alt"),
+    madinah_hotel_name_alt: textField("madinah_hotel_name_alt"),
+    madinah_hotel_note_alt: textField("madinah_hotel_note_alt"),
+    madinah_hotel_access_tag_alt: textField("madinah_hotel_access_tag_alt"),
     // Hajj-only fields — always null/empty for Umrah, since the form
     // never renders these inputs for Umrah in the first place.
     maktab_category: type === "hajj" ? textField("maktab_category") : null,
@@ -146,6 +160,20 @@ export async function savePackage(
       title: payload.title,
       city_destination: payload.city_destination,
       short_description: payload.short_description,
+      tagline: payload.tagline,
+      route_line: payload.route_line,
+      makkah_hotel_name: payload.makkah_hotel_name,
+      makkah_hotel_note: payload.makkah_hotel_note,
+      makkah_hotel_access_tag: payload.makkah_hotel_access_tag,
+      madinah_hotel_name: payload.madinah_hotel_name,
+      madinah_hotel_note: payload.madinah_hotel_note,
+      madinah_hotel_access_tag: payload.madinah_hotel_access_tag,
+      makkah_hotel_name_alt: payload.makkah_hotel_name_alt,
+      makkah_hotel_note_alt: payload.makkah_hotel_note_alt,
+      makkah_hotel_access_tag_alt: payload.makkah_hotel_access_tag_alt,
+      madinah_hotel_name_alt: payload.madinah_hotel_name_alt,
+      madinah_hotel_note_alt: payload.madinah_hotel_note_alt,
+      madinah_hotel_access_tag_alt: payload.madinah_hotel_access_tag_alt,
       maktab_category: payload.maktab_category,
       inclusions_text: payload.inclusions_text,
       advance_booking_note: payload.advance_booking_note,
@@ -167,7 +195,7 @@ export async function savePackage(
     );
   }
 
-  // Plus upgrade (brief Part 1: attached to the package, not a new tier).
+  // Plus upgrade — attached to the package, not a new tier.
   const hasUpgrade = formData.get("has_upgrade") === "on";
   if (hasUpgrade) {
     const upgradeLabel = String(formData.get("upgrade_label") ?? `${title} Plus`).trim();

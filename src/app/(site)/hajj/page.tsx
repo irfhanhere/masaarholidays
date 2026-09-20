@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { SectionHeading } from "@/components/site/SectionHeading";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
+import { HajjHero } from "@/components/site/HajjHero";
 import { HajjPackageGrid } from "@/components/site/HajjPackageGrid";
-import { Hero } from "@/components/site/Hero";
+import { HajjLeadCaptureForm } from "@/components/site/HajjLeadCaptureForm";
 import { ImportantNotice } from "@/components/site/ImportantNotice";
-import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getPublishedPackages } from "@/lib/data/public";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { FaqSection } from "@/components/site/FaqSection";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,21 +26,8 @@ export default async function HajjPage() {
 
   return (
     <>
-      <Hero
-        eyebrow="Hajj Packages"
-        h1="Hajj Packages from the UAE"
-        image="/brand/banners/hajj.png"
-      >
-        {/* Draft copy pending Haseeb's approval */}
-        <p className="mt-4 max-w-xl text-sm text-white/80 sm:text-base">
-          A journey many wait a lifetime for. We handle the arrangements with care and clarity, so you can focus on what Hajj is truly for.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <WhatsAppButton templateKey="hajj">
-            Register Interest on WhatsApp
-          </WhatsAppButton>
-        </div>
-      </Hero>
+      <Breadcrumbs items={[{ label: "Hajj" }]} />
+      <HajjHero />
 
       <section className="py-16">
         <Container>
@@ -51,8 +40,12 @@ export default async function HajjPage() {
             <HajjPackageGrid
               packages={packages}
               emptyTitle="No Hajj packages published yet"
-              emptyNote="Waiting on the client's pricing/package document (brief Part 5)."
+              emptyNote="Please check back soon, or contact us for the latest Hajj availability."
             />
+          </div>
+
+          <div className="mt-16">
+            <HajjLeadCaptureForm />
           </div>
         </Container>
       </section>
@@ -71,6 +64,8 @@ export default async function HajjPage() {
       </section>
 
       <CrossLinkServices exclude="hajj" />
+
+      <FaqSection category="hajj" />
     </>
   );
 }

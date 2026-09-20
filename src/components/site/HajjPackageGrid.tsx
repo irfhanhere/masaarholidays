@@ -1,5 +1,4 @@
 import type { PackageRow, PackageTier } from "@/lib/types/database";
-import { getPackageRoomPricesByPackageIds } from "@/lib/data/public";
 import { EmptyState } from "./SectionHeading";
 import { HajjPackageCard } from "./HajjPackageCard";
 
@@ -20,7 +19,7 @@ const TIER_ORDER: PackageTier[] = ["essential", "signature", "exclusive"];
  * A duration section only appears if at least one tier has an active
  * package at that length, same graceful-degrade pattern as PackageGrid.
  */
-export async function HajjPackageGrid({
+export function HajjPackageGrid({
   packages,
   emptyTitle,
   emptyNote,
@@ -32,8 +31,6 @@ export async function HajjPackageGrid({
   if (packages.length === 0) {
     return <EmptyState title={emptyTitle} note={emptyNote} />;
   }
-
-  const roomPricesByPackage = await getPackageRoomPricesByPackageIds(packages.map((p) => p.id));
 
   const durationDays = [...new Set(packages.map((p) => p.duration_days))].sort((a, b) => a - b);
 
@@ -53,7 +50,7 @@ export async function HajjPackageGrid({
           <h3 className="mb-4 text-lg font-semibold text-masaar-black">{days} Day Hajj Packages</h3>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((pkg) => (
-              <HajjPackageCard key={pkg.id} pkg={pkg} roomPrices={roomPricesByPackage.get(pkg.id) ?? []} />
+              <HajjPackageCard key={pkg.id} pkg={pkg} />
             ))}
           </div>
         </div>
