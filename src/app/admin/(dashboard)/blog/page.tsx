@@ -1,13 +1,25 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { BlogCategoryRow, BlogPostRow } from "@/lib/types/database";
+import { BlogListClient } from "./BlogListClient";
 
 export const metadata = { title: "Blog | Masaar Admin", robots: { index: false } };
 
-export default function AdminBlogPage() {
-  return (
-    <ComingSoon
-      title="Blog"
-      description="Full blog CMS with SEO score, readability checks and categories — needs a blog_posts table (not part of the requested schema) before this can be wired up."
-      inspirationFile="ADMIN-BLOG OVERVIW.png"
-    />
-  );
+async function getData(): Promise<{ posts: BlogPostRow[]; categories: BlogCategoryRow[] }> {
+  if (!isSupabaseConfigured()) return { posts: [], categories: [] };
+  const supabase = await createClient();
+  const [{ data: posts, error }, { data: categories }] = await Promise.all([
+    supabase.from("blog_posts").select("*").order("created_at", { ascending: false }),
+    supabase.from("blog_categories").select("*").order("display_order", { ascending: true }),
+  ]);
+  if (error) {
+    console.error("admin blog getPosts", error.message);
+  }
+  return { posts: posts ?? [], categories: categories ?? [] };
+}
+
+export default async function AdminBlogPage() {
+  const { posts, categories } = await getData();
+  return <BlogListClient posts={posts} categories={categories} />;
 }
