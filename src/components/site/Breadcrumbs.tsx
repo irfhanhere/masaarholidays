@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CONTACT } from "@/lib/contact";
+import { getSiteOrigin } from "@/lib/site-url";
 
 export interface BreadcrumbItem {
   label: string;
   href?: string;
 }
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const SITE_ORIGIN = getSiteOrigin();
 
 /**
  * Visual breadcrumb trail + matching BreadcrumbList JSON-LD in one place,

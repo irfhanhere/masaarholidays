@@ -1,6 +1,7 @@
 import type { BlogPostRow } from "@/lib/types/database";
+import { getSiteOrigin } from "@/lib/site-url";
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const SITE_ORIGIN = getSiteOrigin();
 
 /**
  * Article/BlogPosting JSON-LD for a single blog post — built entirely from

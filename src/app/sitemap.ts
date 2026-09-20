@@ -9,6 +9,7 @@ import {
   getPublishedPrivateTrips,
 } from "@/lib/data/public";
 import { UMRAH_TIER_ORDER } from "@/lib/umrah-journey";
+import { getSiteOrigin } from "@/lib/site-url";
 
 // Every real, indexable route on the site — static top-level pages, plus
 // active/published rows from each content type with its own detail
@@ -49,7 +50,7 @@ async function getSitemapVisibleBlogPosts() {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const origin = getSiteOrigin();
 
   let noindexedPaths = new Set<string>();
   if (isSupabaseConfigured()) {

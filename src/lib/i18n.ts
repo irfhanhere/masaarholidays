@@ -2,6 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { getPageSeo } from "./data/public";
+import { getSiteOrigin } from "./site-url";
 import {
   DEFAULT_LOCALE,
   LOCALE_HREFLANG,
@@ -46,7 +47,7 @@ export async function getRequestLocale(): Promise<Locale> {
  * (pointing at English) on every page.
  */
 export function buildAlternates(locale: Locale, path: string): Metadata["alternates"] {
-  const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const origin = getSiteOrigin();
   const languages: Record<string, string> = {};
   for (const l of SUPPORTED_LOCALES) {
     languages[LOCALE_HREFLANG[l]] = `${origin}${localizedPath(l, path)}`;
@@ -98,7 +99,7 @@ export async function buildPageMetadata({
   noindex?: boolean | null;
 }): Promise<Metadata> {
   const locale = await getRequestLocale();
-  const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const origin = getSiteOrigin();
   const resolvedImage = ogImageUrl ? (ogImageUrl.startsWith("http") ? ogImageUrl : `${origin}${ogImageUrl}`) : undefined;
 
   return {

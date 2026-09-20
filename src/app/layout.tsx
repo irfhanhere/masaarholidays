@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat, Cormorant_Garamond } from "next/font/google";
 import { LOCALE_DIR, getRequestLocale } from "@/lib/i18n";
+import { getSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -23,7 +24,7 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: "Masaar Holidays",
   description: "",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(getSiteOrigin()),
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

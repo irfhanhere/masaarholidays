@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSiteOrigin } from "@/lib/site-url";
 
 export type StaffRole = "Administrator" | "Staff";
 
@@ -94,10 +95,6 @@ export interface StaffUserFormState {
   message?: string;
 }
 
-function siteOrigin(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-}
-
 export async function createStaffUser(
   _prevState: StaffUserFormState,
   formData: FormData
@@ -114,7 +111,7 @@ export async function createStaffUser(
   const admin = await getAdminClient();
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${siteOrigin()}/admin/login`,
+    redirectTo: `${getSiteOrigin()}/admin/login`,
   });
 
   if (error) {
