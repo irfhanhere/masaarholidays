@@ -59,7 +59,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     title: "System",
     items: [
       { label: "Admin Users", href: "/admin/users" },
-      { label: "Password & 2FA", href: "/admin/account/password-2fa" },
+      { label: "Change Password", href: "/admin/account/password-2fa" },
     ],
   },
 ];
