@@ -53,9 +53,9 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
             <Image
               src="/brand/logo.png"
               alt="Masaar Holidays"
-              width={160}
-              height={48}
-              className="h-11 w-auto"
+              width={240}
+              height={72}
+              className="h-16 w-auto"
               priority
             />
           </Link>
@@ -79,7 +79,7 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
                   {item.label}
                 </Link>
                 {isActive(item.href) && (
-                  <span className="absolute -bottom-6 left-0 h-0.5 w-full bg-pure-gold" />
+                  <span className="absolute bottom-0 left-0 h-0.5 w-full bg-pure-gold" />
                 )}
                 {item.children && openDropdown === item.label && (
                   <div className="absolute left-0 top-full z-40 min-w-52 rounded-md border border-black/10 bg-white py-2 shadow-lg">

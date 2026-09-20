@@ -4,6 +4,7 @@ import { CONTACT } from "@/lib/contact";
 import { localizedPath, type Locale } from "@/lib/locale-constants";
 import { FOOTER_COMPANY_NAV, FOOTER_SERVICES_NAV } from "@/lib/nav";
 import { Container } from "./Container";
+import { InstagramIcon } from "./icons";
 
 export function Footer({ locale }: { locale: Locale }) {
   const year = new Date().getFullYear();
@@ -15,9 +16,9 @@ export function Footer({ locale }: { locale: Locale }) {
           <Image
             src="/brand/logo-reverse.png"
             alt="Masaar Holidays"
-            width={160}
-            height={48}
-            className="h-11 w-auto"
+            width={200}
+            height={60}
+            className="h-14 w-auto"
           />
           <p className="mt-3 text-sm text-white/60">
             Faith-led travel, with clarity, care and peace at every step.
@@ -35,7 +36,15 @@ export function Footer({ locale }: { locale: Locale }) {
             <li>{CONTACT.phoneDisplay}</li>
             <li>{CONTACT.emailGeneral}</li>
           </ul>
-          {/* TODO: social icons pending handles from Haseeb */}
+          <a
+            href={CONTACT.instagramUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Masaar Holidays on Instagram"
+            className="mt-4 inline-flex size-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition-colors hover:border-pure-gold hover:text-pure-gold"
+          >
+            <InstagramIcon className="size-4" />
+          </a>
         </div>
       </Container>
 

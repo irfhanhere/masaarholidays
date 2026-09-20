@@ -16,7 +16,7 @@ export function Sidebar({ userEmail }: { userEmail: string | null }) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-admin-ink text-white">
       <div className="px-6 py-6">
-        <Image src="/brand/logo-reverse.png" alt="Masaar Holidays" width={140} height={42} className="h-9 w-auto" />
+        <Image src="/brand/logo-reverse.png" alt="Masaar Holidays" width={180} height={54} className="h-11 w-auto" />
         <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-white/50">
           Admin Portal
         </p>

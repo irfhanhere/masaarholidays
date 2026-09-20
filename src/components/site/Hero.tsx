@@ -2,57 +2,70 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { Container } from "./Container";
 
+/**
+ * Standard site hero — shared visual language with UmrahHero and HajjHero:
+ * Warm ivory background (#FAF7F2), right-aligned photography smoothly faded
+ * into the cream background, gold-accented typography, and optional top-right
+ * caption.
+ */
 export function Hero({
   eyebrow,
   h1,
+  h1Gold,
   image,
-  breadcrumb,
+  breadcrumb: _breadcrumb,
   children,
 }: {
   eyebrow: string;
   h1: string;
+  h1Gold?: string;
   image: string;
+  /** @deprecated — breadcrumbs rendered separately via <Breadcrumbs /> */
   breadcrumb?: { label: string; href: string }[];
   children?: ReactNode;
 }) {
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0">
-        <Image src={image} alt="" fill priority className="object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-masaar-black/85 via-masaar-black/55 to-masaar-black/20" />
+    <div className="relative w-full overflow-hidden bg-[#FAF7F2] border-b border-black/10">
+      {/* Background Graphic & Photography on the right */}
+      <div className="absolute right-0 top-0 bottom-0 w-full lg:w-7/12 pointer-events-none">
+        <div className="relative h-full w-full">
+          <Image
+            src={image}
+            alt={h1}
+            fill
+            priority
+            className="object-cover object-right"
+          />
+          {/* Subtle soft gradient fade into the cream background on the left */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#FAF7F2] via-[#FAF7F2]/80 to-transparent lg:via-[#FAF7F2]/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#FAF7F2] via-transparent to-transparent lg:hidden" />
+        </div>
       </div>
 
-      <Container className="relative flex min-h-[420px] items-center py-16">
-        <div className="max-w-2xl text-white">
-          {breadcrumb && (
-            <p className="mb-3 text-xs uppercase tracking-widest text-white/70">
-              {breadcrumb.map((crumb, i) => (
-                <span key={crumb.href}>
-                  {i > 0 && " / "}
-                  {crumb.label}
-                </span>
-              ))}
-            </p>
-          )}
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-light-gold">
-            {eyebrow}
-          </p>
-          <h1 className="font-[family-name:var(--font-display)] text-4xl font-semibold leading-tight sm:text-5xl">
+      <Container className="relative z-10 pt-16 pb-12 lg:pt-24 lg:pb-20">
+        <div className="max-w-2xl">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#A87F12]">
+            <span>—</span>
+            <span>{eyebrow}</span>
+            <span>—</span>
+          </div>
+
+          {/* Headline */}
+          <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight text-masaar-black sm:text-6xl sm:leading-[1.15]">
             {h1}
+            {h1Gold && (
+              <>
+                <br />
+                <span className="italic text-[#A87F12]">{h1Gold}</span>
+              </>
+            )}
           </h1>
+
+          {/* Content / Subtext / Actions */}
           {children}
         </div>
-
-        <p className="absolute right-0 top-1/2 hidden -translate-y-1/2 border-l border-white/30 pl-4 text-xs uppercase tracking-[0.3em] text-white/80 lg:block">
-          Faith
-          <br />
-          Clarity
-          <br />
-          Care
-          <br />
-          Peace
-        </p>
       </Container>
-    </section>
+    </div>
   );
 }
