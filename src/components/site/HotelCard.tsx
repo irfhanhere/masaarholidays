@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { formatCardWalkTime, getListingTag, splitTerrainNote, type HotelWithSummary } from "@/lib/hotel-format";
+import {
+  formatCardWalkTime,
+  formatLadiesGateWalkTime,
+  formatMensGateWalkTime,
+  getListingTag,
+  splitTerrainNote,
+  type HotelWithSummary,
+} from "@/lib/hotel-format";
 import { ExternalImage } from "./ExternalImage";
 import { LocationIcon } from "./icons";
 import { Price } from "./Price";
@@ -9,8 +16,11 @@ export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
   const walkTime = formatCardWalkTime(hotel);
   const listingTag = getListingTag(hotel);
   const terrainLines = splitTerrainNote(hotel.terrain_note);
+  const isMadinah = hotel.city === "Madinah";
+  const mensWalk = formatMensGateWalkTime(hotel);
+  const ladiesWalk = formatLadiesGateWalkTime(hotel);
 
-  // Formatted distance display: e.g. "~5 min walk (450m)"
+  // Formatted distance display: e.g. "~5 min walk (450m)" — Makkah only, one Haram.
   const distanceDisplay = walkTime
     ? `${walkTime}${hotel.distance_from_haram_meters ? ` (${hotel.distance_from_haram_meters}m)` : ""}`
     : hotel.distance_from_haram_meters
@@ -63,11 +73,34 @@ export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
 
           {/* Structured Walk & Terrain Proximity Fields (Developer Instruction Item 11) */}
           <div className="rounded-lg border border-black/5 bg-warm-ivory/50 p-2.5 space-y-1.5 text-xs">
-            {distanceDisplay && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Distance:</span>
-                <span className="text-masaar-black/75">{distanceDisplay}</span>
-              </div>
+            {isMadinah ? (
+              <>
+                {mensWalk && (
+                  <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                    <span className="font-semibold text-masaar-black">Men&apos;s Gate:</span>
+                    <span className="text-masaar-black/75">
+                      {mensWalk}
+                      {hotel.nearest_mens_gate && ` — ${hotel.nearest_mens_gate}`}
+                    </span>
+                  </div>
+                )}
+                {ladiesWalk && (
+                  <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                    <span className="font-semibold text-masaar-black">Ladies&apos; Gate:</span>
+                    <span className="text-masaar-black/75">
+                      {ladiesWalk}
+                      {hotel.nearest_ladies_gate && ` — ${hotel.nearest_ladies_gate}`}
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              distanceDisplay && (
+                <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                  <span className="font-semibold text-masaar-black">Distance:</span>
+                  <span className="text-masaar-black/75">{distanceDisplay}</span>
+                </div>
+              )
             )}
             {hotel.route_type && (
               <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">

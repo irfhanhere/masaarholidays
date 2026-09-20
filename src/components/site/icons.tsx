@@ -275,6 +275,26 @@ export function InstagramIcon(props: IconProps) {
   );
 }
 
+export function FacebookIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <path d="M13.5 9.5h1.8V7.2a13 13 0 0 0-1.9-.1c-1.9 0-3.2 1.2-3.2 3.3v1.8H8.3v2.6h1.9V19h2.6v-4.2h1.9l.3-2.6h-2.2v-1.5c0-.75.2-1.2 1.2-1.2Z" />
+    </Svg>
+  );
+}
+
+export function LinkedInIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <path d="M8.5 10.3V17" />
+      <circle cx="8.5" cy="7.2" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M12.5 17v-6.7M12.5 13c0-1.5 1-2.5 2.3-2.5S17 11.5 17 13v4" />
+    </Svg>
+  );
+}
+
 export function WarningTriangleIcon(props: IconProps) {
   return (
     <Svg {...props}>

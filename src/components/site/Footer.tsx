@@ -4,7 +4,7 @@ import { CONTACT } from "@/lib/contact";
 import { localizedPath, type Locale } from "@/lib/locale-constants";
 import { FOOTER_COMPANY_NAV, FOOTER_SERVICES_NAV } from "@/lib/nav";
 import { Container } from "./Container";
-import { InstagramIcon } from "./icons";
+import { FacebookIcon, InstagramIcon, LinkedInIcon } from "./icons";
 
 export function Footer({ locale }: { locale: Locale }) {
   const year = new Date().getFullYear();
@@ -36,15 +36,35 @@ export function Footer({ locale }: { locale: Locale }) {
             <li>{CONTACT.phoneDisplay}</li>
             <li>{CONTACT.emailGeneral}</li>
           </ul>
-          <a
-            href={CONTACT.instagramUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Masaar Holidays on Instagram"
-            className="mt-4 inline-flex size-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition-colors hover:border-pure-gold hover:text-pure-gold"
-          >
-            <InstagramIcon className="size-4" />
-          </a>
+          <div className="mt-4 flex items-center gap-2.5">
+            <a
+              href={CONTACT.instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Masaar Holidays on Instagram"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition-colors hover:border-pure-gold hover:text-pure-gold"
+            >
+              <InstagramIcon className="size-4" />
+            </a>
+            <a
+              href={CONTACT.facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Masaar Holidays on Facebook"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition-colors hover:border-pure-gold hover:text-pure-gold"
+            >
+              <FacebookIcon className="size-4" />
+            </a>
+            <a
+              href={CONTACT.linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Masaar Holidays on LinkedIn"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition-colors hover:border-pure-gold hover:text-pure-gold"
+            >
+              <LinkedInIcon className="size-4" />
+            </a>
+          </div>
         </div>
       </Container>
 

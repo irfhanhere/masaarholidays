@@ -10,6 +10,8 @@ export const CONTACT = {
   emailPartnerships: "partners@masaarholidays.com",
   emailAccounts: "accounts@masaarholidays.com",
   instagramUrl: "https://www.instagram.com/masaarholidays/",
+  facebookUrl: "https://www.facebook.com/profile.php?id=61594355322720",
+  linkedinUrl: "https://www.linkedin.com/company/masaarholidays",
 } as const;
 
 /**
