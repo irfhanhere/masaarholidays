@@ -45,10 +45,13 @@ export function PrivateTripForm({
   tripId,
   initialTrip,
   initialStops = [],
+  initialGalleryAlts = {},
 }: {
   tripId?: string;
   initialTrip?: PrivateTripRow | null;
   initialStops?: PrivateTripStopRow[];
+  /** Existing alt text per gallery image URL, from the Media Library catalog. */
+  initialGalleryAlts?: Record<string, string>;
 }) {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isPending, startTransition] = useTransition();
@@ -94,6 +97,26 @@ export function PrivateTripForm({
   );
   const [metaTitle, setMetaTitle] = useState(initialTrip?.meta_title ?? "");
   const [metaDescription, setMetaDescription] = useState(initialTrip?.meta_description ?? "");
+
+  const [galleryImages, setGalleryImages] = useState<{ url: string; alt: string }[]>(
+    initialTrip?.gallery_images && initialTrip.gallery_images.length > 0
+      ? initialTrip.gallery_images.map((url) => ({ url, alt: initialGalleryAlts[url] ?? "" }))
+      : []
+  );
+  const [newGalleryImageInput, setNewGalleryImageInput] = useState("");
+  const [newGalleryAltInput, setNewGalleryAltInput] = useState("");
+
+  const [whatsIncluded, setWhatsIncluded] = useState<string[]>(
+    initialTrip?.whats_included && initialTrip.whats_included.length > 0
+      ? initialTrip.whats_included
+      : [
+          "Private transportation",
+          "Experienced driver",
+          "Customizable stops (on request)",
+          "Flexible timing within the day",
+        ]
+  );
+  const [newIncludedItemInput, setNewIncludedItemInput] = useState("");
 
   // Stops State
   const [stops, setStops] = useState<StopDraft[]>(
@@ -186,6 +209,48 @@ export function PrivateTripForm({
     setStops(next);
   }
 
+  // Photo Gallery management — each entry keeps its own alt text, saved into the
+  // shared Media Library catalog on submit rather than being a raw URL list.
+  function addGalleryImage(url: string, alt: string = "") {
+    const trimmed = url.trim();
+    if (!trimmed || galleryImages.some((g) => g.url === trimmed)) return;
+    setGalleryImages([...galleryImages, { url: trimmed, alt: alt.trim() }]);
+  }
+
+  function removeGalleryImage(index: number) {
+    setGalleryImages(galleryImages.filter((_, i) => i !== index));
+  }
+
+  function updateGalleryAlt(index: number, alt: string) {
+    const next = [...galleryImages];
+    next[index] = { ...next[index], alt };
+    setGalleryImages(next);
+  }
+
+  function handleAddNewGalleryImage() {
+    addGalleryImage(newGalleryImageInput, newGalleryAltInput);
+    setNewGalleryImageInput("");
+    setNewGalleryAltInput("");
+  }
+
+  // What's Included management
+  function addIncludedItem() {
+    const trimmed = newIncludedItemInput.trim();
+    if (!trimmed) return;
+    setWhatsIncluded([...whatsIncluded, trimmed]);
+    setNewIncludedItemInput("");
+  }
+
+  function removeIncludedItem(index: number) {
+    setWhatsIncluded(whatsIncluded.filter((_, i) => i !== index));
+  }
+
+  function updateIncludedItem(index: number, value: string) {
+    const next = [...whatsIncluded];
+    next[index] = value;
+    setWhatsIncluded(next);
+  }
+
   function moveStop(index: number, direction: "up" | "down") {
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === stops.length - 1) return;
@@ -224,6 +289,8 @@ export function PrivateTripForm({
     formData.set("meta_title", metaTitle);
     formData.set("meta_description", metaDescription);
     formData.set("stops_json", JSON.stringify(stops));
+    formData.set("gallery_images_json", JSON.stringify(galleryImages));
+    formData.set("whats_included_json", JSON.stringify(whatsIncluded));
 
     startTransition(async () => {
       try {
@@ -953,6 +1020,159 @@ export function PrivateTripForm({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>The selected template will automatically include this trip&apos;s details when the customer enquires via WhatsApp.</span>
+            </div>
+          </Card>
+
+          {/* Photo Gallery */}
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-warm-ivory text-deep-gold">
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </span>
+              <div>
+                <h2 className="font-semibold text-masaar-black">Photo Gallery</h2>
+                <p className="text-xs text-masaar-black/50">
+                  Add images shown in the detail page gallery, each with its own alt text — saved to the
+                  Media Library catalog so it stays in sync everywhere that image is used. Falls back to
+                  stop images if left empty.
+                </p>
+              </div>
+            </div>
+
+            {galleryImages.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {galleryImages.map((img, index) => (
+                  <div key={`${img.url}-${index}`} className="flex items-center gap-3 rounded-lg border border-black/10 bg-warm-ivory/40 p-2">
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-black/10 bg-warm-ivory">
+                      <Image src={img.url} alt="" fill className="object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="truncate text-[10px] text-masaar-black/50" title={img.url}>{img.url}</p>
+                      <input
+                        type="text"
+                        value={img.alt}
+                        onChange={(e) => updateGalleryAlt(index, e.target.value)}
+                        placeholder="Alt text — describe what's in this photo"
+                        className="w-full rounded-md border border-black/15 bg-white px-2 py-1 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeGalleryImage(index)}
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-masaar-black/40 hover:bg-red-50 hover:text-red-600"
+                      title="Remove image"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={newGalleryImageInput}
+                onChange={(e) => setNewGalleryImageInput(e.target.value)}
+                placeholder="Image URL (e.g. /trips/STOP-MADINAH-MOUNT-UHUD.png)"
+                className="min-w-40 flex-1 rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+              />
+              <input
+                type="text"
+                value={newGalleryAltInput}
+                onChange={(e) => setNewGalleryAltInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddNewGalleryImage();
+                  }
+                }}
+                placeholder="Alt text (optional now, can add after)"
+                className="min-w-40 flex-1 rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleAddNewGalleryImage}
+                className="rounded-md bg-[#A87F12] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#C9A227]"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PRESET_IMAGES.map((p) => (
+                <button
+                  key={p.url}
+                  type="button"
+                  onClick={() => addGalleryImage(p.url)}
+                  className="rounded-md border border-black/15 bg-white px-2.5 py-1 text-xs text-masaar-black/70 hover:bg-warm-ivory"
+                >
+                  + {p.label}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {/* What's Included */}
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-warm-ivory text-deep-gold">
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <div>
+                <h2 className="font-semibold text-masaar-black">What&apos;s Included</h2>
+                <p className="text-xs text-masaar-black/50">List what&apos;s included in this trip, shown on the detail page.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {whatsIncluded.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => updateIncludedItem(index, e.target.value)}
+                    className="flex-1 rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeIncludedItem(index)}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
+                    title="Remove item"
+                  >
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={newIncludedItemInput}
+                onChange={(e) => setNewIncludedItemInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addIncludedItem();
+                  }
+                }}
+                placeholder="e.g. Bottled water on board"
+                className="flex-1 rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={addIncludedItem}
+                className="rounded-md bg-[#A87F12] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#C9A227]"
+              >
+                Add
+              </button>
             </div>
           </Card>
         </div>

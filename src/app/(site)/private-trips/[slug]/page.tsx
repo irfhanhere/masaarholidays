@@ -1,11 +1,49 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { PrivateTripGallery } from "@/components/site/PrivateTripGallery";
-import { getPrivateTripBySlug } from "@/lib/data/public";
+import { getMediaAltTextMap, getPrivateTripBySlug } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
+import type { PrivateTripStopRow, PrivateTripStopVisitType } from "@/lib/types/database";
+
+function getStopMeta(stop: PrivateTripStopRow): { label: string; sub: string; icon: PrivateTripStopVisitType | "Stop" } {
+  switch (stop.visit_type) {
+    case "Pickup":
+      return { label: "Pickup", sub: "Start of your journey", icon: "Pickup" };
+    case "Drop Off":
+      return { label: "Drop Off", sub: "End of trip", icon: "Drop Off" };
+    case "Pass By":
+      return { label: "Pass By", sub: "Viewed from the vehicle", icon: "Pass By" };
+    default:
+      return { label: "Stop", sub: stop.visit_duration || "Visit", icon: "Stop" };
+  }
+}
+
+function StopIcon({ type }: { type: PrivateTripStopVisitType | "Stop" }) {
+  if (type === "Pickup" || type === "Drop Off") {
+    return (
+      <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7h8m-8 4h8m-9 8h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    );
+  }
+  if (type === "Pass By") {
+    return (
+      <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
 
 export async function generateMetadata({
   params,
@@ -53,15 +91,22 @@ export default async function PrivateTripDetailPage({
 
   const { trip, stops } = data;
 
-  // Fallback stop gallery images
-  const galleryImages = [
-    ...(stops.filter((s) => s.image_url).map((s) => ({ src: s.image_url as string, alt: s.stop_name }))),
-    { src: "/trips/STOP-MADINAH-MOUNT-UHUD.png", alt: "Mount Uhud" },
-    { src: "/trips/STOP-MADINAH-SHUHADA-UHUD.png", alt: "Shuhada Uhud" },
-    { src: "/trips/STOP-MADINAH-MOUNT-RUMAH.png", alt: "Mount Rumah" },
-    { src: "/trips/DESTINATION IMAGE.png", alt: "Madinah Heritage" },
-    { src: "/trips/HOTEL  BANNER.png", alt: "Private Tour" },
-  ].filter((img, index, self) => index === self.findIndex((t) => t.src === img.src));
+  // Gallery images: admin-configured list takes priority, else fall back to stop images + defaults.
+  // Each image's real alt text comes from the Media Library catalog when the admin has set one
+  // there; falls back to the trip name only for images not yet annotated.
+  const galleryAltByUrl = await getMediaAltTextMap(trip.gallery_images ?? []);
+  const galleryImages = (
+    trip.gallery_images && trip.gallery_images.length > 0
+      ? trip.gallery_images.map((src) => ({ src, alt: galleryAltByUrl.get(src) || trip.name }))
+      : [
+          ...(stops.filter((s) => s.image_url).map((s) => ({ src: s.image_url as string, alt: s.stop_name }))),
+          { src: "/trips/STOP-MADINAH-MOUNT-UHUD.png", alt: "Mount Uhud" },
+          { src: "/trips/STOP-MADINAH-SHUHADA-UHUD.png", alt: "Shuhada Uhud" },
+          { src: "/trips/STOP-MADINAH-MOUNT-RUMAH.png", alt: "Mount Rumah" },
+          { src: "/trips/DESTINATION IMAGE.png", alt: "Madinah Heritage" },
+          { src: "/trips/HOTEL  BANNER.png", alt: "Private Tour" },
+        ]
+  ).filter((img, index, self) => index === self.findIndex((t) => t.src === img.src));
 
   const importantNotes = trip.important_note
     ? trip.important_note.split("\n").filter((p) => p.trim().length > 0)
@@ -72,12 +117,15 @@ export default async function PrivateTripDetailPage({
         "Dress modestly and follow local guidelines.",
       ];
 
-  const whatsIncluded = [
-    "Private transportation",
-    "Experienced driver",
-    "Customizable stops (on request)",
-    "Flexible timing within the day",
-  ];
+  const whatsIncluded =
+    trip.whats_included && trip.whats_included.length > 0
+      ? trip.whats_included
+      : [
+          "Private transportation",
+          "Experienced driver",
+          "Customizable stops (on request)",
+          "Flexible timing within the day",
+        ];
 
   const timeSlots = trip.time_slots && trip.time_slots.length > 0
     ? trip.time_slots
@@ -85,6 +133,8 @@ export default async function PrivateTripDetailPage({
 
   return (
     <div className="bg-warm-ivory">
+      <Breadcrumbs items={[{ label: "Private Trips", href: "/private-trips" }, { label: trip.name }]} />
+
       {/* 1. Full-Width Hero Section */}
       <section className="relative min-h-[520px] w-full bg-masaar-black text-white sm:min-h-[580px] lg:min-h-[640px]">
         {/* Hero Background Image */}
@@ -195,89 +245,48 @@ export default async function PrivateTripDetailPage({
             </p>
           </div>
 
-          {/* Timeline Route Display */}
-          <div className="mt-14">
-            {/* Desktop Horizontal Route View */}
-            <div className="hidden lg:block overflow-x-auto pb-4">
-              <div className="relative flex items-start justify-between gap-4 min-w-[900px] pt-4">
-                {/* Connecting Dotted Line */}
-                <div className="absolute top-[48px] left-[40px] right-[40px] border-t-2 border-dashed border-[#C9A227]/40 z-0" />
-
-                {stops.map((stop, idx) => (
-                  <div key={idx} className="relative z-10 flex flex-1 flex-col items-center text-center">
-                    {/* Circle Image Thumbnail */}
-                    <div className="relative mb-3 flex size-20 items-center justify-center rounded-full border-2 border-white bg-[#FAF5E8] p-1 shadow-md">
-                      <div className="relative size-full overflow-hidden rounded-full">
-                        {stop.image_url ? (
-                          <Image src={stop.image_url} alt={stop.stop_name} fill className="object-cover" />
-                        ) : (
-                          <div className="flex size-full items-center justify-center bg-[#FAF5E8] text-deep-gold">
-                            <svg className="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Number badge */}
-                      <span className="absolute -bottom-2 flex size-6 items-center justify-center rounded-full bg-[#A87F12] font-mono text-[11px] font-bold text-white shadow-xs">
-                        {String(stop.stop_number).padStart(2, "0")}
-                      </span>
-                    </div>
-
-                    <h4 className="mt-2 text-sm font-bold text-masaar-black line-clamp-2 max-w-[130px]">
-                      {stop.stop_name}
-                    </h4>
-
-                    <p className="mt-0.5 text-xs text-masaar-black/60 font-medium">
-                      {stop.visit_type === "Pass By"
-                        ? "Pass By"
-                        : stop.visit_type === "Pickup"
-                        ? "Pickup"
-                        : stop.visit_type === "Drop Off"
-                        ? "Drop Off"
-                        : stop.visit_duration || "Visit"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Mobile / Tablet Vertical Route View */}
-            <div className="lg:hidden relative space-y-6 pl-8 before:absolute before:top-4 before:bottom-4 before:left-3.5 before:w-0.5 before:border-l-2 before:border-dashed before:border-[#C9A227]/50">
-              {stops.map((stop, idx) => (
-                <div key={idx} className="relative flex items-start gap-4">
-                  {/* Number Badge Dot */}
-                  <span className="absolute -left-8 top-1 flex size-7 items-center justify-center rounded-full bg-[#A87F12] font-mono text-xs font-bold text-white shadow-xs">
+          {/* Journey Stops List */}
+          <div className={`mt-12 grid gap-x-10 gap-y-6 ${stops.length > 8 ? "lg:grid-cols-2" : ""}`}>
+            {stops.map((stop, idx) => {
+              const meta = getStopMeta(stop);
+              return (
+                <div
+                  key={idx}
+                  className="relative flex items-center gap-4 rounded-xl border border-black/10 bg-white p-4 shadow-xs"
+                >
+                  {/* Number Badge */}
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#A87F12] font-mono text-xs font-bold text-white shadow-xs">
                     {String(stop.stop_number).padStart(2, "0")}
                   </span>
 
-                  <div className="flex flex-1 items-center gap-4 rounded-xl border border-black/10 bg-white p-4 shadow-xs">
-                    {stop.image_url && (
-                      <div className="relative size-14 shrink-0 overflow-hidden rounded-lg">
-                        <Image src={stop.image_url} alt={stop.stop_name} fill className="object-cover" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="text-sm font-bold text-masaar-black">{stop.stop_name}</h4>
-                      <p className="text-xs text-deep-gold font-medium mt-0.5">
-                        {stop.visit_type === "Pass By"
-                          ? "Pass By"
-                          : stop.visit_type === "Pickup"
-                          ? "Pickup"
-                          : stop.visit_type === "Drop Off"
-                          ? "Drop Off"
-                          : stop.visit_duration || "Visit"}
-                      </p>
-                      {stop.short_description && (
-                        <p className="text-xs text-masaar-black/60 mt-1">{stop.short_description}</p>
-                      )}
+                  {/* Thumbnail */}
+                  {stop.image_url && (
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-lg">
+                      <Image src={stop.image_url} alt={stop.stop_name} fill className="object-cover" />
                     </div>
+                  )}
+
+                  {/* Name + Description */}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-masaar-black">{stop.stop_name}</h4>
+                    {stop.short_description && (
+                      <p className="mt-0.5 text-xs leading-relaxed text-masaar-black/60">
+                        {stop.short_description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Type / Duration Badge */}
+                  <div className="flex shrink-0 flex-col items-center gap-1 rounded-lg bg-warm-ivory/70 px-3 py-2 text-center">
+                    <span className="text-deep-gold">
+                      <StopIcon type={meta.icon} />
+                    </span>
+                    <span className="text-[11px] font-bold text-masaar-black">{meta.label}</span>
+                    <span className="text-[10px] text-masaar-black/50">{meta.sub}</span>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </Container>
       </section>
@@ -370,7 +379,7 @@ export default async function PrivateTripDetailPage({
       {/* 4. Photo Gallery Section */}
       <section className="py-20">
         <Container>
-          <PrivateTripGallery images={galleryImages} />
+          <PrivateTripGallery images={galleryImages} destination={trip.destination} />
         </Container>
       </section>
 

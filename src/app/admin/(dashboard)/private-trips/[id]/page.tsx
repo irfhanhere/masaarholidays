@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getAdminPrivateTripById, getAdminPrivateTripStops } from "@/lib/data/admin";
+import { getMediaAltTextMap } from "@/lib/data/public";
 import { PrivateTripForm } from "../PrivateTripForm";
 
 export const metadata: Metadata = {
@@ -21,12 +22,14 @@ export default async function EditPrivateTripPage({
   }
 
   const stops = await getAdminPrivateTripStops(id);
+  const galleryAltMap = await getMediaAltTextMap(trip.gallery_images ?? []);
 
   return (
     <PrivateTripForm
       tripId={trip.id}
       initialTrip={trip}
       initialStops={stops}
+      initialGalleryAlts={Object.fromEntries(galleryAltMap)}
     />
   );
 }
