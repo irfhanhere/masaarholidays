@@ -400,10 +400,6 @@ export default async function HotelDetailPage({
                     <ExternalImage src={url} alt={`${hotel.name} photo ${i + 1}`} fill className="object-cover" />
                   </div>
                 ))}
-                <div className="flex aspect-square flex-col items-center justify-center gap-1 rounded-md border border-dashed border-black/15 bg-warm-ivory text-masaar-black/40">
-                  <SizeIcon className="size-5" />
-                  <span className="text-xs">View More Photos</span>
-                </div>
               </div>
             ) : (
               <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-black/15 bg-warm-ivory text-sm text-masaar-black/40">
