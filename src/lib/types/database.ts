@@ -661,6 +661,14 @@ type PackageAddonCatalogRowShape = {
 };
 
 /** Helper so every table follows the exact same Row/Insert/Update/Relationships shape. */
+type AdminMfaBackupCodeRowShape = {
+  id: string;
+  user_id: string;
+  code_hash: string;
+  used_at: string | null;
+  created_at: string;
+};
+
 type Table<Row, RequiredKeys extends keyof Row> = {
   Row: Row;
   Insert: Partial<Row> & Pick<Row, RequiredKeys>;
@@ -731,6 +739,7 @@ export interface Database {
       ziyarat_pricing: Table<ZiyaratPricingRowShape, "city" | "vehicle_type_id" | "price_aed">;
       package_inclusions_catalog: Table<PackageInclusionCatalogRowShape, "name">;
       package_addons_catalog: Table<PackageAddonCatalogRowShape, "name" | "key_slug">;
+      admin_mfa_backup_codes: Table<AdminMfaBackupCodeRowShape, "user_id" | "code_hash">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;

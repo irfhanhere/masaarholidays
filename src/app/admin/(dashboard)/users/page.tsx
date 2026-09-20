@@ -1,13 +1,11 @@
-import { ComingSoon } from "@/components/admin/ComingSoon";
+import type { Metadata } from "next";
+import { AdminUsersListClient } from "./AdminUsersListClient";
+import { getCurrentUserId, listStaffUsers } from "./actions";
 
-export const metadata = { title: "Admin Users | Masaar Admin", robots: { index: false } };
+export const metadata: Metadata = { title: "Admin Users | Masaar Admin", robots: { index: false } };
 
-export default function AdminUsersPage() {
-  return (
-    <ComingSoon
-      title="Admin Users"
-      description="Manage who can sign in to this portal — needs the Supabase Auth Admin API via lib/supabase/admin.ts (service role, server-only)."
-      inspirationFile="ADMIN-USERS.png"
-    />
-  );
+export default async function AdminUsersPage() {
+  const [users, currentUserId] = await Promise.all([listStaffUsers(), getCurrentUserId()]);
+
+  return <AdminUsersListClient users={users} currentUserId={currentUserId} />;
 }
