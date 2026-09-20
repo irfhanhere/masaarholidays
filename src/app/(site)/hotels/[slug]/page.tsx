@@ -412,10 +412,7 @@ export default async function HotelDetailPage({
             <h2 className="mb-4 font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
               Location
             </h2>
-            <div className="flex h-36 items-center justify-center rounded-md border border-black/10 bg-warm-ivory text-sm text-masaar-black/40">
-              Map preview
-            </div>
-            <p className="mt-3 text-sm text-masaar-black/60">
+            <p className="text-sm text-masaar-black/60">
               {hotel.zone ? `${hotel.zone} in ${hotel.city}` : `Close to the Haram in ${hotel.city}`}
             </p>
             <a
