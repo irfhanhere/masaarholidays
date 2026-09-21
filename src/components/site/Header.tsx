@@ -44,20 +44,37 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
     return path === "/" ? pathname === target : pathname.startsWith(target);
   };
 
+  // Client's newer logo (wordmark + tagline lockup, wider aspect ratio than
+  // the icon+wordmark original) is a home-page-only swap — every other
+  // route keeps /brand/logo.png unchanged. Locale-aware via isActive("/")
+  // so /ar, /ur, /hi home routes get it too, not just unprefixed "/".
+  const isHome = isActive("/");
+
   return (
     <header className="sticky top-0 z-30">
       <TopBar />
       <div className="border-b border-black/5 bg-white">
-        <Container className="flex h-20 items-center justify-between gap-6">
+        <Container className={`flex items-center justify-between gap-6 ${isHome ? "h-20 lg:h-24" : "h-20"}`}>
           <Link href={href("/")} className="flex items-center gap-2 shrink-0">
-            <Image
-              src="/brand/logo.png"
-              alt="Masaar Holidays"
-              width={240}
-              height={72}
-              className="h-16 w-auto"
-              priority
-            />
+            {isHome ? (
+              <Image
+                src="/brand/logo-home.png"
+                alt="Masaar Holidays"
+                width={1774}
+                height={887}
+                className="h-14 w-auto lg:h-20"
+                priority
+              />
+            ) : (
+              <Image
+                src="/brand/logo.png"
+                alt="Masaar Holidays"
+                width={240}
+                height={72}
+                className="h-16 w-auto"
+                priority
+              />
+            )}
           </Link>
 
           <nav className="hidden items-center gap-7 lg:flex">
