@@ -54,7 +54,7 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
     <header className="sticky top-0 z-30">
       <TopBar />
       <div className="border-b border-black/5 bg-white">
-        <Container className={`flex items-center justify-between gap-6 ${isHome ? "h-20 lg:h-24" : "h-20"}`}>
+        <Container className={`flex items-center justify-between gap-6 ${isHome ? "h-24 lg:h-28" : "h-20"}`}>
           <Link href={href("/")} className="flex items-center gap-2 shrink-0">
             {isHome ? (
               <Image
@@ -62,7 +62,7 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
                 alt="Masaar Holidays"
                 width={1774}
                 height={887}
-                className="h-14 w-auto lg:h-20"
+                className="h-16 w-auto lg:h-24"
                 priority
               />
             ) : (
