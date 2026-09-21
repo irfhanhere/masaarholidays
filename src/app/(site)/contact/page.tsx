@@ -147,7 +147,7 @@ export default function ContactPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-black/10 bg-white p-6">
+          <div className="rounded-lg border border-black/10 bg-white p-6 lg:self-start">
             <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
               Send an Enquiry
             </h2>
