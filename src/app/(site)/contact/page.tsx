@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
 import { WhatsAppButton, WhatsAppGlyph } from "@/components/site/WhatsAppButton";
-import { MailIcon, PhoneIcon } from "@/components/site/icons";
+import { ClockIcon, HeadsetIcon, LocationIcon, MailIcon, PhoneIcon } from "@/components/site/icons";
 import { CONTACT } from "@/lib/contact";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { ContactForm } from "./ContactForm";
@@ -17,9 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-// Masaar operates fully remote/WhatsApp-first, with no physical office —
-// this page deliberately shows no address and no map, and doesn't claim
-// specific working hours nowhere else on the site states.
+// Office address, business hours, and traveller-support copy are the
+// client's confirmed details (contact.ts) — real content, not placeholders.
 export default function ContactPage() {
   return (
     <>
@@ -98,6 +97,53 @@ export default function ContactPage() {
                   </a>
                 </span>
               </div>
+            </div>
+
+            <div className="rounded-lg border border-black/10 bg-white p-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-deep-gold">
+                  <LocationIcon className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-semibold text-masaar-black">Visit Us</h3>
+                  <p className="text-sm text-masaar-black/60">{CONTACT.officeAddressLines[0]}</p>
+                </div>
+              </div>
+              <div className="mt-3 border-t border-black/10 pt-3 text-sm text-masaar-black/70">
+                {CONTACT.officeAddressLines.slice(1).map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-black/10 bg-white p-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-deep-gold">
+                  <ClockIcon className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-semibold text-masaar-black">Business Hours</h3>
+                  <p className="text-sm text-masaar-black/60">{CONTACT.businessHours}</p>
+                </div>
+              </div>
+              <p className="mt-3 border-t border-black/10 pt-3 text-xs text-masaar-black/50">
+                {CONTACT.businessHoursNote}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-black/10 bg-white p-5">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-deep-gold">
+                  <HeadsetIcon className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-semibold text-masaar-black">Umrah Traveller Support</h3>
+                  <p className="text-sm text-masaar-black/60">24/7 Emergency Assistance</p>
+                </div>
+              </div>
+              <p className="mt-3 border-t border-black/10 pt-3 text-xs text-masaar-black/50">
+                {CONTACT.emergencySupportNote}
+              </p>
             </div>
           </div>
 

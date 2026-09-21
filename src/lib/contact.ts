@@ -12,6 +12,17 @@ export const CONTACT = {
   instagramUrl: "https://www.instagram.com/masaarholidays/",
   facebookUrl: "https://www.facebook.com/profile.php?id=61594355322720",
   linkedinUrl: "https://www.linkedin.com/company/masaarholidays",
+  officeAddressLines: [
+    "Sharjah Publishing City",
+    "Entrance 2, Ground Floor",
+    "Al Zahia, Sheikh Mohammed Bin Zayed Road",
+    "Sharjah, United Arab Emirates",
+  ],
+  businessHours: "Daily | 8:00 AM – 8:00 PM UAE Time",
+  businessHoursNote:
+    "Our team is available during business hours for enquiries, bookings, travel arrangements and customer assistance.",
+  emergencySupportNote:
+    "For customers currently travelling with Masaar, urgent Umrah-related assistance is available 24 hours a day, 7 days a week.",
 } as const;
 
 /**
