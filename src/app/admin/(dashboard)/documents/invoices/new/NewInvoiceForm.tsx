@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
-import { createManualInvoice, type CreateManualInvoiceInput } from "../../actions";
+import type { CreateManualInvoiceInput } from "../../actions";
 
 export function NewInvoiceForm() {
   const router = useRouter();
@@ -31,7 +31,12 @@ export function NewInvoiceForm() {
 
     setIsPending(true);
     try {
-      const res = await createManualInvoice(input);
+      const response = await fetch("/api/admin/documents/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const res = await response.json();
       if (!res.success) {
         setError(res.error || "Failed to create invoice.");
         setIsPending(false);

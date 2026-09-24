@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader, Card, PrimaryButton, SecondaryButton, GoldButton, Badge, Field, inputClass } from "@/components/admin/ui";
 import { recordPayment, type RecordPaymentInput } from "@/app/admin/(dashboard)/documents/actions";
@@ -38,9 +38,9 @@ export function RecordPaymentPanel({
   receipts: DocumentRow[];
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
-  const balanceDue = Math.round((invoice.total_aed - invoice.amount_paid_aed) * 100) / 100;
+  const balanceDue = Math.round((Number(invoice.total_aed ?? 0) - Number(invoice.amount_paid_aed ?? 0)) * 100) / 100;
   const isFullyPaid = balanceDue <= 0;
 
   // Form state — pre-fill amount to the exact balance due
@@ -51,7 +51,7 @@ export function RecordPaymentPanel({
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = parseFloat(amount);
     if (!parsed || parsed <= 0) {
@@ -68,27 +68,29 @@ export function RecordPaymentPanel({
       notes: notes.trim() || undefined,
     };
 
-    startTransition(async () => {
-      try {
-        const res = await recordPayment(invoice.id, input);
-        if (!res.success) {
-          setResult({ type: "error", text: res.error || "Failed to record payment." });
-          return;
-        }
-        setResult({
-          type: "success",
-          text: `Payment of AED ${money(parsed)} recorded. Receipt ${res.receiptNumber} generated.`,
-        });
-        // Navigate to the new receipt after a short delay so the user sees the confirmation
-        setTimeout(() => {
-          if (res.receiptId) {
-            router.push(`/admin/documents/receipts/${res.receiptId}`);
-          }
-        }, 1200);
-      } catch (err) {
-        setResult({ type: "error", text: err instanceof Error ? err.message : "Something went wrong." });
+    setIsPending(true);
+    try {
+      const res = await recordPayment(invoice.id, input);
+      if (!res.success) {
+        setResult({ type: "error", text: res.error || "Failed to record payment." });
+        return;
       }
-    });
+      setResult({
+        type: "success",
+        text: `Payment of AED ${money(parsed)} recorded. Receipt ${res.receiptNumber || ""} generated.`,
+      });
+      setTimeout(() => {
+        if (res.receiptId) {
+          router.push(`/admin/documents/receipts/${res.receiptId}`);
+        } else {
+          router.push(`/admin/documents/invoices/${invoice.id}`);
+        }
+      }, 1200);
+    } catch (err: any) {
+      setResult({ type: "error", text: err instanceof Error ? err.message : "Something went wrong." });
+    } finally {
+      setIsPending(false);
+    }
   }
 
   return (

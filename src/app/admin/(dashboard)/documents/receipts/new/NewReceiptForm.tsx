@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
-import { createManualReceipt, type CreateManualReceiptInput } from "../../actions";
+import type { CreateManualReceiptInput } from "../../actions";
 import type { DocumentRow } from "@/lib/types/database";
 
 export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
@@ -16,8 +16,10 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const selectedInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
+  const invTotal = Number(selectedInvoice?.total_aed ?? 0);
+  const invPaid = Number(selectedInvoice?.amount_paid_aed ?? 0);
   const balanceDue = selectedInvoice
-    ? Math.max(0, selectedInvoice.total_aed - selectedInvoice.amount_paid_aed)
+    ? Math.max(0, invTotal - invPaid)
     : 0;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -69,7 +71,12 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
 
     setIsPending(true);
     try {
-      const res = await createManualReceipt(input);
+      const response = await fetch("/api/admin/documents/receipts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const res = await response.json();
       if (!res.success) {
         setError(res.error || "Failed to create receipt.");
         setIsPending(false);
@@ -125,11 +132,16 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
                   className={inputClass}
                   disabled={isPending}
                 >
-                  {invoices.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.document_number} — {inv.client_name} (Total: AED {inv.total_aed.toLocaleString()} | Due: AED {(inv.total_aed - inv.amount_paid_aed).toLocaleString()})
-                    </option>
-                  ))}
+                  {invoices.map((inv) => {
+                    const total = Number(inv.total_aed ?? 0);
+                    const paid = Number(inv.amount_paid_aed ?? 0);
+                    const due = Math.max(0, total - paid);
+                    return (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.document_number} — {inv.client_name} (Total: AED {total.toLocaleString()} | Due: AED {due.toLocaleString()})
+                      </option>
+                    );
+                  })}
                   {invoices.length === 0 && (
                     <option value="">No invoices found — use standalone receipt</option>
                   )}
@@ -144,11 +156,11 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-masaar-black/60">Invoice Total:</span>
-                    <span>AED {selectedInvoice.total_aed.toLocaleString()}</span>
+                    <span>AED {invTotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-masaar-black/60">Already Paid:</span>
-                    <span className="text-emerald-700">AED {selectedInvoice.amount_paid_aed.toLocaleString()}</span>
+                    <span className="text-emerald-700">AED {invPaid.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-black/10 font-bold">
                     <span className="text-deep-gold">Current Balance Due:</span>

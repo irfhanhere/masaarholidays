@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
-import { createDocumentFromSource, createManualBookingVoucher, type CreateManualBookingVoucherInput } from "../../actions";
+import type { CreateManualBookingVoucherInput } from "../../actions";
 import type { DocumentRow } from "@/lib/types/database";
 
 export function NewBookingVoucherForm({
@@ -36,7 +36,12 @@ export function NewBookingVoucherForm({
     setError(null);
     setIsPending(true);
     try {
-      const res = await createDocumentFromSource(selectedSourceId, "booking_voucher");
+      const response = await fetch("/api/admin/documents/booking-vouchers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_id: selectedSourceId }),
+      });
+      const res = await response.json();
       if (!res.success) {
         setError(res.error || "Failed to import document.");
         setIsPending(false);
@@ -99,7 +104,12 @@ export function NewBookingVoucherForm({
 
     setIsPending(true);
     try {
-      const res = await createManualBookingVoucher(input);
+      const response = await fetch("/api/admin/documents/booking-vouchers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const res = await response.json();
       if (!res.success) {
         setError(res.error || "Failed to create booking voucher.");
         setIsPending(false);

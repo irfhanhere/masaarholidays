@@ -1,38 +1,44 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Badge, EmptyRow } from "@/components/admin/ui";
 import type { DocumentRow } from "@/lib/types/database";
-import { deleteDocument, deleteDocuments } from "../actions";
 
-function statusTone(status: string): "green" | "amber" | "gray" | "blue" | "gold" {
+function statusTone(status?: string | null): "green" | "amber" | "gray" | "blue" | "gold" {
+  if (!status) return "blue";
   if (status === "paid") return "green";
   if (["sent", "partially_paid", "issued"].includes(status)) return "gold";
   if (status === "cancelled") return "gray";
   return "blue";
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "—";
+  }
 }
 
 export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     return invoices.filter((inv) => {
-      const matchesSearch =
-        !search.trim() ||
-        inv.client_name.toLowerCase().includes(search.toLowerCase()) ||
-        inv.document_number.toLowerCase().includes(search.toLowerCase()) ||
-        (inv.booking_reference && inv.booking_reference.toLowerCase().includes(search.toLowerCase()));
+      const client = (inv.client_name ?? "").toLowerCase();
+      const docNum = (inv.document_number ?? "").toLowerCase();
+      const bkgRef = (inv.booking_reference ?? "").toLowerCase();
+      const q = search.trim().toLowerCase();
 
+      const matchesSearch = !q || client.includes(q) || docNum.includes(q) || bkgRef.includes(q);
       const matchesStatus = selectedStatus === "all" || inv.status === selectedStatus;
       return matchesSearch && matchesStatus;
     });
@@ -61,13 +67,19 @@ export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
     });
   }
 
-  function handleDeleteOne(inv: DocumentRow) {
+  async function handleDeleteOne(inv: DocumentRow) {
     if (!confirm(`Are you sure you want to delete invoice ${inv.document_number} for ${inv.client_name}? This cannot be undone.`)) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await deleteDocument(inv.id, "invoice");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/admin/documents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: inv.id, document_type: "invoice" }),
+      }).then((r) => r.json());
+
       if (res.success) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -78,24 +90,38 @@ export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
       } else {
         alert(res.error || "Failed to delete invoice.");
       }
-    });
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete invoice.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
-  function handleDeleteSelected() {
+  async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected invoice(s)? This action cannot be undone.`)) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await deleteDocuments(Array.from(selectedIds), "invoice");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/admin/documents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds), document_type: "invoice" }),
+      }).then((r) => r.json());
+
       if (res.success) {
         setSelectedIds(new Set());
         router.refresh();
       } else {
         alert(res.error || "Failed to delete selected invoices.");
       }
-    });
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete selected invoices.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
   const statuses = [
@@ -220,10 +246,10 @@ export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
                   </td>
                   <td className="px-6 py-3 font-medium">{inv.document_number}</td>
                   <td className="px-6 py-3 font-medium text-masaar-black">{inv.client_name}</td>
-                  <td className="px-6 py-3 font-semibold">AED {inv.total_aed.toLocaleString()}</td>
-                  <td className="px-6 py-3 text-emerald-700">AED {inv.amount_paid_aed.toLocaleString()}</td>
+                  <td className="px-6 py-3 font-semibold">AED {Number(inv.total_aed ?? 0).toLocaleString()}</td>
+                  <td className="px-6 py-3 text-emerald-700">AED {Number(inv.amount_paid_aed ?? 0).toLocaleString()}</td>
                   <td className="px-6 py-3">
-                    <Badge tone={statusTone(inv.status)}>{inv.status.replace(/_/g, " ")}</Badge>
+                    <Badge tone={statusTone(inv.status)}>{(inv.status ?? "draft").replace(/_/g, " ")}</Badge>
                   </td>
                   <td className="px-6 py-3 text-masaar-black/60">{formatDate(inv.created_at)}</td>
                   <td className="px-6 py-3 space-x-3">

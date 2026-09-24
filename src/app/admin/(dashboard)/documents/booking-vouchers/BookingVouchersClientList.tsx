@@ -1,39 +1,50 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Badge, EmptyRow } from "@/components/admin/ui";
 import type { DocumentRow } from "@/lib/types/database";
-import { deleteDocument, deleteDocuments } from "../actions";
 
-function statusTone(status: string): "green" | "gold" | "gray" | "blue" {
+function statusTone(status?: string | null): "green" | "gold" | "gray" | "blue" {
+  if (!status) return "blue";
   if (status === "confirmed" || status === "issued") return "green";
   if (status === "sent") return "gold";
   if (status === "cancelled") return "gray";
   return "blue";
 }
 
-function formatDate(value: string | null): string {
+function formatDate(value?: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  try {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "—";
+  }
 }
 
 export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     return vouchers.filter((doc) => {
+      const client = (doc.client_name ?? "").toLowerCase();
+      const docNum = (doc.document_number ?? "").toLowerCase();
+      const bkgRef = (doc.booking_reference ?? "").toLowerCase();
+      const dest = (doc.destination ?? "").toLowerCase();
+      const q = search.trim().toLowerCase();
+
       const matchesSearch =
-        !search.trim() ||
-        doc.client_name.toLowerCase().includes(search.toLowerCase()) ||
-        doc.document_number.toLowerCase().includes(search.toLowerCase()) ||
-        (doc.booking_reference && doc.booking_reference.toLowerCase().includes(search.toLowerCase())) ||
-        (doc.destination && doc.destination.toLowerCase().includes(search.toLowerCase()));
+        !q ||
+        client.includes(q) ||
+        docNum.includes(q) ||
+        bkgRef.includes(q) ||
+        dest.includes(q);
 
       const matchesStatus =
         selectedStatus === "all" ||
@@ -67,13 +78,19 @@ export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[
     });
   }
 
-  function handleDeleteOne(doc: DocumentRow) {
+  async function handleDeleteOne(doc: DocumentRow) {
     if (!confirm(`Are you sure you want to delete booking voucher ${doc.document_number} for ${doc.client_name}? This cannot be undone.`)) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await deleteDocument(doc.id, "booking_voucher");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/admin/documents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: doc.id, document_type: "booking_voucher" }),
+      }).then((r) => r.json());
+
       if (res.success) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -84,24 +101,38 @@ export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[
       } else {
         alert(res.error || "Failed to delete booking voucher.");
       }
-    });
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete booking voucher.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
-  function handleDeleteSelected() {
+  async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected booking voucher(s)? This action cannot be undone.`)) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await deleteDocuments(Array.from(selectedIds), "booking_voucher");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/admin/documents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds), document_type: "booking_voucher" }),
+      }).then((r) => r.json());
+
       if (res.success) {
         setSelectedIds(new Set());
         router.refresh();
       } else {
         alert(res.error || "Failed to delete selected booking vouchers.");
       }
-    });
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete selected booking vouchers.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
   const statuses = [
@@ -249,7 +280,7 @@ export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[
                     )}
                   </td>
                   <td className="px-6 py-3.5">
-                    <Badge tone={statusTone(doc.status)}>{doc.status.replace(/_/g, " ")}</Badge>
+                    <Badge tone={statusTone(doc.status)}>{(doc.status ?? "confirmed").replace(/_/g, " ")}</Badge>
                   </td>
                   <td className="px-6 py-3.5">
                     <div className="flex items-center gap-3">

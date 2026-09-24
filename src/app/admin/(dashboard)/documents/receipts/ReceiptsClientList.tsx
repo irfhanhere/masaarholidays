@@ -1,21 +1,27 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Badge, EmptyRow } from "@/components/admin/ui";
 import type { DocumentRow } from "@/lib/types/database";
-import { deleteDocument, deleteDocuments } from "../actions";
 
-function statusTone(status: string): "green" | "amber" | "gray" | "blue" | "gold" {
+function statusTone(status?: string | null): "green" | "amber" | "gray" | "blue" | "gold" {
+  if (!status) return "blue";
   if (status === "issued") return "green";
   if (status === "sent") return "gold";
   if (status === "cancelled") return "gray";
   return "blue";
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "—";
+  }
 }
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -27,19 +33,19 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
 
 export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     return receipts.filter((r) => {
-      const matchesSearch =
-        !search.trim() ||
-        r.client_name.toLowerCase().includes(search.toLowerCase()) ||
-        r.document_number.toLowerCase().includes(search.toLowerCase()) ||
-        (r.transaction_reference && r.transaction_reference.toLowerCase().includes(search.toLowerCase()));
+      const client = (r.client_name ?? "").toLowerCase();
+      const docNum = (r.document_number ?? "").toLowerCase();
+      const txRef = (r.transaction_reference ?? "").toLowerCase();
+      const q = search.trim().toLowerCase();
 
+      const matchesSearch = !q || client.includes(q) || docNum.includes(q) || txRef.includes(q);
       const matchesMethod = selectedMethod === "all" || r.payment_method === selectedMethod;
       return matchesSearch && matchesMethod;
     });
@@ -68,13 +74,19 @@ export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
     });
   }
 
-  function handleDeleteOne(r: DocumentRow) {
+  async function handleDeleteOne(r: DocumentRow) {
     if (!confirm(`Are you sure you want to delete receipt ${r.document_number} for ${r.client_name}? This cannot be undone.`)) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await deleteDocument(r.id, "receipt");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/admin/documents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, document_type: "receipt" }),
+      }).then((res) => res.json());
+
       if (res.success) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -85,24 +97,38 @@ export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
       } else {
         alert(res.error || "Failed to delete receipt.");
       }
-    });
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete receipt.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
-  function handleDeleteSelected() {
+  async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
     if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected receipt(s)? This action cannot be undone.`)) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await deleteDocuments(Array.from(selectedIds), "receipt");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/admin/documents/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds), document_type: "receipt" }),
+      }).then((res) => res.json());
+
       if (res.success) {
         setSelectedIds(new Set());
         router.refresh();
       } else {
         alert(res.error || "Failed to delete selected receipts.");
       }
-    });
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete selected receipts.");
+    } finally {
+      setIsPending(false);
+    }
   }
 
   const methods = [
@@ -239,18 +265,16 @@ export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
                     )}
                   </td>
                   <td className="px-6 py-3 font-semibold text-emerald-800">
-                    AED {r.total_aed.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    AED {Number(r.total_aed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-6 py-3 text-masaar-black/70">
                     {r.payment_method ? (PAYMENT_METHOD_LABEL[r.payment_method] ?? r.payment_method) : "—"}
                   </td>
                   <td className="px-6 py-3 text-masaar-black/60">
-                    {r.payment_date
-                      ? new Date(r.payment_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-                      : formatDate(r.created_at)}
+                    {formatDate(r.payment_date || r.created_at)}
                   </td>
                   <td className="px-6 py-3">
-                    <Badge tone={statusTone(r.status)}>{r.status.replace(/_/g, " ")}</Badge>
+                    <Badge tone={statusTone(r.status)}>{(r.status ?? "issued").replace(/_/g, " ")}</Badge>
                   </td>
                   <td className="px-6 py-3 space-x-3">
                     <Link

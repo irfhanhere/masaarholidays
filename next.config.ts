@@ -19,7 +19,17 @@ if (process.env.VERCEL_ENV === "production" && !process.env.NEXT_PUBLIC_SITE_URL
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        "www.masaarholidays.com",
+        "masaarholidays.com",
+        "*.masaarholidays.com",
+        "localhost:3000",
+        "127.0.0.1:3000",
+      ],
+    },
+  },
 };
 
 export default nextConfig;

@@ -20,7 +20,8 @@ const MODULE_PATH: Record<DocumentType, string> = {
   booking_voucher: "booking-vouchers",
 };
 
-function statusTone(status: string): "green" | "amber" | "gray" | "blue" | "gold" {
+function statusTone(status?: string | null): "green" | "amber" | "gray" | "blue" | "gold" {
+  if (!status) return "blue";
   if (["accepted", "paid", "issued"].includes(status)) return "green";
   if (["sent", "viewed", "partially_paid"].includes(status)) return "gold";
   if (["rejected", "cancelled", "expired"].includes(status)) return "gray";
@@ -28,8 +29,14 @@ function statusTone(status: string): "green" | "amber" | "gray" | "blue" | "gold
   return "blue";
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  try {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "—";
+  }
 }
 
 export default async function DocumentsOverviewPage() {
@@ -82,17 +89,21 @@ export default async function DocumentsOverviewPage() {
             {recent.map((doc: DocumentRow) => (
               <tr key={doc.id} className="border-b border-black/5 last:border-0">
                 <td className="px-6 py-3 font-medium">{doc.document_number}</td>
-                <td className="px-6 py-3">{TYPE_LABEL[doc.document_type]}</td>
+                <td className="px-6 py-3">{TYPE_LABEL[doc.document_type] || doc.document_type}</td>
                 <td className="px-6 py-3">{doc.client_name}</td>
-                <td className="px-6 py-3">{doc.total_aed > 0 ? `AED ${doc.total_aed.toLocaleString()}` : "—"}</td>
+                <td className="px-6 py-3">{Number(doc.total_aed ?? 0) > 0 ? `AED ${Number(doc.total_aed).toLocaleString()}` : "—"}</td>
                 <td className="px-6 py-3">
-                  <Badge tone={statusTone(doc.status)}>{doc.status.replace(/_/g, " ")}</Badge>
+                  <Badge tone={statusTone(doc.status)}>{(doc.status ?? "draft").replace(/_/g, " ")}</Badge>
                 </td>
                 <td className="px-6 py-3 text-masaar-black/60">{formatDate(doc.created_at)}</td>
                 <td className="px-6 py-3">
-                  <Link href={`/admin/documents/${MODULE_PATH[doc.document_type]}/${doc.id}`} className="font-medium text-admin-primary hover:underline">
-                    View
-                  </Link>
+                  {MODULE_PATH[doc.document_type] ? (
+                    <Link href={`/admin/documents/${MODULE_PATH[doc.document_type]}/${doc.id}`} className="font-medium text-admin-primary hover:underline">
+                      View
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
                 </td>
               </tr>
             ))}

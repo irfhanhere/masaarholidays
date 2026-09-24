@@ -31,9 +31,13 @@ async function getClient() {
 const VAT_RATE = 0.05;
 
 function revalidateDocumentPaths(documentType: DocumentType, documentId?: string) {
-  revalidatePath("/admin/documents");
-  revalidatePath(`/admin/documents/${moduleSlug(documentType)}`);
-  if (documentId) revalidatePath(`/admin/documents/${moduleSlug(documentType)}/${documentId}`);
+  try {
+    revalidatePath("/admin/documents");
+    revalidatePath(`/admin/documents/${moduleSlug(documentType)}`);
+    if (documentId) revalidatePath(`/admin/documents/${moduleSlug(documentType)}/${documentId}`);
+  } catch (err) {
+    console.warn("[revalidateDocumentPaths] Failed to revalidate:", err);
+  }
 }
 
 function moduleSlug(documentType: DocumentType): string {
@@ -105,6 +109,11 @@ export async function createManualInvoice(input: CreateManualInvoiceInput): Prom
         client_country: input.client_country?.trim() || null,
         due_date: input.due_date || null,
         template_id: template?.id ?? null,
+        subtotal_aed: 0,
+        discount_aed: 0,
+        tax_aed: 0,
+        total_aed: 0,
+        amount_paid_aed: 0,
       })
       .select("id")
       .single();
