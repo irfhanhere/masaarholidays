@@ -31,11 +31,11 @@ const TIER_METADATA: Record<
     caption: "A BLESSED BEGINNING",
     badgeLabel: "ESSENTIAL",
     defaultPhoto: "/brand/banners/umrah.png",
-    hotelShuttleNote: "24/7 dedicated Haram shuttle",
+    hotelShuttleNote: "24/7 free shuttle from hotel to Haram and back",
     fallbackPrices: {
-      "2 Nights / 3 Days": { double: 799, triple: 699, quad: 599 },
-      "3 Nights / 4 Days": { double: 999, triple: 849, quad: 749 },
-      "5 Nights / 6 Days": { double: 1299, triple: 1099, quad: 949 },
+      "2 Nights / 3 Days": { double: 889, triple: 689, quad: 489 },
+      "3 Nights / 4 Days": { double: 1229, triple: 829, quad: 629 },
+      "5 Nights / 6 Days": { double: 1689, triple: 1189, quad: 849 },
     },
   },
   signature: {

@@ -24,7 +24,7 @@ interface Props {
   initialAddon?: string;
 }
 
-const WHATSAPP_NUMBER = "971552276299"; // Official UAE Masaar number from header
+const WHATSAPP_NUMBER = "971557329320"; // Official UAE Masaar number from header
 
 export function UmrahEnquiryModal({ isOpen, onClose, packageInfo, initialAddon }: Props) {
   const [occupancy, setOccupancy] = useState<"Double" | "Triple" | "Quad">("Quad");

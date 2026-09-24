@@ -68,7 +68,7 @@ export interface PackageDetail {
 /**
  * Same visibility rule as getPublishedPackages (is_active + show_on_website)
  * — the 6 placeholder packages from 0011_seed_placeholder_packages.sql
- * stay 404 on the public site until Haseeb activates one from Admin.
+ * stay 404 on the public site until an administrator activates one from Admin.
  */
 export async function getPackageBySlugAndType(
   slug: string,
@@ -724,7 +724,7 @@ export interface PublicUmrahInventoryConfig {
   min_price_aed: number | null;
   itinerary: PackageItineraryDay[];
   inclusions_override: string | null;
-  private_trips: Array<{ id: string; name: string; destination: string; short_description: string }>;
+  private_trips: Array<{ id: string; name: string; slug: string; destination: string; short_description: string }>;
   status: "published" | "draft";
 }
 
@@ -763,7 +763,16 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
 
   if (!configs || configs.length === 0) return [];
 
-  const typedConfigs = configs as unknown as UmrahInventoryConfigJoinRow[];
+  // A config with no month_id ("All Months") is always eligible — only
+  // month-specific configs need their month to actually be published
+  // (is_active). Without this, a config could keep showing on the general
+  // /umrah/[slug] package page (which doesn't re-check month status) even
+  // after an admin drafts/unpublishes its departure month, even though
+  // that month's own /umrah/departures/[slug] page correctly 404s. See
+  // MonthInventoryDashboard.tsx's month-status toggle for the admin side.
+  const typedConfigs = (configs as unknown as UmrahInventoryConfigJoinRow[]).filter(
+    (c) => !c.month_id || c.umrah_departure_months?.is_active
+  );
   const configIds = typedConfigs.map((c) => c.id);
 
   const [{ data: prices }, { data: tripJunctions }] = await Promise.all([
@@ -774,7 +783,7 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
       .order("display_order", { ascending: true }),
     supabase
       .from("umrah_configuration_private_trips")
-      .select("configuration_id, private_trips(id, name, destination, short_description)")
+      .select("configuration_id, private_trips(id, name, slug, destination, short_description)")
       .in("configuration_id", configIds),
   ]);
 
@@ -787,11 +796,11 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
 
   interface TripJunctionRow {
     configuration_id: string;
-    private_trips: { id: string; name: string; destination: string; short_description: string } | null;
+    private_trips: { id: string; name: string; slug: string; destination: string; short_description: string } | null;
   }
   const typedTripJunctions = (tripJunctions ?? []) as unknown as TripJunctionRow[];
 
-  const tripsByConfig = new Map<string, Array<{ id: string; name: string; destination: string; short_description: string }>>();
+  const tripsByConfig = new Map<string, Array<{ id: string; name: string; slug: string; destination: string; short_description: string }>>();
   typedTripJunctions.forEach((j) => {
     if (j.private_trips) {
       const list = tripsByConfig.get(j.configuration_id) ?? [];
@@ -838,18 +847,34 @@ export async function getPublishedUmrahInventoryConfigurations(): Promise<Public
   });
 }
 
+/**
+ * Ziyarat vehicle catalog/pricing, plus whichever published private_trips
+ * rows describe what a Makkah/Madinah Ziyarat tour actually includes —
+ * the pricing matrix itself has no description field, and the full
+ * itinerary/what's-included text lives on that trip's own
+ * /private-trips/[slug] page instead. Matched by destination ("Makkah" /
+ * "Madinah"), not a fixed slug, so this keeps working if the trip is
+ * ever renamed or re-slugged. Only ever a real, published trip — omitted
+ * (not a broken link) when neither city has one yet.
+ */
 export async function getZiyaratPricingForPublic() {
-  if (!isSupabaseConfigured()) return { vehicleTypes: [], pricing: [] };
+  if (!isSupabaseConfigured()) return { vehicleTypes: [], pricing: [], relatedTrips: [] };
   const supabase = await createClient();
 
-  const [{ data: vehicleTypes }, { data: pricing }] = await Promise.all([
+  const [{ data: vehicleTypes }, { data: pricing }, { data: relatedTrips }] = await Promise.all([
     supabase.from("ziyarat_vehicle_types").select("*").eq("is_active", true).order("display_order", { ascending: true }),
     supabase.from("ziyarat_pricing").select("*").eq("is_active", true),
+    supabase
+      .from("private_trips")
+      .select("name, slug, destination")
+      .eq("status", "published")
+      .in("destination", ["Makkah", "Madinah"]),
   ]);
 
   return {
     vehicleTypes: (vehicleTypes ?? []) as ZiyaratVehicleTypeRow[],
     pricing: (pricing ?? []) as ZiyaratPricingRow[],
+    relatedTrips: (relatedTrips ?? []) as { name: string; slug: string; destination: string }[],
   };
 }
 

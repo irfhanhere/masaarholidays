@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge, EmptyRow, PrimaryButton, SecondaryButton } from "@/components/admin/ui";
 import type { PublishStatus, UmrahDepartureMonthRow } from "@/lib/types/database";
 import { deleteInventoryConfiguration, toggleInventoryConfigurationStatus } from "./actions";
+import { toggleDepartureMonthActive } from "../umrah-departures/actions";
 
 export interface InventoryConfigJoined {
   id: string;
@@ -137,6 +138,21 @@ export function MonthInventoryDashboard({ months, configs }: Props) {
                   <span>&middot;</span>
                   <span>{draft} Draft</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDepartureMonthActive(month.id, !month.is_active);
+                  }}
+                  className="mt-2 w-full rounded border border-black/10 py-1 text-[10px] font-semibold text-masaar-black/70 hover:bg-warm-ivory"
+                  title={
+                    month.is_active
+                      ? "Draft this month — hides it and its configurations from the public site"
+                      : "Publish this month — makes it and its published configurations visible on the public site"
+                  }
+                >
+                  {month.is_active ? "Set to Draft" : "Publish Month"}
+                </button>
               </div>
             );
           })}

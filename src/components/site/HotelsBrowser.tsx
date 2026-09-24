@@ -48,7 +48,7 @@ const TERRAIN_OPTIONS: { value: TerrainFilter; label: string }[] = [
   { value: "Flat with mild incline", label: "Flat with Mild Incline" },
   { value: "Uphill return", label: "Uphill Return" },
   { value: "Steep, shuttle recommended", label: "Steep, Shuttle Recommended" },
-  { value: "Long distance, vehicle required", label: "Long Distance, Vehicle Required" },
+  { value: "Long distance, vehicle provided", label: "Long Distance, Vehicle Provided" },
 ];
 
 const selectClass =

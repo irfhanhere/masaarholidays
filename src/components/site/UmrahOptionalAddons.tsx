@@ -106,7 +106,7 @@ export function mergeAddons(addons?: PublicAddonCatalogRow[]): AddonItem[] {
 }
 
 export function UmrahOptionalAddons({ addons, onSelectAddon }: Props) {
-  const WHATSAPP_NUMBER = "971552276299";
+  const WHATSAPP_NUMBER = "971557329320";
   const customMessage = encodeURIComponent(
     "Assalamu Alaikum,\n\nI have a custom enquiry regarding Umrah Add-ons and services.\n\nPlease connect me with an advisor.\n\nJazakAllah Khair."
   );

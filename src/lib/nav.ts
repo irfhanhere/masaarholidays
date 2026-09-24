@@ -45,7 +45,7 @@ export const MAIN_NAV: NavItem[] = [
       { label: "UAE Visa", href: "/visa/uae" },
       { label: "Global Visa", href: "/visa/global" },
       { label: "Saudi Tourist Visa", href: "/visa/saudi-tourist" },
-      { label: "Emirates ID", href: "/visa/emirates-id" },
+      { label: "Golden Visa Assistance", href: "/visa/golden-visa-assistance" },
       { label: "Indian Visa", href: "/visa/india" },
     ],
   },

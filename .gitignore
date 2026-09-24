@@ -47,3 +47,5 @@ next-env.d.ts
 /scratch/
 /inspirations/
 /public/Assets/
+supabase/.temp/
+

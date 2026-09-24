@@ -95,7 +95,7 @@ export function BlogForm({
   const [categoryId, setCategoryId] = useState(initial?.category_id ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [tagDraft, setTagDraft] = useState("");
-  const [authorName, setAuthorName] = useState(initial?.author_name ?? "Haseeb");
+  const [authorName, setAuthorName] = useState(initial?.author_name ?? "Masaar Team");
   const [isFeatured, setIsFeatured] = useState(initial?.is_featured ?? false);
 
   const [publicationMode, setPublicationMode] = useState<"draft" | "published" | "scheduled">(

@@ -48,7 +48,7 @@ export function UmrahLandingClient({ packages, inventoryConfigs, faqs, addons, d
     setIsAddonsCartOpen(true);
   };
 
-  const WHATSAPP_NUMBER = "971552276299";
+  const WHATSAPP_NUMBER = "971557329320";
   const bottomCtaMessage = encodeURIComponent(
     "Assalamu Alaikum,\n\nI'm ready to begin planning my Umrah journey with Masaar Holidays.\n\nPlease connect me with an advisor.\n\nJazakAllah Khair."
   );

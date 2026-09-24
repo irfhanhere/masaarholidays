@@ -4,12 +4,13 @@ import type { HotelRoomRow, HotelRow, PublicHotelRow } from "@/lib/types/databas
 export type HotelWithSummary = PublicHotelRow & { minPriceAed: number | null; isRefundable: boolean };
 
 function formatRange(min: number | null, max: number | null): string | null {
-  if (min == null) return null;
-  const range = max != null && max !== min ? `${min}-${max}` : `${min}`;
-  return `${range} min walk`;
+  if (min == null && max == null) return null;
+  // Exact max walk time rule (e.g. 2 min walk instead of 1-2 min, 7 min walk instead of 5-7 min)
+  const val = max != null ? max : min;
+  return `${val} min walk`;
 }
 
-/** Makkah-style single-Haram walk time — "2-3 min walk" / "1 min walk" / null if no data. */
+/** Makkah-style single-Haram walk time — "2 min walk" / "7 min walk" / null if no data. */
 export function formatWalkTime(hotel: Pick<HotelRow, "walk_time_minutes" | "walk_time_minutes_max">): string | null {
   return formatRange(hotel.walk_time_minutes, hotel.walk_time_minutes_max);
 }
@@ -167,7 +168,7 @@ export type TerrainCategory =
   | "Flat with mild incline"
   | "Uphill return"
   | "Steep, shuttle recommended"
-  | "Long distance, vehicle required";
+  | "Long distance, vehicle provided";
 
 /**
  * Route-difficulty per Makkah hotel, keyed by slug — the exact "Route"
@@ -210,8 +211,8 @@ const TERRAIN_BY_SLUG: Record<string, TerrainCategory> = {
   "maysan-al-maqam": "Flat with mild incline",
   "emaar-grand-hotel": "Uphill return",
   "al-kiswah-towers": "Steep, shuttle recommended",
-  "voco-makkah": "Long distance, vehicle required",
-  "time-ruba-hotel-and-suites": "Long distance, vehicle required",
+  "voco-makkah": "Long distance, vehicle provided",
+  "time-ruba-hotel-and-suites": "Long distance, vehicle provided",
 };
 
 /**

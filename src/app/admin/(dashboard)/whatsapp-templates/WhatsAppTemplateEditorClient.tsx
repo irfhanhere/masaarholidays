@@ -36,8 +36,8 @@ const SAMPLE_VALUES: Record<string, string> = {
   departure_month: "November 2026",
   private_trips: "Makkah Ziyarat",
   total_price: "AED 3,500",
-  customer_name: "Haseeb",
-  phone: "+971 55 227 6299",
+  customer_name: "Ahmed Khan",
+  phone: "+971 55 732 9320",
   travel_date: "15 Nov 2026",
 };
 

@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function UmrahHero({ onOpenEnquiry }: Props) {
-  const WHATSAPP_NUMBER = "971552276299";
+  const WHATSAPP_NUMBER = "971557329320";
   const defaultMessage = encodeURIComponent(
     "Assalamu Alaikum,\n\nI'm interested in planning an Umrah journey with Masaar Holidays.\n\nPlease share available packages and options.\n\nJazakAllah Khair."
   );

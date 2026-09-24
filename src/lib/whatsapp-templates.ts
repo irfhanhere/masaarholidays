@@ -50,7 +50,7 @@ export const WHATSAPP_TEMPLATE_DEFAULTS: Record<WhatsAppTemplateKey, string> = {
   // with the single `packageEnquiry` template instead (see
   // PackageEnquiryButton.tsx). Left as-is (row, key and default all
   // still here) rather than deleted, same as `upgradeToPlus` below —
-  // Haseeb may still want this wording for a future use.
+  // Reserved for future template customization.
   umrahEssential: "Assalamu Alaikum, I'd like more details on the Masaar Essential Umrah package.",
   umrahSignature: "Assalamu Alaikum, I'd like more details on the Masaar Signature Umrah package.",
   umrahExclusive: "Assalamu Alaikum, I'd like more details on the Masaar Exclusive Umrah experience.",
@@ -74,7 +74,7 @@ export const WHATSAPP_TEMPLATE_DEFAULTS: Record<WhatsAppTemplateKey, string> = {
 };
 
 /** Fallback destination number if whatsapp_settings is missing/unfetched — brief "Contact details (confirmed)". */
-export const WHATSAPP_DEFAULT_PHONE = "971552276299";
+export const WHATSAPP_DEFAULT_PHONE = "971557329320";
 
 /** Replaces {{token}} in a template with params[token]; leaves unmatched tokens as-is rather than throwing. */
 export function interpolate(template: string, params?: Record<string, string>): string {

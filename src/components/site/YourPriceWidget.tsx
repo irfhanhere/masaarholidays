@@ -23,7 +23,7 @@ export function YourPriceWidget({
 }: Props) {
   const [selectedOccupancy, setSelectedOccupancy] = useState<"Double" | "Triple" | "Quad">("Quad");
 
-  const WHATSAPP_NUMBER = "971552276299";
+  const WHATSAPP_NUMBER = "971557329320";
   const defaultMessage = encodeURIComponent(
     `Assalamu Alaikum,\n\nI'm interested in booking with ${selectedOccupancy} occupancy.\n\nPlease share current pricing and availability.\n\nJazakAllah Khair.`
   );

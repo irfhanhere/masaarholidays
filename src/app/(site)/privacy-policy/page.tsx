@@ -14,7 +14,7 @@ export default async function PrivacyPolicyPage() {
       title={legal?.title ?? "Privacy Policy"}
       content={legal?.content}
       updatedAt={legal?.updated_at}
-      note="Legal copy pending — should be drafted/reviewed by Haseeb or counsel before publishing, alongside the registered-entity details still marked placeholder in the footer."
+      note="Legal copy pending — should be drafted/reviewed by counsel before publishing, alongside the registered-entity details still marked placeholder in the footer."
     />
   );
 }

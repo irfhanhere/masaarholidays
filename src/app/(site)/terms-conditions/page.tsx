@@ -14,7 +14,7 @@ export default async function TermsConditionsPage() {
       title={legal?.title ?? "Terms & Conditions"}
       content={legal?.content}
       updatedAt={legal?.updated_at}
-      note="Legal copy pending — should be drafted/reviewed by Haseeb or counsel before publishing."
+      note="Legal copy pending — should be drafted/reviewed by counsel before publishing."
     />
   );
 }

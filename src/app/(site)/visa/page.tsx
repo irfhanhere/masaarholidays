@@ -100,7 +100,7 @@ export default async function VisaPage() {
             ) : (
               <EmptyState
                 title="Visa types not published yet"
-                note="Umrah Visa · UAE Visa · Global Visa · Saudi Tourist Visa · Emirates ID · India Visa will appear here once published in Admin → Visa Types."
+                note="Umrah Visa · UAE Visa · Global Visa · Saudi Tourist Visa · Golden Visa Assistance · India Visa will appear here once published in Admin → Visa Types."
               />
             )}
           </div>

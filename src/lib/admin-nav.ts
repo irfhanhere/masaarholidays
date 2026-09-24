@@ -46,6 +46,18 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     ],
   },
   {
+    title: "Documents",
+    items: [
+      { label: "Overview", href: "/admin/documents" },
+      { label: "Enquiries", href: "/admin/enquiries" },
+      { label: "Invoices", href: "/admin/documents/invoices" },
+      { label: "Receipts", href: "/admin/documents/receipts" },
+      { label: "Booking Vouchers", href: "/admin/documents/booking-vouchers" },
+      { label: "Templates", href: "/admin/documents/templates" },
+      { label: "Settings", href: "/admin/documents/settings" },
+    ],
+  },
+  {
     title: "Settings",
     items: [
       { label: "Currency & Pricing", href: "/admin/currency-pricing" },
@@ -54,7 +66,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Legal & Cookies", href: "/admin/legal" },
     ],
   },
-  { title: "Leads", items: [{ label: "Enquiries", href: "/admin/enquiries" }] },
   {
     title: "System",
     items: [

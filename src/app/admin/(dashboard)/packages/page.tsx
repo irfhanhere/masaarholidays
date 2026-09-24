@@ -43,7 +43,7 @@ export default async function AdminPackagesPage({
   const packages = await getPackages(type);
   // "Starting From" is computed live from package_room_prices here too —
   // not read from the cached packages.starting_price_aed column — so it
-  // always matches what a visitor would actually see, per Haseeb's
+  // always matches what a visitor would actually see, per admin instructions
   // request not to add a new stored column for this.
   const roomPricesByPackage = await getPackageRoomPricesByPackageIds(packages.map((p) => p.id));
 

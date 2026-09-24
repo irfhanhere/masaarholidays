@@ -12,7 +12,7 @@ interface Props {
   initialAddonId?: string;
 }
 
-const WHATSAPP_NUMBER = "971552276299";
+const WHATSAPP_NUMBER = "971557329320";
 
 export function UmrahAddonsCartModal({ isOpen, onClose, addons, initialAddonId }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

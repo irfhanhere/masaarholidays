@@ -6,13 +6,17 @@ import Link from "next/link";
 import type { PackageRow, PublicHotelRow, ZiyaratPricingRow, ZiyaratVehicleTypeRow } from "@/lib/types/database";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 import { splitTerrainNote } from "@/lib/hotel-format";
+import { convertFromAed, formatCurrency } from "@/lib/currency";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Container } from "./Container";
+import { useCurrency } from "./CurrencyProvider";
 import { ExternalImage } from "./ExternalImage";
 import { Price } from "./Price";
 import { WhatsAppButton } from "./WhatsAppButton";
 import { UmrahEnquiryModal } from "./UmrahEnquiryModal";
 import { YourPriceWidget } from "./YourPriceWidget";
+
+import { HotelReviewsModal } from "./HotelReviewsModal";
 
 const TIER_LABEL: Record<PackageRow["tier"], string> = {
   essential: "Essential",
@@ -26,18 +30,20 @@ function HotelStayCard({
   isPrimary,
   allowSimilar,
   customNote,
+  selectedParties,
+  onOpenReviews,
 }: {
   hotel: PublicHotelRow;
   optionTitle: string;
   isPrimary: boolean;
   allowSimilar: boolean;
   customNote?: string | null;
+  selectedParties: string[];
+  onOpenReviews: (hotel: { name: string; slug: string }) => void;
 }) {
-  const walkTime = hotel.walk_time_minutes
-    ? hotel.walk_time_minutes_max && hotel.walk_time_minutes_max !== hotel.walk_time_minutes
-      ? `~${hotel.walk_time_minutes}–${hotel.walk_time_minutes_max} min walk`
-      : `~${hotel.walk_time_minutes} min walk`
-    : null;
+  // USER SPEC: Take specific single MAX time (e.g. 2 min walk instead of 1-2 min, 7 min walk instead of 5-7 min)
+  const maxWalk = hotel.walk_time_minutes_max ?? hotel.walk_time_minutes;
+  const walkTime = maxWalk ? `${maxWalk} min walk` : null;
 
   const distanceText = walkTime
     ? `${walkTime}${hotel.distance_from_haram_meters ? ` (${hotel.distance_from_haram_meters}m)` : ""}`
@@ -47,13 +53,54 @@ function HotelStayCard({
 
   const terrainLines = splitTerrainNote(hotel.terrain_note);
 
+  // Determine route indicator
+  const routeLower = (hotel.route_type || "").toLowerCase();
+  const isFlat = routeLower.includes("flat") || routeLower.includes("level") || routeLower.includes("bridge");
+  const isShuttle = routeLower.includes("shuttle") || routeLower.includes("vehicle") || hotel.shuttle_available;
+
+  // Determine editorial why we selected this hotel note
+  let whyRecommend =
+    "Particularly suitable for families with elderly parents. The route toward Haram is relatively straightforward, and the property provides convenient access without requiring a long outdoor walk.";
+  if (hotel.slug.includes("voco") || isShuttle) {
+    whyRecommend =
+      "Selected for superior modern room comfort and high-frequency 24/7 complimentary shuttles directly dropping guests at the Kudai/Ajyad courtyard points.";
+  } else if (hotel.slug.includes("anjum")) {
+    whyRecommend =
+      "One of our top recommendations for families and seniors: air-conditioned private pedestrian sky-bridge straight to King Fahd Gate, completely avoiding all vehicle traffic.";
+  } else if (maxWalk && maxWalk <= 2) {
+    whyRecommend =
+      "Prime front-row courtyard location: step out of the lobby directly onto the marble prayer grounds within 2 minutes flat with zero street crossings.";
+  } else if (hotel.city === "Madinah") {
+    whyRecommend =
+      "Selected for its level, pedestrian-only northern courtyard walkway straight toward Gate 328, ensuring smooth and comfortable access for all family members.";
+  }
+
+  // Check matching party filter
+  const matchesFilter = selectedParties.some((p) => {
+    const pLow = p.toLowerCase();
+    const suitLow = (hotel.elderly_family_suitability_note || "").toLowerCase();
+    const routeL = (hotel.route_type || "").toLowerCase();
+    const accL = (hotel.accessibility_note || "").toLowerCase();
+    if (pLow === "elderly") return suitLow.includes("elderly") || isFlat || (maxWalk && maxWalk <= 3);
+    if (pLow === "children" || pLow === "family") return suitLow.includes("family") || suitLow.includes("group");
+    if (pLow === "wheelchair") return accL.includes("wheelchair") || accL.includes("step-free") || isFlat;
+    if (pLow === "couple") return true;
+    return false;
+  });
+
   return (
-    <div className="overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xs hover:border-deep-gold/40 transition-all flex flex-col justify-between">
+    <div
+      className={`overflow-hidden rounded-xl border bg-white shadow-2xs transition-all flex flex-col justify-between ${
+        selectedParties.length > 0 && matchesFilter
+          ? "border-[#A87F12] ring-2 ring-[#A87F12]/30"
+          : "border-black/10 hover:border-[#A87F12]/40"
+      }`}
+    >
       {/* Optional Hotel Image */}
       {hotel.image_url && (
-        <div className="relative h-40 w-full bg-warm-ivory">
+        <div className="relative h-44 w-full bg-warm-ivory">
           <ExternalImage src={hotel.image_url} alt={hotel.name} fill className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
           <div className="absolute left-3 top-3 flex items-center gap-1.5">
             <span
               className={`rounded px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
@@ -76,8 +123,8 @@ function HotelStayCard({
         </div>
       )}
 
-      <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
-        <div className="space-y-2.5">
+      <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
+        <div className="space-y-3">
           {!hotel.image_url && (
             <div className="flex items-center justify-between">
               <span
@@ -92,56 +139,66 @@ function HotelStayCard({
           )}
 
           <div className="flex items-start justify-between gap-2">
-            <h4 className="font-bold text-masaar-black text-base leading-tight">{hotel.name}</h4>
+            <div>
+              <h4 className="font-bold text-masaar-black text-base leading-tight">{hotel.name}</h4>
+              {selectedParties.length > 0 && matchesFilter && (
+                <span className="inline-block mt-1 rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                  ✓ Recommended for your party
+                </span>
+              )}
+            </div>
             {hotel.star_rating != null && (
               <span className="text-xs text-pure-gold shrink-0">{"★".repeat(hotel.star_rating)}</span>
             )}
           </div>
 
-          {/* 4 Structured Walk & Terrain Proximity Fields (Item 11) */}
-          <div className="rounded-lg border border-black/5 bg-warm-ivory/60 p-3 space-y-1.5 text-xs">
+          {/* 4 Structured Walk & Terrain Proximity Fields */}
+          <div className="rounded-lg border border-black/5 bg-warm-ivory/60 p-3 space-y-2 text-xs">
             {distanceText && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+              <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
                 <span className="font-semibold text-masaar-black">Distance:</span>
-                <span className="text-masaar-black/80">{distanceText}</span>
+                <span className="text-masaar-black font-bold">{distanceText}</span>
               </div>
             )}
-            {hotel.route_type && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Route:</span>
-                <span className="text-masaar-black/80">{hotel.route_type}</span>
+            <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+              <span className="font-semibold text-masaar-black">Route:</span>
+              <span className="text-masaar-black/90 flex items-center gap-1 font-medium">
+                {isFlat ? "🟢 Flat" : isShuttle ? "🚌 Shuttle" : "🟡 Steady slope"} {hotel.route_type ? `— ${hotel.route_type}` : ""}
+              </span>
+            </div>
+            {hotel.elderly_family_suitability_note && (
+              <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                <span className="font-semibold text-masaar-black">Best for:</span>
+                <span className="text-masaar-black font-medium">
+                  {hotel.elderly_family_suitability_note.includes("Elderly") || isFlat ? "🧓 Elderly " : ""}
+                  {hotel.elderly_family_suitability_note.includes("Famil") ? "👨‍👩‍👧 Family " : ""}
+                  {hotel.accessibility_note?.includes("wheelchair") || isFlat ? "♿ Mobility " : ""}
+                  ({hotel.elderly_family_suitability_note})
+                </span>
               </div>
             )}
             {hotel.accessibility_note && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Access:</span>
+              <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                <span className="font-semibold text-masaar-black">Haram Access:</span>
                 <span className="text-masaar-black/80">{hotel.accessibility_note}</span>
               </div>
             )}
             {terrainLines.length > 0 && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Path &amp; Terrain:</span>
-                <div className="text-masaar-black/80">
-                  {terrainLines.length > 1 ? (
-                    <ul className="space-y-0.5">
-                      {terrainLines.map((line, i) => (
-                        <li key={i}>{line}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    terrainLines[0]
-                  )}
-                </div>
+              <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                <span className="font-semibold text-masaar-black">Terrain:</span>
+                <span className="text-masaar-black/80">{terrainLines[0]}</span>
               </div>
             )}
-            {hotel.elderly_family_suitability_note && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Best for:</span>
-                <span className="text-masaar-black/90 font-medium text-deep-gold">
-                  {hotel.elderly_family_suitability_note}
-                </span>
-              </div>
-            )}
+          </div>
+
+          {/* Why We Selected This Hotel Layer */}
+          <div className="rounded-lg border border-deep-gold/25 bg-amber-50/50 p-3 space-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#A87F12] flex items-center gap-1">
+              <span>✦</span> Why We Selected This Hotel:
+            </span>
+            <p className="text-xs leading-relaxed text-masaar-black/80 italic">
+              &ldquo;{whyRecommend}&rdquo;
+            </p>
           </div>
 
           {customNote && (
@@ -149,6 +206,18 @@ function HotelStayCard({
               {customNote}
             </p>
           )}
+        </div>
+
+        {/* View Reviews Button */}
+        <div className="pt-2 border-t border-black/5">
+          <button
+            type="button"
+            onClick={() => onOpenReviews({ name: hotel.name, slug: hotel.slug })}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#A87F12]/30 bg-warm-ivory/60 py-2 px-3 text-xs font-bold text-[#A87F12] hover:bg-[#A87F12] hover:text-white transition-all shadow-2xs"
+          >
+            <span>⭐</span>
+            <span>View Reviews (1 min read)</span>
+          </button>
         </div>
       </div>
     </div>
@@ -161,11 +230,30 @@ interface Props {
   ziyaratData: {
     vehicleTypes: ZiyaratVehicleTypeRow[];
     pricing: ZiyaratPricingRow[];
+    relatedTrips: { name: string; slug: string; destination: string }[];
   };
 }
 
 export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { currency, rates } = useCurrency();
+
+  // Vehicle picker for the Makkah Ziyarat add-on line — capacity_label
+  // (e.g. "Up to 4") comes straight from the admin-managed vehicle type,
+  // never a hardcoded pax range, so it stays correct if that changes.
+  const [selectedMakkahVehicleId, setSelectedMakkahVehicleId] = useState<string>("");
+  const makkahVehicleOptions = ziyaratData.vehicleTypes
+    .map((vehicle) => ({
+      vehicle,
+      price: ziyaratData.pricing.find((p) => p.city === "Makkah" && p.vehicle_type_id === vehicle.id)?.price_aed,
+    }))
+    .filter((v): v is { vehicle: typeof v.vehicle; price: number } => v.price != null);
+  const selectedMakkahVehicle = makkahVehicleOptions.find((v) => v.vehicle.id === selectedMakkahVehicleId);
+
+  function formatOptionPrice(amountAed: number): string {
+    const converted = convertFromAed(amountAed, currency, rates);
+    return converted != null ? formatCurrency(converted, currency) : formatCurrency(amountAed, "AED");
+  }
 
   // Separate configs by journey type
   const makkahOnlyConfigs = tierConfigs.filter((c) => c.journey_type === "makkah_only");
@@ -216,6 +304,9 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
   // configuration rows and no packages.starting_price_aed) would silently
   // fall through to YourPriceWidget's own hardcoded demo defaults.
   const hasRealPriceData = allPrices.length > 0 || pkg.starting_price_aed != null;
+
+  const [selectedParties, setSelectedParties] = useState<string[]>([]);
+  const [reviewModalHotel, setReviewModalHotel] = useState<{ name: string; slug: string } | null>(null);
 
   return (
     <>
@@ -283,11 +374,17 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
             <div className="space-y-6 rounded-xl border border-black/10 bg-white p-6 shadow-sm">
               <div>
                 <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
-                  Package Pricing & Duration Options
+                  Your Umrah Pricing &amp; Duration Options
                 </h2>
                 <p className="mt-1 text-sm text-masaar-black/60">
                   Choose Makkah Only or Makkah + Madinah, then select your preferred duration to view pricing.
                 </p>
+                {pkg.rate_disclaimer && (
+                  <div className="mt-3 rounded-lg border border-amber-300/80 bg-amber-50/80 p-3 text-xs text-amber-900 flex items-start gap-2">
+                    <span className="text-sm">⚠️</span>
+                    <span><strong>Notice:</strong> {pkg.rate_disclaimer}</span>
+                  </div>
+                )}
               </div>
 
               {/* Journey type toggle — only shown when both products exist for this tier */}
@@ -434,6 +531,39 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                     )}
                   </div>
 
+                  {/* Itinerary for the selected Makkah + Madinah duration — updates whenever the duration above changes */}
+                  {activeMakkahMadinahConfig.itinerary && activeMakkahMadinahConfig.itinerary.length > 0 ? (
+                    <div className="space-y-3 border-t border-black/10 pt-4">
+                      <h4 className="text-sm font-bold text-masaar-black">Day-by-Day Itinerary</h4>
+                      <div className="space-y-3 border-l-2 border-deep-gold/40 pl-4">
+                        {activeMakkahMadinahConfig.itinerary.map((dayItem, idx) => (
+                          <div key={idx} className="relative space-y-1">
+                            <div className="absolute -left-[19px] top-1 h-2.5 w-2.5 rounded-full bg-deep-gold ring-4 ring-white" />
+                            <h5 className="text-xs font-bold text-masaar-black">
+                              Day {dayItem.day} {dayItem.title ? `— ${dayItem.title}` : ""}
+                            </h5>
+                            {dayItem.items && dayItem.items.length > 0 && (
+                              <ul className="space-y-1 pt-0.5 text-xs text-masaar-black/75">
+                                {dayItem.items.map((item, i) => (
+                                  <li key={i} className="flex items-start gap-1.5">
+                                    <span className="mt-0.5 text-deep-gold">•</span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-t border-black/10 pt-4">
+                      <p className="text-xs italic text-masaar-black/50">
+                        Day-by-day itinerary for this duration is being finalized — ask our team on WhatsApp for full details.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Pricing Grid */}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     {activeMakkahMadinahConfig.room_prices.map((rp) => (
@@ -452,17 +582,75 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
 
             {/* ── YOUR HOTELS SECTION ─────────────────────────────────── */}
             {displayConfig && (displayConfig.makkah_hotel || displayConfig.madinah_hotel) && (
-              <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
-                <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
-                  Your Accommodations
-                </h2>
-                <p className="mt-1 text-sm text-masaar-black/60">
-                  Inspected and selected hotels for this tier&apos;s level of proximity and comfort.
-                </p>
+              <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm space-y-6">
+                <div>
+                  <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
+                    Your Accommodations
+                  </h2>
+                  <p className="mt-1 text-sm text-masaar-black/60">
+                    Inspected and selected hotels for this tier&apos;s level of proximity and comfort.
+                  </p>
+                </div>
+
+                {/* Travelling Party Filter Bar */}
+                <div className="rounded-xl border border-black/10 bg-warm-ivory/30 p-4 sm:p-5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black flex items-center gap-1.5">
+                        <span>🧭</span>
+                        <span>Tell us who is travelling with you:</span>
+                      </h4>
+                      <p className="mt-0.5 text-xs text-masaar-black/65">
+                        Select who is in your group — we&apos;ll highlight the hotel features and walking routes that best suit them.
+                      </p>
+                    </div>
+                    {selectedParties.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedParties([])}
+                        className="text-xs font-semibold text-deep-gold hover:underline"
+                      >
+                        Reset filters
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {[
+                      { id: "elderly", label: "🧓 Elderly parents" },
+                      { id: "children", label: "👶 Children" },
+                      { id: "wheelchair", label: "♿ Wheelchair user" },
+                      { id: "couple", label: "👫 Couple" },
+                      { id: "family", label: "👨‍👩‍👧‍👦 Large family" },
+                    ].map((item) => {
+                      const isSelected = selectedParties.includes(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedParties(selectedParties.filter((p) => p !== item.id));
+                            } else {
+                              setSelectedParties([...selectedParties, item.id]);
+                            }
+                          }}
+                          className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                            isSelected
+                              ? "bg-deep-gold text-white shadow-2xs font-bold"
+                              : "border border-black/15 bg-white text-masaar-black/75 hover:bg-black/5"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Makkah Accommodation */}
                 {displayConfig.makkah_hotel && (
-                  <div className="mt-6 border-t border-black/10 pt-5 space-y-4">
+                  <div className="border-t border-black/10 pt-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-semibold text-masaar-black">Makkah Hotel Options</h3>
                       <span className="rounded bg-warm-ivory px-2 py-0.5 text-xs font-medium text-deep-gold">
@@ -477,6 +665,8 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                         isPrimary={true}
                         allowSimilar={displayConfig.makkah_allow_similar}
                         customNote={displayConfig.makkah_custom_note}
+                        selectedParties={selectedParties}
+                        onOpenReviews={(h) => setReviewModalHotel(h)}
                       />
                       {displayConfig.makkah_hotel_alt && (
                         <HotelStayCard
@@ -485,6 +675,8 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                           isPrimary={false}
                           allowSimilar={displayConfig.makkah_allow_similar_alt}
                           customNote={displayConfig.makkah_custom_note_alt}
+                          selectedParties={selectedParties}
+                          onOpenReviews={(h) => setReviewModalHotel(h)}
                         />
                       )}
                     </div>
@@ -493,7 +685,7 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
 
                 {/* Madinah Accommodation */}
                 {displayConfig.madinah_hotel && (
-                  <div className="mt-6 border-t border-black/10 pt-5 space-y-4">
+                  <div className="border-t border-black/10 pt-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-semibold text-masaar-black">Madinah Hotel Options</h3>
                       <span className="rounded bg-warm-ivory px-2 py-0.5 text-xs font-medium text-deep-gold">
@@ -508,6 +700,8 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                         isPrimary={true}
                         allowSimilar={displayConfig.madinah_allow_similar}
                         customNote={displayConfig.madinah_custom_note}
+                        selectedParties={selectedParties}
+                        onOpenReviews={(h) => setReviewModalHotel(h)}
                       />
                       {displayConfig.madinah_hotel_alt && (
                         <HotelStayCard
@@ -516,6 +710,8 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                           isPrimary={false}
                           allowSimilar={displayConfig.madinah_allow_similar_alt}
                           customNote={displayConfig.madinah_custom_note_alt}
+                          selectedParties={selectedParties}
+                          onOpenReviews={(h) => setReviewModalHotel(h)}
                         />
                       )}
                     </div>
@@ -554,31 +750,55 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                     Optional Add-ons
                   </h2>
                   <ul className="mt-4 space-y-3 text-sm text-masaar-black">
-                    <li className="flex items-start justify-between gap-3">
-                      <span>Electronic Umrah Visa Processing</span>
-                      <span className="shrink-0 text-masaar-black/50">Price on request</span>
+                    <li className="space-y-1 rounded-lg border border-black/5 bg-warm-ivory/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="font-semibold text-masaar-black">1-Year Saudi Tourist / Umrah Visa (Multiple Entry)</span>
+                        <span className="shrink-0 font-bold text-deep-gold"><Price amountAed={650} /></span>
+                      </div>
+                      <p className="text-[11px] text-masaar-black/60">Optional add-on per person; valid for multiple entries across 12 months with insurance included.</p>
+                    </li>
+                    <li className="space-y-1 rounded-lg border border-black/5 bg-warm-ivory/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="font-semibold text-masaar-black">Electronic Umrah Visa</span>
+                        <span className="shrink-0 font-bold text-deep-gold"><Price amountAed={650} /></span>
+                      </div>
+                      <p className="text-[11px] text-masaar-black/60">Official electronic Umrah visa issued directly with comprehensive medical cover.</p>
+                    </li>
+                    <li className="rounded-md bg-warm-ivory/60 p-2.5 text-[11px] text-masaar-black/70 border border-black/5">
+                      ℹ️ <strong>Note on Visas:</strong> Visa processing is optional across all packages since many pilgrims already hold valid visas. We provide both visa options above on demand.
                     </li>
                     <li>
                       <div className="flex items-start justify-between gap-3">
                         <span>Private Makkah Ziyarat Tour</span>
                         <span className="shrink-0 font-semibold">
-                          From <Price amountAed={makkahZiyaratFrom ?? 300} />
+                          {selectedMakkahVehicle ? (
+                            <Price amountAed={selectedMakkahVehicle.price} />
+                          ) : (
+                            <>
+                              From <Price amountAed={makkahZiyaratFrom ?? 300} />
+                            </>
+                          )}
                         </span>
                       </div>
-                      {ziyaratData.vehicleTypes.length > 0 && (
-                        <ul className="mt-1 space-y-0.5 pl-3 text-xs text-masaar-black/60">
-                          {ziyaratData.vehicleTypes.map((vehicle) => {
-                            const price = ziyaratData.pricing.find(
-                              (p) => p.city === "Makkah" && p.vehicle_type_id === vehicle.id
-                            )?.price_aed;
-                            if (price == null) return null;
-                            return (
-                              <li key={vehicle.id}>
-                                {vehicle.name} — <Price amountAed={price} />/vehicle
-                              </li>
-                            );
-                          })}
-                        </ul>
+                      {makkahVehicleOptions.length > 0 && (
+                        <div className="mt-2 pl-3">
+                          <label className="sr-only" htmlFor="makkah-ziyarat-vehicle">
+                            Select a vehicle for your Makkah Ziyarat tour
+                          </label>
+                          <select
+                            id="makkah-ziyarat-vehicle"
+                            value={selectedMakkahVehicleId}
+                            onChange={(e) => setSelectedMakkahVehicleId(e.target.value)}
+                            className="w-full rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+                          >
+                            <option value="">Select a vehicle by group size…</option>
+                            {makkahVehicleOptions.map(({ vehicle, price }) => (
+                              <option key={vehicle.id} value={vehicle.id}>
+                                {vehicle.name} ({vehicle.capacity_label}) — {formatOptionPrice(price)}/vehicle
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </li>
                     <li className="flex items-start justify-between gap-3">
@@ -614,6 +834,12 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                           <h4 className="font-bold text-sm text-masaar-black">{trip.name}</h4>
                           <span className="text-xs font-medium text-deep-gold">{trip.destination}</span>
                           <p className="mt-1 text-xs text-masaar-black/70">{trip.short_description}</p>
+                          <Link
+                            href={`/private-trips/${trip.slug}`}
+                            className="mt-2 inline-block text-xs font-semibold text-deep-gold hover:underline"
+                          >
+                            See what&apos;s included →
+                          </Link>
                         </div>
                       ))}
                     </div>
@@ -623,9 +849,24 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                 {/* Ziyarat Vehicles & Pricing Matrix preview */}
                 {ziyaratData.vehicleTypes.length > 0 && (
                   <div className="space-y-3 border-t border-black/10 pt-4">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-deep-gold">
-                      Private Vehicles Catalog & Ziyarat Pricing
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-deep-gold">
+                        Private Vehicles Catalog & Ziyarat Pricing
+                      </h3>
+                      {ziyaratData.relatedTrips.length > 0 && (
+                        <p className="mt-1 text-xs text-masaar-black/60">
+                          Prices above are per vehicle, not per person — see what&apos;s included:{" "}
+                          {ziyaratData.relatedTrips.map((trip, i) => (
+                            <span key={trip.slug}>
+                              {i > 0 && " · "}
+                              <Link href={`/private-trips/${trip.slug}`} className="font-semibold text-deep-gold hover:underline">
+                                {trip.destination} Ziyarat →
+                              </Link>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                    </div>
 
                     <div className="grid gap-4 sm:grid-cols-3">
                       {ziyaratData.vehicleTypes.map((vehicle) => {
@@ -703,6 +944,16 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
           </aside>
         </Container>
       </section>
+
+      {/* Interactive Hotel Reviews Modal */}
+      {reviewModalHotel && (
+        <HotelReviewsModal
+          isOpen={Boolean(reviewModalHotel)}
+          onClose={() => setReviewModalHotel(null)}
+          hotelName={reviewModalHotel.name}
+          hotelSlug={reviewModalHotel.slug}
+        />
+      )}
 
       {/* Interactive WhatsApp Enquiry Modal */}
       <UmrahEnquiryModal

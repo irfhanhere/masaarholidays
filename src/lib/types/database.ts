@@ -59,6 +59,11 @@ export type VisaTypeFeature = {
   label: string;
 };
 
+export type VisaTypeBenefit = {
+  title: string;
+  description: string;
+};
+
 type PackageRowShape = {
   id: string;
   type: PackageType;
@@ -237,6 +242,25 @@ type HotelRoomRowShape = {
   updated_at: string;
 };
 
+export type HotelReviewRowShape = {
+  id: string;
+  hotel_id: string | null;
+  hotel_slug: string;
+  author_name: string;
+  travel_party: string;
+  rating: number;
+  stay_month_year: string;
+  read_time: string;
+  title: string;
+  content: string;
+  highlight_quote: string | null;
+  helpful_tag: string | null;
+  is_verified: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 type PackageHotelRowShape = {
   id: string;
   package_id: string;
@@ -334,6 +358,8 @@ type VisaTypeRowShape = {
   hero_image_url: string | null;
   /** The 4-icon feature strip below the hero, admin-editable per type. */
   features: VisaTypeFeature[];
+  /** Optional "Benefits" list (title + description pairs) shown below the feature strip — section hidden entirely when empty. */
+  benefits: VisaTypeBenefit[];
   /** Intro line under the "Documents Required" heading. */
   documents_intro: string | null;
   /** Warning-style "Important Information" callout — paragraphs separated by a blank line. */
@@ -694,6 +720,7 @@ export interface Database {
       >;
       hotels: Table<HotelRowShape, "name" | "slug" | "city">;
       hotel_rooms: Table<HotelRoomRowShape, "hotel_id" | "room_type">;
+      hotel_reviews: Table<HotelReviewRowShape, "hotel_slug" | "author_name" | "title" | "content">;
       package_hotels: Table<PackageHotelRowShape, "package_id" | "hotel_id" | "nights">;
       package_transfer_addons: Table<PackageTransferAddonRowShape, "package_id" | "transfer_id">;
       transfers: Table<TransferRowShape, "route_name" | "slug">;
@@ -740,17 +767,29 @@ export interface Database {
       package_inclusions_catalog: Table<PackageInclusionCatalogRowShape, "name">;
       package_addons_catalog: Table<PackageAddonCatalogRowShape, "name" | "key_slug">;
       admin_mfa_backup_codes: Table<AdminMfaBackupCodeRowShape, "user_id" | "code_hash">;
+      documents: Table<DocumentRowShape, "document_type" | "document_number" | "client_name">;
+      document_items: Table<DocumentItemRowShape, "document_id" | "description">;
+      document_versions: Table<DocumentVersionRowShape, "document_id" | "version_number" | "status_at_version" | "snapshot">;
+      document_templates: Table<DocumentTemplateRowShape, "document_type" | "name">;
+      document_shares: Table<DocumentShareRowShape, "document_id" | "share_token">;
+      document_settings: Table<DocumentSettingsRowShape, "id">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
     };
-    Functions: Record<string, never>;
+    Functions: {
+      generate_document_number: {
+        Args: { p_document_type: string };
+        Returns: string;
+      };
+    };
   };
 };
 
 export type PackageRow = Database["public"]["Tables"]["packages"]["Row"];
 export type HotelRow = Database["public"]["Tables"]["hotels"]["Row"];
 export type HotelRoomRow = Database["public"]["Tables"]["hotel_rooms"]["Row"];
+export type HotelReviewRow = Database["public"]["Tables"]["hotel_reviews"]["Row"];
 /** What the public site fetches — admin-only fields (data_confidence, admin_caution_note) are never selected by public queries, not just hidden in the UI. See lib/data/public.ts#getActiveHotels/getHotelBySlug. */
 export type PublicHotelRow = Omit<HotelRow, "data_confidence" | "admin_caution_note">;
 /** What the public site fetches for rooms — same admin-only exclusion as PublicHotelRow. See lib/data/public.ts#getHotelRooms/getActiveHotelRoomPriceSummaries. */
@@ -869,7 +908,166 @@ export type PackageAddonCatalogRow =
 export type PackageInclusionCatalogRow =
   Database["public"]["Tables"]["package_inclusions_catalog"]["Row"];
 
+// ─────────────────────────────────────────────────────────────────────────
+// Document & Proposal Toolkit (0074_document_toolkit.sql) — Quotation /
+// Invoice / Receipt / Booking Voucher. A presentation layer over the CMS
+// above, not a duplicate of it: document_items freezes a snapshot of
+// description/price on save (source_type/source_id are for the admin
+// "edit" affordance only, never re-read live). Not a CRM — client_name/
+// email/phone are free text, no FK into `enquiries`.
+// ─────────────────────────────────────────────────────────────────────────
+export type DocumentType = "quotation" | "invoice" | "receipt" | "booking_voucher";
+export type DocumentJourneyType = "umrah" | "hajj" | "hotel" | "transfer" | "private_trip" | "custom";
+export type DocumentItemType =
+  | "umrah_package"
+  | "hajj_package"
+  | "hotel"
+  | "transfer"
+  | "private_trip"
+  | "flight"
+  | "service"
+  | "custom";
+export type DocumentPaymentMethod = "bank_transfer" | "cash" | "card" | "other";
+export type DocumentTemplateLayout = "premium" | "classic" | "minimal";
 
+export const QUOTATION_STATUSES = [
+  "draft",
+  "sent",
+  "viewed",
+  "revision_requested",
+  "revised",
+  "accepted",
+  "rejected",
+  "expired",
+] as const;
+export const INVOICE_STATUSES = ["draft", "issued", "sent", "partially_paid", "paid", "cancelled"] as const;
+export const RECEIPT_STATUSES = ["draft", "issued", "sent", "cancelled"] as const;
+export const BOOKING_VOUCHER_STATUSES = ["draft", "issued", "sent", "cancelled"] as const;
 
+export type DocumentRowShape = {
+  id: string;
+  document_type: DocumentType;
+  document_number: string;
+  status: string;
+  client_name: string;
+  client_email: string | null;
+  client_phone: string | null;
+  client_country: string | null;
+  journey_type: DocumentJourneyType | null;
+  travel_date: string | null;
+  return_date: string | null;
+  adults: number | null;
+  children: number | null;
+  infants: number | null;
+  origin: string | null;
+  destination: string | null;
+  special_requirements: string | null;
+  source_document_id: string | null;
+  subtotal_aed: number;
+  discount_aed: number;
+  tax_aed: number;
+  total_aed: number;
+  amount_paid_aed: number;
+  notes: string | null;
+  terms: string | null;
+  issue_date: string;
+  due_date: string | null;
+  valid_until: string | null;
+  payment_method: DocumentPaymentMethod | null;
+  transaction_reference: string | null;
+  payment_date: string | null;
+  booking_reference: string | null;
+  template_id: string | null;
+  future_crm_client_id: string | null;
+  future_crm_enquiry_id: string | null;
+  future_crm_booking_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentItemRowShape = {
+  id: string;
+  document_id: string;
+  item_type: DocumentItemType;
+  source_type: string | null;
+  source_id: string | null;
+  description: string;
+  details: string | null;
+  quantity: number;
+  unit_price_aed: number;
+  discount_aed: number;
+  tax_aed: number;
+  amount_aed: number;
+  display_order: number;
+  created_at: string;
+};
+
+export type DocumentVersionRowShape = {
+  id: string;
+  document_id: string;
+  version_number: number;
+  status_at_version: string;
+  snapshot: { document: DocumentRowShape; items: DocumentItemRowShape[] };
+  created_at: string;
+  created_by: string | null;
+};
+
+export type DocumentTemplateRowShape = {
+  id: string;
+  document_type: DocumentType;
+  name: string;
+  layout: DocumentTemplateLayout;
+  logo_url: string | null;
+  header_text: string | null;
+  footer_text: string | null;
+  primary_color: string;
+  secondary_color: string;
+  gold_color: string;
+  typography: string;
+  company_phone: string | null;
+  company_email: string | null;
+  company_website: string | null;
+  company_address: string | null;
+  terms_text: string | null;
+  signature_text: string | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  bank_iban: string | null;
+  bank_swift_code: string | null;
+  blessing_note: string | null;
+  signature_name: string | null;
+  signature_title: string | null;
+  footer_image_url: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentShareRowShape = {
+  id: string;
+  document_id: string;
+  share_token: string;
+  expires_at: string | null;
+  viewed_at: string | null;
+  created_at: string;
+};
+
+export type DocumentSettingsRowShape = {
+  id: number;
+  quotation_prefix: string;
+  invoice_prefix: string;
+  receipt_prefix: string;
+  booking_voucher_prefix: string;
+  updated_at: string;
+};
+
+export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
+export type DocumentItemRow = Database["public"]["Tables"]["document_items"]["Row"];
+export type DocumentVersionRow = Database["public"]["Tables"]["document_versions"]["Row"];
+export type DocumentTemplateRow = Database["public"]["Tables"]["document_templates"]["Row"];
+export type DocumentShareRow = Database["public"]["Tables"]["document_shares"]["Row"];
+export type DocumentSettingsRow = Database["public"]["Tables"]["document_settings"]["Row"];
 
 

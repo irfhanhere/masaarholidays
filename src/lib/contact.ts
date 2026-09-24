@@ -4,8 +4,8 @@
  * (e.g. moving these into the admin panel) only touches this file.
  */
 export const CONTACT = {
-  whatsappPhoneIntl: "971552276299", // +971 55 227 6299, no leading "+"/spaces (wa.me format)
-  phoneDisplay: "+971 55 227 6299",
+  whatsappPhoneIntl: "971557329320", // +971 55 732 9320, no leading "+"/spaces (wa.me format)
+  phoneDisplay: "+971 55 732 9320",
   emailGeneral: "care@masaarholidays.com",
   emailPartnerships: "partners@masaarholidays.com",
   emailAccounts: "accounts@masaarholidays.com",

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { VisaDocumentIconKey, VisaTypeFeature } from "@/lib/types/database";
+import type { VisaDocumentIconKey, VisaTypeBenefit, VisaTypeFeature } from "@/lib/types/database";
 
 export interface VisaTypeFormState {
   status: "idle" | "error";
@@ -27,6 +27,14 @@ function parseFeatures(formData: FormData): VisaTypeFeature[] {
   return labels
     .map((label, i) => ({ icon_key: icons[i] || "document", label: label.trim() }))
     .filter((f) => f.label);
+}
+
+function parseBenefits(formData: FormData): VisaTypeBenefit[] {
+  const titles = formData.getAll("benefit_title") as string[];
+  const descriptions = formData.getAll("benefit_description") as string[];
+  return titles
+    .map((title, i) => ({ title: title.trim(), description: (descriptions[i] ?? "").trim() }))
+    .filter((b) => b.title);
 }
 
 function parseBulletList(formData: FormData, name: string): string[] {
@@ -61,6 +69,7 @@ export async function saveVisaType(
     hero_intro: textField("hero_intro"),
     hero_image_url: textField("hero_image_url"),
     features: parseFeatures(formData),
+    benefits: parseBenefits(formData),
     documents_intro: textField("documents_intro"),
     important_info_text: textField("important_info_text"),
     who_needs_this: parseBulletList(formData, "who_needs_this_text"),

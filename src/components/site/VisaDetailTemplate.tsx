@@ -13,7 +13,7 @@ const FALLBACK_IMPORTANT_INFO =
 
 /**
  * One shared detail-page template for all 6 visa types (Umrah, UAE,
- * Global, Saudi Tourist, Emirates ID, India) at /visa/[slug] — layout and
+ * Global, Saudi Tourist, Golden Visa Assistance, India) at /visa/[slug] — layout and
  * components are identical across every type; only `visaType`/`documents`
  * (per-slug data) differ. Matches the reference mockups' structure:
  * hero + 4-icon feature strip, Documents Required grid, Important
@@ -56,6 +56,27 @@ export function VisaDetailTemplate({
                     <VisaIcon iconKey={feature.icon_key} className="size-5" />
                   </span>
                   <p className="text-sm font-medium text-masaar-black">{feature.label}</p>
+                </div>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
+
+      {(visaType.benefits ?? []).length > 0 && (
+        <section className="py-16">
+          <Container>
+            <SectionHeading eyebrow={eyebrow} title="Benefits" />
+            <div className="mx-auto mt-10 grid max-w-4xl gap-6 sm:grid-cols-2">
+              {(visaType.benefits ?? []).map((benefit, i) => (
+                <div key={i} className="flex gap-3 rounded-lg border border-black/10 bg-white p-5">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-sm font-semibold text-deep-gold">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-masaar-black">{benefit.title}</h3>
+                    <p className="mt-1 text-sm text-masaar-black/60">{benefit.description}</p>
+                  </div>
                 </div>
               ))}
             </div>

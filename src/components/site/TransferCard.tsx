@@ -4,7 +4,7 @@ import { WhatsAppButton } from "./WhatsAppButton";
 
 /**
  * No pricing here, deliberately — masaar-client-data-round2.md Section 3:
- * "Haseeb does not want these prices shown on the public Transfers page."
+ * "Do not show these prices on the public Transfers page."
  * Route + available vehicle options + a single WhatsApp CTA only. The
  * `vehicles` prop comes from the public-safe view that never carries a
  * price column in the first place — see lib/data/public.ts.

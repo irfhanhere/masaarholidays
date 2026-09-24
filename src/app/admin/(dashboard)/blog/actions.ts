@@ -58,7 +58,7 @@ export async function saveBlogPost(
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
-  const author_name = String(formData.get("author_name") ?? "").trim() || "Haseeb";
+  const author_name = String(formData.get("author_name") ?? "").trim() || "Masaar Team";
   const is_featured = formData.get("is_featured") === "on";
   const publicationMode = String(formData.get("publication_mode") ?? "draft"); // 'draft' | 'published' | 'scheduled'
   const scheduledAtRaw = String(formData.get("scheduled_at") ?? "").trim();
