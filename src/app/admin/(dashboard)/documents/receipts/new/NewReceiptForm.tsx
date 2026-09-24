@@ -76,9 +76,16 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const res = await response.json();
-      if (!res.success) {
-        setError(res.error || "Failed to create receipt.");
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
+
+      if (!response.ok || !res?.success) {
+        setError(res?.error || `Failed to create receipt (Status ${response.status}).`);
         setIsPending(false);
         return;
       }

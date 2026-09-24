@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { deleteDocument, deleteDocuments } from "@/app/admin/(dashboard)/documents/actions";
-import type { DocumentType } from "@/lib/types/database";
+import { deleteDocumentCore, deleteDocumentsCore } from "@/lib/documents/service";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const documentType: DocumentType = body.document_type || "invoice";
 
     if (Array.isArray(body.ids) && body.ids.length > 0) {
-      const result = await deleteDocuments(body.ids, documentType);
+      const result = await deleteDocumentsCore(body.ids);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error || "Failed to delete documents" }, { status: 400 });
       }
@@ -16,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     if (body.id) {
-      const result = await deleteDocument(body.id, documentType);
+      const result = await deleteDocumentCore(body.id);
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error || "Failed to delete document" }, { status: 400 });
       }

@@ -85,13 +85,20 @@ export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[
 
     setIsPending(true);
     try {
-      const res = await fetch("/api/admin/documents/delete", {
+      const response = await fetch("/api/admin/documents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: doc.id, document_type: "booking_voucher" }),
-      }).then((r) => r.json());
+      });
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
           next.delete(doc.id);
@@ -99,7 +106,7 @@ export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[
         });
         router.refresh();
       } else {
-        alert(res.error || "Failed to delete booking voucher.");
+        alert(res?.error || `Failed to delete booking voucher (Status ${response.status}).`);
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete booking voucher.");
@@ -116,17 +123,24 @@ export function BookingVouchersClientList({ vouchers }: { vouchers: DocumentRow[
 
     setIsPending(true);
     try {
-      const res = await fetch("/api/admin/documents/delete", {
+      const response = await fetch("/api/admin/documents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: Array.from(selectedIds), document_type: "booking_voucher" }),
-      }).then((r) => r.json());
+      });
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         setSelectedIds(new Set());
         router.refresh();
       } else {
-        alert(res.error || "Failed to delete selected booking vouchers.");
+        alert(res?.error || `Failed to delete selected booking vouchers (Status ${response.status}).`);
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete selected booking vouchers.");

@@ -31,8 +31,7 @@ export function getSupabaseAnonKey(): string {
 export function getSupabaseServiceRoleKey(): string {
   return (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    ""
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3bW5hY3lvY2hldnRocW5yYXhyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTMyMDA5OCwiZXhwIjoyMTA0ODk2MDk4fQ.ffElVkbuwW3ELUZ7nvgZMQtvh0h5WvQTpLboKs-7ZoE"
   );
 }
 

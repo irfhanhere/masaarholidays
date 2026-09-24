@@ -81,13 +81,20 @@ export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
 
     setIsPending(true);
     try {
-      const res = await fetch("/api/admin/documents/delete", {
+      const response = await fetch("/api/admin/documents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: r.id, document_type: "receipt" }),
-      }).then((res) => res.json());
+      });
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
           next.delete(r.id);
@@ -95,7 +102,7 @@ export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
         });
         router.refresh();
       } else {
-        alert(res.error || "Failed to delete receipt.");
+        alert(res?.error || `Failed to delete receipt (Status ${response.status}).`);
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete receipt.");
@@ -112,17 +119,24 @@ export function ReceiptsClientList({ receipts }: { receipts: DocumentRow[] }) {
 
     setIsPending(true);
     try {
-      const res = await fetch("/api/admin/documents/delete", {
+      const response = await fetch("/api/admin/documents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: Array.from(selectedIds), document_type: "receipt" }),
-      }).then((res) => res.json());
+      });
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         setSelectedIds(new Set());
         router.refresh();
       } else {
-        alert(res.error || "Failed to delete selected receipts.");
+        alert(res?.error || `Failed to delete selected receipts (Status ${response.status}).`);
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete selected receipts.");

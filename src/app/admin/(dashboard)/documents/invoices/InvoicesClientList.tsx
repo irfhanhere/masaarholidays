@@ -74,13 +74,20 @@ export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
 
     setIsPending(true);
     try {
-      const res = await fetch("/api/admin/documents/delete", {
+      const response = await fetch("/api/admin/documents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: inv.id, document_type: "invoice" }),
-      }).then((r) => r.json());
+      });
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
           next.delete(inv.id);
@@ -88,7 +95,7 @@ export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
         });
         router.refresh();
       } else {
-        alert(res.error || "Failed to delete invoice.");
+        alert(res?.error || `Failed to delete invoice (Status ${response.status}).`);
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete invoice.");
@@ -105,17 +112,24 @@ export function InvoicesClientList({ invoices }: { invoices: DocumentRow[] }) {
 
     setIsPending(true);
     try {
-      const res = await fetch("/api/admin/documents/delete", {
+      const response = await fetch("/api/admin/documents/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: Array.from(selectedIds), document_type: "invoice" }),
-      }).then((r) => r.json());
+      });
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
 
-      if (res.success) {
+      if (response.ok && res?.success) {
         setSelectedIds(new Set());
         router.refresh();
       } else {
-        alert(res.error || "Failed to delete selected invoices.");
+        alert(res?.error || `Failed to delete selected invoices (Status ${response.status}).`);
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete selected invoices.");

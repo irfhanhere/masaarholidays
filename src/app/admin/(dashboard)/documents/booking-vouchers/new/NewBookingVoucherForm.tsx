@@ -41,9 +41,16 @@ export function NewBookingVoucherForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source_id: selectedSourceId }),
       });
-      const res = await response.json();
-      if (!res.success) {
-        setError(res.error || "Failed to import document.");
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
+
+      if (!response.ok || !res?.success) {
+        setError(res?.error || `Failed to import document (Status ${response.status}).`);
         setIsPending(false);
         return;
       }
@@ -109,9 +116,16 @@ export function NewBookingVoucherForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const res = await response.json();
-      if (!res.success) {
-        setError(res.error || "Failed to create booking voucher.");
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
+
+      if (!response.ok || !res?.success) {
+        setError(res?.error || `Failed to create booking voucher (Status ${response.status}).`);
         setIsPending(false);
         return;
       }

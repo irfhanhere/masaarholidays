@@ -36,9 +36,16 @@ export function NewInvoiceForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const res = await response.json();
-      if (!res.success) {
-        setError(res.error || "Failed to create invoice.");
+      const text = await response.text();
+      let res: any = null;
+      try {
+        res = text ? JSON.parse(text) : null;
+      } catch {
+        // ignore
+      }
+
+      if (!response.ok || !res?.success) {
+        setError(res?.error || `Failed to create invoice (Status ${response.status}).`);
         setIsPending(false);
         return;
       }

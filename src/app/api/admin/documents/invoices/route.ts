@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createManualInvoice } from "@/app/admin/(dashboard)/documents/actions";
+import { createManualInvoiceCore } from "@/lib/documents/service";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const result = await createManualInvoice(body);
+    const result = await createManualInvoiceCore(body);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error || "Failed to create invoice" }, { status: 400 });
     }
