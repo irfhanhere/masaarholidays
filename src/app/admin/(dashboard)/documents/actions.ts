@@ -186,7 +186,7 @@ export async function createManualBookingVoucher(input: CreateManualBookingVouch
     .select("id")
     .single();
 
-  if (error || !inserted) throw new Error(error?.message ?? "Failed to create booking voucher.");
+  if (error || !inserted) return { success: false, error: error?.message ?? "Failed to create booking voucher." };
 
   // Insert any provided hotel, transfer, flight, and addon items
   const itemsToInsert: Array<{
@@ -686,57 +686,74 @@ export interface RecordPaymentInput {
  * every receipt with source_document_id = this invoice (no separate
  * payments table needed).
  */
-export async function recordPayment(invoiceId: string, input: RecordPaymentInput) {
-  const supabase = await getClient();
+export async function recordPayment(invoiceId: string, input: RecordPaymentInput): Promise<{
+  success: boolean;
+  receiptId?: string;
+  receiptNumber?: string;
+  newStatus?: string;
+  balanceDue?: number;
+  error?: string;
+}> {
+  try {
+    const supabase = await getClient();
 
-  if (!(input.amount > 0)) throw new Error("Payment amount must be greater than zero.");
+    if (!(input.amount > 0)) return { success: false, error: "Payment amount must be greater than zero." };
 
-  const { data: invoice } = await supabase.from("documents").select("*").eq("id", invoiceId).single<DocumentRow>();
-  if (!invoice) throw new Error("Invoice not found.");
+    const { data: invoice } = await supabase.from("documents").select("*").eq("id", invoiceId).single<DocumentRow>();
+    if (!invoice) return { success: false, error: "Invoice not found." };
 
-  const newAmountPaid = Math.round((invoice.amount_paid_aed + input.amount) * 100) / 100;
-  const newStatus = newAmountPaid >= invoice.total_aed ? "paid" : "partially_paid";
+    const newAmountPaid = Math.round((invoice.amount_paid_aed + input.amount) * 100) / 100;
+    const newStatus = newAmountPaid >= invoice.total_aed ? "paid" : "partially_paid";
 
-  const { error: invoiceUpdateError } = await supabase
-    .from("documents")
-    .update({ amount_paid_aed: newAmountPaid, status: newStatus })
-    .eq("id", invoiceId);
-  if (invoiceUpdateError) throw new Error(invoiceUpdateError.message);
+    const { error: invoiceUpdateError } = await supabase
+      .from("documents")
+      .update({ amount_paid_aed: newAmountPaid, status: newStatus })
+      .eq("id", invoiceId);
+    if (invoiceUpdateError) return { success: false, error: invoiceUpdateError.message };
 
-  const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: "receipt" });
-  if (numberError || !numberResult) throw new Error(numberError?.message ?? "Failed to generate receipt number.");
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: "receipt" });
+    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate receipt number." };
 
-  const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "receipt").eq("is_default", true).maybeSingle();
+    const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "receipt").eq("is_default", true).maybeSingle();
 
-  const { data: receipt, error: receiptError } = await supabase
-    .from("documents")
-    .insert({
-      document_type: "receipt",
-      document_number: numberResult as string,
-      status: "issued",
-      client_name: invoice.client_name,
-      client_email: invoice.client_email,
-      client_phone: invoice.client_phone,
-      client_country: invoice.client_country,
-      source_document_id: invoice.id,
-      booking_reference: invoice.booking_reference,
-      total_aed: input.amount,
-      payment_method: input.payment_method,
-      transaction_reference: input.transaction_reference?.trim() || null,
-      payment_date: input.payment_date,
-      notes: input.notes?.trim() || null,
-      template_id: template?.id ?? null,
-    })
-    .select("id, document_number")
-    .single();
-  if (receiptError || !receipt) throw new Error(receiptError?.message ?? "Failed to create receipt.");
+    const { data: receipt, error: receiptError } = await supabase
+      .from("documents")
+      .insert({
+        document_type: "receipt",
+        document_number: numberResult as string,
+        status: "issued",
+        client_name: invoice.client_name,
+        client_email: invoice.client_email,
+        client_phone: invoice.client_phone,
+        client_country: invoice.client_country,
+        source_document_id: invoice.id,
+        booking_reference: invoice.booking_reference,
+        total_aed: input.amount,
+        payment_method: input.payment_method,
+        transaction_reference: input.transaction_reference?.trim() || null,
+        payment_date: input.payment_date,
+        notes: input.notes?.trim() || null,
+        template_id: template?.id ?? null,
+      })
+      .select("id, document_number")
+      .single();
+    if (receiptError || !receipt) return { success: false, error: receiptError?.message ?? "Failed to create receipt." };
 
-  await saveDocumentVersion(invoiceId, "invoice");
+    await saveDocumentVersion(invoiceId, "invoice");
 
-  revalidateDocumentPaths("invoice", invoiceId);
-  revalidateDocumentPaths("receipt", receipt.id);
+    revalidateDocumentPaths("invoice", invoiceId);
+    revalidateDocumentPaths("receipt", receipt.id);
 
-  return { receiptId: receipt.id, receiptNumber: receipt.document_number, newStatus, balanceDue: Math.round((invoice.total_aed - newAmountPaid) * 100) / 100 };
+    return {
+      success: true,
+      receiptId: receipt.id,
+      receiptNumber: receipt.document_number,
+      newStatus,
+      balanceDue: Math.round((invoice.total_aed - newAmountPaid) * 100) / 100,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to record payment." };
+  }
 }
 
 export interface CreateManualReceiptInput {

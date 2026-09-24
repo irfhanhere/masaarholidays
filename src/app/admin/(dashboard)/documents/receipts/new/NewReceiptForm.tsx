@@ -28,11 +28,18 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
       return;
     }
 
+    const clientName =
+      mode === "invoice" && selectedInvoice
+        ? selectedInvoice.client_name
+        : String(formData.get("client_name") ?? "").trim();
+
+    if (!clientName) {
+      setError("Client name is required.");
+      return;
+    }
+
     const input: CreateManualReceiptInput = {
-      client_name:
-        mode === "invoice" && selectedInvoice
-          ? selectedInvoice.client_name
-          : String(formData.get("client_name") ?? "").trim(),
+      client_name: clientName,
       client_phone:
         mode === "invoice" && selectedInvoice
           ? selectedInvoice.client_phone || undefined

@@ -71,13 +71,19 @@ export function RecordPaymentPanel({
     startTransition(async () => {
       try {
         const res = await recordPayment(invoice.id, input);
+        if (!res.success) {
+          setResult({ type: "error", text: res.error || "Failed to record payment." });
+          return;
+        }
         setResult({
           type: "success",
           text: `Payment of AED ${money(parsed)} recorded. Receipt ${res.receiptNumber} generated.`,
         });
         // Navigate to the new receipt after a short delay so the user sees the confirmation
         setTimeout(() => {
-          router.push(`/admin/documents/receipts/${res.receiptId}`);
+          if (res.receiptId) {
+            router.push(`/admin/documents/receipts/${res.receiptId}`);
+          }
         }, 1200);
       } catch (err) {
         setResult({ type: "error", text: err instanceof Error ? err.message : "Something went wrong." });
