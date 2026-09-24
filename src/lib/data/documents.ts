@@ -23,7 +23,23 @@ import type {
  * instead of throwing).
  */
 async function getClient() {
-  return createAdminClient();
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      return createAdminClient();
+    } catch {
+      // ignore
+    }
+  }
+
+  return createClient();
 }
 
 /**

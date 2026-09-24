@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
 import { createDocumentFromSource, createManualBookingVoucher, type CreateManualBookingVoucherInput } from "../../actions";
@@ -18,7 +18,7 @@ export function NewBookingVoucherForm({
   const [selectedSourceId, setSelectedSourceId] = useState<string>(
     quotations[0]?.id || invoices[0]?.id || ""
   );
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Checkboxes for add-ons
@@ -27,33 +27,42 @@ export function NewBookingVoucherForm({
   const [includeVip, setIncludeVip] = useState(true);
   const [includeAssistance, setIncludeAssistance] = useState(true);
 
-  function handleImportSubmit(e: React.FormEvent) {
+  async function handleImportSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedSourceId) {
       setError("Please select a quotation or invoice to import from.");
       return;
     }
     setError(null);
-    startTransition(async () => {
-      try {
-        const res = await createDocumentFromSource(selectedSourceId, "booking_voucher");
-        if (res && !res.success) {
-          setError(res.error || "Failed to import document.");
-          return;
-        }
-        if (res?.id) {
-          router.push(`/admin/documents/booking-vouchers/${res.id}`);
-        }
-      } catch (err: any) {
-        setError(err instanceof Error ? err.message : "Failed to import document.");
+    setIsPending(true);
+    try {
+      const res = await createDocumentFromSource(selectedSourceId, "booking_voucher");
+      if (!res.success) {
+        setError(res.error || "Failed to import document.");
+        setIsPending(false);
+        return;
       }
-    });
+      if (res.id) {
+        router.push(`/admin/documents/booking-vouchers/${res.id}`);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : "Failed to import document.");
+      setIsPending(false);
+    }
   }
 
-  function handleManualSubmit(formData: FormData) {
+  async function handleManualSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
+    const formData = new FormData(e.currentTarget);
+    const clientName = String(formData.get("client_name") ?? "").trim();
+    if (!clientName) {
+      setError("Client name is required.");
+      return;
+    }
+
     const input: CreateManualBookingVoucherInput = {
-      client_name: String(formData.get("client_name") ?? "").trim(),
+      client_name: clientName,
       client_phone: String(formData.get("client_phone") ?? "").trim() || undefined,
       client_email: String(formData.get("client_email") ?? "").trim() || undefined,
       client_country: String(formData.get("client_country") ?? "").trim() || undefined,
@@ -88,20 +97,21 @@ export function NewBookingVoucherForm({
       custom_addons: String(formData.get("custom_addons") ?? "").trim() || undefined,
     };
 
-    startTransition(async () => {
-      try {
-        const res = await createManualBookingVoucher(input);
-        if (res && !res.success) {
-          setError(res.error || "Failed to create booking voucher.");
-          return;
-        }
-        if (res?.id) {
-          router.push(`/admin/documents/booking-vouchers/${res.id}`);
-        }
-      } catch (err: any) {
-        setError(err instanceof Error ? err.message : "Failed to create booking voucher.");
+    setIsPending(true);
+    try {
+      const res = await createManualBookingVoucher(input);
+      if (!res.success) {
+        setError(res.error || "Failed to create booking voucher.");
+        setIsPending(false);
+        return;
       }
-    });
+      if (res.id) {
+        router.push(`/admin/documents/booking-vouchers/${res.id}`);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : "Failed to create booking voucher.");
+      setIsPending(false);
+    }
   }
 
   return (
@@ -187,7 +197,7 @@ export function NewBookingVoucherForm({
           </Card>
         </form>
       ) : (
-        <form action={handleManualSubmit} className="space-y-6">
+        <form onSubmit={handleManualSubmit} className="space-y-6">
           {/* 1. Guest & Travel Information */}
           <Card>
             <h2 className="mb-4 font-semibold text-masaar-black">1. Guest &amp; Travel Information</h2>

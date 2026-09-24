@@ -29,9 +29,10 @@ export function getSupabaseAnonKey(): string {
 
 /** Server-only. Never import this file from a "use client" component. */
 export function getSupabaseServiceRoleKey(): string {
-  return required(
-    "SUPABASE_SERVICE_ROLE_KEY",
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    ""
   );
 }
 

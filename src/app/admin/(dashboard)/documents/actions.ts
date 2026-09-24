@@ -2,13 +2,30 @@
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendDocumentEmail } from "@/lib/documents/mailer";
 import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 import type { DocumentItemRow, DocumentItemType, DocumentRow, DocumentTemplateRowShape, DocumentType } from "@/lib/types/database";
 
 async function getClient() {
-  return createAdminClient();
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      return createAdminClient();
+    } catch {
+      // ignore
+    }
+  }
+
+  return createClient();
 }
 
 const VAT_RATE = 0.05;

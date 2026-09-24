@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
 import { createManualInvoice, type CreateManualInvoiceInput } from "../../actions";
 
 export function NewInvoiceForm() {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
+
+    const formData = new FormData(e.currentTarget);
     const clientName = String(formData.get("client_name") ?? "").trim();
     if (!clientName) {
       setError("Client name is required.");
@@ -26,24 +29,25 @@ export function NewInvoiceForm() {
       due_date: String(formData.get("due_date") ?? "").trim() || undefined,
     };
 
-    startTransition(async () => {
-      try {
-        const res = await createManualInvoice(input);
-        if (res && !res.success) {
-          setError(res.error || "Failed to create invoice.");
-          return;
-        }
-        if (res?.id) {
-          router.push(`/admin/documents/invoices/${res.id}`);
-        }
-      } catch (e: any) {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
+    setIsPending(true);
+    try {
+      const res = await createManualInvoice(input);
+      if (!res.success) {
+        setError(res.error || "Failed to create invoice.");
+        setIsPending(false);
+        return;
       }
-    });
+      if (res.id) {
+        router.push(`/admin/documents/invoices/${res.id}`);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setIsPending(false);
+    }
   }
 
   return (
-    <form action={handleSubmit}>
+    <form onSubmit={handleSubmit}>
       <Card>
         <h2 className="mb-4 font-semibold text-masaar-black">Client Details</h2>
         <div className="grid gap-4 sm:grid-cols-2">

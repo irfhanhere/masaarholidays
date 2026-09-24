@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
 import { createManualReceipt, type CreateManualReceiptInput } from "../../actions";
@@ -12,7 +12,7 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
     invoices.length > 0 ? "invoice" : "standalone"
   );
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>(invoices[0]?.id || "");
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
@@ -20,8 +20,11 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
     ? Math.max(0, selectedInvoice.total_aed - selectedInvoice.amount_paid_aed)
     : 0;
 
-  function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
+
+    const formData = new FormData(e.currentTarget);
     const amountVal = Number(formData.get("amount"));
     if (!(amountVal > 0)) {
       setError("Payment amount must be greater than zero.");
@@ -64,20 +67,21 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
       notes: String(formData.get("notes") ?? "").trim() || undefined,
     };
 
-    startTransition(async () => {
-      try {
-        const res = await createManualReceipt(input);
-        if (res && !res.success) {
-          setError(res.error || "Failed to create receipt.");
-          return;
-        }
-        if (res?.id) {
-          router.push(`/admin/documents/receipts/${res.id}`);
-        }
-      } catch (err: any) {
-        setError(err instanceof Error ? err.message : "Failed to create receipt.");
+    setIsPending(true);
+    try {
+      const res = await createManualReceipt(input);
+      if (!res.success) {
+        setError(res.error || "Failed to create receipt.");
+        setIsPending(false);
+        return;
       }
-    });
+      if (res.id) {
+        router.push(`/admin/documents/receipts/${res.id}`);
+      }
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : "Failed to create receipt.");
+      setIsPending(false);
+    }
   }
 
   return (
@@ -108,7 +112,7 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
         </button>
       </div>
 
-      <form action={handleSubmit}>
+      <form onSubmit={handleSubmit}>
         <Card>
           {mode === "invoice" ? (
             <div className="space-y-4">
