@@ -1,30 +1,42 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
 import { createManualInvoice, type CreateManualInvoiceInput } from "../../actions";
 
 export function NewInvoiceForm() {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(formData: FormData) {
     setError(null);
+    const clientName = String(formData.get("client_name") ?? "").trim();
+    if (!clientName) {
+      setError("Client name is required.");
+      return;
+    }
+
     const input: CreateManualInvoiceInput = {
-      client_name: String(formData.get("client_name") ?? ""),
-      client_phone: String(formData.get("client_phone") ?? "") || undefined,
-      client_email: String(formData.get("client_email") ?? "") || undefined,
-      client_country: String(formData.get("client_country") ?? "") || undefined,
-      due_date: String(formData.get("due_date") ?? "") || undefined,
+      client_name: clientName,
+      client_phone: String(formData.get("client_phone") ?? "").trim() || undefined,
+      client_email: String(formData.get("client_email") ?? "").trim() || undefined,
+      client_country: String(formData.get("client_country") ?? "").trim() || undefined,
+      due_date: String(formData.get("due_date") ?? "").trim() || undefined,
     };
 
     startTransition(async () => {
       try {
-        await createManualInvoice(input);
-      } catch (e) {
-        if (e && typeof e === "object" && "digest" in e && typeof e.digest === "string" && e.digest.startsWith("NEXT_REDIRECT")) {
-          throw e;
+        const res = await createManualInvoice(input);
+        if (res && !res.success) {
+          setError(res.error || "Failed to create invoice.");
+          return;
         }
+        if (res?.id) {
+          router.push(`/admin/documents/invoices/${res.id}`);
+        }
+      } catch (e: any) {
         setError(e instanceof Error ? e.message : "Something went wrong.");
       }
     });

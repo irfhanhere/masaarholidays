@@ -2,26 +2,13 @@
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendDocumentEmail } from "@/lib/documents/mailer";
 import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 import type { DocumentItemRow, DocumentItemType, DocumentRow, DocumentTemplateRowShape, DocumentType } from "@/lib/types/database";
 
 async function getClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) return supabase;
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
-    return createAdminClient();
-  }
-
-  return supabase;
+  return createAdminClient();
 }
 
 const VAT_RATE = 0.05;
@@ -67,38 +54,53 @@ export interface CreateManualInvoiceInput {
   due_date?: string;
 }
 
-export async function createManualInvoice(input: CreateManualInvoiceInput) {
-  const supabase = await getClient();
+export async function createManualInvoice(input: CreateManualInvoiceInput): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  if (!input.client_name?.trim()) throw new Error("Client name is required.");
+    if (!input.client_name?.trim()) {
+      return { success: false, error: "Client name is required." };
+    }
 
-  const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
-    p_document_type: "invoice",
-  });
-  if (numberError || !numberResult) throw new Error(numberError?.message ?? "Failed to generate invoice number.");
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
+      p_document_type: "invoice",
+    });
+    if (numberError || !numberResult) {
+      return { success: false, error: numberError?.message ?? "Failed to generate invoice number." };
+    }
 
-  const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "invoice").eq("is_default", true).maybeSingle();
+    const { data: template } = await supabase
+      .from("document_templates")
+      .select("id")
+      .eq("document_type", "invoice")
+      .eq("is_default", true)
+      .maybeSingle();
 
-  const { data: inserted, error } = await supabase
-    .from("documents")
-    .insert({
-      document_type: "invoice",
-      document_number: numberResult as string,
-      status: "draft",
-      client_name: input.client_name.trim(),
-      client_email: input.client_email?.trim() || null,
-      client_phone: input.client_phone?.trim() || null,
-      client_country: input.client_country?.trim() || null,
-      due_date: input.due_date || null,
-      template_id: template?.id ?? null,
-    })
-    .select("id")
-    .single();
+    const { data: inserted, error } = await supabase
+      .from("documents")
+      .insert({
+        document_type: "invoice",
+        document_number: numberResult as string,
+        status: "draft",
+        client_name: input.client_name.trim(),
+        client_email: input.client_email?.trim() || null,
+        client_phone: input.client_phone?.trim() || null,
+        client_country: input.client_country?.trim() || null,
+        due_date: input.due_date || null,
+        template_id: template?.id ?? null,
+      })
+      .select("id")
+      .single();
 
-  if (error || !inserted) throw new Error(error?.message ?? "Failed to create invoice.");
+    if (error || !inserted) {
+      return { success: false, error: error?.message ?? "Failed to create invoice." };
+    }
 
-  revalidateDocumentPaths("invoice");
-  redirect(`/admin/documents/invoices/${inserted.id}`);
+    revalidateDocumentPaths("invoice");
+    return { success: true, id: inserted.id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to create invoice." };
+  }
 }
 
 export interface CreateManualBookingVoucherInput {
@@ -137,15 +139,16 @@ export interface CreateManualBookingVoucherInput {
   custom_addons?: string;
 }
 
-export async function createManualBookingVoucher(input: CreateManualBookingVoucherInput) {
-  const supabase = await getClient();
+export async function createManualBookingVoucher(input: CreateManualBookingVoucherInput): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  if (!input.client_name?.trim()) throw new Error("Client name is required.");
+    if (!input.client_name?.trim()) return { success: false, error: "Client name is required." };
 
-  const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
-    p_document_type: "booking_voucher",
-  });
-  if (numberError || !numberResult) throw new Error(numberError?.message ?? "Failed to generate booking voucher number.");
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
+      p_document_type: "booking_voucher",
+    });
+    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate booking voucher number." };
 
   const { data: template } = await supabase
     .from("document_templates")
@@ -339,8 +342,11 @@ export async function createManualBookingVoucher(input: CreateManualBookingVouch
     await supabase.from("document_items").insert(itemsToInsert);
   }
 
-  revalidateDocumentPaths("booking_voucher");
-  redirect(`/admin/documents/booking-vouchers/${inserted.id}`);
+    revalidateDocumentPaths("booking_voucher");
+    return { success: true, id: inserted.id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to create booking voucher." };
+  }
 }
 
 export async function updateDocumentBasics(documentId: string, documentType: DocumentType, patch: Partial<DocumentRow>) {
@@ -467,50 +473,73 @@ export async function updateDocumentStatus(documentId: string, documentType: Doc
   revalidateDocumentPaths(documentType, documentId);
 }
 
-export async function duplicateDocument(documentId: string, documentType: DocumentType) {
-  const supabase = await getClient();
+export async function duplicateDocument(documentId: string, documentType: DocumentType): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  const [{ data: document }, { data: items }] = await Promise.all([
-    supabase.from("documents").select("*").eq("id", documentId).single<DocumentRow>(),
-    supabase.from("document_items").select("*").eq("document_id", documentId).order("display_order", { ascending: true }),
-  ]);
-  if (!document) throw new Error("Document not found.");
+    const [{ data: document }, { data: items }] = await Promise.all([
+      supabase.from("documents").select("*").eq("id", documentId).single<DocumentRow>(),
+      supabase.from("document_items").select("*").eq("document_id", documentId).order("display_order", { ascending: true }),
+    ]);
+    if (!document) return { success: false, error: "Document not found." };
 
-  const { data: numberResult } = await supabase.rpc("generate_document_number", { p_document_type: documentType });
+    const { data: numberResult, error: numError } = await supabase.rpc("generate_document_number", { p_document_type: documentType });
+    if (numError || !numberResult) return { success: false, error: numError?.message ?? "Failed to generate document number." };
 
-  const {
-    id: _id,
-    document_number: _num,
-    created_at: _ca,
-    updated_at: _ua,
-    status: _status,
-    ...rest
-  } = document;
+    const {
+      id: _id,
+      document_number: _num,
+      created_at: _ca,
+      updated_at: _ua,
+      status: _status,
+      ...rest
+    } = document;
 
-  const { data: inserted, error } = await supabase
-    .from("documents")
-    .insert({ ...rest, document_number: numberResult as string, status: "draft" })
-    .select("id")
-    .single();
-  if (error || !inserted) throw new Error(error?.message ?? "Failed to duplicate document.");
+    const { data: inserted, error } = await supabase
+      .from("documents")
+      .insert({ ...rest, document_number: numberResult as string, status: "draft" })
+      .select("id")
+      .single();
+    if (error || !inserted) return { success: false, error: error?.message ?? "Failed to duplicate document." };
 
-  if (items && items.length > 0) {
-    const copies = (items as DocumentItemRow[]).map(({ id: _itemId, document_id: _docId, created_at: _createdAt, ...rest }) => ({
-      ...rest,
-      document_id: inserted.id,
-    }));
-    await supabase.from("document_items").insert(copies);
+    if (items && items.length > 0) {
+      const copies = (items as DocumentItemRow[]).map(({ id: _itemId, document_id: _docId, created_at: _createdAt, ...rest }) => ({
+        ...rest,
+        document_id: inserted.id,
+      }));
+      await supabase.from("document_items").insert(copies);
+    }
+
+    revalidateDocumentPaths(documentType);
+    return { success: true, id: inserted.id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to duplicate document." };
   }
-
-  revalidateDocumentPaths(documentType);
-  redirect(`/admin/documents/${moduleSlug(documentType)}/${inserted.id}`);
 }
 
-export async function deleteDocument(documentId: string, documentType: DocumentType) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("documents").delete().eq("id", documentId);
-  if (error) throw new Error(error.message);
-  revalidateDocumentPaths(documentType);
+export async function deleteDocument(documentId: string, documentType: DocumentType): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("documents").delete().eq("id", documentId);
+    if (error) return { success: false, error: error.message };
+    revalidateDocumentPaths(documentType);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to delete document." };
+  }
+}
+
+export async function deleteDocuments(documentIds: string[], documentType: DocumentType): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (documentIds.length === 0) return { success: true };
+    const supabase = await getClient();
+    const { error } = await supabase.from("documents").delete().in("id", documentIds);
+    if (error) return { success: false, error: error.message };
+    revalidateDocumentPaths(documentType);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to delete documents." };
+  }
 }
 
 export async function createShareLink(documentId: string) {
@@ -577,63 +606,67 @@ export async function sendDocumentEmailAction(documentId: string, documentType: 
 }
 
 /** Creates a new document of `toType`, seeded from an existing document's client/travel details and line items — used for Quotation → Invoice, Invoice → Receipt(payment), Quotation → Booking Voucher. Line items are copied as a fresh snapshot, never a live reference back to the source. */
-export async function createDocumentFromSource(sourceId: string, toType: DocumentType) {
-  const supabase = await getClient();
+export async function createDocumentFromSource(sourceId: string, toType: DocumentType): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  const [{ data: source }, { data: items }] = await Promise.all([
-    supabase.from("documents").select("*").eq("id", sourceId).single<DocumentRow>(),
-    supabase.from("document_items").select("*").eq("document_id", sourceId).order("display_order", { ascending: true }),
-  ]);
-  if (!source) throw new Error("Source document not found.");
+    const [{ data: source }, { data: items }] = await Promise.all([
+      supabase.from("documents").select("*").eq("id", sourceId).single<DocumentRow>(),
+      supabase.from("document_items").select("*").eq("document_id", sourceId).order("display_order", { ascending: true }),
+    ]);
+    if (!source) return { success: false, error: "Source document not found." };
 
-  const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: toType });
-  if (numberError || !numberResult) throw new Error(numberError?.message ?? "Failed to generate document number.");
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: toType });
+    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate document number." };
 
-  const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", toType).eq("is_default", true).maybeSingle();
+    const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", toType).eq("is_default", true).maybeSingle();
 
-  const { data: inserted, error } = await supabase
-    .from("documents")
-    .insert({
-      document_type: toType,
-      document_number: numberResult as string,
-      status: "draft",
-      client_name: source.client_name,
-      client_email: source.client_email,
-      client_phone: source.client_phone,
-      client_country: source.client_country,
-      journey_type: source.journey_type,
-      travel_date: source.travel_date,
-      return_date: source.return_date,
-      adults: source.adults,
-      children: source.children,
-      infants: source.infants,
-      origin: source.origin,
-      destination: source.destination,
-      special_requirements: source.special_requirements,
-      source_document_id: source.id,
-      subtotal_aed: source.subtotal_aed,
-      discount_aed: source.discount_aed,
-      tax_aed: source.tax_aed,
-      total_aed: source.total_aed,
-      notes: source.notes,
-      terms: source.terms,
-      template_id: template?.id ?? null,
-      booking_reference: toType === "booking_voucher" ? `MH-BKG-${(numberResult as string).split("-").pop()}` : null,
-    })
-    .select("id")
-    .single();
-  if (error || !inserted) throw new Error(error?.message ?? "Failed to create document.");
+    const { data: inserted, error } = await supabase
+      .from("documents")
+      .insert({
+        document_type: toType,
+        document_number: numberResult as string,
+        status: "draft",
+        client_name: source.client_name,
+        client_email: source.client_email,
+        client_phone: source.client_phone,
+        client_country: source.client_country,
+        journey_type: source.journey_type,
+        travel_date: source.travel_date,
+        return_date: source.return_date,
+        adults: source.adults,
+        children: source.children,
+        infants: source.infants,
+        origin: source.origin,
+        destination: source.destination,
+        special_requirements: source.special_requirements,
+        source_document_id: source.id,
+        subtotal_aed: source.subtotal_aed,
+        discount_aed: source.discount_aed,
+        tax_aed: source.tax_aed,
+        total_aed: source.total_aed,
+        notes: source.notes,
+        terms: source.terms,
+        template_id: template?.id ?? null,
+        booking_reference: toType === "booking_voucher" ? `MH-BKG-${(numberResult as string).split("-").pop()}` : null,
+      })
+      .select("id")
+      .single();
+    if (error || !inserted) return { success: false, error: error?.message ?? "Failed to create document." };
 
-  if (items && items.length > 0) {
-    const copies = (items as DocumentItemRow[]).map(({ id: _itemId, document_id: _docId, created_at: _createdAt, ...rest }) => ({
-      ...rest,
-      document_id: inserted.id,
-    }));
-    await supabase.from("document_items").insert(copies);
+    if (items && items.length > 0) {
+      const copies = (items as DocumentItemRow[]).map(({ id: _itemId, document_id: _docId, created_at: _createdAt, ...rest }) => ({
+        ...rest,
+        document_id: inserted.id,
+      }));
+      await supabase.from("document_items").insert(copies);
+    }
+
+    revalidateDocumentPaths(toType);
+    return { success: true, id: inserted.id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to create document." };
   }
-
-  revalidateDocumentPaths(toType);
-  redirect(`/admin/documents/${moduleSlug(toType)}/${inserted.id}`);
 }
 
 export interface RecordPaymentInput {
@@ -720,54 +753,58 @@ export interface CreateManualReceiptInput {
   notes?: string;
 }
 
-export async function createManualReceipt(input: CreateManualReceiptInput) {
-  const supabase = await getClient();
+export async function createManualReceipt(input: CreateManualReceiptInput): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  if (!input.client_name?.trim()) throw new Error("Client name is required.");
-  if (!(input.amount > 0)) throw new Error("Receipt amount must be greater than zero.");
+    if (!input.client_name?.trim()) return { success: false, error: "Client name is required." };
+    if (!(input.amount > 0)) return { success: false, error: "Receipt amount must be greater than zero." };
 
-  const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: "receipt" });
-  if (numberError || !numberResult) throw new Error(numberError?.message ?? "Failed to generate receipt number.");
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: "receipt" });
+    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate receipt number." };
 
-  const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "receipt").eq("is_default", true).maybeSingle();
+    const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "receipt").eq("is_default", true).maybeSingle();
 
-  // If against an invoice, update that invoice amount_paid
-  if (input.source_document_id) {
-    const { data: invoice } = await supabase.from("documents").select("*").eq("id", input.source_document_id).single<DocumentRow>();
-    if (invoice) {
-      const newAmountPaid = Math.round((invoice.amount_paid_aed + input.amount) * 100) / 100;
-      const newStatus = newAmountPaid >= invoice.total_aed ? "paid" : "partially_paid";
-      await supabase.from("documents").update({ amount_paid_aed: newAmountPaid, status: newStatus }).eq("id", invoice.id);
-      await saveDocumentVersion(invoice.id, "invoice");
+    // If against an invoice, update that invoice amount_paid
+    if (input.source_document_id) {
+      const { data: invoice } = await supabase.from("documents").select("*").eq("id", input.source_document_id).single<DocumentRow>();
+      if (invoice) {
+        const newAmountPaid = Math.round((invoice.amount_paid_aed + input.amount) * 100) / 100;
+        const newStatus = newAmountPaid >= invoice.total_aed ? "paid" : "partially_paid";
+        await supabase.from("documents").update({ amount_paid_aed: newAmountPaid, status: newStatus }).eq("id", invoice.id);
+        await saveDocumentVersion(invoice.id, "invoice");
+      }
     }
+
+    const { data: receipt, error: receiptError } = await supabase
+      .from("documents")
+      .insert({
+        document_type: "receipt",
+        document_number: numberResult as string,
+        status: "issued",
+        client_name: input.client_name.trim(),
+        client_email: input.client_email?.trim() || null,
+        client_phone: input.client_phone?.trim() || null,
+        client_country: input.client_country?.trim() || null,
+        source_document_id: input.source_document_id || null,
+        booking_reference: input.booking_reference?.trim() || null,
+        total_aed: input.amount,
+        payment_method: input.payment_method,
+        transaction_reference: input.transaction_reference?.trim() || null,
+        payment_date: input.payment_date,
+        notes: input.notes?.trim() || null,
+        template_id: template?.id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (receiptError || !receipt) return { success: false, error: receiptError?.message ?? "Failed to create receipt." };
+
+    revalidateDocumentPaths("receipt");
+    if (input.source_document_id) revalidateDocumentPaths("invoice", input.source_document_id);
+
+    return { success: true, id: receipt.id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to create receipt." };
   }
-
-  const { data: receipt, error: receiptError } = await supabase
-    .from("documents")
-    .insert({
-      document_type: "receipt",
-      document_number: numberResult as string,
-      status: "issued",
-      client_name: input.client_name.trim(),
-      client_email: input.client_email?.trim() || null,
-      client_phone: input.client_phone?.trim() || null,
-      client_country: input.client_country?.trim() || null,
-      source_document_id: input.source_document_id || null,
-      booking_reference: input.booking_reference?.trim() || null,
-      total_aed: input.amount,
-      payment_method: input.payment_method,
-      transaction_reference: input.transaction_reference?.trim() || null,
-      payment_date: input.payment_date,
-      notes: input.notes?.trim() || null,
-      template_id: template?.id ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (receiptError || !receipt) throw new Error(receiptError?.message ?? "Failed to create receipt.");
-
-  revalidateDocumentPaths("receipt");
-  if (input.source_document_id) revalidateDocumentPaths("invoice", input.source_document_id);
-
-  redirect(`/admin/documents/receipts/${receipt.id}`);
 }

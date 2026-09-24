@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
 import { createManualReceipt, type CreateManualReceiptInput } from "../../actions";
 import type { DocumentRow } from "@/lib/types/database";
 
 export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"invoice" | "standalone">(
     invoices.length > 0 ? "invoice" : "standalone"
   );
@@ -57,11 +59,15 @@ export function NewReceiptForm({ invoices }: { invoices: DocumentRow[] }) {
 
     startTransition(async () => {
       try {
-        await createManualReceipt(input);
-      } catch (err) {
-        if (err && typeof err === "object" && "digest" in err && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
-          throw err;
+        const res = await createManualReceipt(input);
+        if (res && !res.success) {
+          setError(res.error || "Failed to create receipt.");
+          return;
         }
+        if (res?.id) {
+          router.push(`/admin/documents/receipts/${res.id}`);
+        }
+      } catch (err: any) {
         setError(err instanceof Error ? err.message : "Failed to create receipt.");
       }
     });

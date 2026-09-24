@@ -23,18 +23,7 @@ import type {
  * instead of throwing).
  */
 async function getClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) return supabase;
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
-    return createAdminClient();
-  }
-
-  return supabase;
+  return createAdminClient();
 }
 
 /**

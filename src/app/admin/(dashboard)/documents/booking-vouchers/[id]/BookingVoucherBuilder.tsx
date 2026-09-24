@@ -167,15 +167,24 @@ export function BookingVoucherBuilder({
 
   function handleDuplicate() {
     runRedirectable(async () => {
-      await duplicateDocument(document.id, "booking_voucher");
+      const res = await duplicateDocument(document.id, "booking_voucher");
+      if (res.success && res.id) {
+        router.push(`/admin/documents/booking-vouchers/${res.id}`);
+      } else {
+        alert(res.error || "Failed to duplicate booking voucher");
+      }
     });
   }
 
   function handleDelete() {
     if (!confirm(`Delete booking voucher ${document.document_number}? This cannot be undone.`)) return;
     runRedirectable(async () => {
-      await deleteDocument(document.id, "booking_voucher");
-      router.push("/admin/documents/booking-vouchers");
+      const res = await deleteDocument(document.id, "booking_voucher");
+      if (res.success) {
+        router.push("/admin/documents/booking-vouchers");
+      } else {
+        alert(res.error || "Failed to delete booking voucher");
+      }
     });
   }
 

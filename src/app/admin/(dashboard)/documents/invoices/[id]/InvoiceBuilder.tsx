@@ -8,6 +8,7 @@ import { InvoiceDocumentView } from "@/components/documents/InvoiceDocumentView"
 import { AddItemCard, LineItemRow, money, type LineItemProducts } from "@/components/documents/LineItemsEditor";
 import {
   addLineItem,
+  deleteDocument,
   deleteLineItem,
   duplicateDocument,
   saveDocumentVersion,
@@ -113,8 +114,35 @@ export function InvoiceBuilder({
   }
 
   function handleDuplicate() {
-    runRedirectable(async () => {
-      await duplicateDocument(document.id, "invoice");
+    startTransition(async () => {
+      try {
+        const res = await duplicateDocument(document.id, "invoice");
+        if (res && !res.success) {
+          alert(res.error || "Failed to duplicate invoice.");
+          return;
+        }
+        if (res?.id) {
+          router.push(`/admin/documents/invoices/${res.id}`);
+        }
+      } catch (e: any) {
+        alert(e instanceof Error ? e.message : "Something went wrong.");
+      }
+    });
+  }
+
+  function handleDelete() {
+    if (!confirm(`Delete invoice ${document.document_number}? This cannot be undone.`)) return;
+    startTransition(async () => {
+      try {
+        const res = await deleteDocument(document.id, "invoice");
+        if (res && !res.success) {
+          alert(res.error || "Failed to delete invoice.");
+          return;
+        }
+        router.push("/admin/documents/invoices");
+      } catch (e: any) {
+        alert(e instanceof Error ? e.message : "Something went wrong.");
+      }
     });
   }
 
@@ -172,6 +200,9 @@ export function InvoiceBuilder({
           </select>
           <SecondaryButton onClick={handleDuplicate} disabled={isPending}>
             Duplicate
+          </SecondaryButton>
+          <SecondaryButton onClick={handleDelete} disabled={isPending} className="!text-red-600 hover:!bg-red-50">
+            Delete
           </SecondaryButton>
           <Link href={`/admin/documents-preview/${document.id}`} target="_blank">
             <SecondaryButton type="button">Preview Full Screen</SecondaryButton>

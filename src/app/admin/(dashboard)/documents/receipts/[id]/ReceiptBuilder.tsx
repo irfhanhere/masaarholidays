@@ -76,15 +76,24 @@ export function ReceiptBuilder({
 
   function handleDuplicate() {
     run(async () => {
-      await duplicateDocument(document.id, "receipt");
+      const res = await duplicateDocument(document.id, "receipt");
+      if (res.success && res.id) {
+        router.push(`/admin/documents/receipts/${res.id}`);
+      } else {
+        alert(res.error || "Failed to duplicate receipt");
+      }
     });
   }
 
   function handleDelete() {
     if (!confirm(`Delete receipt ${document.document_number}? This cannot be undone.`)) return;
     run(async () => {
-      await deleteDocument(document.id, "receipt");
-      router.push("/admin/documents/receipts");
+      const res = await deleteDocument(document.id, "receipt");
+      if (res.success) {
+        router.push("/admin/documents/receipts");
+      } else {
+        alert(res.error || "Failed to delete receipt");
+      }
     });
   }
 

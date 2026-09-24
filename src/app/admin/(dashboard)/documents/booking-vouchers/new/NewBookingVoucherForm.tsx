@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Field, inputClass, PrimaryButton, SecondaryButton, Card } from "@/components/admin/ui";
 import { createDocumentFromSource, createManualBookingVoucher, type CreateManualBookingVoucherInput } from "../../actions";
 import type { DocumentRow } from "@/lib/types/database";
@@ -12,6 +13,7 @@ export function NewBookingVoucherForm({
   quotations: DocumentRow[];
   invoices: DocumentRow[];
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"import" | "manual">("manual");
   const [selectedSourceId, setSelectedSourceId] = useState<string>(
     quotations[0]?.id || invoices[0]?.id || ""
@@ -34,11 +36,15 @@ export function NewBookingVoucherForm({
     setError(null);
     startTransition(async () => {
       try {
-        await createDocumentFromSource(selectedSourceId, "booking_voucher");
-      } catch (err) {
-        if (err && typeof err === "object" && "digest" in err && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
-          throw err;
+        const res = await createDocumentFromSource(selectedSourceId, "booking_voucher");
+        if (res && !res.success) {
+          setError(res.error || "Failed to import document.");
+          return;
         }
+        if (res?.id) {
+          router.push(`/admin/documents/booking-vouchers/${res.id}`);
+        }
+      } catch (err: any) {
         setError(err instanceof Error ? err.message : "Failed to import document.");
       }
     });
@@ -84,11 +90,15 @@ export function NewBookingVoucherForm({
 
     startTransition(async () => {
       try {
-        await createManualBookingVoucher(input);
-      } catch (err) {
-        if (err && typeof err === "object" && "digest" in err && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
-          throw err;
+        const res = await createManualBookingVoucher(input);
+        if (res && !res.success) {
+          setError(res.error || "Failed to create booking voucher.");
+          return;
         }
+        if (res?.id) {
+          router.push(`/admin/documents/booking-vouchers/${res.id}`);
+        }
+      } catch (err: any) {
         setError(err instanceof Error ? err.message : "Failed to create booking voucher.");
       }
     });
