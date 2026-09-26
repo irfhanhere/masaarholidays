@@ -61,7 +61,11 @@ export function BookingConfirmationDocumentView({
   return (
     <div
       className="mx-auto max-w-[850px] bg-white text-masaar-black shadow-sm print:shadow-none"
-      style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+      style={{
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        WebkitPrintColorAdjust: "exact",
+        printColorAdjust: "exact",
+      }}
     >
       {/* ── TOP HEADER BANNER ── */}
       <div className="relative overflow-hidden border-b border-black/10 bg-gradient-to-r from-[#FAF8F5] via-[#F4EFE6] to-[#FAF8F5] px-8 py-6">

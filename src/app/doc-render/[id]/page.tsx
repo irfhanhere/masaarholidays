@@ -2,26 +2,20 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyDocumentRenderToken } from "@/lib/documents/render-token";
 import { DocumentView } from "@/components/documents/DocumentView";
+import { DocRenderClient } from "./DocRenderClient";
 import type { DocumentItemRow, DocumentRow, DocumentTemplateRow } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Internal-only render target for Puppeteer PDF capture — never linked
- * from any UI. Access is a signed token (see lib/documents/render-token.ts),
- * not a Supabase Auth session, since a headless browser tab has no admin
- * login cookies to carry. Deliberately does not touch document_shares'
- * viewed_at/status side-effects the public /quote/[token] page has.
- */
 export default async function DocumentRenderPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ key?: string; print?: string }>;
+  searchParams: Promise<{ key?: string; print?: string; download?: string }>;
 }) {
   const { id } = await params;
-  const { key, print } = await searchParams;
+  const { key, print, download } = await searchParams;
 
   if (!key || !verifyDocumentRenderToken(id, key)) notFound();
 
@@ -40,26 +34,17 @@ export default async function DocumentRenderPage({
   ]);
 
   return (
-    <>
+    <DocRenderClient
+      documentNumber={document.document_number}
+      autoPrint={print === "true"}
+      autoDownload={download === "true"}
+    >
       <DocumentView
         document={document as DocumentRow}
         items={(items ?? []) as DocumentItemRow[]}
         template={(template as DocumentTemplateRow | null) ?? null}
         sourceDocumentNumber={sourceDocument?.document_number ?? null}
       />
-      {print === "true" && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.addEventListener('load', function() {
-                setTimeout(function() {
-                  window.print();
-                }, 800);
-              });
-            `,
-          }}
-        />
-      )}
-    </>
+    </DocRenderClient>
   );
 }

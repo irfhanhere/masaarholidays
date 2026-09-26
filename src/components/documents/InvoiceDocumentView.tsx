@@ -62,7 +62,14 @@ export function InvoiceDocumentView({
   template: DocumentTemplateRow | null;
 }) {
   return (
-    <div className="mx-auto max-w-[820px] bg-warm-ivory text-masaar-black" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+    <div
+      className="mx-auto max-w-[820px] bg-warm-ivory text-masaar-black"
+      style={{
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        WebkitPrintColorAdjust: "exact",
+        printColorAdjust: "exact",
+      }}
+    >
       <div className="px-10 pt-10">
         <div className="flex items-start justify-between gap-6 pb-6">
           <Image src="/brand/logo.png" alt="Masaar Holidays" width={220} height={66} className="h-16 w-auto" unoptimized />
@@ -134,7 +141,15 @@ export function InvoiceDocumentView({
       <div className="px-10 pt-6">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
-            <tr className="bg-pure-gold/90 text-left text-xs font-semibold uppercase tracking-wide text-white">
+            <tr
+              className="bg-pure-gold/90 text-left text-xs font-semibold uppercase tracking-wide text-white"
+              style={{
+                backgroundColor: "#c9a227",
+                color: "#ffffff",
+                WebkitPrintColorAdjust: "exact",
+                printColorAdjust: "exact",
+              }}
+            >
               <th className="rounded-l-md px-3 py-2">#</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Qty</th>

@@ -139,3 +139,28 @@ body {
 .blog-richtext > *:first-child {
   margin-top: 0;
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
+  }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0a0a08 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
