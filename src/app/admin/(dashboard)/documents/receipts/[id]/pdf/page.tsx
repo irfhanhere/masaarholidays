@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getDocument, getDocumentTemplates } from "@/lib/data/documents";
+import { getDocument, getDocumentTemplates, ensureDocumentShare } from "@/lib/data/documents";
 import { signDocumentRenderToken } from "@/lib/documents/render-token";
 import { GeneratePdfPanel } from "@/components/documents/GeneratePdfPanel";
 
@@ -11,11 +11,15 @@ export default async function GenerateReceiptPdfPage({ params }: { params: Promi
   const document = await getDocument(id);
   if (!document || document.document_type !== "receipt") notFound();
 
-  const templates = await getDocumentTemplates("receipt");
+  const [templates, share] = await Promise.all([
+    getDocumentTemplates("receipt"),
+    ensureDocumentShare(id),
+  ]);
   const renderUrl = `/doc-render/${id}?key=${signDocumentRenderToken(id)}`;
 
   return (
     <GeneratePdfPanel
+      document={document}
       documentId={id}
       documentType="receipt"
       documentNumber={document.document_number}
@@ -24,6 +28,7 @@ export default async function GenerateReceiptPdfPage({ params }: { params: Promi
       templates={templates}
       currentTemplateId={document.template_id}
       renderUrl={renderUrl}
+      shareToken={share?.share_token || id}
     />
   );
 }

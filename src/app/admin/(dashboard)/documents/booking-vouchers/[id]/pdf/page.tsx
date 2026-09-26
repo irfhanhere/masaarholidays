@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getDocument, getDocumentTemplates } from "@/lib/data/documents";
+import { getDocument, getDocumentTemplates, ensureDocumentShare } from "@/lib/data/documents";
 import { signDocumentRenderToken } from "@/lib/documents/render-token";
 import { GeneratePdfPanel } from "@/components/documents/GeneratePdfPanel";
 
@@ -11,11 +11,15 @@ export default async function GenerateBookingVoucherPdfPage({ params }: { params
   const document = await getDocument(id);
   if (!document || document.document_type !== "booking_voucher") notFound();
 
-  const templates = await getDocumentTemplates("booking_voucher");
+  const [templates, share] = await Promise.all([
+    getDocumentTemplates("booking_voucher"),
+    ensureDocumentShare(id),
+  ]);
   const renderUrl = `/doc-render/${id}?key=${signDocumentRenderToken(id)}`;
 
   return (
     <GeneratePdfPanel
+      document={document}
       documentId={id}
       documentType="booking_voucher"
       documentNumber={document.document_number}
@@ -24,6 +28,7 @@ export default async function GenerateBookingVoucherPdfPage({ params }: { params
       templates={templates}
       currentTemplateId={document.template_id}
       renderUrl={renderUrl}
+      shareToken={share?.share_token || id}
     />
   );
 }

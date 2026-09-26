@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { PageHeader, Card, PrimaryButton, SecondaryButton } from "@/components/admin/ui";
-import { updateDocumentBasics } from "@/app/admin/(dashboard)/documents/actions";
-import type { DocumentTemplateRow, DocumentType } from "@/lib/types/database";
+import { ShareQuotationModal } from "@/components/documents/ShareQuotationModal";
+import type { DocumentRow, DocumentTemplateRow, DocumentType } from "@/lib/types/database";
 
 const SECTIONS = [
   "Cover Page",
@@ -26,8 +26,9 @@ const TYPE_LABEL: Record<DocumentType, string> = {
   booking_voucher: "Booking Voucher",
 };
 
-/** Shared Generate PDF screen — template picker + live PDF preview — used by every document type's /[id]/pdf route. `basePath` is e.g. "/admin/documents/invoices". */
+/** Shared Generate PDF screen — template picker + live PDF preview — used by every document type's /[id]/pdf route. */
 export function GeneratePdfPanel({
+  document,
   documentId,
   documentType,
   documentNumber,
@@ -36,7 +37,9 @@ export function GeneratePdfPanel({
   templates,
   currentTemplateId,
   renderUrl,
+  shareToken,
 }: {
+  document?: DocumentRow;
   documentId: string;
   documentType: DocumentType;
   documentNumber: string;
@@ -45,18 +48,39 @@ export function GeneratePdfPanel({
   templates: DocumentTemplateRow[];
   currentTemplateId: string | null;
   renderUrl: string;
+  shareToken?: string;
 }) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState(currentTemplateId ?? templates[0]?.id ?? "");
+  // Only display the clean, branded standard/premium template (filtering out buggy minimal/classic per user request)
+  const filteredTemplates = templates.filter(
+    (t) => t.layout !== "minimal" && t.layout !== "classic"
+  );
+  const displayTemplates = filteredTemplates.length > 0 ? filteredTemplates : templates;
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    currentTemplateId ?? displayTemplates[0]?.id ?? ""
+  );
   const [isPending, startTransition] = useTransition();
   const [iframeKey, setIframeKey] = useState(0);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   function selectTemplate(id: string) {
     setSelectedTemplateId(id);
     startTransition(async () => {
-      await updateDocumentBasics(documentId, documentType, { template_id: id });
-      setIframeKey((k) => k + 1);
+      try {
+        await fetch(`/api/admin/documents/${documentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ template_id: id }),
+        });
+        setIframeKey((k) => k + 1);
+      } catch (err) {
+        console.error("Failed to update template:", err);
+      }
     });
   }
+
+  const printUrl = `${renderUrl}&print=true`;
+  const downloadRouteUrl = `${basePath}/${documentId}/pdf/download`;
 
   return (
     <div>
@@ -71,9 +95,20 @@ export function GeneratePdfPanel({
           { label: "Generate PDF" },
         ]}
         actions={
-          <Link href={`${basePath}/${documentId}`}>
-            <SecondaryButton>← Back to {TYPE_LABEL[documentType]}</SecondaryButton>
-          </Link>
+          <div className="flex items-center gap-2">
+            {document && (
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.03] cursor-pointer"
+              >
+                <span>🔗</span> Share with Client
+              </button>
+            )}
+            <Link href={`${basePath}/${documentId}`}>
+              <SecondaryButton>← Back to {TYPE_LABEL[documentType]}</SecondaryButton>
+            </Link>
+          </div>
         }
       />
 
@@ -82,18 +117,20 @@ export function GeneratePdfPanel({
           <Card>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-masaar-black/60">Template Style</h2>
             <div className="space-y-2">
-              {templates.map((t) => (
+              {displayTemplates.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => selectTemplate(t.id)}
                   disabled={isPending}
-                  className={`w-full rounded-md border p-3 text-left text-sm transition-colors ${
-                    selectedTemplateId === t.id ? "border-admin-primary bg-admin-surface" : "border-black/15 hover:bg-admin-surface"
+                  className={`w-full rounded-md border p-3 text-left text-sm transition-colors cursor-pointer ${
+                    selectedTemplateId === t.id
+                      ? "border-admin-primary bg-admin-surface ring-1 ring-admin-primary"
+                      : "border-black/15 hover:bg-admin-surface"
                   }`}
                 >
                   <p className="font-semibold text-masaar-black">{t.name}</p>
-                  <p className="text-xs capitalize text-masaar-black/50">{t.layout}</p>
+                  <p className="text-xs capitalize text-masaar-black/50">Masaar Branded Layout</p>
                 </button>
               ))}
             </div>
@@ -114,22 +151,37 @@ export function GeneratePdfPanel({
             </p>
           </Card>
 
-          <button
-            type="button"
-            onClick={() => {
-              const printUrl = `${renderUrl}&print=true`;
-              window.open(printUrl, "_blank");
-            }}
-            className="flex w-full cursor-pointer"
-          >
-            <PrimaryButton className="w-full justify-center">🖨️ Print / Save as PDF</PrimaryButton>
-          </button>
-          <a href={`${basePath}/${documentId}/pdf/download`} className="flex">
-            <SecondaryButton className="w-full justify-center">Direct Download (.pdf)</SecondaryButton>
-          </a>
-          <a href={renderUrl} target="_blank" rel="noreferrer" className="flex">
-            <SecondaryButton className="w-full justify-center">Preview Full PDF</SecondaryButton>
-          </a>
+          <div className="space-y-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                window.open(printUrl, "_blank");
+              }}
+              className="flex w-full cursor-pointer"
+            >
+              <PrimaryButton className="w-full justify-center py-3 font-bold text-sm">
+                🖨️ Print / Save as PDF
+              </PrimaryButton>
+            </button>
+
+            <a href={downloadRouteUrl} target="_blank" rel="noreferrer" className="flex">
+              <SecondaryButton className="w-full justify-center">Direct Download (.pdf)</SecondaryButton>
+            </a>
+
+            <a href={renderUrl} target="_blank" rel="noreferrer" className="flex">
+              <SecondaryButton className="w-full justify-center">Preview Full PDF</SecondaryButton>
+            </a>
+
+            {document && (
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/15 bg-warm-ivory/60 py-2.5 text-xs font-semibold text-masaar-black shadow-xs hover:bg-light-gold/20 transition-all cursor-pointer"
+              >
+                <span>🔗</span> Share Link with Client
+              </button>
+            )}
+          </div>
         </div>
 
         <Card className="!p-0">
@@ -139,6 +191,15 @@ export function GeneratePdfPanel({
           <iframe key={iframeKey} src={renderUrl} className="h-[80vh] w-full" title={`${TYPE_LABEL[documentType]} PDF preview`} />
         </Card>
       </div>
+
+      {document && (
+        <ShareQuotationModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          document={document}
+          shareToken={shareToken || documentId}
+        />
+      )}
     </div>
   );
 }

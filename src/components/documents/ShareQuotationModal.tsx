@@ -13,7 +13,7 @@ export function ShareQuotationModal({
   isOpen: boolean;
   onClose: () => void;
   document: DocumentRow;
-  shareToken: string;
+  shareToken?: string;
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -27,12 +27,58 @@ export function ShareQuotationModal({
 
   if (!isOpen) return null;
 
+  const docType = document.document_type || "quotation";
+  const docTypeLabel =
+    docType === "invoice"
+      ? "Invoice"
+      : docType === "receipt"
+      ? "Receipt"
+      : docType === "booking_voucher"
+      ? "Booking Voucher"
+      : "Quotation";
+
+  const effectiveToken = shareToken || document.id;
   const prodOrigin = "https://masaarholidays.com";
   const localOrigin = typeof window !== "undefined" ? window.location.origin : prodOrigin;
   const activeOrigin = useProductionUrl ? prodOrigin : localOrigin;
-  const publicUrl = `${activeOrigin}/quote/${shareToken}`;
+  const publicUrl = `${activeOrigin}/quote/${effectiveToken}`;
 
-  const defaultWhatsappMessage = `Assalamu Alaikum ${document.client_name},
+  const defaultWhatsappMessage =
+    docType === "invoice"
+      ? `Assalamu Alaikum ${document.client_name},
+
+Your Masaar Holidays invoice (${document.document_number}) is ready.
+
+Please review your invoice details here:
+${publicUrl}
+
+Total Amount: AED ${Number(document.total_aed ?? 0).toLocaleString()}
+
+Warm regards,
+Masaar Holidays`
+      : docType === "receipt"
+      ? `Assalamu Alaikum ${document.client_name},
+
+Thank you for your payment. Your Masaar Holidays receipt (${document.document_number}) is ready.
+
+View your official receipt here:
+${publicUrl}
+
+Amount Paid: AED ${Number(document.amount_paid_aed ?? document.total_aed ?? 0).toLocaleString()}
+
+Warm regards,
+Masaar Holidays`
+      : docType === "booking_voucher"
+      ? `Assalamu Alaikum ${document.client_name},
+
+Your Masaar Holidays booking confirmation voucher (${document.document_number}) is confirmed.
+
+Access your voucher here:
+${publicUrl}
+
+Warm regards,
+Masaar Holidays`
+      : `Assalamu Alaikum ${document.client_name},
 
 Your personalised Masaar Holidays quotation (${document.document_number}) is ready!
 
@@ -114,11 +160,11 @@ Masaar Holidays`;
                 🔗
               </span>
               <h3 className="font-serif text-lg font-bold text-masaar-black">
-                Share Quotation with Passenger
+                Share {docTypeLabel} with Client
               </h3>
             </div>
             <p className="mt-1 text-xs text-masaar-black/60">
-              Send this quotation link directly to {document.client_name} ({document.document_number}).
+              Send this document directly to {document.client_name} ({document.document_number}).
             </p>
           </div>
           <button
@@ -130,15 +176,15 @@ Masaar Holidays`;
           </button>
         </div>
 
-        {/* Pax summary strip */}
+        {/* Client summary strip */}
         <div className="mt-4 rounded-xl bg-warm-ivory/80 border border-light-gold/40 p-3 text-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Passenger</span>
+            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Client</span>
             <p className="font-semibold text-masaar-black">{document.client_name}</p>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Journey</span>
-            <p className="font-semibold capitalize text-masaar-black">{document.journey_type ?? "Umrah"}</p>
+            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Document</span>
+            <p className="font-semibold text-masaar-black">{document.document_number}</p>
           </div>
           <div className="text-right">
             <span className="text-[10px] uppercase font-bold text-masaar-black/50">Total Amount</span>
@@ -222,11 +268,11 @@ Masaar Holidays`;
             <label className="text-xs font-semibold uppercase tracking-wider text-masaar-black/60 flex items-center gap-1.5">
               <span className="text-green-600">💬</span> Send via WhatsApp
             </label>
-            <span className="text-[11px] text-masaar-black/50">Instant dispatch to pax</span>
+            <span className="text-[11px] text-masaar-black/50">Instant dispatch to client</span>
           </div>
 
           <div>
-            <span className="text-[11px] text-masaar-black/60">Passenger Phone / WhatsApp:</span>
+            <span className="text-[11px] text-masaar-black/60">Client Phone / WhatsApp:</span>
             <input
               type="tel"
               value={customPhone}
@@ -270,14 +316,7 @@ Masaar Holidays`;
         </div>
 
         {/* Section 3: Extra actions */}
-        <div className="mt-5 border-t border-black/10 pt-4 flex items-center justify-between">
-          <Link
-            href={`/admin/documents/quotations/${document.id}/send`}
-            className="text-xs font-semibold text-admin-primary hover:underline"
-            onClick={onClose}
-          >
-            ✉️ Advanced Email Dispatch →
-          </Link>
+        <div className="mt-5 border-t border-black/10 pt-4 flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}

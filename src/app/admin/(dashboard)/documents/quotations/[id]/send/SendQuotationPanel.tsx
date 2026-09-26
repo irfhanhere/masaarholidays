@@ -381,12 +381,13 @@ Let us know if you would like any revisions or wish to proceed with your booking
 
           <div className="mt-3 space-y-2 text-xs">
             <a
-              href={`/quote/${shareToken}/pdf`}
-              download
+              href={`/quote/${shareToken}?print=true`}
+              target="_blank"
+              rel="noreferrer"
               className="flex w-full items-center justify-between rounded-md border border-black/10 p-2 text-masaar-black hover:bg-black/[0.02]"
             >
               <span>📥 Download PDF</span>
-              <span>↓</span>
+              <span>↗</span>
             </a>
 
             <button

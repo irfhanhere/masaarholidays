@@ -162,6 +162,16 @@ export function ClientQuotationPortal({
 
           <div className="flex items-center gap-3 text-xs">
             <a
+              href={`/quote/${token}?print=true`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-full border border-[#b37e28]/40 bg-light-gold/20 px-3.5 py-1.5 font-bold text-[#865d1d] hover:bg-light-gold/40 transition-colors"
+            >
+              <span>📥</span>
+              <span>Download PDF</span>
+            </a>
+
+            <a
               href={whatsappHref}
               target="_blank"
               rel="noreferrer"

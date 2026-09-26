@@ -166,7 +166,7 @@ export async function getDocumentSettings(): Promise<DocumentSettingsRow | null>
 }
 
 export async function getDocumentShares(documentId: string): Promise<DocumentShareRow[]> {
-  const supabase = await getClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("document_shares").select("*").eq("document_id", documentId).order("created_at", { ascending: false });
   logIfError("getDocumentShares", error);
   return (data ?? []) as DocumentShareRow[];

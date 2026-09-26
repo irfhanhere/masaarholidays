@@ -52,8 +52,10 @@ export function GenerateQuotationPdf({
   // Active section for current page
   const activeSection = enabledList[currentPage - 1] || enabledList[0] || PDF_PAGE_SECTIONS[0];
 
-  const pdfDownloadUrl = shareToken ? `/quote/${shareToken}/pdf` : "#";
-  const publicQuoteUrl = shareToken ? `/quote/${shareToken}` : "#";
+  const effectiveShareToken = shareToken || document.id;
+  const renderPrintUrl = `/quote/${effectiveShareToken}?print=true`;
+  const pdfDownloadUrl = `/admin/documents/quotations/${document.id}/pdf/download`;
+  const publicQuoteUrl = `/quote/${effectiveShareToken}`;
 
   return (
     <div className="space-y-6">
@@ -84,15 +86,13 @@ export function GenerateQuotationPdf({
         </div>
 
         <div className="flex items-center gap-2">
-          {shareToken && (
-            <button
-              type="button"
-              onClick={() => setShowShareModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.03] cursor-pointer"
-            >
-              <span>🔗</span> Share with Pax
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowShareModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.03] cursor-pointer"
+          >
+            <span>🔗</span> Share with Pax
+          </button>
 
           <Link href={`/admin/documents/quotations/${document.id}`}>
             <SecondaryButton type="button">
@@ -121,77 +121,15 @@ export function GenerateQuotationPdf({
                 Template Style
               </span>
 
-              <label
-                onClick={() => setTemplateStyle("premium")}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 transition-all ${
-                  templateStyle === "premium"
-                    ? "border-[#b37e28] bg-light-gold/15 ring-1 ring-[#b37e28]"
-                    : "border-black/10 hover:border-black/20"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="templateStyle"
-                  checked={templateStyle === "premium"}
-                  onChange={() => setTemplateStyle("premium")}
-                  className="text-[#b37e28] focus:ring-[#b37e28]"
-                />
+              <div className="flex items-center gap-3 rounded-lg border border-[#b37e28] bg-light-gold/15 p-2.5 ring-1 ring-[#b37e28]">
                 <div className="relative h-10 w-9 shrink-0 overflow-hidden rounded border border-black/10 bg-neutral-100">
                   <Image src="/Assets/banner-image.png" alt="Premium" fill className="object-cover" unoptimized />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-masaar-black">Masaar Premium</p>
-                  <p className="text-[10px] text-masaar-black/60">Modern and elegant (Recommended)</p>
+                  <p className="text-xs font-bold text-masaar-black">Masaar Premium Layout</p>
+                  <p className="text-[10px] text-masaar-black/60">Official luxury branded template</p>
                 </div>
-              </label>
-
-              <label
-                onClick={() => setTemplateStyle("classic")}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 transition-all ${
-                  templateStyle === "classic"
-                    ? "border-[#b37e28] bg-light-gold/15 ring-1 ring-[#b37e28]"
-                    : "border-black/10 hover:border-black/20"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="templateStyle"
-                  checked={templateStyle === "classic"}
-                  onChange={() => setTemplateStyle("classic")}
-                  className="text-[#b37e28] focus:ring-[#b37e28]"
-                />
-                <div className="relative h-10 w-9 shrink-0 overflow-hidden rounded border border-black/10 bg-white flex items-center justify-center text-xs">
-                  🏛️
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-masaar-black">Masaar Classic</p>
-                  <p className="text-[10px] text-masaar-black/60">Clean and professional</p>
-                </div>
-              </label>
-
-              <label
-                onClick={() => setTemplateStyle("minimal")}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 transition-all ${
-                  templateStyle === "minimal"
-                    ? "border-[#b37e28] bg-light-gold/15 ring-1 ring-[#b37e28]"
-                    : "border-black/10 hover:border-black/20"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="templateStyle"
-                  checked={templateStyle === "minimal"}
-                  onChange={() => setTemplateStyle("minimal")}
-                  className="text-[#b37e28] focus:ring-[#b37e28]"
-                />
-                <div className="relative h-10 w-9 shrink-0 overflow-hidden rounded border border-black/10 bg-white flex items-center justify-center text-xs">
-                  📄
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-masaar-black">Masaar Minimal</p>
-                  <p className="text-[10px] text-masaar-black/60">Simple and clean</p>
-                </div>
-              </label>
+              </div>
             </div>
 
             {/* Include Sections Checklist */}
@@ -274,30 +212,38 @@ export function GenerateQuotationPdf({
             {/* Bottom Buttons matching QUOTATION PDF.png */}
             <div className="mt-6 border-t border-black/10 pt-4 space-y-2.5">
               <a
-                href={pdfDownloadUrl}
-                download
+                href={renderPrintUrl}
+                target="_blank"
+                rel="noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#b37e28] py-3 text-sm font-semibold text-white shadow-md hover:bg-[#96681f] transition-all cursor-pointer"
               >
-                <span>📄</span> Generate PDF
+                <span>🖨️</span> Print / Save as PDF
+              </a>
+
+              <a
+                href={pdfDownloadUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/15 bg-white py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.02] transition-all cursor-pointer"
+              >
+                <span>📥</span> Direct Download (.pdf)
               </a>
 
               <button
                 type="button"
                 onClick={() => setIsPreviewAll(!isPreviewAll)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#b37e28] bg-white py-2.5 text-xs font-semibold text-[#b37e28] shadow-xs hover:bg-[#b37e28]/5 transition-all cursor-pointer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#b37e28] bg-white py-2 text-xs font-semibold text-[#b37e28] shadow-xs hover:bg-[#b37e28]/5 transition-all cursor-pointer"
               >
                 <span>👁️</span> {isPreviewAll ? "Show Single Page View" : "Preview Full PDF"}
               </button>
 
-              {shareToken && (
-                <button
-                  type="button"
-                  onClick={() => setShowShareModal(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/15 bg-warm-ivory/60 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-light-gold/20 transition-all cursor-pointer"
-                >
-                  <span>🔗</span> Share Link with Passenger
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/15 bg-warm-ivory/60 py-2.5 text-xs font-semibold text-masaar-black shadow-xs hover:bg-light-gold/20 transition-all cursor-pointer"
+              >
+                <span>🔗</span> Share Link with Passenger
+              </button>
             </div>
           </Card>
         </div>
@@ -367,22 +313,20 @@ export function GenerateQuotationPdf({
             </div>
 
             <div className="flex items-center gap-3 text-sm">
-              {shareToken && (
-                <button
-                  type="button"
-                  onClick={() => setShowShareModal(true)}
-                  className="text-masaar-black/70 hover:text-[#b37e28] transition-colors cursor-pointer"
-                  title="Share Quotation Link"
-                >
-                  🔗
-                </button>
-              )}
-              <a href={pdfDownloadUrl} download className="text-masaar-black/70 hover:text-masaar-black" title="Download PDF">
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="text-masaar-black/70 hover:text-[#b37e28] transition-colors cursor-pointer"
+                title="Share Quotation Link"
+              >
+                🔗
+              </button>
+              <a href={renderPrintUrl} target="_blank" rel="noreferrer" className="text-masaar-black/70 hover:text-masaar-black" title="Print / Save as PDF">
+                🖨️
+              </a>
+              <a href={pdfDownloadUrl} target="_blank" rel="noreferrer" className="text-masaar-black/70 hover:text-masaar-black" title="Direct Download (.pdf)">
                 📥
               </a>
-              <button type="button" onClick={() => window.print()} className="text-masaar-black/70 hover:text-masaar-black" title="Print Document">
-                🖨️
-              </button>
             </div>
           </div>
 
@@ -525,12 +469,12 @@ export function GenerateQuotationPdf({
       </div>
 
       {/* Share Modal Popup */}
-      {shareToken && (
+      {showShareModal && (
         <ShareQuotationModal
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
           document={document}
-          shareToken={shareToken}
+          shareToken={effectiveShareToken}
         />
       )}
     </div>

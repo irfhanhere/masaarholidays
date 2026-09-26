@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getDocument, getDocumentTemplates } from "@/lib/data/documents";
+import { getDocument, getDocumentTemplates, ensureDocumentShare } from "@/lib/data/documents";
 import { signDocumentRenderToken } from "@/lib/documents/render-token";
 import { GeneratePdfPanel } from "@/components/documents/GeneratePdfPanel";
 
@@ -9,13 +9,17 @@ export const metadata: Metadata = { title: "Generate Invoice PDF | Masaar Admin"
 export default async function GenerateInvoicePdfPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const document = await getDocument(id);
-  if (!document) notFound();
+  if (!document || document.document_type !== "invoice") notFound();
 
-  const templates = await getDocumentTemplates("invoice");
+  const [templates, share] = await Promise.all([
+    getDocumentTemplates("invoice"),
+    ensureDocumentShare(id),
+  ]);
   const renderUrl = `/doc-render/${id}?key=${signDocumentRenderToken(id)}`;
 
   return (
     <GeneratePdfPanel
+      document={document}
       documentId={id}
       documentType="invoice"
       documentNumber={document.document_number}
@@ -24,6 +28,7 @@ export default async function GenerateInvoicePdfPage({ params }: { params: Promi
       templates={templates}
       currentTemplateId={document.template_id}
       renderUrl={renderUrl}
+      shareToken={share?.share_token || id}
     />
   );
 }

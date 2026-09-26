@@ -6,12 +6,34 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   const { token } = await params;
   const supabase = createAdminClient();
 
-  const { data: share } = await supabase.from("document_shares").select("document_id, expires_at").eq("share_token", token).maybeSingle();
+  let { data: share } = await supabase
+    .from("document_shares")
+    .select("document_id, expires_at")
+    .eq("share_token", token)
+    .maybeSingle();
+
+  // Fallback: check if token is the document ID itself
+  if (!share) {
+    const { data: docById } = await supabase
+      .from("documents")
+      .select("id")
+      .eq("id", token)
+      .maybeSingle();
+    if (docById) {
+      share = { document_id: docById.id, expires_at: null };
+    }
+  }
+
   if (!share || (share.expires_at && new Date(share.expires_at) < new Date())) {
     return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
   }
 
-  const { data: document } = await supabase.from("documents").select("document_number").eq("id", share.document_id).maybeSingle();
+  const { data: document } = await supabase
+    .from("documents")
+    .select("document_number")
+    .eq("id", share.document_id)
+    .maybeSingle();
+
   if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
@@ -24,7 +46,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     });
   } catch (err: any) {
     console.error("[quote/pdf] Puppeteer render failed, falling back to print view:", err?.message);
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-    return NextResponse.redirect(`${siteUrl}/quote/${token}?print=true`, { status: 302 });
+    const targetUrl = new URL(`/quote/${token}?print=true`, _request.url);
+    return NextResponse.redirect(targetUrl, { status: 302 });
   }
 }

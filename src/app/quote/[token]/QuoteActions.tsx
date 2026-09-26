@@ -120,7 +120,7 @@ export function QuoteActions({
             </>
           )}
 
-          <a href={`/quote/${token}/pdf`} download>
+          <a href={`/quote/${token}?print=true`} target="_blank" rel="noreferrer">
             <SecondaryButton>📥 Download PDF</SecondaryButton>
           </a>
 

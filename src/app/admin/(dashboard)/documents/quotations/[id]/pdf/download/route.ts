@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     });
   } catch (err: any) {
     console.error("[quotation/pdf] Puppeteer failed on host, falling back to print render:", err?.message);
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-    return NextResponse.redirect(`${siteUrl}/doc-render/${id}?key=${token}&print=true`, { status: 302 });
+    const targetUrl = new URL(`/doc-render/${id}?key=${token}&print=true`, _request.url);
+    return NextResponse.redirect(targetUrl, { status: 302 });
   }
 }
