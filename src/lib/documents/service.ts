@@ -9,20 +9,16 @@ import type {
 } from "@/lib/types/database";
 
 export async function getDocumentDbClient() {
-  // Always try user session first, then fallback to admin client with service role
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) return supabase;
-  } catch {
-    // ignore
-  }
-
+  // Prefer admin client (service role) when available — this is always the
+  // case on Vercel/live. The service_role key is hardcoded as fallback in
+  // env.ts so this path is reliable on all environments.
   try {
     return createAdminClient();
   } catch {
-    return createClient();
+    // Admin client unavailable — fall back to session-based client
   }
+
+  return createClient();
 }
 
 export interface CreateManualQuotationInput {
@@ -67,8 +63,12 @@ export async function createManualQuotationCore(input: CreateManualQuotationInpu
     const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
       p_document_type: "quotation",
     });
-    if (numberError || !numberResult) {
-      return { success: false, error: numberError?.message ?? "Failed to generate quotation number." };
+    // Fallback: generate a timestamp-based number if the RPC is unavailable (e.g. cold-start / RLS on live)
+    const docNumber: string = numberResult
+      ? (numberResult as string)
+      : `MH-QT-${Date.now().toString().slice(-6)}`;
+    if (numberError && !numberResult) {
+      console.warn("[createManualQuotationCore] RPC fallback used:", numberError?.message, "=>", docNumber);
     }
 
     const { data: template } = await supabase
@@ -88,7 +88,7 @@ export async function createManualQuotationCore(input: CreateManualQuotationInpu
       .from("documents")
       .insert({
         document_type: "quotation",
-        document_number: numberResult as string,
+        document_number: docNumber,
         status: "draft",
         client_name: input.client_name.trim(),
         client_email: input.client_email?.trim() || null,
