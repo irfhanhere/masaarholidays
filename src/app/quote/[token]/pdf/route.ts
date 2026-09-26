@@ -1,52 +1,40 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
+function getOrigin(req: Request): string {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = forwardedHost || req.headers.get("host");
+  if (host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`;
+  }
+  return "https://masaarholidays.com";
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const supabase = createAdminClient();
+  const origin = getOrigin(req);
+  const printUrl = `${origin}/quote/${token}?print=true`;
 
-  let { data: share } = await supabase
-    .from("document_shares")
-    .select("document_id, expires_at")
-    .eq("share_token", token)
-    .maybeSingle();
-
-  // Fallback: check if token is the document ID itself
-  if (!share) {
-    const { data: docById } = await supabase
-      .from("documents")
-      .select("id")
-      .eq("id", token)
-      .maybeSingle();
-    if (docById) {
-      share = { document_id: docById.id, expires_at: null };
-    }
-  }
-
-  if (!share || (share.expires_at && new Date(share.expires_at) < new Date())) {
-    return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
-  }
-
-  const { data: document } = await supabase
-    .from("documents")
-    .select("document_number")
-    .eq("id", share.document_id)
-    .maybeSingle();
-
-  if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  try {
-    const pdf = await generateDocumentPdf(share.document_id);
-    return new NextResponse(new Uint8Array(pdf), {
+  return new NextResponse(
+    `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Masaar Holidays - Quotation PDF</title>
+  <meta http-equiv="refresh" content="0;url=${printUrl}">
+  <script>window.location.replace(${JSON.stringify(printUrl)});</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:60px 20px;background:#FAF8F5;color:#1A1816;">
+  <p style="font-size:16px;font-weight:600;">Generating and preparing your PDF...</p>
+  <p style="font-size:13px;color:#777;">If the document does not open automatically, <a href="${printUrl}" style="color:#B37E28;font-weight:bold;">click here to print / save as PDF</a>.</p>
+</body>
+</html>`,
+    {
+      status: 200,
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${document.document_number}.pdf"`,
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store, max-age=0",
       },
-    });
-  } catch (err: any) {
-    console.error("[quote/pdf] Puppeteer render failed, falling back to print view:", err?.message);
-    const targetUrl = new URL(`/quote/${token}?print=true`, _request.url);
-    return NextResponse.redirect(targetUrl, { status: 302 });
-  }
+    }
+  );
 }

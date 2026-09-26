@@ -131,8 +131,12 @@ export function QuotationBuilder({
     setItineraryDays(newDays);
     setIsEditingItinerary(false);
     run(async () => {
-      await updateDocumentBasics(document.id, "quotation", {
-        special_requirements: JSON.stringify(newDays),
+      await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          special_requirements: JSON.stringify(newDays),
+        }),
       });
       router.refresh();
     });
@@ -170,28 +174,36 @@ export function QuotationBuilder({
 
   function handleSaveBasics() {
     run(async () => {
-      await updateDocumentBasics(document.id, "quotation", {
-        document_number: docNumber.trim(),
-        client_name: clientName.trim(),
-        client_phone: clientPhone || null,
-        client_email: clientEmail || null,
-        client_country: clientCountry || null,
-        journey_type: journeyType as any,
-        travel_date: travelDate || null,
-        return_date: returnDate || null,
-        adults,
-        children,
-        infants,
-        origin,
-        destination,
-        valid_until: validUntil || null,
-        status,
-        notes: notes || null,
-        terms: terms || null,
-      });
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document_number: docNumber.trim(),
+          client_name: clientName.trim(),
+          client_phone: clientPhone || null,
+          client_email: clientEmail || null,
+          client_country: clientCountry || null,
+          journey_type: journeyType as any,
+          travel_date: travelDate || null,
+          return_date: returnDate || null,
+          adults,
+          children,
+          infants,
+          origin,
+          destination,
+          valid_until: validUntil || null,
+          status,
+          notes: notes || null,
+          terms: terms || null,
+        }),
+      }).then((r) => r.json());
 
-      const nextVer = await saveDocumentVersion(document.id, "quotation");
-      setSavedMessage(`Saved — Version ${nextVer}`);
+      if (!res.success) {
+        alert(res.error || "Failed to update quotation basics.");
+        return;
+      }
+
+      setSavedMessage("Saved successfully.");
       router.refresh();
       setTimeout(() => setSavedMessage(null), 3500);
     });
@@ -200,7 +212,11 @@ export function QuotationBuilder({
   function handleStatusChange(nextStatus: string) {
     setStatus(nextStatus);
     run(async () => {
-      await updateDocumentStatus(document.id, "quotation", nextStatus);
+      await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
       router.refresh();
     });
   }

@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { respondToQuotation } from "./actions";
+import { formatDeterministicDate } from "@/lib/date-utils";
 import type {
   DocumentItemRow,
   DocumentRow,
@@ -92,25 +93,20 @@ export function ClientQuotationPortal({
   }
 
   // Calculate days/nights
-  const startDate = document.travel_date ? new Date(document.travel_date) : null;
-  const endDate = document.return_date ? new Date(document.return_date) : null;
   const durationDays =
-    startDate && endDate
-      ? Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)))
+    document.travel_date && document.return_date
+      ? Math.max(
+          1,
+          Math.round(
+            (new Date(document.return_date).getTime() - new Date(document.travel_date).getTime()) /
+              (1000 * 3600 * 24)
+          )
+        )
       : 10;
 
-  function formatDate(d: Date | null) {
-    if (!d || Number.isNaN(d.getTime())) return "Pending Confirmation";
-    return d.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  }
-
   const travelDatesFormatted =
-    startDate && endDate
-      ? `${formatDate(startDate)} – ${formatDate(endDate)} (${durationDays} Days)`
+    document.travel_date && document.return_date
+      ? `${formatDeterministicDate(document.travel_date)} – ${formatDeterministicDate(document.return_date)} (${durationDays} Days)`
       : "Travel dates to be confirmed";
 
   const isHajj = document.journey_type === "hajj";

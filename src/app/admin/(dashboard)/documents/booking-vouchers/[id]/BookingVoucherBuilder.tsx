@@ -69,6 +69,7 @@ export function BookingVoucherBuilder({
   const [activeTab, setActiveTab] = useState<"confirmation" | "vouchers" | "edit">(initialTab);
   const [voucherType, setVoucherType] = useState<"hotel" | "transfer">("hotel");
   const [isPending, startTransition] = useTransition();
+  const [lineItems, setLineItems] = useState<DocumentItemRow[]>(items);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   // Edit Tab state
@@ -137,21 +138,29 @@ export function BookingVoucherBuilder({
 
   function handleSaveBasics() {
     runRedirectable(async () => {
-      await updateDocumentBasics(document.id, "booking_voucher", {
-        client_name: clientName,
-        client_phone: clientPhone || null,
-        client_email: clientEmail || null,
-        client_country: clientCountry || null,
-        travel_date: travelDate || null,
-        return_date: returnDate || null,
-        adults: adults,
-        children: childrenCount,
-        infants: infantsCount,
-        destination: destination || null,
-        booking_reference: bookingReference || null,
-        special_requirements: specialRequirements || null,
-        notes: notes || null,
-      });
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: clientName,
+          client_phone: clientPhone || null,
+          client_email: clientEmail || null,
+          client_country: clientCountry || null,
+          travel_date: travelDate || null,
+          return_date: returnDate || null,
+          adults: adults,
+          children: childrenCount,
+          infants: infantsCount,
+          destination: destination || null,
+          booking_reference: bookingReference || null,
+          special_requirements: specialRequirements || null,
+          notes: notes || null,
+        }),
+      }).then((r) => r.json());
+      if (!res.success) {
+        alert(res.error || "Failed to save booking details.");
+        return;
+      }
       setSavedMessage("Saved booking details.");
       setTimeout(() => setSavedMessage(null), 2500);
       router.refresh();
@@ -160,14 +169,26 @@ export function BookingVoucherBuilder({
 
   function handleStatusChange(status: string) {
     runRedirectable(async () => {
-      await updateDocumentStatus(document.id, "booking_voucher", status);
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }).then((r) => r.json());
+
+      if (!res.success) {
+        alert(res.error || "Failed to update status");
+        return;
+      }
       router.refresh();
     });
   }
 
   function handleDuplicate() {
     runRedirectable(async () => {
-      const res = await duplicateDocument(document.id, "booking_voucher");
+      const res = await fetch(`/api/admin/documents/${document.id}/duplicate`, {
+        method: "POST",
+      }).then((r) => r.json());
+
       if (res.success && res.id) {
         router.push(`/admin/documents/booking-vouchers/${res.id}`);
       } else {
@@ -179,7 +200,10 @@ export function BookingVoucherBuilder({
   function handleDelete() {
     if (!confirm(`Delete booking voucher ${document.document_number}? This cannot be undone.`)) return;
     runRedirectable(async () => {
-      const res = await deleteDocument(document.id, "booking_voucher");
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "DELETE",
+      }).then((r) => r.json());
+
       if (res.success) {
         router.push("/admin/documents/booking-vouchers");
       } else {
@@ -325,7 +349,7 @@ export function BookingVoucherBuilder({
               <div className="p-2 sm:p-6 bg-stone-100">
                 <BookingConfirmationDocumentView
                   document={document}
-                  items={items}
+                  items={lineItems}
                   template={template}
                 />
               </div>
@@ -938,14 +962,14 @@ export function BookingVoucherBuilder({
                   </tr>
                 </thead>
                 <tbody>
-                  {items.length === 0 && (
+                  {lineItems.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-xs text-masaar-black/50">
                         No line items yet — add packages, hotels, transfers, or flights below.
                       </td>
                     </tr>
                   )}
-                  {items.map((item) => (
+                  {lineItems.map((item) => (
                     <LineItemRow
                       key={item.id}
                       item={item}
@@ -957,6 +981,9 @@ export function BookingVoucherBuilder({
                             body: JSON.stringify({ itemId: id, documentId: document.id, patch }),
                           }).then((r) => r.json());
                           if (!res.success) alert(res.error || "Failed to update item.");
+                          if (res.item) {
+                            setLineItems((prev) => prev.map((i) => (i.id === id ? res.item : i)));
+                          }
                           router.refresh();
                         } catch (e: any) {
                           alert(e?.message || "Failed to update item.");
@@ -970,6 +997,7 @@ export function BookingVoucherBuilder({
                             { method: "DELETE" }
                           ).then((r) => r.json());
                           if (!res.success) alert(res.error || "Failed to delete item.");
+                          setLineItems((prev) => prev.filter((i) => i.id !== id));
                           router.refresh();
                         } catch (e: any) {
                           alert(e?.message || "Failed to delete item.");
@@ -994,6 +1022,9 @@ export function BookingVoucherBuilder({
                   if (!res.success) {
                     alert(res.error || "Failed to add item.");
                     return;
+                  }
+                  if (res.item) {
+                    setLineItems((prev) => [...prev, res.item]);
                   }
                   router.refresh();
                 } catch (e: any) {

@@ -99,21 +99,26 @@ export function InvoiceBuilder({
     }
     startTransition(async () => {
       try {
-        const bRes = await updateDocumentBasics(document.id, "invoice", {
-          document_number: invoiceNumber.trim(),
-          client_name: clientName,
-          client_phone: clientPhone || null,
-          client_email: clientEmail || null,
-          due_date: dueDate || null,
-          booking_reference: bookingReference || null,
-          notes: notes || null,
-          terms: terms || null,
-        });
-        if (bRes && !bRes.success) {
-          alert(bRes.error || "Failed to update invoice basics.");
+        const res = await fetch(`/api/admin/documents/${document.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            document_number: invoiceNumber.trim(),
+            client_name: clientName,
+            client_phone: clientPhone || null,
+            client_email: clientEmail || null,
+            due_date: dueDate || null,
+            booking_reference: bookingReference || null,
+            notes: notes || null,
+            terms: terms || null,
+          }),
+        }).then((r) => r.json());
+
+        if (!res.success) {
+          alert(res.error || "Failed to update invoice basics.");
           return;
         }
-        await saveDocumentVersion(document.id, "invoice");
+
         setSavedMessage("Saved successfully.");
         router.refresh();
         setTimeout(() => setSavedMessage(null), 3000);
@@ -128,7 +133,12 @@ export function InvoiceBuilder({
 
   function handleStatusChange(status: string) {
     runRedirectable(async () => {
-      const res = await updateDocumentStatus(document.id, "invoice", status);
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }).then((r) => r.json());
+
       if (res && !res.success) {
         alert(res.error || "Failed to update status.");
         return;
@@ -140,8 +150,11 @@ export function InvoiceBuilder({
   function handleDuplicate() {
     startTransition(async () => {
       try {
-        const res = await duplicateDocument(document.id, "invoice");
-        if (res && !res.success) {
+        const res = await fetch(`/api/admin/documents/${document.id}/duplicate`, {
+          method: "POST",
+        }).then((r) => r.json());
+
+        if (!res.success) {
           alert(res.error || "Failed to duplicate invoice.");
           return;
         }
@@ -158,8 +171,11 @@ export function InvoiceBuilder({
     if (!confirm(`Delete invoice ${document.document_number}? This cannot be undone.`)) return;
     startTransition(async () => {
       try {
-        const res = await deleteDocument(document.id, "invoice");
-        if (res && !res.success) {
+        const res = await fetch(`/api/admin/documents/${document.id}`, {
+          method: "DELETE",
+        }).then((r) => r.json());
+
+        if (!res.success) {
           alert(res.error || "Failed to delete invoice.");
           return;
         }

@@ -1,26 +1,42 @@
 import { NextResponse } from "next/server";
-import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
-import { getDocument } from "@/lib/data/documents";
 import { signDocumentRenderToken } from "@/lib/documents/render-token";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const document = await getDocument(id);
-  if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
-
-  const token = signDocumentRenderToken(id);
-
-  try {
-    const pdf = await generateDocumentPdf(id);
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${document.document_number}.pdf"`,
-      },
-    });
-  } catch (err: any) {
-    console.error("[booking-voucher/pdf] Puppeteer failed on host, falling back to print render:", err?.message);
-    const targetUrl = new URL(`/doc-render/${id}?key=${token}&print=true`, _request.url);
-    return NextResponse.redirect(targetUrl, { status: 302 });
+function getOrigin(req: Request): string {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = forwardedHost || req.headers.get("host");
+  if (host && !host.includes("localhost") && !host.includes("127.0.0.1")) {
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`;
   }
+  return "https://masaarholidays.com";
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const token = signDocumentRenderToken(id);
+  const origin = getOrigin(req);
+  const printUrl = `${origin}/doc-render/${id}?key=${token}&print=true`;
+
+  return new NextResponse(
+    `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Masaar Holidays - Booking Voucher PDF</title>
+  <meta http-equiv="refresh" content="0;url=${printUrl}">
+  <script>window.location.replace(${JSON.stringify(printUrl)});</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:60px 20px;background:#FAF8F5;color:#1A1816;">
+  <p style="font-size:16px;font-weight:600;">Generating and preparing your PDF...</p>
+  <p style="font-size:13px;color:#777;">If the document does not open automatically, <a href="${printUrl}" style="color:#B37E28;font-weight:bold;">click here to print / save as PDF</a>.</p>
+</body>
+</html>`,
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
 }

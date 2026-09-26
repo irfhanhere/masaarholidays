@@ -69,14 +69,26 @@ export function ReceiptBuilder({
 
   function handleStatusChange(status: string) {
     run(async () => {
-      await updateDocumentStatus(document.id, "receipt", status);
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }).then((r) => r.json());
+
+      if (!res.success) {
+        alert(res.error || "Failed to update status");
+        return;
+      }
       router.refresh();
     });
   }
 
   function handleDuplicate() {
     run(async () => {
-      const res = await duplicateDocument(document.id, "receipt");
+      const res = await fetch(`/api/admin/documents/${document.id}/duplicate`, {
+        method: "POST",
+      }).then((r) => r.json());
+
       if (res.success && res.id) {
         router.push(`/admin/documents/receipts/${res.id}`);
       } else {
@@ -88,7 +100,10 @@ export function ReceiptBuilder({
   function handleDelete() {
     if (!confirm(`Delete receipt ${document.document_number}? This cannot be undone.`)) return;
     run(async () => {
-      const res = await deleteDocument(document.id, "receipt");
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "DELETE",
+      }).then((r) => r.json());
+
       if (res.success) {
         router.push("/admin/documents/receipts");
       } else {

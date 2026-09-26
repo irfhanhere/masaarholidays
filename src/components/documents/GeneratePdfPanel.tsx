@@ -152,24 +152,31 @@ export function GeneratePdfPanel({
           </Card>
 
           <div className="space-y-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                window.open(printUrl, "_blank");
-              }}
-              className="flex w-full cursor-pointer"
+            <a
+              href={printUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-admin-primary px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark shadow-xs cursor-pointer"
             >
-              <PrimaryButton className="w-full justify-center py-3 font-bold text-sm">
-                🖨️ Print / Save as PDF
-              </PrimaryButton>
-            </button>
-
-            <a href={downloadRouteUrl} target="_blank" rel="noreferrer" className="flex">
-              <SecondaryButton className="w-full justify-center">Direct Download (.pdf)</SecondaryButton>
+              <span>🖨️</span> Print / Save as PDF
             </a>
 
-            <a href={renderUrl} target="_blank" rel="noreferrer" className="flex">
-              <SecondaryButton className="w-full justify-center">Preview Full PDF</SecondaryButton>
+            <a
+              href={downloadRouteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold text-masaar-black transition-colors hover:bg-admin-surface shadow-xs cursor-pointer"
+            >
+              <span>📥</span> Direct Download (.pdf)
+            </a>
+
+            <a
+              href={renderUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold text-masaar-black transition-colors hover:bg-admin-surface shadow-xs cursor-pointer"
+            >
+              <span>👁️</span> Preview Full PDF
             </a>
 
             {document && (
