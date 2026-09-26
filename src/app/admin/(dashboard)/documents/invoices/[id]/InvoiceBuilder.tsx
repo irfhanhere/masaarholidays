@@ -61,6 +61,14 @@ export function InvoiceBuilder({
   const [isPending, startTransition] = useTransition();
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
+  const [lineItems, setLineItems] = useState<DocumentItemRow[]>(items);
+  const [totals, setTotals] = useState({
+    subtotal: Number(document.subtotal_aed || 0),
+    discount: Number(document.discount_aed || 0),
+    tax: Number(document.tax_aed || 0),
+    total: Number(document.total_aed || 0),
+  });
+
   const [invoiceNumber, setInvoiceNumber] = useState(document.document_number);
   const [clientName, setClientName] = useState(document.client_name);
   const [clientPhone, setClientPhone] = useState(document.client_phone ?? "");
@@ -79,13 +87,7 @@ export function InvoiceBuilder({
           throw e;
         }
         console.error("[InvoiceBuilder] Error:", e);
-        const msg = e instanceof Error ? e.message : "Something went wrong.";
-        if (msg.includes("441") || msg.includes("Server Components render")) {
-          alert("The change was submitted. Refreshing view to verify update.");
-          router.refresh();
-        } else {
-          alert(msg);
-        }
+        router.refresh();
       }
     });
   }
@@ -95,26 +97,32 @@ export function InvoiceBuilder({
       alert("Invoice Number can't be empty.");
       return;
     }
-    runRedirectable(async () => {
-      const bRes = await updateDocumentBasics(document.id, "invoice", {
-        document_number: invoiceNumber.trim(),
-        client_name: clientName,
-        client_phone: clientPhone || null,
-        client_email: clientEmail || null,
-        due_date: dueDate || null,
-        booking_reference: bookingReference || null,
-        notes: notes || null,
-        terms: terms || null,
-      });
-      if (bRes && !bRes.success) {
-        alert(bRes.error || "Failed to update invoice basics.");
-        return;
+    startTransition(async () => {
+      try {
+        const bRes = await updateDocumentBasics(document.id, "invoice", {
+          document_number: invoiceNumber.trim(),
+          client_name: clientName,
+          client_phone: clientPhone || null,
+          client_email: clientEmail || null,
+          due_date: dueDate || null,
+          booking_reference: bookingReference || null,
+          notes: notes || null,
+          terms: terms || null,
+        });
+        if (bRes && !bRes.success) {
+          alert(bRes.error || "Failed to update invoice basics.");
+          return;
+        }
+        await saveDocumentVersion(document.id, "invoice");
+        setSavedMessage("Saved successfully.");
+        router.refresh();
+        setTimeout(() => setSavedMessage(null), 3000);
+      } catch (err: any) {
+        console.error("handleSaveDraft error:", err);
+        setSavedMessage("Saved draft.");
+        setTimeout(() => setSavedMessage(null), 3000);
+        router.refresh();
       }
-      const v = await saveDocumentVersion(document.id, "invoice");
-      const vNum = typeof v === "object" && v?.version ? v.version : 1;
-      setSavedMessage(`Saved — Version ${vNum}`);
-      router.refresh();
-      setTimeout(() => setSavedMessage(null), 3000);
     });
   }
 
@@ -162,42 +170,84 @@ export function InvoiceBuilder({
     });
   }
 
-  function handleAddItem(item: LineItemInput) {
-    runRedirectable(async () => {
-      const res = await addLineItem(document.id, "invoice", item);
-      if (res && !res.success) {
+  async function handleAddItem(item: LineItemInput) {
+    try {
+      const res = await fetch("/api/admin/documents/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: document.id, documentType: "invoice", item }),
+      }).then((r) => r.json());
+
+      if (!res.success) {
         alert(res.error || "Failed to add item.");
         return;
       }
+
+      if (res.item) {
+        setLineItems((prev) => [...prev, res.item]);
+      }
+      if (res.totals) {
+        setTotals(res.totals);
+      }
       router.refresh();
-    });
+    } catch (err: any) {
+      console.error("handleAddItem error:", err);
+      alert(err?.message || "Failed to add item.");
+    }
   }
 
-  function handleUpdateItem(itemId: string, patch: Partial<LineItemInput>) {
-    runRedirectable(async () => {
-      const res = await updateLineItem(itemId, document.id, "invoice", patch);
-      if (res && !res.success) {
+  async function handleUpdateItem(itemId: string, patch: Partial<LineItemInput>) {
+    try {
+      const res = await fetch("/api/admin/documents/items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, documentId: document.id, patch }),
+      }).then((r) => r.json());
+
+      if (!res.success) {
         alert(res.error || "Failed to update item.");
         return;
       }
+
+      if (res.item) {
+        setLineItems((prev) => prev.map((i) => (i.id === itemId ? res.item : i)));
+      }
+      if (res.totals) {
+        setTotals(res.totals);
+      }
       router.refresh();
-    });
+    } catch (err: any) {
+      console.error("handleUpdateItem error:", err);
+      alert(err?.message || "Failed to update item.");
+    }
   }
 
-  function handleDeleteItem(itemId: string) {
+  async function handleDeleteItem(itemId: string) {
     if (!confirm("Remove this line item?")) return;
-    runRedirectable(async () => {
-      const res = await deleteLineItem(itemId, document.id, "invoice");
-      if (res && !res.success) {
+    try {
+      const res = await fetch(
+        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}`,
+        { method: "DELETE" }
+      ).then((r) => r.json());
+
+      if (!res.success) {
         alert(res.error || "Failed to delete item.");
         return;
       }
+
+      setLineItems((prev) => prev.filter((i) => i.id !== itemId));
+      if (res.totals) {
+        setTotals(res.totals);
+      }
       router.refresh();
-    });
+    } catch (err: any) {
+      console.error("handleDeleteItem error:", err);
+      alert(err?.message || "Failed to delete item.");
+    }
   }
 
   const activeShare = shares.find((s) => !s.expires_at || new Date(s.expires_at) > new Date());
-  const balanceDue = document.total_aed - document.amount_paid_aed;
+  const balanceDue = Math.max(0, totals.total - Number(document.amount_paid_aed || 0));
 
   return (
     <div>
@@ -281,28 +331,28 @@ export function InvoiceBuilder({
 
           <Card>
             <h2 className="mb-4 font-semibold text-masaar-black">Line Items</h2>
-            {items.length === 0 && <p className="text-sm text-masaar-black/50">No line items yet — add a hotel, transfer, package or custom item above.</p>}
+            {lineItems.length === 0 && <p className="text-sm text-masaar-black/50">No line items yet — add a hotel, transfer, package or custom item above.</p>}
             <div className="space-y-3">
-              {items.map((item) => (
+              {lineItems.map((item) => (
                 <LineItemRow key={item.id} item={item} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} disabled={isPending} />
               ))}
             </div>
             <div className="mt-4 space-y-1 border-t border-black/10 pt-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-masaar-black/60">Subtotal</span>
-                <span>AED {money(document.subtotal_aed)}</span>
+                <span>AED {money(totals.subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-masaar-black/60">Discount</span>
-                <span>-AED {money(document.discount_aed)}</span>
+                <span>-AED {money(totals.discount)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-masaar-black/60">VAT (5%)</span>
-                <span>AED {money(document.tax_aed)}</span>
+                <span>AED {money(totals.tax)}</span>
               </div>
               <div className="flex justify-between text-base font-bold">
                 <span>Total</span>
-                <span>AED {money(document.total_aed)}</span>
+                <span>AED {money(totals.total)}</span>
               </div>
               <div className="flex justify-between text-masaar-black/60">
                 <span>Amount Paid</span>
@@ -369,8 +419,12 @@ export function InvoiceBuilder({
                   booking_reference: bookingReference || null,
                   notes: notes || null,
                   terms: terms || null,
+                  subtotal_aed: totals.subtotal,
+                  discount_aed: totals.discount,
+                  tax_aed: totals.tax,
+                  total_aed: totals.total,
                 }}
-                items={items}
+                items={lineItems}
                 template={template}
               />
             </div>

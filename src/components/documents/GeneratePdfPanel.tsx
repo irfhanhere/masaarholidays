@@ -114,11 +114,21 @@ export function GeneratePdfPanel({
             </p>
           </Card>
 
+          <button
+            type="button"
+            onClick={() => {
+              const printUrl = `${renderUrl}&print=true`;
+              window.open(printUrl, "_blank");
+            }}
+            className="flex w-full cursor-pointer"
+          >
+            <PrimaryButton className="w-full justify-center">🖨️ Print / Save as PDF</PrimaryButton>
+          </button>
           <a href={`${basePath}/${documentId}/pdf/download`} className="flex">
-            <PrimaryButton>Download PDF</PrimaryButton>
+            <SecondaryButton className="w-full justify-center">Direct Download (.pdf)</SecondaryButton>
           </a>
           <a href={renderUrl} target="_blank" rel="noreferrer" className="flex">
-            <SecondaryButton>Preview Full PDF</SecondaryButton>
+            <SecondaryButton className="w-full justify-center">Preview Full PDF</SecondaryButton>
           </a>
         </div>
 

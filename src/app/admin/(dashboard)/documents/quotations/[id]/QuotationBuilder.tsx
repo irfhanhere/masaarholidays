@@ -205,33 +205,53 @@ export function QuotationBuilder({
     });
   }
 
-  function handleAddItem(e: React.FormEvent) {
+  async function handleAddItem(e: React.FormEvent) {
     e.preventDefault();
     if (!newDesc.trim()) return;
 
-    run(async () => {
-      await addLineItem(document.id, "quotation", {
-        item_type: newItemType,
-        description: newDesc.trim(),
-        details: newDetails.trim() || null,
-        quantity: newQty,
-        unit_price_aed: newPrice,
-      });
+    try {
+      const res = await fetch("/api/admin/documents/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: document.id,
+          documentType: "quotation",
+          item: {
+            item_type: newItemType,
+            description: newDesc.trim(),
+            details: newDetails.trim() || null,
+            quantity: newQty,
+            unit_price_aed: newPrice,
+          },
+        }),
+      }).then((r) => r.json());
+
+      if (!res.success) {
+        alert(res.error || "Failed to add item.");
+        return;
+      }
+
       setIsAddingItem(false);
       setNewDesc("");
       setNewDetails("");
       setNewQty(1);
       setNewPrice(0);
       router.refresh();
-    });
+    } catch (e: any) {
+      alert(e?.message || "Failed to add item.");
+    }
   }
 
   function handleDeleteItem(itemId: string) {
     if (!confirm("Remove this section/item from the quotation?")) return;
-    run(async () => {
-      await deleteLineItem(itemId, document.id, "quotation");
-      router.refresh();
-    });
+    try {
+      fetch(
+        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}`,
+        { method: "DELETE" }
+      ).then(() => router.refresh());
+    } catch (e: any) {
+      alert(e?.message || "Failed to delete item.");
+    }
   }
 
   function handleConvertToInvoice() {

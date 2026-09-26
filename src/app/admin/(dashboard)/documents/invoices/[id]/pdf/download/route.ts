@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 import { getDocument } from "@/lib/data/documents";
+import { signDocumentRenderToken } from "@/lib/documents/render-token";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const document = await getDocument(id);
   if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+
+  const token = signDocumentRenderToken(id);
 
   try {
     const pdf = await generateDocumentPdf(id);
@@ -16,8 +19,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       },
     });
   } catch (err: any) {
-    console.error("[invoice/pdf] PDF generation failed:", err?.message);
+    console.error("[invoice/pdf] Puppeteer failed on host, falling back to print render:", err?.message);
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-    return NextResponse.redirect(`${siteUrl}/admin/documents/invoices/${id}/pdf`, { status: 302 });
+    return NextResponse.redirect(`${siteUrl}/doc-render/${id}?key=${token}&print=true`, { status: 302 });
   }
 }

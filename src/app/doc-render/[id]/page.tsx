@@ -18,10 +18,10 @@ export default async function DocumentRenderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ key?: string }>;
+  searchParams: Promise<{ key?: string; print?: string }>;
 }) {
   const { id } = await params;
-  const { key } = await searchParams;
+  const { key, print } = await searchParams;
 
   if (!key || !verifyDocumentRenderToken(id, key)) notFound();
 
@@ -40,11 +40,26 @@ export default async function DocumentRenderPage({
   ]);
 
   return (
-    <DocumentView
-      document={document as DocumentRow}
-      items={(items ?? []) as DocumentItemRow[]}
-      template={(template as DocumentTemplateRow | null) ?? null}
-      sourceDocumentNumber={sourceDocument?.document_number ?? null}
-    />
+    <>
+      <DocumentView
+        document={document as DocumentRow}
+        items={(items ?? []) as DocumentItemRow[]}
+        template={(template as DocumentTemplateRow | null) ?? null}
+        sourceDocumentNumber={sourceDocument?.document_number ?? null}
+      />
+      {print === "true" && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('load', function() {
+                setTimeout(function() {
+                  window.print();
+                }, 800);
+              });
+            `,
+          }}
+        />
+      )}
+    </>
   );
 }

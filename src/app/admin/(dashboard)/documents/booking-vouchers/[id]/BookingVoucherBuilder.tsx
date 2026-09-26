@@ -949,17 +949,31 @@ export function BookingVoucherBuilder({
                     <LineItemRow
                       key={item.id}
                       item={item}
-                      onUpdate={(id, patch) => {
-                        runRedirectable(async () => {
-                          await updateLineItem(id, document.id, "booking_voucher", patch);
+                      onUpdate={async (id, patch) => {
+                        try {
+                          const res = await fetch("/api/admin/documents/items", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ itemId: id, documentId: document.id, patch }),
+                          }).then((r) => r.json());
+                          if (!res.success) alert(res.error || "Failed to update item.");
                           router.refresh();
-                        });
+                        } catch (e: any) {
+                          alert(e?.message || "Failed to update item.");
+                        }
                       }}
-                      onDelete={(id) => {
-                        runRedirectable(async () => {
-                          await deleteLineItem(id, document.id, "booking_voucher");
+                      onDelete={async (id) => {
+                        if (!confirm("Remove this line item?")) return;
+                        try {
+                          const res = await fetch(
+                            `/api/admin/documents/items?itemId=${encodeURIComponent(id)}&documentId=${encodeURIComponent(document.id)}`,
+                            { method: "DELETE" }
+                          ).then((r) => r.json());
+                          if (!res.success) alert(res.error || "Failed to delete item.");
                           router.refresh();
-                        });
+                        } catch (e: any) {
+                          alert(e?.message || "Failed to delete item.");
+                        }
                       }}
                       disabled={isPending}
                     />
@@ -970,11 +984,21 @@ export function BookingVoucherBuilder({
 
             <AddItemCard
               products={products}
-              onAdd={(input: LineItemInput) => {
-                runRedirectable(async () => {
-                  await addLineItem(document.id, "booking_voucher", input);
+              onAdd={async (input: LineItemInput) => {
+                try {
+                  const res = await fetch("/api/admin/documents/items", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ documentId: document.id, documentType: "booking_voucher", item: input }),
+                  }).then((r) => r.json());
+                  if (!res.success) {
+                    alert(res.error || "Failed to add item.");
+                    return;
+                  }
                   router.refresh();
-                });
+                } catch (e: any) {
+                  alert(e?.message || "Failed to add item.");
+                }
               }}
               disabled={isPending}
             />

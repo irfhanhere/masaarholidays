@@ -6,9 +6,7 @@ import { signDocumentRenderToken } from "@/lib/documents/render-token";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const document = await getDocument(id);
-  if (!document || document.document_type !== "receipt") {
-    return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
-  }
+  if (!document) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
   const token = signDocumentRenderToken(id);
 
@@ -21,7 +19,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       },
     });
   } catch (err: any) {
-    console.error("[receipt/pdf] Puppeteer failed on host, falling back to print render:", err?.message);
+    console.error("[booking-voucher/pdf] Puppeteer failed on host, falling back to print render:", err?.message);
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
     return NextResponse.redirect(`${siteUrl}/doc-render/${id}?key=${token}&print=true`, { status: 302 });
   }
