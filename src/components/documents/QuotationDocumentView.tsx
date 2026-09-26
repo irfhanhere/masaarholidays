@@ -272,7 +272,7 @@ export function QuotationDocumentView({
               {/* Central Kaaba Banner Image */}
               <div className="relative flex-1 w-full overflow-hidden bg-black">
                 <Image
-                  src="/Assets/BANNER IMAGE.png"
+                  src="/Assets/banner-image.png"
                   alt="Holy Kaaba Makkah"
                   fill
                   className="object-cover object-center"
@@ -638,7 +638,7 @@ export function QuotationDocumentView({
                 <div className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
                   <div className="relative h-44 w-full bg-neutral-100">
                     <Image
-                      src="/Assets/IMAGE 6 FLIGHT.jpg"
+                      src="/Assets/image-flight.jpg"
                       alt="Luxury Airline"
                       fill
                       className="object-cover"
@@ -903,7 +903,7 @@ export function QuotationDocumentView({
               {/* Dark Kaaba Background Image for rich print depth */}
               <div className="absolute inset-0 z-0 overflow-hidden opacity-30">
                 <Image
-                  src="/Assets/BANNER IMAGE.png"
+                  src="/Assets/banner-image.png"
                   alt="Holy Kaaba Makkah"
                   fill
                   className="object-cover object-center"

@@ -137,7 +137,7 @@ export function GenerateQuotationPdf({
                   className="text-[#b37e28] focus:ring-[#b37e28]"
                 />
                 <div className="relative h-10 w-9 shrink-0 overflow-hidden rounded border border-black/10 bg-neutral-100">
-                  <Image src="/Assets/BANNER IMAGE.png" alt="Premium" fill className="object-cover" unoptimized />
+                  <Image src="/Assets/banner-image.png" alt="Premium" fill className="object-cover" unoptimized />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-masaar-black">Masaar Premium</p>

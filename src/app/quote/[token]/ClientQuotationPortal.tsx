@@ -129,7 +129,7 @@ export function ClientQuotationPortal({
           <div className="flex items-center gap-3">
             <div className="relative h-10 w-36">
               <Image
-                src="/Assets/LOGO 2.5.png"
+                src="/Assets/logo-main.png"
                 alt="Masaar Holidays"
                 fill
                 priority
@@ -167,7 +167,7 @@ export function ClientQuotationPortal({
       <section className="relative overflow-hidden bg-masaar-black text-white">
         <div className="absolute inset-0 opacity-40 mix-blend-luminosity">
           <Image
-            src="/Assets/BANNER IMAGE.png"
+            src="/Assets/banner-image.png"
             alt="Makkah Clock Tower & Masjid Al Haram"
             fill
             priority
@@ -321,7 +321,7 @@ export function ClientQuotationPortal({
               <div className="grid gap-5 md:grid-cols-12 items-center">
                 <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5">
                   <Image
-                    src="/Assets/HAJJ BANNER.png"
+                    src="/Assets/hajj-banner.png"
                     alt="Package"
                     fill
                     className="object-cover"
@@ -496,7 +496,7 @@ export function ClientQuotationPortal({
                 </div>
                 <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10">
                   <Image
-                    src="/Assets/IMAGE 6 FLIGHT.jpg"
+                    src="/Assets/image-flight.jpg"
                     alt="Flight"
                     fill
                     className="object-cover"
@@ -523,7 +523,7 @@ export function ClientQuotationPortal({
                 </div>
                 <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-neutral-100 flex items-center justify-center">
                   <Image
-                    src="/Assets/IAMGE 2 CARD 1  (1).jpg"
+                    src="/Assets/image-meal.jpg"
                     alt="Meals"
                     fill
                     className="object-cover"
@@ -815,7 +815,7 @@ export function ClientQuotationPortal({
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/10">
             <div className="relative h-10 w-36">
               <Image
-                src="/Assets/REVERSE LOGO 0.5.png"
+                src="/Assets/logo-reverse.png"
                 alt="Masaar Holidays"
                 fill
                 className="object-contain object-left"
