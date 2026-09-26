@@ -31,12 +31,10 @@ async function getClient() {
     // ignore
   }
 
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      return createAdminClient();
-    } catch {
-      // ignore
-    }
+  try {
+    return createAdminClient();
+  } catch {
+    // ignore
   }
 
   return createClient();

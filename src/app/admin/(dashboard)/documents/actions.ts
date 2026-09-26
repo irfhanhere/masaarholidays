@@ -9,12 +9,10 @@ import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 import type { DocumentItemRow, DocumentItemType, DocumentRow, DocumentTemplateRowShape, DocumentType } from "@/lib/types/database";
 
 async function getClient() {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      return createAdminClient();
-    } catch {
-      // ignore
-    }
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
   }
 
   try {
@@ -26,6 +24,30 @@ async function getClient() {
   }
 
   return createClient();
+}
+
+async function generateDocNumber(supabase: any, documentType: string): Promise<string> {
+  const prefixMap: Record<string, string> = {
+    quotation: "MH-QT",
+    invoice: "MH-INV",
+    receipt: "MH-RCT",
+    booking_voucher: "MH-BKG",
+  };
+  try {
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
+      p_document_type: documentType,
+    });
+    if (!numberError && numberResult) {
+      return numberResult as string;
+    }
+    if (numberError) {
+      console.warn(`[generateDocNumber] RPC fallback used for ${documentType}:`, numberError?.message);
+    }
+  } catch (err: any) {
+    console.warn(`[generateDocNumber] RPC exception fallback for ${documentType}:`, err?.message);
+  }
+  const prefix = prefixMap[documentType] || "MH-DOC";
+  return `${prefix}-${Date.now().toString().slice(-6)}`;
 }
 
 const VAT_RATE = 0.05;
@@ -95,12 +117,7 @@ export async function createManualInvoice(input: CreateManualInvoiceInput): Prom
       return { success: false, error: "Client name is required." };
     }
 
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
-      p_document_type: "invoice",
-    });
-    if (numberError || !numberResult) {
-      return { success: false, error: numberError?.message ?? "Failed to generate invoice number." };
-    }
+    const docNumber = await generateDocNumber(supabase, "invoice");
 
     const { data: template } = await supabase
       .from("document_templates")
@@ -113,7 +130,7 @@ export async function createManualInvoice(input: CreateManualInvoiceInput): Prom
       .from("documents")
       .insert({
         document_type: "invoice",
-        document_number: numberResult as string,
+        document_number: docNumber,
         status: "draft",
         client_name: input.client_name.trim(),
         client_email: input.client_email?.trim() || null,
@@ -183,26 +200,23 @@ export async function createManualBookingVoucher(input: CreateManualBookingVouch
 
     if (!input.client_name?.trim()) return { success: false, error: "Client name is required." };
 
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
-      p_document_type: "booking_voucher",
-    });
-    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate booking voucher number." };
+    const docNumber = await generateDocNumber(supabase, "booking_voucher");
 
-  const { data: template } = await supabase
-    .from("document_templates")
-    .select("id")
-    .eq("document_type", "booking_voucher")
-    .eq("is_default", true)
-    .maybeSingle();
+    const { data: template } = await supabase
+      .from("document_templates")
+      .select("id")
+      .eq("document_type", "booking_voucher")
+      .eq("is_default", true)
+      .maybeSingle();
 
-  const seq = (numberResult as string).split("-").pop() || "0001";
-  const bookingRef = input.booking_reference?.trim() || `MH-BKG-${seq}`;
+    const seq = docNumber.split("-").pop() || "0001";
+    const bookingRef = input.booking_reference?.trim() || `MH-BKG-${seq}`;
 
-  const { data: inserted, error } = await supabase
-    .from("documents")
-    .insert({
-      document_type: "booking_voucher",
-      document_number: numberResult as string,
+    const { data: inserted, error } = await supabase
+      .from("documents")
+      .insert({
+        document_type: "booking_voucher",
+        document_number: docNumber,
       status: "confirmed",
       client_name: input.client_name.trim(),
       client_email: input.client_email?.trim() || null,
@@ -555,8 +569,7 @@ export async function duplicateDocument(documentId: string, documentType: Docume
     ]);
     if (!document) return { success: false, error: "Document not found." };
 
-    const { data: numberResult, error: numError } = await supabase.rpc("generate_document_number", { p_document_type: documentType });
-    if (numError || !numberResult) return { success: false, error: numError?.message ?? "Failed to generate document number." };
+    const docNumber = await generateDocNumber(supabase, documentType);
 
     const {
       id: _id,
@@ -569,7 +582,7 @@ export async function duplicateDocument(documentId: string, documentType: Docume
 
     const { data: inserted, error } = await supabase
       .from("documents")
-      .insert({ ...rest, document_number: numberResult as string, status: "draft" })
+      .insert({ ...rest, document_number: docNumber, status: "draft" })
       .select("id")
       .single();
     if (error || !inserted) return { success: false, error: error?.message ?? "Failed to duplicate document." };
@@ -773,8 +786,7 @@ export async function createDocumentFromSource(sourceId: string, toType: Documen
     ]);
     if (!source) return { success: false, error: "Source document not found." };
 
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: toType });
-    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate document number." };
+    const docNumber = await generateDocNumber(supabase, toType);
 
     const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", toType).eq("is_default", true).maybeSingle();
 
@@ -782,7 +794,7 @@ export async function createDocumentFromSource(sourceId: string, toType: Documen
       .from("documents")
       .insert({
         document_type: toType,
-        document_number: numberResult as string,
+        document_number: docNumber,
         status: "draft",
         client_name: source.client_name,
         client_email: source.client_email,
@@ -805,7 +817,7 @@ export async function createDocumentFromSource(sourceId: string, toType: Documen
         notes: source.notes,
         terms: source.terms,
         template_id: template?.id ?? null,
-        booking_reference: toType === "booking_voucher" ? `MH-BKG-${(numberResult as string).split("-").pop()}` : null,
+        booking_reference: toType === "booking_voucher" ? `MH-BKG-${docNumber.split("-").pop()}` : null,
       })
       .select("id")
       .single();
@@ -868,8 +880,7 @@ export async function recordPayment(invoiceId: string, input: RecordPaymentInput
       .eq("id", invoiceId);
     if (invoiceUpdateError) return { success: false, error: invoiceUpdateError.message };
 
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: "receipt" });
-    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate receipt number." };
+    const docNumber = await generateDocNumber(supabase, "receipt");
 
     const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "receipt").eq("is_default", true).maybeSingle();
 
@@ -877,7 +888,7 @@ export async function recordPayment(invoiceId: string, input: RecordPaymentInput
       .from("documents")
       .insert({
         document_type: "receipt",
-        document_number: numberResult as string,
+        document_number: docNumber,
         status: "issued",
         client_name: invoice.client_name,
         client_email: invoice.client_email,
@@ -934,8 +945,7 @@ export async function createManualReceipt(input: CreateManualReceiptInput): Prom
     if (!input.client_name?.trim()) return { success: false, error: "Client name is required." };
     if (!(input.amount > 0)) return { success: false, error: "Receipt amount must be greater than zero." };
 
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", { p_document_type: "receipt" });
-    if (numberError || !numberResult) return { success: false, error: numberError?.message ?? "Failed to generate receipt number." };
+    const docNumber = await generateDocNumber(supabase, "receipt");
 
     const { data: template } = await supabase.from("document_templates").select("id").eq("document_type", "receipt").eq("is_default", true).maybeSingle();
 
@@ -954,7 +964,7 @@ export async function createManualReceipt(input: CreateManualReceiptInput): Prom
       .from("documents")
       .insert({
         document_type: "receipt",
-        document_number: numberResult as string,
+        document_number: docNumber,
         status: "issued",
         client_name: input.client_name.trim(),
         client_email: input.client_email?.trim() || null,

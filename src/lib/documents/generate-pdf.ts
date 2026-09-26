@@ -13,11 +13,21 @@ import { signDocumentRenderToken } from "@/lib/documents/render-token";
  * 404 page it finds there. Puppeteer must always reach the app instance
  * that is actually running this code.
  */
-function getInternalRenderOrigin(): string {
-  if (process.env.NODE_ENV !== "production") {
-    return `http://localhost:${process.env.PORT ?? 3000}`;
+function getCandidateOrigins(): string[] {
+  const port = process.env.PORT ?? 3000;
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://masaarholidays.com").replace(/\/$/, "");
+  
+  const origins: string[] = [];
+  if (process.env.INTERNAL_URL) {
+    origins.push(process.env.INTERNAL_URL.replace(/\/$/, ""));
   }
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://masaarholidays.com").replace(/\/$/, "");
+  // 127.0.0.1 avoids loopback DNS / Cloudflare WAF block on self-hosted environments
+  origins.push(`http://127.0.0.1:${port}`);
+  origins.push(`http://localhost:${port}`);
+  if (!origins.includes(siteUrl)) {
+    origins.push(siteUrl);
+  }
+  return origins;
 }
 
 /**
@@ -28,19 +38,47 @@ function getInternalRenderOrigin(): string {
  * second hand-built PDF layout that has to be kept in sync by hand.
  */
 export async function generateDocumentPdf(documentId: string): Promise<Buffer> {
-  const url = `${getInternalRenderOrigin()}/doc-render/${documentId}?key=${signDocumentRenderToken(documentId)}`;
+  const token = signDocumentRenderToken(documentId);
+  const path = `/doc-render/${documentId}?key=${token}`;
+  const candidateOrigins = getCandidateOrigins();
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--single-process",
+      "--no-zygote",
+    ],
   });
 
   try {
     const page = await browser.newPage();
-    const response = await page.goto(url, { waitUntil: "networkidle0" });
-    if (!response || !response.ok()) {
-      throw new Error(`Could not render document ${documentId} for PDF (${url} returned ${response?.status() ?? "no response"}).`);
+    let loaded = false;
+    let lastError: any = null;
+
+    for (const origin of candidateOrigins) {
+      try {
+        const targetUrl = `${origin}${path}`;
+        const response = await page.goto(targetUrl, {
+          waitUntil: "networkidle0",
+          timeout: 15000,
+        });
+        if (response && response.ok()) {
+          loaded = true;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
     }
+
+    if (!loaded) {
+      throw new Error(`Could not render document ${documentId} for PDF (${lastError?.message || "Failed to reach internal render server"}).`);
+    }
+
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

@@ -11,8 +11,12 @@ export const metadata: Metadata = {
 async function getEnquiries() {
   let supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    supabase = createAdminClient();
+  if (!user) {
+    try {
+      supabase = createAdminClient();
+    } catch {
+      // ignore
+    }
   }
 
   const { data } = await supabase

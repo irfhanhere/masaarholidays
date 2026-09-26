@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { respondToQuotation } from "./actions";
@@ -43,6 +43,18 @@ export function ClientQuotationPortal({
   const [changeMessage, setChangeMessage] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [acceptedNotice, setAcceptedNotice] = useState(currentStatus === "accepted");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("print") === "true") {
+        const timer = setTimeout(() => {
+          window.print();
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
 
   function handleAccept() {
     startTransition(async () => {

@@ -14,11 +14,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   const { data: document } = await supabase.from("documents").select("document_number").eq("id", share.document_id).maybeSingle();
   if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const pdf = await generateDocumentPdf(share.document_id);
-  return new NextResponse(new Uint8Array(pdf), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${document.document_number}.pdf"`,
-    },
-  });
+  try {
+    const pdf = await generateDocumentPdf(share.document_id);
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${document.document_number}.pdf"`,
+      },
+    });
+  } catch (err: any) {
+    console.error("[quote/pdf] Puppeteer render failed, falling back to print view:", err?.message);
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+    return NextResponse.redirect(`${siteUrl}/quote/${token}?print=true`, { status: 302 });
+  }
 }
