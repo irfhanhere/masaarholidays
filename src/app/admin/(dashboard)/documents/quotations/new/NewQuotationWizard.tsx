@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, Field, inputClass } from "@/components/admin/ui";
-import { createManualQuotation } from "../../actions";
 import type { DocumentJourneyType } from "@/lib/types/database";
 
 interface EnquirySeed {
@@ -302,7 +301,13 @@ export function NewQuotationWizard({
         items: defaultItems,
       };
 
-      const res = await createManualQuotation(payload);
+      // Use API route instead of Server Action — works reliably on
+      // Hostinger self-hosted Node.js where SA cookie propagation differs.
+      const res = await fetch("/api/admin/documents/quotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then((r) => r.json()) as { success: boolean; id?: string; error?: string };
       if (res.success && res.id) {
         if (asDraft) {
           router.push("/admin/documents/quotations");
