@@ -46,8 +46,8 @@ const NOTES = [
 ];
 
 const SERVICES = [
-  { label: "Umrah", Icon: PlaneIcon },
-  { label: "Hajj", Icon: FamilyIcon },
+  { label: "Holidays", Icon: PlaneIcon },
+  { label: "Umrah", Icon: FamilyIcon },
   { label: "Hotels", Icon: BedIcon },
   { label: "Transfers", Icon: CarIcon },
   { label: "Visa", Icon: PassportIcon },

@@ -25,11 +25,7 @@ export const MAIN_NAV: NavItem[] = [
     // sort_order), and omits the dropdown entirely when none are active.
     // Hajj has no departure-month layer, so it stays a plain link.
   },
-  {
-    label: "Hajj",
-    href: "/hajj",
-    children: [{ label: "All Hajj Packages", href: "/hajj" }],
-  },
+  { label: "Hajj", href: "/hajj" },
   // Plain link — the Makkah/Madinah split lives on the /hotels page itself
   // (city toggle), so a nav dropdown here would just duplicate it.
   { label: "Hotels", href: "/hotels" },

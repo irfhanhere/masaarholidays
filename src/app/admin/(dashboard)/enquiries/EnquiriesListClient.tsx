@@ -781,10 +781,10 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
                 </Field>
 
                 <Field label="Preferred Package">
-                  <select name="preferred_package" className={inputClass} defaultValue="Platinum">
-                    <option value="Platinum">Platinum Package</option>
-                    <option value="Standard">Standard Package</option>
-                    <option value="Economy">Economy Package</option>
+                  <select name="preferred_package" className={inputClass} defaultValue="Exclusive">
+                    <option value="Exclusive">Exclusive Package (Non-Shifting)</option>
+                    <option value="Signature">Signature Package (Shifting)</option>
+                    <option value="Essential">Essential Package (Shifting)</option>
                     <option value="VIP Custom">VIP Custom Itinerary</option>
                   </select>
                 </Field>

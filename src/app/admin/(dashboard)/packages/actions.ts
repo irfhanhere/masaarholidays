@@ -151,40 +151,42 @@ export async function savePackage(
   }
 
   // Tier-level copy (title, city/destination, inclusions, notes, featured
-  // flag) is shared across every duration variant of this same tier — keep
-  // siblings in sync so it's entered once, not duplicated per duration.
-  // is_active/show_on_website, slug, duration and pricing stay per-row.
-  await supabase
-    .from("packages")
-    .update({
-      title: payload.title,
-      city_destination: payload.city_destination,
-      short_description: payload.short_description,
-      tagline: payload.tagline,
-      route_line: payload.route_line,
-      makkah_hotel_name: payload.makkah_hotel_name,
-      makkah_hotel_note: payload.makkah_hotel_note,
-      makkah_hotel_access_tag: payload.makkah_hotel_access_tag,
-      madinah_hotel_name: payload.madinah_hotel_name,
-      madinah_hotel_note: payload.madinah_hotel_note,
-      madinah_hotel_access_tag: payload.madinah_hotel_access_tag,
-      makkah_hotel_name_alt: payload.makkah_hotel_name_alt,
-      makkah_hotel_note_alt: payload.makkah_hotel_note_alt,
-      makkah_hotel_access_tag_alt: payload.makkah_hotel_access_tag_alt,
-      madinah_hotel_name_alt: payload.madinah_hotel_name_alt,
-      madinah_hotel_note_alt: payload.madinah_hotel_note_alt,
-      madinah_hotel_access_tag_alt: payload.madinah_hotel_access_tag_alt,
-      maktab_category: payload.maktab_category,
-      inclusions_text: payload.inclusions_text,
-      advance_booking_note: payload.advance_booking_note,
-      flight_note: payload.flight_note,
-      rate_disclaimer: payload.rate_disclaimer,
-      validity_label: payload.validity_label,
-      is_featured: payload.is_featured,
-    })
-    .eq("type", type)
-    .eq("tier", tier)
-    .neq("id", id);
+  // flag) is shared across every duration variant of this same tier for Umrah.
+  // For Hajj, each duration variant (e.g. 9d vs 12d vs 15d) has distinct
+  // hotel stays (Clock Tower, Madinah) and titles, so do not overwrite siblings.
+  if (type !== "hajj") {
+    await supabase
+      .from("packages")
+      .update({
+        title: payload.title,
+        city_destination: payload.city_destination,
+        short_description: payload.short_description,
+        tagline: payload.tagline,
+        route_line: payload.route_line,
+        makkah_hotel_name: payload.makkah_hotel_name,
+        makkah_hotel_note: payload.makkah_hotel_note,
+        makkah_hotel_access_tag: payload.makkah_hotel_access_tag,
+        madinah_hotel_name: payload.madinah_hotel_name,
+        madinah_hotel_note: payload.madinah_hotel_note,
+        madinah_hotel_access_tag: payload.madinah_hotel_access_tag,
+        makkah_hotel_name_alt: payload.makkah_hotel_name_alt,
+        makkah_hotel_note_alt: payload.makkah_hotel_note_alt,
+        makkah_hotel_access_tag_alt: payload.makkah_hotel_access_tag_alt,
+        madinah_hotel_name_alt: payload.madinah_hotel_name_alt,
+        madinah_hotel_note_alt: payload.madinah_hotel_note_alt,
+        madinah_hotel_access_tag_alt: payload.madinah_hotel_access_tag_alt,
+        maktab_category: payload.maktab_category,
+        inclusions_text: payload.inclusions_text,
+        advance_booking_note: payload.advance_booking_note,
+        flight_note: payload.flight_note,
+        rate_disclaimer: payload.rate_disclaimer,
+        validity_label: payload.validity_label,
+        is_featured: payload.is_featured,
+      })
+      .eq("type", type)
+      .eq("tier", tier)
+      .neq("id", id);
+  }
 
   // Replace room prices wholesale — simplest consistent approach for a
   // small, fully-resubmitted list.

@@ -196,8 +196,9 @@ export async function convertEnquiryToQuotation(enquiryId: string) {
 
   revalidatePath("/admin/enquiries");
   revalidatePath("/admin/documents");
+  revalidatePath("/admin/documents/quotations");
 
-  redirect(`/admin/documents/invoices/new?seedQuotationId=${inserted.id}`);
+  redirect(`/admin/documents/quotations/${inserted.id}`);
 }
 
 export async function deleteEnquiry(id: string) {

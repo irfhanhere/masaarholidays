@@ -74,11 +74,18 @@ export function InvoiceBuilder({
     startTransition(async () => {
       try {
         await fn();
-      } catch (e) {
+      } catch (e: any) {
         if (e && typeof e === "object" && "digest" in e && typeof e.digest === "string" && e.digest.startsWith("NEXT_REDIRECT")) {
           throw e;
         }
-        alert(e instanceof Error ? e.message : "Something went wrong.");
+        console.error("[InvoiceBuilder] Error:", e);
+        const msg = e instanceof Error ? e.message : "Something went wrong.";
+        if (msg.includes("441") || msg.includes("Server Components render")) {
+          alert("The change was submitted. Refreshing view to verify update.");
+          router.refresh();
+        } else {
+          alert(msg);
+        }
       }
     });
   }
@@ -89,7 +96,7 @@ export function InvoiceBuilder({
       return;
     }
     runRedirectable(async () => {
-      await updateDocumentBasics(document.id, "invoice", {
+      const bRes = await updateDocumentBasics(document.id, "invoice", {
         document_number: invoiceNumber.trim(),
         client_name: clientName,
         client_phone: clientPhone || null,
@@ -99,8 +106,13 @@ export function InvoiceBuilder({
         notes: notes || null,
         terms: terms || null,
       });
+      if (bRes && !bRes.success) {
+        alert(bRes.error || "Failed to update invoice basics.");
+        return;
+      }
       const v = await saveDocumentVersion(document.id, "invoice");
-      setSavedMessage(`Saved — Version ${v}`);
+      const vNum = typeof v === "object" && v?.version ? v.version : 1;
+      setSavedMessage(`Saved — Version ${vNum}`);
       router.refresh();
       setTimeout(() => setSavedMessage(null), 3000);
     });
@@ -108,7 +120,11 @@ export function InvoiceBuilder({
 
   function handleStatusChange(status: string) {
     runRedirectable(async () => {
-      await updateDocumentStatus(document.id, "invoice", status);
+      const res = await updateDocumentStatus(document.id, "invoice", status);
+      if (res && !res.success) {
+        alert(res.error || "Failed to update status.");
+        return;
+      }
       router.refresh();
     });
   }
@@ -148,14 +164,22 @@ export function InvoiceBuilder({
 
   function handleAddItem(item: LineItemInput) {
     runRedirectable(async () => {
-      await addLineItem(document.id, "invoice", item);
+      const res = await addLineItem(document.id, "invoice", item);
+      if (res && !res.success) {
+        alert(res.error || "Failed to add item.");
+        return;
+      }
       router.refresh();
     });
   }
 
   function handleUpdateItem(itemId: string, patch: Partial<LineItemInput>) {
     runRedirectable(async () => {
-      await updateLineItem(itemId, document.id, "invoice", patch);
+      const res = await updateLineItem(itemId, document.id, "invoice", patch);
+      if (res && !res.success) {
+        alert(res.error || "Failed to update item.");
+        return;
+      }
       router.refresh();
     });
   }
@@ -163,7 +187,11 @@ export function InvoiceBuilder({
   function handleDeleteItem(itemId: string) {
     if (!confirm("Remove this line item?")) return;
     runRedirectable(async () => {
-      await deleteLineItem(itemId, document.id, "invoice");
+      const res = await deleteLineItem(itemId, document.id, "invoice");
+      if (res && !res.success) {
+        alert(res.error || "Failed to delete item.");
+        return;
+      }
       router.refresh();
     });
   }

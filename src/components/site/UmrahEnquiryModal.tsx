@@ -261,16 +261,6 @@ export function UmrahEnquiryModal({ isOpen, onClose, packageInfo, initialAddon }
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={transfersNeeded}
-                  onChange={(e) => setTransfersNeeded(e.target.checked)}
-                  className="rounded border-black/20 text-[#A87F12] focus:ring-[#A87F12]"
-                />
-                <span className="text-masaar-black">Transfers needed</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
                   checked={visaNeeded}
                   onChange={(e) => setVisaNeeded(e.target.checked)}
                   className="rounded border-black/20 text-[#A87F12] focus:ring-[#A87F12]"

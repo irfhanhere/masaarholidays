@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PageHeader, Card, StatCard, Badge, PrimaryButton } from "@/components/admin/ui";
+import { PageHeader, Card, StatCard, Badge, PrimaryButton, SecondaryButton } from "@/components/admin/ui";
 import { getDocumentCounts, listDocuments } from "@/lib/data/documents";
 import type { DocumentRow, DocumentType } from "@/lib/types/database";
 
@@ -41,22 +41,28 @@ function formatDate(value?: string | null): string {
 
 export default async function DocumentsOverviewPage() {
   const [counts, recentAll] = await Promise.all([getDocumentCounts(), listDocuments(undefined, 10)]);
-  const recent = recentAll.filter((doc) => doc.document_type !== "quotation");
+  const recent = recentAll;
 
   return (
     <div>
       <PageHeader
-        title="Documents"
-        description="Invoices, receipts and booking vouchers — built from your existing Masaar packages, hotels, transfers and trips."
+        title="Documents & Bookings"
+        description="Quotations, invoices, receipts and booking vouchers — built from your existing Masaar packages, hotels, transfers and trips."
         breadcrumb={[{ label: "Dashboard", href: "/admin" }, { label: "Documents" }]}
         actions={
-          <Link href="/admin/documents/invoices/new">
-            <PrimaryButton>+ Create Invoice</PrimaryButton>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/documents/quotations/new">
+              <PrimaryButton>+ Create Quotation</PrimaryButton>
+            </Link>
+            <Link href="/admin/documents/invoices/new">
+              <SecondaryButton>+ Create Invoice</SecondaryButton>
+            </Link>
+          </div>
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard label="Quotations" value={counts.draftQuotations + counts.sentQuotations} />
         <StatCard label="Invoices" value={counts.invoices} />
         <StatCard label="Receipts" value={counts.receipts} />
         <StatCard label="Booking Vouchers" value={counts.bookingVouchers} />

@@ -2,23 +2,45 @@ import type { PackageRow, PackageTier } from "@/lib/types/database";
 import { EmptyState } from "./SectionHeading";
 import { HajjPackageCard } from "./HajjPackageCard";
 
-const TIER_ORDER: PackageTier[] = ["essential", "signature", "exclusive"];
+interface TierSection {
+  tier: PackageTier;
+  title: string;
+  badge: string;
+  badgeTone: string;
+  tagline: string;
+  description: string;
+}
 
-/**
- * Hajj-only listing grid — a deliberately separate component from
- * PackageGrid.tsx (Umrah's tier-first grouping), not a shared/parameterized
- * version of it: Hajj groups by DURATION first ("10 Day Hajj Packages",
- * "14 Day Hajj Packages", ...), then shows that duration's Essential/
- * Signature/Exclusive cards side by side — the inverse of Umrah's tier-first,
- * duration-second grouping. Forcing one component to do both would mean
- * threading a "group by" mode through PackageGrid's tier-section markup,
- * short_description handling, etc., for two genuinely different page
- * layouts — a second component is the smaller, safer change, and leaves
- * Umrah's grid completely untouched.
- *
- * A duration section only appears if at least one tier has an active
- * package at that length, same graceful-degrade pattern as PackageGrid.
- */
+const TIER_SECTIONS: TierSection[] = [
+  {
+    tier: "exclusive",
+    title: "Exclusive Hajj Packages (Non-Shifting)",
+    badge: "Non-Shifting • Pure Luxury",
+    badgeTone: "bg-masaar-black text-pure-gold border border-pure-gold/30",
+    tagline: "Direct Makkah Clock Tower Stay Throughout Hajj — No Suburban Shifting",
+    description:
+      "Stay directly at the Makkah Clock Tower (Al Marwa Rayhaan by Rotana) throughout the core days of Hajj with elevator access to the Haram plaza. Includes Category A VIP air-conditioned Mina camps in Zone 1/2 near Jamarat, 3-course gourmet dining, and direct flights.",
+  },
+  {
+    tier: "signature",
+    title: "Signature Hajj Packages (Shifting)",
+    badge: "Shifting • 4-Star Comfort",
+    badgeTone: "bg-amber-900/10 text-amber-900 border border-amber-900/20",
+    tagline: "4-Star Aziziyah Hotel (DoubleTree or similar) & Category A Mina Camps",
+    description:
+      "Comfort-first shifting packages featuring premium 4-star accommodation in Aziziyah with rapid access to Mina and Jamarat, 3-course meals, direct flights from UAE, and dedicated multilingual Moallim support.",
+  },
+  {
+    tier: "essential",
+    title: "Essential Hajj Packages (Shifting)",
+    badge: "Shifting • Value & Devotion",
+    badgeTone: "bg-slate-900/10 text-slate-800 border border-slate-900/20",
+    tagline: "Reliable Aziziyah Hotel (Sedra or similar) & Full Moallim Ground Services",
+    description:
+      "Worship-focused Hajj arrangements providing comfortable economy hotel accommodation in Aziziyah, Category A air-conditioned tents in Mina, direct roundtrip flights, medical insurance, and full-board buffet meals.",
+  },
+];
+
 export function HajjPackageGrid({
   packages,
   emptyTitle,
@@ -32,24 +54,38 @@ export function HajjPackageGrid({
     return <EmptyState title={emptyTitle} note={emptyNote} />;
   }
 
-  const durationDays = [...new Set(packages.map((p) => p.duration_days))].sort((a, b) => a - b);
-
-  const durationGroups = durationDays
-    .map((days) => ({
-      days,
-      items: TIER_ORDER.map((tier) => packages.find((p) => p.duration_days === days && p.tier === tier)).filter(
-        (p): p is PackageRow => Boolean(p)
-      ),
-    }))
-    .filter((g) => g.items.length > 0);
+  const sectionsWithPackages = TIER_SECTIONS.map((section) => {
+    const tierPackages = packages
+      .filter((p) => p.tier === section.tier)
+      .sort((a, b) => a.duration_days - b.duration_days);
+    return { ...section, items: tierPackages };
+  }).filter((section) => section.items.length > 0);
 
   return (
-    <div className="space-y-10">
-      {durationGroups.map(({ days, items }) => (
-        <div key={days}>
-          <h3 className="mb-4 text-lg font-semibold text-masaar-black">{days} Day Hajj Packages</h3>
+    <div className="space-y-16">
+      {sectionsWithPackages.map((section) => (
+        <div key={section.tier} className="scroll-mt-24" id={`hajj-${section.tier}`}>
+          {/* Tier Section Header Banner */}
+          <div className="mb-6 rounded-xl border border-black/10 bg-[#FAF7F2] p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className={`inline-block rounded px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${section.badgeTone}`}>
+                  {section.badge}
+                </span>
+                <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                  {section.title}
+                </h3>
+              </div>
+            </div>
+            <p className="mt-2 text-sm font-semibold text-deep-gold">{section.tagline}</p>
+            <p className="mt-1 text-xs leading-relaxed text-masaar-black/70 sm:text-sm">
+              {section.description}
+            </p>
+          </div>
+
+          {/* Cards Grid */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((pkg) => (
+            {section.items.map((pkg) => (
               <HajjPackageCard key={pkg.id} pkg={pkg} />
             ))}
           </div>

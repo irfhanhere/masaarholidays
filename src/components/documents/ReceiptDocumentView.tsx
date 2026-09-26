@@ -290,8 +290,8 @@ export function ReceiptDocumentView({
 
           {/* Service icons */}
           <div className="flex items-center gap-4 text-[10px] text-white/60 tracking-wider uppercase font-semibold">
-            <span className="flex items-center gap-1">✈️ FLIGHT</span>
-            <span className="flex items-center gap-1">🕋 HAJJ</span>
+            <span className="flex items-center gap-1">✈️ HOLIDAYS</span>
+            <span className="flex items-center gap-1">🕋 UMRAH</span>
             <span className="flex items-center gap-1">🏨 HOTELS</span>
             <span className="flex items-center gap-1">🚐 TRANSFERS</span>
             <span className="flex items-center gap-1">📑 VISA</span>

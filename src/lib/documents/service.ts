@@ -1,4 +1,5 @@
 import "server-only";
+import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -21,6 +22,148 @@ export async function getDocumentDbClient() {
     return createAdminClient();
   } catch {
     return createClient();
+  }
+}
+
+export interface CreateManualQuotationInput {
+  client_name: string;
+  client_email?: string;
+  client_phone?: string;
+  client_country?: string;
+  journey_type?: any;
+  travel_date?: string;
+  return_date?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  origin?: string;
+  destination?: string;
+  special_requirements?: string;
+  notes?: string;
+  terms?: string;
+  source_document_id?: string;
+  future_crm_enquiry_id?: string;
+  template_id?: string;
+  valid_until?: string;
+  items?: Array<{
+    item_type: any;
+    description: string;
+    details?: string | null;
+    quantity: number;
+    unit_price_aed: number;
+    discount_aed?: number;
+    display_order?: number;
+  }>;
+}
+
+export async function createManualQuotationCore(input: CreateManualQuotationInput): Promise<{ success: boolean; id?: string; shareToken?: string; error?: string }> {
+  try {
+    const supabase = await getDocumentDbClient();
+
+    if (!input.client_name?.trim()) {
+      return { success: false, error: "Client name is required." };
+    }
+
+    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
+      p_document_type: "quotation",
+    });
+    if (numberError || !numberResult) {
+      return { success: false, error: numberError?.message ?? "Failed to generate quotation number." };
+    }
+
+    const { data: template } = await supabase
+      .from("document_templates")
+      .select("id")
+      .eq("document_type", "quotation")
+      .eq("is_default", true)
+      .maybeSingle();
+
+    const validUntilDate = input.valid_until || (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d.toISOString().split("T")[0];
+    })();
+
+    const { data: inserted, error } = await supabase
+      .from("documents")
+      .insert({
+        document_type: "quotation",
+        document_number: numberResult as string,
+        status: "draft",
+        client_name: input.client_name.trim(),
+        client_email: input.client_email?.trim() || null,
+        client_phone: input.client_phone?.trim() || null,
+        client_country: input.client_country?.trim() || null,
+        journey_type: input.journey_type || "umrah",
+        travel_date: input.travel_date || null,
+        return_date: input.return_date || null,
+        adults: input.adults ?? 2,
+        children: input.children ?? 0,
+        infants: input.infants ?? 0,
+        origin: input.origin?.trim() || "Dubai (DXB)",
+        destination: input.destination?.trim() || "Jeddah (JED)",
+        special_requirements: input.special_requirements?.trim() || null,
+        notes: input.notes?.trim() || null,
+        terms: input.terms?.trim() || null,
+        valid_until: validUntilDate,
+        template_id: input.template_id || template?.id || null,
+        future_crm_enquiry_id: input.future_crm_enquiry_id || null,
+        source_document_id: input.source_document_id || null,
+        subtotal_aed: 0,
+        discount_aed: 0,
+        tax_aed: 0,
+        total_aed: 0,
+        amount_paid_aed: 0,
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      return { success: false, error: error?.message ?? "Failed to create quotation." };
+    }
+
+    // Insert items if provided
+    if (input.items && input.items.length > 0) {
+      let subtotal = 0;
+      let discount = 0;
+      const itemsToInsert = input.items.map((item, idx) => {
+        const itemAmount = (item.quantity * item.unit_price_aed) - (item.discount_aed ?? 0);
+        subtotal += item.quantity * item.unit_price_aed;
+        discount += item.discount_aed ?? 0;
+        return {
+          document_id: inserted.id,
+          item_type: item.item_type || "custom",
+          description: item.description,
+          details: item.details || null,
+          quantity: item.quantity,
+          unit_price_aed: item.unit_price_aed,
+          discount_aed: item.discount_aed ?? 0,
+          tax_aed: 0,
+          amount_aed: itemAmount,
+          display_order: item.display_order ?? idx,
+        };
+      });
+
+      await supabase.from("document_items").insert(itemsToInsert);
+
+      const tax = Math.round((subtotal - discount) * 0.05 * 100) / 100;
+      const total = Math.round((subtotal - discount + tax) * 100) / 100;
+      await supabase
+        .from("documents")
+        .update({ subtotal_aed: subtotal, discount_aed: discount, tax_aed: tax, total_aed: total })
+        .eq("id", inserted.id);
+    }
+
+    // Automatically create a permanent share token so public link works immediately
+    const token = randomBytes(16).toString("hex");
+    await supabase.from("document_shares").insert({
+      document_id: inserted.id,
+      share_token: token,
+    });
+
+    return { success: true, id: inserted.id, shareToken: token };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to create quotation." };
   }
 }
 

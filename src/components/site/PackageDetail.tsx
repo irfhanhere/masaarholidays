@@ -299,10 +299,56 @@ export async function PackageDetail({
               </div>
             </div>
 
+            {/* ── Hajj Stay Timeline / Itinerary Segments ──────────────── */}
+            {type === "hajj" && pkg.itinerary_segments && pkg.itinerary_segments.length > 0 && (
+              <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
+                    Stay & Itinerary Breakdown
+                  </h2>
+                  <span className="rounded bg-pure-gold/20 px-2.5 py-0.5 text-xs font-bold text-masaar-black">
+                    {pkg.duration_days} Days / {pkg.duration_nights} Nights
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-masaar-black/60">
+                  Carefully arranged sequence designed for spiritual tranquility and reduced transit fatigue.
+                </p>
+
+                <div className="mt-6 space-y-4">
+                  {pkg.itinerary_segments.map((seg, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-black/10 bg-[#FAF7F2] p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-masaar-black text-xs font-bold text-pure-gold">
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <h3 className="text-base font-bold text-masaar-black">{seg.location}</h3>
+                          {seg.note && <p className="mt-0.5 text-xs text-masaar-black/70">{seg.note}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-start sm:self-auto text-xs font-semibold">
+                        <span className="rounded bg-white px-2.5 py-1 text-masaar-black border border-black/10">
+                          {seg.nights} Nights
+                        </span>
+                        {seg.board_type && (
+                          <span className="rounded bg-deep-gold/15 px-2.5 py-1 text-deep-gold">
+                            {seg.board_type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── What's Included Grid ──────────────────────────────────── */}
             <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
               <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
-                What&apos;s Included
+                What&apos;s Included in This Package
               </h2>
               {inclusions.length > 0 ? (
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -311,7 +357,7 @@ export async function PackageDetail({
                       <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-xs font-bold text-masaar-black">
                         ✓
                       </span>
-                      <span className="text-sm text-masaar-black">{line}</span>
+                      <span className="text-sm font-medium text-masaar-black">{line}</span>
                     </div>
                   ))}
                 </div>
@@ -329,15 +375,118 @@ export async function PackageDetail({
               )}
             </div>
 
-            {/* ── Room Pricing Section ──────────────────────────────────── */}
-            {type === "hajj" ? (
+            {/* ── What's Excluded Grid (Hajj Only) ────────────────────── */}
+            {type === "hajj" && (
               <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
                 <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
-                  2027 Hajj Packages: Register Your Interest
+                  What&apos;s Not Included (Exclusions)
                 </h2>
-                <p className="mt-2 text-sm text-masaar-black/70">
-                  Packages, accommodation, and availability are subject to official regulations and confirmed
-                  arrangements. Speak with our team for current-season pricing and options.
+                <p className="mt-1 text-sm text-masaar-black/60">
+                  Clear, upfront transparency so you can budget and prepare your pilgrimage with complete clarity.
+                </p>
+
+                <div className="mt-6 grid gap-3.5 sm:grid-cols-2">
+                  {[
+                    {
+                      title: "Qurbani / Hady (Sacrificial Animal)",
+                      desc: "Can be arranged separately on request or through the official Saudi Adahi portal.",
+                    },
+                    {
+                      title: "Personal Expenses & Sundries",
+                      desc: "Laundry, room service, telephone calls, beverages, and personal tips.",
+                    },
+                    {
+                      title: "Excess Airline Baggage",
+                      desc: "Any weight exceeding standard airline luggage allowance.",
+                    },
+                    {
+                      title: "Private Room Upgrades",
+                      desc: "Double / Twin sharing rooms are optional add-ons to the standard Quad sharing.",
+                    },
+                    {
+                      title: "VIP Private GMC Transfers",
+                      desc: "Private GMC Yukon transfers are optional upgrades over the included luxury coaches.",
+                    },
+                    {
+                      title: "Unscheduled Individual Transit",
+                      desc: "Transfers outside the scheduled group coaches or official Moallim timetable.",
+                    },
+                  ].map((item) => (
+                    <div key={item.title} className="flex items-start gap-3 rounded-lg border border-black/5 bg-red-50/40 p-3.5">
+                      <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">
+                        ✕
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-semibold text-masaar-black">{item.title}</h3>
+                        <p className="mt-0.5 text-xs text-masaar-black/65">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Optional Upgrades Banner (Hajj Only) ──────────────────── */}
+            {type === "hajj" && (
+              <div className="rounded-xl border border-pure-gold/30 bg-[#FAF7F2] p-6 shadow-sm">
+                <span className="rounded bg-pure-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black">
+                  Available Optional Upgrades
+                </span>
+                <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
+                  Customise Your Experience
+                </h2>
+                <p className="mt-1 text-xs text-masaar-black/70 sm:text-sm">
+                  You can add any of these bespoke options to this package when confirming your reservation with our team:
+                </p>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-black/10 bg-white p-4">
+                    <div className="text-xl">🚙</div>
+                    <h3 className="mt-2 text-sm font-bold text-masaar-black">VIP Private GMC Yukon</h3>
+                    <p className="mt-1 text-xs text-masaar-black/70">
+                      Private luxury SUV transfer for up to 7 passengers across all intercity travel legs.
+                    </p>
+                    <span className="mt-2 inline-block text-[11px] font-semibold text-deep-gold">
+                      Optional Add-on
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg border border-black/10 bg-white p-4">
+                    <div className="text-xl">🛏️</div>
+                    <h3 className="mt-2 text-sm font-bold text-masaar-black">Twin Sharing Upgrade</h3>
+                    <p className="mt-1 text-xs text-masaar-black/70">
+                      Private double / twin room upgrade in Aziziyah and Makkah Clock Tower hotels.
+                    </p>
+                    <span className="mt-2 inline-block text-[11px] font-semibold text-deep-gold">
+                      Per Person Upgrade
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg border border-black/10 bg-white p-4">
+                    <div className="text-xl">⛺</div>
+                    <h3 className="mt-2 text-sm font-bold text-masaar-black">VVIP Kidana Tower — Mina</h3>
+                    <p className="mt-1 text-xs text-masaar-black/70">
+                      Exclusive Mina high-rise hospitality towers overlooking the Jamarat with private catering.
+                    </p>
+                    <span className="mt-2 inline-block text-[11px] font-semibold text-deep-gold">
+                      Limited Allocation
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Room Pricing / Registration Section ───────────────────── */}
+            {type === "hajj" ? (
+              <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                <span className="rounded bg-pure-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black">
+                  Hajj 2027 Season
+                </span>
+                <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
+                  Register Your Interest on WhatsApp
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-masaar-black/70">
+                  Official Hajj packages from UAE are subject to Saudi Ministry of Hajj &amp; Umrah quota allocations and airline scheduling. Speak directly with our UAE advisors on WhatsApp to receive package availability, detailed brochures, and priority booking guidance.
                 </p>
                 <div className="mt-5">
                   <PackageEnquiryButton
@@ -406,11 +555,10 @@ export async function PackageDetail({
               
               {type === "hajj" ? (
                 <div className="mt-4 border-t border-black/10 pt-4">
-                  <p className="text-xs text-masaar-black/50">2027 Hajj Packages</p>
-                  <p className="text-sm font-semibold text-masaar-black">Register Your Interest</p>
+                  <p className="text-xs text-masaar-black/50">Hajj Packages From UAE</p>
+                  <p className="text-lg font-bold text-deep-gold">Price on Request</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-masaar-black/60">
-                    Pricing confirmed once your interest is registered — subject to official regulations and
-                    confirmed arrangements.
+                    Direct flights from UAE, official Hajj visa, Category A Mina tents, and full-board dining. Enquire now on WhatsApp for current availability and custom family quotes.
                   </p>
                 </div>
               ) : (

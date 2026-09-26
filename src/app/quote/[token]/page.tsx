@@ -6,6 +6,8 @@ import { WHATSAPP_DEFAULT_PHONE } from "@/lib/whatsapp-templates";
 import { DocumentView } from "@/components/documents/DocumentView";
 import { QuoteActions } from "./QuoteActions";
 
+import { ClientQuotationPortal } from "./ClientQuotationPortal";
+
 export const metadata: Metadata = { title: "Your Masaar Holidays Document", robots: { index: false, follow: false } };
 
 export default async function PublicQuotePage({ params }: { params: Promise<{ token: string }> }) {
@@ -21,6 +23,18 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
     document.document_type === "receipt" && document.source_document_id
       ? await supabase.from("documents").select("document_number").eq("id", document.source_document_id).maybeSingle()
       : { data: null };
+
+  if (document.document_type === "quotation") {
+    return (
+      <ClientQuotationPortal
+        token={token}
+        document={document}
+        items={items}
+        template={template}
+        whatsappPhone={settings?.phone_number ?? WHATSAPP_DEFAULT_PHONE}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-admin-surface py-10">

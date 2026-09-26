@@ -10,14 +10,28 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * rather than the admin auth-gated getClient() pattern every /admin action
  * uses.
  */
-export async function respondToQuotation(token: string, action: "accept" | "request_changes") {
+export async function respondToQuotation(
+  token: string,
+  action: "accept" | "request_changes",
+  changeDetails?: { categories?: string[]; message?: string }
+) {
   const supabase = createAdminClient();
 
   const { data: share } = await supabase.from("document_shares").select("document_id").eq("share_token", token).maybeSingle();
   if (!share) throw new Error("This quotation link is no longer valid.");
 
   const status = action === "accept" ? "accepted" : "revision_requested";
-  const { error } = await supabase.from("documents").update({ status }).eq("id", share.document_id);
+  
+  const updatePayload: { status: string; notes?: string } = { status };
+  if (action === "request_changes" && changeDetails) {
+    const cats = changeDetails.categories?.join(", ") || "General";
+    const noteEntry = `[Client Revision Request - ${new Date().toLocaleDateString("en-GB")}]:\nCategories: ${cats}\n${changeDetails.message ? `Notes: ${changeDetails.message}` : ""}\n`;
+    
+    const { data: existingDoc } = await supabase.from("documents").select("notes").eq("id", share.document_id).single();
+    updatePayload.notes = existingDoc?.notes ? `${existingDoc.notes}\n\n${noteEntry}` : noteEntry;
+  }
+
+  const { error } = await supabase.from("documents").update(updatePayload).eq("id", share.document_id);
   if (error) throw new Error(error.message);
 
   const lastVersion = await supabase
@@ -40,5 +54,7 @@ export async function respondToQuotation(token: string, action: "accept" | "requ
 
   revalidatePath(`/quote/${token}`);
   revalidatePath("/admin/documents");
+  revalidatePath("/admin/documents/quotations");
+  revalidatePath(`/admin/documents/quotations/${share.document_id}`);
   return status;
 }

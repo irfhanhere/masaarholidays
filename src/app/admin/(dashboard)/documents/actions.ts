@@ -9,20 +9,20 @@ import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
 import type { DocumentItemRow, DocumentItemType, DocumentRow, DocumentTemplateRowShape, DocumentType } from "@/lib/types/database";
 
 async function getClient() {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) return supabase;
-  } catch {
-    // ignore
-  }
-
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       return createAdminClient();
     } catch {
       // ignore
     }
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
   }
 
   return createClient();
@@ -65,6 +65,18 @@ async function recalcDocumentTotals(supabase: Awaited<ReturnType<typeof getClien
     .from("documents")
     .update({ subtotal_aed: subtotal, discount_aed: discount, tax_aed: tax, total_aed: total })
     .eq("id", documentId);
+}
+
+import { createManualQuotationCore, type CreateManualQuotationInput } from "@/lib/documents/service";
+
+export type { CreateManualQuotationInput };
+
+export async function createManualQuotation(input: CreateManualQuotationInput): Promise<{ success: boolean; id?: string; error?: string }> {
+  const result = await createManualQuotationCore(input);
+  if (result.success && result.id) {
+    revalidateDocumentPaths("quotation", result.id);
+  }
+  return result;
 }
 
 export interface CreateManualInvoiceInput {
@@ -375,16 +387,21 @@ export async function createManualBookingVoucher(input: CreateManualBookingVouch
   }
 }
 
-export async function updateDocumentBasics(documentId: string, documentType: DocumentType, patch: Partial<DocumentRow>) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("documents").update(patch).eq("id", documentId);
-  if (error) {
-    if (error.code === "23505" && patch.document_number) {
-      throw new Error(`Document number "${patch.document_number}" is already in use by another document.`);
+export async function updateDocumentBasics(documentId: string, documentType: DocumentType, patch: Partial<DocumentRow>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("documents").update(patch).eq("id", documentId);
+    if (error) {
+      if (error.code === "23505" && patch.document_number) {
+        return { success: false, error: `Document number "${patch.document_number}" is already in use by another document.` };
+      }
+      return { success: false, error: error.message };
     }
-    throw new Error(error.message);
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to update document basics." };
   }
-  revalidateDocumentPaths(documentType, documentId);
 }
 
 export interface LineItemInput {
@@ -398,105 +415,134 @@ export interface LineItemInput {
   discount_aed?: number;
 }
 
-export async function addLineItem(documentId: string, documentType: DocumentType, item: LineItemInput) {
-  const supabase = await getClient();
+export async function addLineItem(documentId: string, documentType: DocumentType, item: LineItemInput): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  const { count } = await supabase.from("document_items").select("id", { count: "exact", head: true }).eq("document_id", documentId);
-  const amount = item.quantity * item.unit_price_aed - (item.discount_aed ?? 0);
+    const { count } = await supabase.from("document_items").select("id", { count: "exact", head: true }).eq("document_id", documentId);
+    const amount = Number(item.quantity) * Number(item.unit_price_aed) - Number(item.discount_aed ?? 0);
 
-  const { error } = await supabase.from("document_items").insert({
-    document_id: documentId,
-    item_type: item.item_type,
-    source_type: item.source_type ?? null,
-    source_id: item.source_id ?? null,
-    description: item.description,
-    details: item.details ?? null,
-    quantity: item.quantity,
-    unit_price_aed: item.unit_price_aed,
-    discount_aed: item.discount_aed ?? 0,
-    tax_aed: 0,
-    amount_aed: amount,
-    display_order: count ?? 0,
-  });
-  if (error) throw new Error(error.message);
+    const { error } = await supabase.from("document_items").insert({
+      document_id: documentId,
+      item_type: item.item_type,
+      source_type: item.source_type ?? null,
+      source_id: item.source_id ?? null,
+      description: item.description,
+      details: item.details ?? null,
+      quantity: item.quantity,
+      unit_price_aed: item.unit_price_aed,
+      discount_aed: item.discount_aed ?? 0,
+      tax_aed: 0,
+      amount_aed: amount,
+      display_order: count ?? 0,
+    });
+    if (error) return { success: false, error: error.message };
 
-  await recalcDocumentTotals(supabase, documentId);
-  revalidateDocumentPaths(documentType, documentId);
+    await recalcDocumentTotals(supabase, documentId);
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to add line item." };
+  }
 }
 
-export async function updateLineItem(itemId: string, documentId: string, documentType: DocumentType, patch: Partial<LineItemInput>) {
-  const supabase = await getClient();
+export async function updateLineItem(itemId: string, documentId: string, documentType: DocumentType, patch: Partial<LineItemInput>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  const { data: existing } = await supabase.from("document_items").select("*").eq("id", itemId).single<DocumentItemRow>();
-  if (!existing) throw new Error("Line item not found.");
+    const { data: existing } = await supabase.from("document_items").select("*").eq("id", itemId).single<DocumentItemRow>();
+    if (!existing) return { success: false, error: "Line item not found." };
 
-  const merged = { ...existing, ...patch };
-  const amount = Number(merged.quantity) * Number(merged.unit_price_aed) - Number(merged.discount_aed ?? 0);
+    const merged = { ...existing, ...patch };
+    const amount = Number(merged.quantity) * Number(merged.unit_price_aed) - Number(merged.discount_aed ?? 0);
 
-  const { error } = await supabase
-    .from("document_items")
-    .update({ ...patch, amount_aed: amount })
-    .eq("id", itemId);
-  if (error) throw new Error(error.message);
+    const { error } = await supabase
+      .from("document_items")
+      .update({ ...patch, amount_aed: amount })
+      .eq("id", itemId);
+    if (error) return { success: false, error: error.message };
 
-  await recalcDocumentTotals(supabase, documentId);
-  revalidateDocumentPaths(documentType, documentId);
+    await recalcDocumentTotals(supabase, documentId);
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to update line item." };
+  }
 }
 
-export async function deleteLineItem(itemId: string, documentId: string, documentType: DocumentType) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("document_items").delete().eq("id", itemId);
-  if (error) throw new Error(error.message);
+export async function deleteLineItem(itemId: string, documentId: string, documentType: DocumentType): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("document_items").delete().eq("id", itemId);
+    if (error) return { success: false, error: error.message };
 
-  await recalcDocumentTotals(supabase, documentId);
-  revalidateDocumentPaths(documentType, documentId);
+    await recalcDocumentTotals(supabase, documentId);
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to delete line item." };
+  }
 }
 
-export async function reorderLineItems(documentId: string, documentType: DocumentType, orderedItemIds: string[]) {
-  const supabase = await getClient();
-  await Promise.all(
-    orderedItemIds.map((id, index) => supabase.from("document_items").update({ display_order: index }).eq("id", id))
-  );
-  revalidateDocumentPaths(documentType, documentId);
+export async function reorderLineItems(documentId: string, documentType: DocumentType, orderedItemIds: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
+    await Promise.all(
+      orderedItemIds.map((id, index) => supabase.from("document_items").update({ display_order: index }).eq("id", id))
+    );
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to reorder items." };
+  }
 }
 
 /** Snapshots the current document + items as a new version — never overwrites or deletes a prior version. */
-export async function saveDocumentVersion(documentId: string, documentType: DocumentType) {
-  const supabase = await getClient();
+export async function saveDocumentVersion(documentId: string, documentType: DocumentType): Promise<{ success: boolean; version?: number; error?: string }> {
+  try {
+    const supabase = await getClient();
 
-  const [{ data: document }, { data: items }, { data: lastVersion }] = await Promise.all([
-    supabase.from("documents").select("*").eq("id", documentId).single(),
-    supabase.from("document_items").select("*").eq("document_id", documentId).order("display_order", { ascending: true }),
-    supabase.from("document_versions").select("version_number").eq("document_id", documentId).order("version_number", { ascending: false }).limit(1).maybeSingle(),
-  ]);
+    const [{ data: document }, { data: items }, { data: lastVersion }] = await Promise.all([
+      supabase.from("documents").select("*").eq("id", documentId).single(),
+      supabase.from("document_items").select("*").eq("document_id", documentId).order("display_order", { ascending: true }),
+      supabase.from("document_versions").select("version_number").eq("document_id", documentId).order("version_number", { ascending: false }).limit(1).maybeSingle(),
+    ]);
 
-  if (!document) throw new Error("Document not found.");
+    if (!document) return { success: false, error: "Document not found." };
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const nextVersion = (lastVersion?.version_number ?? 0) + 1;
+    const nextVersion = (lastVersion?.version_number ?? 0) + 1;
 
-  const { error } = await supabase.from("document_versions").insert({
-    document_id: documentId,
-    version_number: nextVersion,
-    status_at_version: document.status,
-    snapshot: { document, items: items ?? [] },
-    created_by: user?.id ?? null,
-  });
-  if (error) throw new Error(error.message);
+    const { error } = await supabase.from("document_versions").insert({
+      document_id: documentId,
+      version_number: nextVersion,
+      status_at_version: document.status,
+      snapshot: { document, items: items ?? [] },
+      created_by: user?.id ?? null,
+    });
+    if (error) return { success: false, error: error.message };
 
-  revalidateDocumentPaths(documentType, documentId);
-  return nextVersion;
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true, version: nextVersion };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to save version." };
+  }
 }
 
-export async function updateDocumentStatus(documentId: string, documentType: DocumentType, status: string) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("documents").update({ status }).eq("id", documentId);
-  if (error) throw new Error(error.message);
-  await saveDocumentVersion(documentId, documentType);
-  revalidateDocumentPaths(documentType, documentId);
+export async function updateDocumentStatus(documentId: string, documentType: DocumentType, status: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("documents").update({ status }).eq("id", documentId);
+    if (error) return { success: false, error: error.message };
+    await saveDocumentVersion(documentId, documentType);
+    revalidateDocumentPaths(documentType, documentId);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to update status." };
+  }
 }
 
 export async function duplicateDocument(documentId: string, documentType: DocumentType): Promise<{ success: boolean; id?: string; error?: string }> {
@@ -589,6 +635,91 @@ export async function updateDocumentSettings(patch: {
   const { error } = await supabase.from("document_settings").update(patch).eq("id", 1);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/documents/settings");
+}
+
+export interface UpdatePdfSettingsInput {
+  prefixes: {
+    quotation_prefix: string;
+    invoice_prefix: string;
+    receipt_prefix: string;
+    booking_voucher_prefix: string;
+  };
+  terms: {
+    quotation: string;
+    invoice: string;
+    receipt: string;
+    booking_voucher: string;
+  };
+  company: {
+    phone: string;
+    email: string;
+    website: string;
+    address: string;
+  };
+  bank: {
+    name: string;
+    account_name: string;
+    account_number: string;
+    iban: string;
+    swift_code: string;
+  };
+  notes: {
+    blessing_note: string;
+    signature_name: string;
+    signature_title: string;
+  };
+}
+
+export async function updateDocumentPdfSettings(input: UpdatePdfSettingsInput): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getClient();
+
+    // 1. Update numbering prefixes in document_settings
+    const { error: sErr } = await supabase
+      .from("document_settings")
+      .update({
+        quotation_prefix: input.prefixes.quotation_prefix.trim(),
+        invoice_prefix: input.prefixes.invoice_prefix.trim(),
+        receipt_prefix: input.prefixes.receipt_prefix.trim(),
+        booking_voucher_prefix: input.prefixes.booking_voucher_prefix.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", 1);
+
+    if (sErr) console.warn("document_settings update error:", sErr);
+
+    // 2. Update all document templates across types
+    const docTypes: DocumentType[] = ["quotation", "invoice", "receipt", "booking_voucher"];
+    for (const dt of docTypes) {
+      const termsForType = input.terms[dt] ?? input.terms.quotation;
+      await supabase
+        .from("document_templates")
+        .update({
+          terms_text: termsForType || null,
+          company_phone: input.company.phone || null,
+          company_email: input.company.email || null,
+          company_website: input.company.website || null,
+          company_address: input.company.address || null,
+          bank_name: input.bank.name || null,
+          bank_account_name: input.bank.account_name || null,
+          bank_account_number: input.bank.account_number || null,
+          bank_iban: input.bank.iban || null,
+          bank_swift_code: input.bank.swift_code || null,
+          blessing_note: input.notes.blessing_note || null,
+          signature_name: input.notes.signature_name || null,
+          signature_title: input.notes.signature_title || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("document_type", dt);
+    }
+
+    revalidatePath("/admin/documents/settings");
+    revalidatePath("/admin/documents/templates");
+    revalidatePath("/admin/documents");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to update PDF settings." };
+  }
 }
 
 export async function updateDocumentTemplate(templateId: string, patch: Partial<DocumentTemplateRowShape>) {

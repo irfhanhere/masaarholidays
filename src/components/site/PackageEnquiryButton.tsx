@@ -296,17 +296,6 @@ function PackageEnquiryModal({
             />
           </ToggleField>
 
-          {/* 4. Transfers needed */}
-          <label className="flex items-center gap-2 text-sm text-masaar-black cursor-pointer">
-            <input
-              type="checkbox"
-              checked={transfersNeeded}
-              onChange={(e) => setTransfersNeeded(e.target.checked)}
-              className="rounded border-black/20 text-deep-gold focus:ring-deep-gold"
-            />
-            Transfers needed
-          </label>
-
           {/* 5. Found a better price elsewhere? */}
           <ToggleField
             label="Found a better price elsewhere?"

@@ -100,6 +100,7 @@ export default async function AdminPackagesPage({
             <table className="w-full text-left text-sm">
               <thead className="border-b border-black/10 text-xs uppercase text-masaar-black/50">
                 <tr>
+                  <th className="px-4 py-3">Package Title</th>
                   <th className="px-4 py-3">Duration</th>
                   <th className="px-4 py-3">Slug</th>
                   <th className="px-4 py-3">City / Destination</th>
@@ -109,13 +110,17 @@ export default async function AdminPackagesPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {tierPackages.length === 0 && <EmptyRow colSpan={6}>No duration variants yet.</EmptyRow>}
+                {tierPackages.length === 0 && <EmptyRow colSpan={7}>No duration variants yet.</EmptyRow>}
                 {tierPackages.map((pkg) => {
                   const roomPrices = roomPricesByPackage.get(pkg.id) ?? [];
                   const minPrice = roomPrices.length > 0 ? Math.min(...roomPrices.map((r) => r.price_aed)) : null;
                   return (
                     <tr key={pkg.id}>
                       <td className="px-4 py-3 font-medium text-masaar-black">
+                        <div>{pkg.title}</div>
+                        {pkg.tagline && <div className="text-xs text-masaar-black/50">{pkg.tagline}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-masaar-black/80 whitespace-nowrap">
                         {pkg.duration_label || `${pkg.duration_nights} Nights`}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-masaar-black/60">{pkg.slug}</td>

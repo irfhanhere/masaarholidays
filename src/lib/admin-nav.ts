@@ -50,6 +50,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { label: "Overview", href: "/admin/documents" },
       { label: "Enquiries", href: "/admin/enquiries" },
+      { label: "Quotations", href: "/admin/documents/quotations" },
       { label: "Invoices", href: "/admin/documents/invoices" },
       { label: "Receipts", href: "/admin/documents/receipts" },
       { label: "Booking Vouchers", href: "/admin/documents/booking-vouchers" },

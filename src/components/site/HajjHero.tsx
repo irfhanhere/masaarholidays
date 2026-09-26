@@ -29,17 +29,16 @@ export function HajjHero() {
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#A87F12]">
             <span>—</span>
-            <span>Hajj Packages</span>
+            <span>Hajj Packages From UAE</span>
           </div>
           <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight text-masaar-black sm:text-5xl sm:leading-[1.15]">
-            A Hajj Journey Planned With Care
+            Hajj Packages From UAE Planned With Care & Dignity
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-masaar-black/75 sm:text-lg">
-            Thoughtful accommodation, transportation and dedicated support for a journey that deserves careful
-            preparation.
+          <p className="mt-5 max-w-lg text-base leading-relaxed text-masaar-black/70">
+            Official Hajj packages from UAE — direct flights, Category A Mina tents, dedicated Moallim, and your choice of shifting or non-shifting stay.
           </p>
 
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap items-center gap-4">
             <WhatsAppButton templateKey="hajj">Register Interest on WhatsApp</WhatsAppButton>
           </div>
         </div>
