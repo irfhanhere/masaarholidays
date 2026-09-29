@@ -3,11 +3,30 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { VisaDocumentIconKey, VisaTypeBenefit, VisaTypeFeature } from "@/lib/types/database";
 
 export interface VisaTypeFormState {
   status: "idle" | "error";
   message?: string;
+}
+
+async function getClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 const ICON_KEYS: VisaDocumentIconKey[] = [
@@ -80,39 +99,55 @@ export async function saveVisaType(
     is_active: isActive,
   };
 
-  const supabase = await createClient();
+  try {
+    const supabase = await getClient();
 
-  if (visaTypeId) {
-    const { error } = await supabase.from("visa_types").update(payload).eq("id", visaTypeId);
-    if (error) {
-      if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
-      return { status: "error", message: error.message };
+    if (visaTypeId) {
+      const { error } = await supabase.from("visa_types").update(payload).eq("id", visaTypeId);
+      if (error) {
+        if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
+        return { status: "error", message: error.message };
+      }
+    } else {
+      const { error } = await supabase.from("visa_types").insert(payload);
+      if (error) {
+        if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
+        return { status: "error", message: error.message };
+      }
     }
-  } else {
-    const { error } = await supabase.from("visa_types").insert(payload);
-    if (error) {
-      if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
-      return { status: "error", message: error.message };
+
+    revalidatePath("/admin/visa-types");
+    revalidatePath("/visa");
+    redirect("/admin/visa-types");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
     }
+    console.error("[saveVisaType] Error:", err);
+    return { status: "error", message: err?.message || "Failed to save visa type" };
   }
-
-  revalidatePath("/admin/visa-types");
-  revalidatePath("/visa");
-  redirect("/admin/visa-types");
 }
 
 export async function deleteVisaType(id: string) {
-  const supabase = await createClient();
-  await supabase.from("visa_types").delete().eq("id", id);
-  revalidatePath("/admin/visa-types");
-  revalidatePath("/visa");
+  try {
+    const supabase = await getClient();
+    await supabase.from("visa_types").delete().eq("id", id);
+    revalidatePath("/admin/visa-types");
+    revalidatePath("/visa");
+  } catch (err) {
+    console.error("[deleteVisaType] Error:", err);
+  }
 }
 
 export async function toggleVisaTypeActive(id: string, isActive: boolean) {
-  const supabase = await createClient();
-  await supabase.from("visa_types").update({ is_active: isActive }).eq("id", id);
-  revalidatePath("/admin/visa-types");
-  revalidatePath("/visa");
+  try {
+    const supabase = await getClient();
+    await supabase.from("visa_types").update({ is_active: isActive }).eq("id", id);
+    revalidatePath("/admin/visa-types");
+    revalidatePath("/visa");
+  } catch (err) {
+    console.error("[toggleVisaTypeActive] Error:", err);
+  }
 }
 
 export async function addVisaTypeDocument(visaTypeId: string, formData: FormData) {
@@ -121,29 +156,37 @@ export async function addVisaTypeDocument(visaTypeId: string, formData: FormData
   const description = String(formData.get("description") ?? "").trim() || null;
   const iconKey = String(formData.get("icon_key") ?? "document");
 
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("visa_documents")
-    .select("id", { count: "exact", head: true })
-    .eq("visa_type_id", visaTypeId);
+  try {
+    const supabase = await getClient();
+    const { count } = await supabase
+      .from("visa_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("visa_type_id", visaTypeId);
 
-  await supabase.from("visa_documents").insert({
-    visa_type_id: visaTypeId,
-    title,
-    description,
-    icon_key: (ICON_KEYS.includes(iconKey as VisaDocumentIconKey) ? iconKey : "document") as VisaDocumentIconKey,
-    display_order: count ?? 0,
-  });
+    await supabase.from("visa_documents").insert({
+      visa_type_id: visaTypeId,
+      title,
+      description,
+      icon_key: (ICON_KEYS.includes(iconKey as VisaDocumentIconKey) ? iconKey : "document") as VisaDocumentIconKey,
+      display_order: count ?? 0,
+    });
 
-  revalidatePath(`/admin/visa-types/${visaTypeId}`);
-  revalidatePath("/visa");
+    revalidatePath(`/admin/visa-types/${visaTypeId}`);
+    revalidatePath("/visa");
+  } catch (err) {
+    console.error("[addVisaTypeDocument] Error:", err);
+  }
 }
 
 export async function deleteVisaTypeDocument(visaTypeId: string, documentId: string) {
-  const supabase = await createClient();
-  await supabase.from("visa_documents").delete().eq("id", documentId);
-  revalidatePath(`/admin/visa-types/${visaTypeId}`);
-  revalidatePath("/visa");
+  try {
+    const supabase = await getClient();
+    await supabase.from("visa_documents").delete().eq("id", documentId);
+    revalidatePath(`/admin/visa-types/${visaTypeId}`);
+    revalidatePath("/visa");
+  } catch (err) {
+    console.error("[deleteVisaTypeDocument] Error:", err);
+  }
 }
 
 export interface VisaLandingContentFormState {
@@ -157,20 +200,28 @@ export async function saveVisaLandingContent(
 ): Promise<VisaLandingContentFormState> {
   const textField = (field: string) => String(formData.get(field) ?? "").trim() || null;
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("visa_landing_content")
-    .upsert({
-      id: 1,
-      important_info_text: textField("important_info_text"),
-      cta_heading: textField("cta_heading"),
-      cta_line: textField("cta_line"),
-      cta_note: textField("cta_note"),
-    });
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase
+      .from("visa_landing_content")
+      .upsert({
+        id: 1,
+        important_info_text: textField("important_info_text"),
+        cta_heading: textField("cta_heading"),
+        cta_line: textField("cta_line"),
+        cta_note: textField("cta_note"),
+      });
 
-  if (error) return { status: "error", message: error.message };
+    if (error) return { status: "error", message: error.message };
 
-  revalidatePath("/admin/visa-types/landing");
-  revalidatePath("/visa");
-  redirect("/admin/visa-types");
+    revalidatePath("/admin/visa-types/landing");
+    revalidatePath("/visa");
+    redirect("/admin/visa-types");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[saveVisaLandingContent] Error:", err);
+    return { status: "error", message: err?.message || "Failed to save visa landing content" };
+  }
 }

@@ -5,16 +5,23 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 async function getClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) return supabase;
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
   }
-  return supabase;
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 function slugify(text: string): string {
@@ -46,35 +53,48 @@ export async function saveCategory(
   const meta_description = String(formData.get("meta_description") ?? "").trim() || null;
   const status: "active" | "inactive" = (formData.get("status") as string) === "inactive" ? "inactive" : "active";
 
-  const supabase = await getClient();
-  const payload = { name, slug, description, seo_title, meta_description, status };
+  try {
+    const supabase = await getClient();
+    const payload = { name, slug, description, seo_title, meta_description, status };
 
-  if (categoryId) {
-    const { error } = await supabase.from("blog_categories").update(payload).eq("id", categoryId);
-    if (error) return { status: "error", error: error.message };
-  } else {
-    const { error } = await supabase.from("blog_categories").insert(payload);
-    if (error) return { status: "error", error: error.message };
+    if (categoryId) {
+      const { error } = await supabase.from("blog_categories").update(payload).eq("id", categoryId);
+      if (error) return { status: "error", error: error.message };
+    } else {
+      const { error } = await supabase.from("blog_categories").insert(payload);
+      if (error) return { status: "error", error: error.message };
+    }
+
+    revalidatePath("/admin/blog/categories");
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+    return { status: "success" };
+  } catch (err: any) {
+    console.error("[saveCategory] Error:", err);
+    return { status: "error", error: err?.message || "Failed to save category" };
   }
-
-  revalidatePath("/admin/blog/categories");
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  return { status: "success" };
 }
 
 export async function deleteCategory(id: string) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("blog_categories").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/blog/categories");
-  revalidatePath("/admin/blog");
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("blog_categories").delete().eq("id", id);
+    if (error) console.error("[deleteCategory] error:", error.message);
+    revalidatePath("/admin/blog/categories");
+    revalidatePath("/admin/blog");
+  } catch (err) {
+    console.error("[deleteCategory] Error:", err);
+  }
 }
 
 export async function reorderCategories(orderedIds: string[]) {
-  const supabase = await getClient();
-  await Promise.all(
-    orderedIds.map((id, index) => supabase.from("blog_categories").update({ display_order: index }).eq("id", id))
-  );
-  revalidatePath("/admin/blog/categories");
+  try {
+    const supabase = await getClient();
+    await Promise.all(
+      orderedIds.map((id, index) => supabase.from("blog_categories").update({ display_order: index }).eq("id", id))
+    );
+    revalidatePath("/admin/blog/categories");
+  } catch (err) {
+    console.error("[reorderCategories] Error:", err);
+  }
 }

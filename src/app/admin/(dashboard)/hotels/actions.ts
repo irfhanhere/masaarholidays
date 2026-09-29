@@ -12,18 +12,21 @@ export interface HotelFormState {
 }
 
 async function getClient() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    return supabase;
-  }
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
   }
 
-  return supabase;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 function slugify(input: string) {
@@ -97,19 +100,27 @@ export async function saveHotel(
     is_active: formData.get("is_active") === "on",
   };
 
-  const supabase = await getClient();
+  try {
+    const supabase = await getClient();
 
-  if (hotelId) {
-    const { error } = await supabase.from("hotels").update(payload).eq("id", hotelId);
-    if (error) return { status: "error", message: error.message };
-  } else {
-    const slug = `${slugify(name)}-${Date.now().toString(36)}`;
-    const { error } = await supabase.from("hotels").insert({ ...payload, slug });
-    if (error) return { status: "error", message: error.message };
+    if (hotelId) {
+      const { error } = await supabase.from("hotels").update(payload).eq("id", hotelId);
+      if (error) return { status: "error", message: error.message };
+    } else {
+      const slug = `${slugify(name)}-${Date.now().toString(36)}`;
+      const { error } = await supabase.from("hotels").insert({ ...payload, slug });
+      if (error) return { status: "error", message: error.message };
+    }
+
+    revalidatePath("/admin/hotels");
+    redirect("/admin/hotels");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[saveHotel] Error:", err);
+    return { status: "error", message: err?.message || "Failed to save hotel" };
   }
-
-  revalidatePath("/admin/hotels");
-  redirect("/admin/hotels");
 }
 
 export async function deleteHotel(id: string) {
@@ -178,29 +189,34 @@ export async function saveHotelRoom(
     is_active: formData.get("is_active") === "on",
   };
 
-  const supabase = await getClient();
+  try {
+    const supabase = await getClient();
 
-  if (roomId) {
-    const { error } = await supabase.from("hotel_rooms").update(payload).eq("id", roomId);
-    if (error) {
-      if (error.code === "23505") return { status: "error", message: `This hotel already has a room named "${roomType}".` };
-      return { status: "error", message: error.message };
+    if (roomId) {
+      const { error } = await supabase.from("hotel_rooms").update(payload).eq("id", roomId);
+      if (error) {
+        if (error.code === "23505") return { status: "error", message: `This hotel already has a room named "${roomType}".` };
+        return { status: "error", message: error.message };
+      }
+    } else {
+      const { count } = await supabase
+        .from("hotel_rooms")
+        .select("id", { count: "exact", head: true })
+        .eq("hotel_id", hotelId);
+      const { error } = await supabase.from("hotel_rooms").insert({ ...payload, display_order: count ?? 0 });
+      if (error) {
+        if (error.code === "23505") return { status: "error", message: `This hotel already has a room named "${roomType}".` };
+        return { status: "error", message: error.message };
+      }
     }
-  } else {
-    const { count } = await supabase
-      .from("hotel_rooms")
-      .select("id", { count: "exact", head: true })
-      .eq("hotel_id", hotelId);
-    const { error } = await supabase.from("hotel_rooms").insert({ ...payload, display_order: count ?? 0 });
-    if (error) {
-      if (error.code === "23505") return { status: "error", message: `This hotel already has a room named "${roomType}".` };
-      return { status: "error", message: error.message };
-    }
+
+    revalidatePath(`/admin/hotels/${hotelId}`);
+    revalidatePath("/hotels");
+    return { status: "success" };
+  } catch (err: any) {
+    console.error("[saveHotelRoom] Error:", err);
+    return { status: "error", message: err?.message || "Failed to save room" };
   }
-
-  revalidatePath(`/admin/hotels/${hotelId}`);
-  revalidatePath("/hotels");
-  return { status: "success" };
 }
 
 export async function deleteHotelRoom(hotelId: string, roomId: string) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useActionState } from "react";
 import Link from "next/link";
 import { Badge, Field, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import type {
@@ -12,7 +12,7 @@ import type {
   UmrahInventoryConfigurationRow,
   UmrahJourneyType,
 } from "@/lib/types/database";
-import { saveInventoryConfiguration } from "./actions";
+import { saveInventoryConfiguration, type InventoryConfigState } from "./actions";
 
 interface Props {
   initial?: UmrahInventoryConfigurationRow;
@@ -46,6 +46,10 @@ export function InventoryConfigurationWizard({
   initialTripIds = [],
 }: Props) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [state, formAction, isPending] = useActionState<InventoryConfigState, FormData>(
+    saveInventoryConfiguration,
+    { status: "idle" }
+  );
 
   // Form State
   const [selectedPackageId, setSelectedPackageId] = useState(initial?.package_id || packages[0]?.id || "");
@@ -133,7 +137,12 @@ export function InventoryConfigurationWizard({
   }
 
   return (
-    <form action={saveInventoryConfiguration} className="space-y-6">
+    <form action={formAction} className="space-y-6">
+      {state.status === "error" && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">
+          ⚠️ {state.message || "Failed to save configuration. Please review your inputs."}
+        </div>
+      )}
       {initial?.id && <input type="hidden" name="id" value={initial.id} />}
       <input type="hidden" name="package_id" value={selectedPackageId} />
       <input type="hidden" name="journey_type" value={journeyType} />
@@ -817,8 +826,13 @@ export function InventoryConfigurationWizard({
                   </div>
 
                   <div className="space-y-2">
-                    <PrimaryButton id="publish_config_btn" type="submit" className="w-full py-3">
-                      {initial?.id ? "Save & Publish Configuration" : "Create & Publish Configuration"}
+                    {state.status === "error" && (
+                      <p className="text-xs font-semibold text-red-600">
+                        ⚠️ {state.message}
+                      </p>
+                    )}
+                    <PrimaryButton id="publish_config_btn" type="submit" disabled={isPending} className="w-full py-3">
+                      {isPending ? "Saving..." : initial?.id ? "Save & Publish Configuration" : "Create & Publish Configuration"}
                     </PrimaryButton>
                     <Link href="/admin/umrah-inventory" className="block text-center text-xs text-masaar-black/60 underline pt-2">
                       Cancel & Exit
@@ -847,8 +861,8 @@ export function InventoryConfigurationWizard({
                 Next Step →
               </PrimaryButton>
             ) : (
-              <PrimaryButton type="submit">
-                {initial?.id ? "Save Configuration" : "Create Configuration"}
+              <PrimaryButton type="submit" disabled={isPending}>
+                {isPending ? "Saving..." : initial?.id ? "Save Configuration" : "Create Configuration"}
               </PrimaryButton>
             )}
           </div>

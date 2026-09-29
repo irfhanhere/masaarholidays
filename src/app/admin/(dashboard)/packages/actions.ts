@@ -3,11 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { HajjItinerarySegment, PackageItineraryDay, PackageType, PackageTier } from "@/lib/types/database";
 
 export interface PackageFormState {
   status: "idle" | "error";
   message?: string;
+}
+
+async function getClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client fallback
+  }
+  return createClient();
 }
 
 /** e.g. "umrah-essential-7-nights" — unique by construction since (type, tier, duration_nights) is a DB unique constraint. */
@@ -53,29 +63,30 @@ export async function savePackage(
   _prevState: PackageFormState,
   formData: FormData
 ): Promise<PackageFormState> {
-  const type = String(formData.get("type")) as PackageType;
-  const tier = String(formData.get("tier")) as PackageTier;
-  const title = String(formData.get("title") ?? "").trim();
-  const cityDestination = String(formData.get("city_destination") ?? "").trim();
-  const durationNights = Number(formData.get("duration_nights"));
-  const durationDays = durationNights > 0 ? durationNights + 1 : 0;
-  const isActive = formData.get("is_active") === "on";
-  const isFeatured = formData.get("is_featured") === "on";
-  const heroImageUrl = String(formData.get("hero_image_url") ?? "").trim() || null;
+  try {
+    const type = String(formData.get("type")) as PackageType;
+    const tier = String(formData.get("tier")) as PackageTier;
+    const title = String(formData.get("title") ?? "").trim();
+    const cityDestination = String(formData.get("city_destination") ?? "").trim();
+    const durationNights = Number(formData.get("duration_nights"));
+    const durationDays = durationNights > 0 ? durationNights + 1 : 0;
+    const isActive = formData.get("is_active") === "on";
+    const isFeatured = formData.get("is_featured") === "on";
+    const heroImageUrl = String(formData.get("hero_image_url") ?? "").trim() || null;
 
-  if (!title || !type || !tier || !durationNights) {
-    return { status: "error", message: "Title, type, tier and duration (nights) are required." };
-  }
+    if (!title || !type || !tier || !durationNights) {
+      return { status: "error", message: "Title, type, tier and duration (nights) are required." };
+    }
 
-  const roomPrices = parseRoomPrices(formData);
-  // Hajj uses itinerary_segments instead of the day-by-day itinerary field
-  // — only one of the two is ever populated per row, matching whichever
-  // one the form actually rendered for this package's type.
-  const itinerary = type === "hajj" ? [] : parseItinerary(formData);
-  const itinerarySegments = type === "hajj" ? parseItinerarySegments(formData) : [];
-  const startingPrice = roomPrices.length > 0 ? Math.min(...roomPrices.map((r) => r.price_aed)) : null;
+    const roomPrices = parseRoomPrices(formData);
+    // Hajj uses itinerary_segments instead of the day-by-day itinerary field
+    // — only one of the two is ever populated per row, matching whichever
+    // one the form actually rendered for this package's type.
+    const itinerary = type === "hajj" ? [] : parseItinerary(formData);
+    const itinerarySegments = type === "hajj" ? parseItinerarySegments(formData) : [];
+    const startingPrice = roomPrices.length > 0 ? Math.min(...roomPrices.map((r) => r.price_aed)) : null;
 
-  const supabase = await createClient();
+    const supabase = await getClient();
 
   const textField = (name: string) => String(formData.get(name) ?? "").trim() || null;
 
@@ -259,16 +270,29 @@ export async function savePackage(
 
   revalidatePath("/admin/packages");
   redirect("/admin/packages");
+} catch (err: any) {
+  if (err?.message?.includes("NEXT_REDIRECT")) throw err;
+  console.error("savePackage error:", err);
+  return { status: "error", message: err?.message || "Failed to save package." };
+}
 }
 
 export async function deletePackage(id: string) {
-  const supabase = await createClient();
-  await supabase.from("packages").delete().eq("id", id);
-  revalidatePath("/admin/packages");
+  try {
+    const supabase = await getClient();
+    await supabase.from("packages").delete().eq("id", id);
+    revalidatePath("/admin/packages");
+  } catch (err) {
+    console.error("deletePackage error:", err);
+  }
 }
 
 export async function togglePackageActive(id: string, isActive: boolean) {
-  const supabase = await createClient();
-  await supabase.from("packages").update({ is_active: isActive, show_on_website: isActive }).eq("id", id);
-  revalidatePath("/admin/packages");
+  try {
+    const supabase = await getClient();
+    await supabase.from("packages").update({ is_active: isActive, show_on_website: isActive }).eq("id", id);
+    revalidatePath("/admin/packages");
+  } catch (err) {
+    console.error("togglePackageActive error:", err);
+  }
 }

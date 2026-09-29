@@ -84,6 +84,11 @@ export function PackageForm({
 
   return (
     <form action={formAction} className="space-y-6">
+      {state.status === "error" && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">
+          ⚠️ {state.message || "Failed to save package. Please check the fields and try again."}
+        </div>
+      )}
       <Card>
         <h2 className="mb-1 font-semibold text-masaar-black">1. Basic Information</h2>
         <p className="mb-4 text-sm text-masaar-black/60">
@@ -633,7 +638,11 @@ export function PackageForm({
         </Card>
       )}
 
-      {state.status === "error" && <p className="text-sm text-red-600">{state.message}</p>}
+      {state.status === "error" && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">
+          ⚠️ {state.message || "Failed to save package. Please check the fields and try again."}
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <SecondaryButton type="button" onClick={() => router.push("/admin/packages")}>

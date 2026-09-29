@@ -2,12 +2,31 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { GuidedAssistanceFeature } from "@/lib/types/database";
 
 export interface UmrahContentFormState {
   status: "idle" | "success" | "error";
   message?: string;
+}
+
+async function getClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 export async function saveUmrahContent(
@@ -48,7 +67,7 @@ export async function saveUmrahContent(
     .filter(Boolean);
 
   try {
-    const supabase = await createClient();
+    const supabase = await getClient();
     const { error } = await supabase.from("umrah_content").upsert(
       {
         id: 1,

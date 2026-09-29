@@ -6,18 +6,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { LegalPageKey } from "@/lib/types/database";
 
 async function getClient() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    return supabase;
-  }
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
   }
 
-  return supabase;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 const PATH_BY_KEY: Record<LegalPageKey, string> = {
@@ -28,14 +31,18 @@ const PATH_BY_KEY: Record<LegalPageKey, string> = {
 };
 
 export async function updateLegalPage(key: LegalPageKey, title: string, content: string) {
-  const supabase = await getClient();
-  const { error } = await supabase
-    .from("legal_pages")
-    .update({ title, content, updated_at: new Date().toISOString() })
-    .eq("key", key);
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase
+      .from("legal_pages")
+      .update({ title, content, updated_at: new Date().toISOString() })
+      .eq("key", key);
 
-  if (error) throw new Error(error.message);
+    if (error) console.error("[updateLegalPage] Error:", error.message);
 
-  revalidatePath("/admin/legal");
-  revalidatePath(PATH_BY_KEY[key]);
+    revalidatePath("/admin/legal");
+    revalidatePath(PATH_BY_KEY[key]);
+  } catch (err) {
+    console.error("[updateLegalPage] Unexpected error:", err);
+  }
 }

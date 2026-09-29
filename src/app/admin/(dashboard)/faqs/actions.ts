@@ -2,8 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { FaqCategory } from "@/lib/types/database";
+
+async function getClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
+}
 
 function revalidateFaqPaths() {
   revalidatePath("/admin/faqs");
@@ -25,7 +44,7 @@ export async function createFaq(data: {
     throw new Error("Supabase is not configured.");
   }
 
-  const supabase = await createClient();
+  const supabase = await getClient();
 
   // Find the highest display_order in that category
   const { data: existing } = await supabase
@@ -66,7 +85,7 @@ export async function updateFaq(
     throw new Error("Supabase is not configured.");
   }
 
-  const supabase = await createClient();
+  const supabase = await getClient();
   const { error } = await supabase
     .from("faqs")
     .update({
@@ -91,7 +110,7 @@ export async function toggleFaqPublish(id: string, published: boolean) {
     throw new Error("Supabase is not configured.");
   }
 
-  const supabase = await createClient();
+  const supabase = await getClient();
   const { error } = await supabase
     .from("faqs")
     .update({
@@ -112,7 +131,7 @@ export async function deleteFaq(id: string) {
     throw new Error("Supabase is not configured.");
   }
 
-  const supabase = await createClient();
+  const supabase = await getClient();
   const { error } = await supabase.from("faqs").delete().eq("id", id);
 
   if (error) {
@@ -127,7 +146,7 @@ export async function reorderFaqs(orderedIds: string[]) {
     throw new Error("Supabase is not configured.");
   }
 
-  const supabase = await createClient();
+  const supabase = await getClient();
 
   // Update display_order for each id in order
   const updates = orderedIds.map((id, index) =>

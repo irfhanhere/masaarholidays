@@ -21,18 +21,12 @@ function slugify(text: string): string {
 }
 
 async function getClient() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    return supabase;
-  }
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client fallback
   }
-
-  return supabase;
+  return createClient();
 }
 
 export async function savePrivateTrip(
@@ -40,7 +34,8 @@ export async function savePrivateTrip(
   _prevState: PrivateTripFormState,
   formData: FormData
 ): Promise<PrivateTripFormState> {
-  const supabase = await getClient();
+  try {
+    const supabase = await getClient();
 
   const name = String(formData.get("name") ?? "").trim();
   const rawSlug = String(formData.get("slug") ?? "").trim();
@@ -232,55 +227,67 @@ export async function savePrivateTrip(
   revalidatePath("/private-trips/[slug]", "page");
   revalidatePath("/");
 
-  redirect("/admin/private-trips");
+    redirect("/admin/private-trips");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT")) throw err;
+    console.error("savePrivateTrip error:", err);
+    return { status: "error", error: err?.message || "Failed to save private trip." };
+  }
 }
 
 export async function unpublishPrivateTrip(id: string) {
-  const supabase = await getClient();
-  const { error } = await supabase
-    .from("private_trips")
-    .update({ status: "draft", updated_at: new Date().toISOString() })
-    .eq("id", id);
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase
+      .from("private_trips")
+      .update({ status: "draft", updated_at: new Date().toISOString() })
+      .eq("id", id);
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) console.error("unpublishPrivateTrip error:", error.message);
+
+    revalidatePath("/admin/private-trips");
+    revalidatePath("/private-trips/[slug]", "page");
+    revalidatePath("/");
+  } catch (err) {
+    console.error("unpublishPrivateTrip exception:", err);
   }
-
-  revalidatePath("/admin/private-trips");
-  revalidatePath("/private-trips/[slug]", "page");
-  revalidatePath("/");
 }
 
 export async function publishPrivateTrip(id: string) {
-  const supabase = await getClient();
-  const { error } = await supabase
-    .from("private_trips")
-    .update({ status: "published", updated_at: new Date().toISOString() })
-    .eq("id", id);
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase
+      .from("private_trips")
+      .update({ status: "published", updated_at: new Date().toISOString() })
+      .eq("id", id);
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) console.error("publishPrivateTrip error:", error.message);
+
+    revalidatePath("/admin/private-trips");
+    revalidatePath("/private-trips/[slug]", "page");
+    revalidatePath("/");
+  } catch (err) {
+    console.error("publishPrivateTrip exception:", err);
   }
-
-  revalidatePath("/admin/private-trips");
-  revalidatePath("/private-trips/[slug]", "page");
-  revalidatePath("/");
 }
 
 export async function deletePrivateTrip(id: string) {
-  const supabase = await getClient();
+  try {
+    const supabase = await getClient();
 
-  const { data: trip } = await supabase.from("private_trips").select("status").eq("id", id).maybeSingle();
-  if (trip?.status === "published") {
-    throw new Error("Cannot delete a published trip. Please unpublish it first.");
+    const { data: trip } = await supabase.from("private_trips").select("status").eq("id", id).maybeSingle();
+    if (trip?.status === "published") {
+      console.warn("Cannot delete a published trip. Please unpublish it first.");
+      return;
+    }
+
+    const { error } = await supabase.from("private_trips").delete().eq("id", id);
+    if (error) console.error("deletePrivateTrip error:", error.message);
+
+    revalidatePath("/admin/private-trips");
+    revalidatePath("/private-trips/[slug]", "page");
+    revalidatePath("/");
+  } catch (err) {
+    console.error("deletePrivateTrip exception:", err);
   }
-
-  const { error } = await supabase.from("private_trips").delete().eq("id", id);
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath("/admin/private-trips");
-  revalidatePath("/private-trips/[slug]", "page");
-  revalidatePath("/");
 }

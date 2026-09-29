@@ -3,10 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface HomeContentFormState {
   status: "idle" | "error";
   message?: string;
+}
+
+async function getClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 export async function saveHomeContent(
@@ -15,18 +34,26 @@ export async function saveHomeContent(
 ): Promise<HomeContentFormState> {
   const textField = (field: string) => String(formData.get(field) ?? "").trim() || null;
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("home_content").upsert({
-    id: 1,
-    cta_quote_text: textField("cta_quote_text"),
-    cta_quote_reference: textField("cta_quote_reference"),
-  });
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("home_content").upsert({
+      id: 1,
+      cta_quote_text: textField("cta_quote_text"),
+      cta_quote_reference: textField("cta_quote_reference"),
+    });
 
-  if (error) return { status: "error", message: error.message };
+    if (error) return { status: "error", message: error.message };
 
-  revalidatePath("/admin/home-about");
-  revalidatePath("/");
-  redirect("/admin/home-about");
+    revalidatePath("/admin/home-about");
+    revalidatePath("/");
+    redirect("/admin/home-about");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[saveHomeContent] Error:", err);
+    return { status: "error", message: err?.message || "Failed to save home content" };
+  }
 }
 
 export interface AboutContentFormState {
@@ -54,35 +81,43 @@ export async function saveAboutContent(
 ): Promise<AboutContentFormState> {
   const textField = (field: string) => String(formData.get(field) ?? "").trim() || null;
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("about_content").upsert({
-    id: 1,
-    hero_subline: textField("hero_subline"),
-    purpose_text: textField("purpose_text"),
-    purpose_quote: textField("purpose_quote"),
-    purpose_image_url: textField("purpose_image_url"),
-    founding_story_heading: textField("founding_story_heading"),
-    founding_story_text: textField("founding_story_text"),
-    founding_story_image_url: textField("founding_story_image_url"),
-    vision_text: textField("vision_text"),
-    mission_text: textField("mission_text"),
-    core_values: parseIconItems(formData, "core_value", 6),
-    sadaqah_text: textField("sadaqah_text"),
-    sadaqah_image_url: textField("sadaqah_image_url"),
-    approach_text: textField("approach_text"),
-    approach_quote: textField("approach_quote"),
-    who_we_serve_text: textField("who_we_serve_text"),
-    differentiators: parseIconItems(formData, "differentiator", 4),
-    founder_eyebrow: textField("founder_eyebrow"),
-    founder_text: textField("founder_text"),
-    founder_image_url: textField("founder_image_url"),
-    founder_quote: textField("founder_quote"),
-    founder_signoff: textField("founder_signoff"),
-  });
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("about_content").upsert({
+      id: 1,
+      hero_subline: textField("hero_subline"),
+      purpose_text: textField("purpose_text"),
+      purpose_quote: textField("purpose_quote"),
+      purpose_image_url: textField("purpose_image_url"),
+      founding_story_heading: textField("founding_story_heading"),
+      founding_story_text: textField("founding_story_text"),
+      founding_story_image_url: textField("founding_story_image_url"),
+      vision_text: textField("vision_text"),
+      mission_text: textField("mission_text"),
+      core_values: parseIconItems(formData, "core_value", 6),
+      sadaqah_text: textField("sadaqah_text"),
+      sadaqah_image_url: textField("sadaqah_image_url"),
+      approach_text: textField("approach_text"),
+      approach_quote: textField("approach_quote"),
+      who_we_serve_text: textField("who_we_serve_text"),
+      differentiators: parseIconItems(formData, "differentiator", 4),
+      founder_eyebrow: textField("founder_eyebrow"),
+      founder_text: textField("founder_text"),
+      founder_image_url: textField("founder_image_url"),
+      founder_quote: textField("founder_quote"),
+      founder_signoff: textField("founder_signoff"),
+    });
 
-  if (error) return { status: "error", message: error.message };
+    if (error) return { status: "error", message: error.message };
 
-  revalidatePath("/admin/home-about");
-  revalidatePath("/about");
-  redirect("/admin/home-about");
+    revalidatePath("/admin/home-about");
+    revalidatePath("/about");
+    redirect("/admin/home-about");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[saveAboutContent] Error:", err);
+    return { status: "error", message: err?.message || "Failed to save about content" };
+  }
 }

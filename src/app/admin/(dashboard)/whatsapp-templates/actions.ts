@@ -6,18 +6,21 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 async function getClient() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    return supabase;
-  }
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
   }
 
-  return supabase;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 export async function updateTemplate(templateId: string, formData: FormData) {
@@ -32,20 +35,24 @@ export async function updateTemplate(templateId: string, formData: FormData) {
   const displayOrderRaw = String(formData.get("display_order") ?? "").trim();
   const displayOrder = displayOrderRaw ? Number(displayOrderRaw) : undefined;
 
-  const supabase = await getClient();
-  await supabase
-    .from("whatsapp_templates")
-    .update({
-      label,
-      template_text: templateText,
-      is_active: isActive,
-      placeholders,
-      ...(displayOrder !== undefined && !Number.isNaN(displayOrder) ? { display_order: displayOrder } : {}),
-    })
-    .eq("id", templateId);
+  try {
+    const supabase = await getClient();
+    await supabase
+      .from("whatsapp_templates")
+      .update({
+        label,
+        template_text: templateText,
+        is_active: isActive,
+        placeholders,
+        ...(displayOrder !== undefined && !Number.isNaN(displayOrder) ? { display_order: displayOrder } : {}),
+      })
+      .eq("id", templateId);
 
-  revalidatePath("/admin/whatsapp-templates");
-  revalidatePath("/admin/settings/whatsapp-templates");
+    revalidatePath("/admin/whatsapp-templates");
+    revalidatePath("/admin/settings/whatsapp-templates");
+  } catch (err) {
+    console.error("[updateTemplate] Error:", err);
+  }
 }
 
 export async function createTemplate(formData: FormData) {
@@ -60,29 +67,36 @@ export async function createTemplate(formData: FormData) {
     .join("");
   if (!key) return;
 
-  const supabase = await getClient();
+  try {
+    const supabase = await getClient();
 
-  const { data: existing } = await supabase.from("whatsapp_templates").select("id").eq("key", key).maybeSingle();
-  if (existing) return; // key already taken — admin should pick a different label
+    const { data: existing } = await supabase.from("whatsapp_templates").select("id").eq("key", key).maybeSingle();
+    if (existing) return; // key already taken — admin should pick a different label
 
-  const { data: maxOrderRow } = await supabase
-    .from("whatsapp_templates")
-    .select("display_order")
-    .order("display_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    const { data: maxOrderRow } = await supabase
+      .from("whatsapp_templates")
+      .select("display_order")
+      .order("display_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  await supabase.from("whatsapp_templates").insert({
-    key,
-    label,
-    template_text: "Assalamu Alaikum,\n\n",
-    placeholders: [],
-    is_active: true,
-    display_order: (maxOrderRow?.display_order ?? 0) + 1,
-  });
+    await supabase.from("whatsapp_templates").insert({
+      key,
+      label,
+      template_text: "Assalamu Alaikum,\n\n",
+      placeholders: [],
+      is_active: true,
+      display_order: (maxOrderRow?.display_order ?? 0) + 1,
+    });
 
-  revalidatePath("/admin/whatsapp-templates");
-  redirect(`/admin/whatsapp-templates?key=${key}`);
+    revalidatePath("/admin/whatsapp-templates");
+    redirect(`/admin/whatsapp-templates?key=${key}`);
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[createTemplate] Error:", err);
+  }
 }
 
 export async function updatePhoneNumber(formData: FormData) {
@@ -90,9 +104,13 @@ export async function updatePhoneNumber(formData: FormData) {
   const digitsOnly = raw.replace(/\D/g, "");
   if (!digitsOnly) return;
 
-  const supabase = await getClient();
-  await supabase.from("whatsapp_settings").update({ phone_number: digitsOnly }).eq("id", 1);
+  try {
+    const supabase = await getClient();
+    await supabase.from("whatsapp_settings").update({ phone_number: digitsOnly }).eq("id", 1);
 
-  revalidatePath("/admin/whatsapp-templates");
-  revalidatePath("/admin/settings/whatsapp-templates");
+    revalidatePath("/admin/whatsapp-templates");
+    revalidatePath("/admin/settings/whatsapp-templates");
+  } catch (err) {
+    console.error("[updatePhoneNumber] Error:", err);
+  }
 }

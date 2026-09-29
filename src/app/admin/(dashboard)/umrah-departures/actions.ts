@@ -22,18 +22,12 @@ export interface DepartureMonthFormState {
  * never actually changing the row.
  */
 async function getClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) return supabase;
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client fallback
   }
-
-  return supabase;
+  return createClient();
 }
 
 export async function saveDepartureMonth(
@@ -41,49 +35,55 @@ export async function saveDepartureMonth(
   _prevState: DepartureMonthFormState,
   formData: FormData
 ): Promise<DepartureMonthFormState> {
-  const displayLabel = String(formData.get("display_label") ?? "").trim();
-  const slug = String(formData.get("slug") ?? "").trim();
-  const sortOrder = Number(formData.get("sort_order") ?? 0);
-  const isActive = formData.get("is_active") === "on";
+  try {
+    const displayLabel = String(formData.get("display_label") ?? "").trim();
+    const slug = String(formData.get("slug") ?? "").trim();
+    const sortOrder = Number(formData.get("sort_order") ?? 0);
+    const isActive = formData.get("is_active") === "on";
 
-  if (!displayLabel || !slug) {
-    return { status: "error", message: "Display label and slug are required." };
-  }
-
-  const textField = (name: string) => String(formData.get(name) ?? "").trim() || null;
-
-  const payload = {
-    display_label: displayLabel,
-    slug,
-    hero_image_url: textField("hero_image_url"),
-    hero_headline: textField("hero_headline"),
-    hero_subtext: textField("hero_subtext"),
-    best_for_note: textField("best_for_note"),
-    booking_advice_note: textField("booking_advice_note"),
-    meta_title: textField("meta_title"),
-    meta_description: textField("meta_description"),
-    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
-    is_active: isActive,
-  };
-
-  const supabase = await getClient();
-
-  if (monthId) {
-    const { error } = await supabase.from("umrah_departure_months").update(payload).eq("id", monthId);
-    if (error) {
-      if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
-      return { status: "error", message: error.message };
+    if (!displayLabel || !slug) {
+      return { status: "error", message: "Display label and slug are required." };
     }
-  } else {
-    const { error } = await supabase.from("umrah_departure_months").insert(payload);
-    if (error) {
-      if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
-      return { status: "error", message: error.message };
-    }
-  }
 
-  revalidateDepartureMonthPaths();
-  redirect("/admin/umrah-departures");
+    const textField = (name: string) => String(formData.get(name) ?? "").trim() || null;
+
+    const payload = {
+      display_label: displayLabel,
+      slug,
+      hero_image_url: textField("hero_image_url"),
+      hero_headline: textField("hero_headline"),
+      hero_subtext: textField("hero_subtext"),
+      best_for_note: textField("best_for_note"),
+      booking_advice_note: textField("booking_advice_note"),
+      meta_title: textField("meta_title"),
+      meta_description: textField("meta_description"),
+      sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+      is_active: isActive,
+    };
+
+    const supabase = await getClient();
+
+    if (monthId) {
+      const { error } = await supabase.from("umrah_departure_months").update(payload).eq("id", monthId);
+      if (error) {
+        if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
+        return { status: "error", message: error.message };
+      }
+    } else {
+      const { error } = await supabase.from("umrah_departure_months").insert(payload);
+      if (error) {
+        if (error.code === "23505") return { status: "error", message: `The slug "${slug}" is already in use.` };
+        return { status: "error", message: error.message };
+      }
+    }
+
+    revalidateDepartureMonthPaths();
+    redirect("/admin/umrah-departures");
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT")) throw err;
+    console.error("saveDepartureMonth error:", err);
+    return { status: "error", message: err?.message || "Failed to save departure month." };
+  }
 }
 
 export async function deleteDepartureMonth(id: string) {

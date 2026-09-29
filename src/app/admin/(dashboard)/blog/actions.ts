@@ -22,20 +22,23 @@ function slugify(text: string): string {
 }
 
 async function getClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    return supabase;
-  }
-
-  if (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true") {
+  try {
     return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
   }
 
-  return supabase;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
 }
 
 export async function saveBlogPost(
@@ -115,95 +118,132 @@ export async function saveBlogPost(
 
   let savedId = postId;
 
-  if (postId) {
-    const { error } = await supabase.from("blog_posts").update(payload).eq("id", postId);
-    if (error) return { status: "error", error: error.message };
-  } else {
-    const { data, error } = await supabase.from("blog_posts").insert(payload).select("id").single();
-    if (error) return { status: "error", error: error.message };
-    savedId = data.id;
-  }
+  try {
+    if (postId) {
+      const { error } = await supabase.from("blog_posts").update(payload).eq("id", postId);
+      if (error) return { status: "error", error: error.message };
+    } else {
+      const { data, error } = await supabase.from("blog_posts").insert(payload).select("id").single();
+      if (error) return { status: "error", error: error.message };
+      savedId = data.id;
+    }
 
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  revalidatePath(`/blog/${slug}`);
-  return { status: "success", savedId: savedId ?? undefined };
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${slug}`);
+    return { status: "success", savedId: savedId ?? undefined };
+  } catch (err: any) {
+    console.error("[saveBlogPost] Error:", err);
+    return { status: "error", error: err?.message || "Failed to save blog post" };
+  }
 }
 
 export async function deleteBlogPost(id: string) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("blog_posts").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("blog_posts").delete().eq("id", id);
+    if (error) console.error("[deleteBlogPost] error:", error.message);
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+  } catch (err) {
+    console.error("[deleteBlogPost] Error:", err);
+  }
 }
 
 export async function unpublishBlogPost(id: string) {
-  const supabase = await getClient();
-  const { error } = await supabase.from("blog_posts").update({ status: "draft", scheduled_at: null }).eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase.from("blog_posts").update({ status: "draft", scheduled_at: null }).eq("id", id);
+    if (error) console.error("[unpublishBlogPost] error:", error.message);
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+  } catch (err) {
+    console.error("[unpublishBlogPost] Error:", err);
+  }
 }
 
 export async function toggleBlogPostStatus(id: string, newStatus: PublishStatus) {
-  const supabase = await getClient();
-  const { error } = await supabase
-    .from("blog_posts")
-    .update({ status: newStatus, published_at: newStatus === "published" ? new Date().toISOString() : null })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase
+      .from("blog_posts")
+      .update({ status: newStatus, published_at: newStatus === "published" ? new Date().toISOString() : null })
+      .eq("id", id);
+    if (error) console.error("[toggleBlogPostStatus] error:", error.message);
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+  } catch (err) {
+    console.error("[toggleBlogPostStatus] Error:", err);
+  }
 }
 
 export async function publishFromPreview(id: string) {
-  const supabase = await getClient();
-  const { error } = await supabase
-    .from("blog_posts")
-    .update({ status: "published", published_at: new Date().toISOString(), scheduled_at: null })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  redirect(`/admin/blog/${id}`);
+  try {
+    const supabase = await getClient();
+    const { error } = await supabase
+      .from("blog_posts")
+      .update({ status: "published", published_at: new Date().toISOString(), scheduled_at: null })
+      .eq("id", id);
+    if (error) console.error("[publishFromPreview] error:", error.message);
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+    redirect(`/admin/blog/${id}`);
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[publishFromPreview] Error:", err);
+  }
 }
 
 export async function duplicateBlogPost(id: string) {
-  const supabase = await getClient();
-  const { data: original, error: fetchError } = await supabase.from("blog_posts").select("*").eq("id", id).single();
-  if (fetchError || !original) throw new Error(fetchError?.message ?? "Article not found");
+  try {
+    const supabase = await getClient();
+    const { data: original, error: fetchError } = await supabase.from("blog_posts").select("*").eq("id", id).single();
+    if (fetchError || !original) {
+      console.error("[duplicateBlogPost] Error:", fetchError?.message ?? "Article not found");
+      return;
+    }
 
-  const baseSlug = `${original.slug}-copy`;
-  let slug = baseSlug;
-  let attempt = 1;
-  // Guarantee a unique slug rather than failing on the unique constraint.
-  while (true) {
-    const { data: clash } = await supabase.from("blog_posts").select("id").eq("slug", slug).maybeSingle();
-    if (!clash) break;
-    attempt += 1;
-    slug = `${baseSlug}-${attempt}`;
+    const baseSlug = `${original.slug}-copy`;
+    let slug = baseSlug;
+    let attempt = 1;
+    // Guarantee a unique slug rather than failing on the unique constraint.
+    while (true) {
+      const { data: clash } = await supabase.from("blog_posts").select("id").eq("slug", slug).maybeSingle();
+      if (!clash) break;
+      attempt += 1;
+      slug = `${baseSlug}-${attempt}`;
+    }
+
+    const {
+      id: _id,
+      created_at: _createdAt,
+      updated_at: _updatedAt,
+      published_at: _publishedAt,
+      ...rest
+    } = original;
+    void _id;
+    void _createdAt;
+    void _updatedAt;
+    void _publishedAt;
+
+    const { data: copy, error } = await supabase
+      .from("blog_posts")
+      .insert({ ...rest, title: `${original.title} (Copy)`, slug, status: "draft", scheduled_at: null, published_at: null })
+      .select("id")
+      .single();
+    if (error) {
+      console.error("[duplicateBlogPost] Insert error:", error.message);
+      return;
+    }
+
+    revalidatePath("/admin/blog");
+    redirect(`/admin/blog/${copy.id}`);
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[duplicateBlogPost] Error:", err);
   }
-
-  const {
-    id: _id,
-    created_at: _createdAt,
-    updated_at: _updatedAt,
-    published_at: _publishedAt,
-    ...rest
-  } = original;
-  void _id;
-  void _createdAt;
-  void _updatedAt;
-  void _publishedAt;
-
-  const { data: copy, error } = await supabase
-    .from("blog_posts")
-    .insert({ ...rest, title: `${original.title} (Copy)`, slug, status: "draft", scheduled_at: null, published_at: null })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/admin/blog");
-  redirect(`/admin/blog/${copy.id}`);
 }

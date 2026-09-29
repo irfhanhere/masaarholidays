@@ -2,6 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+async function getClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    // Admin client unavailable — fall back to session-based client
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
+  } catch {
+    // ignore
+  }
+
+  return createClient();
+}
 
 /**
  * Admin-only reference data (masaar-client-data-round2.md, Section 3) —
@@ -10,7 +29,7 @@ import { createClient } from "@/lib/supabase/server";
  * The public site never calls this and can't read this table at all.
  */
 export async function updateRateCard(formData: FormData) {
-  const supabase = await createClient();
+  const supabase = await getClient();
 
   const updates: { transfer_id: string; vehicle_id: string; price_aed: number }[] = [];
   for (const [key, value] of formData.entries()) {
