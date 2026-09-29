@@ -19,8 +19,8 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-function formatMoney(amountAed: number): string {
-  return `AED ${amountAed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(amountAed: number | null | undefined): string {
+  return `AED ${Number(amountAed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 import { formatDeterministicDate } from "@/lib/date-utils";

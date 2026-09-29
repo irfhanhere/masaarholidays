@@ -310,7 +310,8 @@ export function QuotationBuilder({
           status,
           notes: notesParts.join("\n") || null,
           terms: terms || null,
-          special_requirements: customerRequirement || null,
+          // NOTE: special_requirements holds the itinerary JSON — do NOT overwrite it here.
+          // Customer requirement text is already embedded in notes above.
         }),
       }).then((r) => r.json());
 

@@ -2,8 +2,8 @@ import Image from "next/image";
 import type { DocumentItemRow, DocumentRow, DocumentTemplateRow } from "@/lib/types/database";
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 
-function formatMoney(amountAed: number): string {
-  return `AED ${amountAed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(amountAed: number | null | undefined): string {
+  return `AED ${Number(amountAed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 import { formatDeterministicDate } from "@/lib/date-utils";
@@ -71,17 +71,37 @@ export function QuotationDocumentView({
     .filter(Boolean)
     .join(", ") || "2 Adults";
 
+  // Calculate duration label from travel and return dates
+  const durationLabel = (() => {
+    if (document.travel_date && document.return_date) {
+      try {
+        const start = new Date(document.travel_date);
+        const end = new Date(document.return_date);
+        const diffMs = end.getTime() - start.getTime();
+        if (diffMs > 0) {
+          const nights = Math.round(diffMs / (1000 * 60 * 60 * 24));
+          const days = nights + 1;
+          return `${days} Days / ${nights} Nights`;
+        }
+      } catch {}
+    }
+    return "Flexible Duration";
+  })();
+
   const packageItem = items.find((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
   const hotelItems = items.filter((i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation");
   const transferItems = items.filter((i) => i.item_type === "transfer");
   const flightItems = items.filter((i) => i.item_type === "flight");
 
-  // Parse itinerary
+  // Parse itinerary — stored in special_requirements as JSON array with {day, title, desc} shape.
+  // Must have a "title" field to be recognized as itinerary (plain customerRequirement text won't match).
   let activeItinerary: Array<{ day: number | string; title: string; desc: string }> = [];
   if (document.special_requirements) {
     try {
       const parsed = JSON.parse(document.special_requirements);
-      if (Array.isArray(parsed) && parsed.length > 0) activeItinerary = parsed;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.title !== undefined) {
+        activeItinerary = parsed;
+      }
     } catch {}
   }
   if (activeItinerary.length === 0) {
@@ -99,12 +119,12 @@ export function QuotationDocumentView({
       {
         day: 3,
         title: "Day 6: Haramain High Speed Rail to Madinah Al Munawwarah",
-        desc: "Smooth check-out from Makkah hotel. Boarding the luxurious Haramain High-Speed Train to Madinah Al Munawwarah. Private transfer to Madinah hotel, followed by Salam at the Prophet’s Mosque.",
+        desc: "Smooth check-out from Makkah hotel. Boarding the luxurious Haramain High-Speed Train to Madinah Al Munawwarah. Private transfer to Madinah hotel, followed by Salam at the Prophet's Mosque.",
       },
       {
         day: 4,
         title: "Days 7–9: Madinah Munawwarah & Rawdah Sharif",
-        desc: "Prayers in the Prophet’s Mosque (peace be upon him) and guaranteed permit assistance for Rawdah Sharif. Ziyarat tour covering Masjid Quba, Mount Uhud and the Seven Mosques.",
+        desc: "Prayers in the Prophet's Mosque (peace be upon him) and guaranteed permit assistance for Rawdah Sharif. Ziyarat tour covering Masjid Quba, Mount Uhud and the Seven Mosques.",
       },
       {
         day: 5,
@@ -308,7 +328,7 @@ export function QuotationDocumentView({
                         {document.return_date ? ` – ${formatDate(document.return_date)}` : ""}
                       </p>
                       <p className="text-[11px] text-neutral-400">
-                        {document.travel_date && document.return_date ? "10 Days / 9 Nights" : "Flexible Duration"}
+                        {durationLabel}
                       </p>
                     </div>
                   </div>
@@ -425,13 +445,13 @@ export function QuotationDocumentView({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="rounded-full bg-[#b37e28]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#8c6d23]">
-                        Masaar Signature Tier
+                        Masaar {document.journey_type === "hajj" ? "Hajj" : "Umrah"} Package
                       </span>
                       <h2 className="mt-2 font-serif text-2xl font-bold text-masaar-black">
-                        {document.journey_type ? document.journey_type.toUpperCase() : "UMRAH"} 2026 — Exclusive Package
+                        {document.journey_type ? document.journey_type.toUpperCase() : "UMRAH"} — Premium Package
                       </h2>
                       <p className="mt-1 text-masaar-black/60">
-                        10 Days / 9 Nights | Direct Flights, 5-Star Luxury Hotels, Private GMC Transfers &amp; Ziyarat
+                        {durationLabel}{hotelItems.length > 0 ? " | Luxury Hotel Stays" : ""}{transferItems.length > 0 ? " | Private Transfers" : ""}{flightItems.length > 0 ? " | Scheduled Flights" : ""}
                       </p>
                     </div>
                     <div className="text-right">
@@ -495,6 +515,8 @@ export function QuotationDocumentView({
 
         // 4. ACCOMMODATION
         if (sec.id === "accommodation") {
+          // Hide section entirely if no hotel items added
+          if (hotelItems.length === 0) return null;
           return (
             <div key="accommodation" className="masaar-pdf-page p-10">
               {renderPageHeader("5★ Luxury Accommodations")}
@@ -549,6 +571,8 @@ export function QuotationDocumentView({
 
         // 5. TRANSPORTATION
         if (sec.id === "transportation") {
+          // Hide section entirely if no transfer items added
+          if (transferItems.length === 0) return null;
           return (
             <div key="transportation" className="masaar-pdf-page p-10">
               {renderPageHeader("Private Transfers & Transportation")}
@@ -601,6 +625,8 @@ export function QuotationDocumentView({
 
         // 6. FLIGHTS
         if (sec.id === "flights") {
+          // Hide section entirely if no flight items added
+          if (flightItems.length === 0) return null;
           return (
             <div key="flights" className="masaar-pdf-page p-10">
               {renderPageHeader("Flights & Dining Arrangements")}

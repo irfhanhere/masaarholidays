@@ -11,8 +11,8 @@ import { PhoneIcon, MailIcon, DomeIcon, PlaneIcon, FamilyIcon, BedIcon, CarIcon,
  * principle as the quotation view.
  */
 
-function formatMoney(amountAed: number): string {
-  return `AED ${amountAed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(amountAed: number | null | undefined): string {
+  return `AED ${Number(amountAed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 import { formatDeterministicDate } from "@/lib/date-utils";
@@ -173,8 +173,8 @@ export function InvoiceDocumentView({
                   {item.details && <p className="text-xs text-masaar-black/50">{item.details}</p>}
                 </td>
                 <td className="px-3 py-3 text-right align-top">{item.quantity}</td>
-                <td className="px-3 py-3 text-right align-top">{item.unit_price_aed.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                <td className="px-3 py-3 text-right align-top font-semibold">{item.amount_aed.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                <td className="px-3 py-3 text-right align-top">{Number(item.unit_price_aed ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                <td className="px-3 py-3 text-right align-top font-semibold">{Number(item.amount_aed ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               </tr>
             ))}
           </tbody>

@@ -701,14 +701,20 @@ export async function updateDocumentPdfSettings(input: UpdatePdfSettingsInput): 
   try {
     const supabase = await getClient();
 
+    const prefixes = input?.prefixes ?? ({} as any);
+    const terms = input?.terms ?? ({} as any);
+    const company = input?.company ?? ({} as any);
+    const bank = input?.bank ?? ({} as any);
+    const notes = input?.notes ?? ({} as any);
+
     // 1. Update numbering prefixes in document_settings
     const { error: sErr } = await supabase
       .from("document_settings")
       .update({
-        quotation_prefix: input.prefixes.quotation_prefix.trim(),
-        invoice_prefix: input.prefixes.invoice_prefix.trim(),
-        receipt_prefix: input.prefixes.receipt_prefix.trim(),
-        booking_voucher_prefix: input.prefixes.booking_voucher_prefix.trim(),
+        quotation_prefix: (prefixes.quotation_prefix ?? "Q-").toString().trim(),
+        invoice_prefix: (prefixes.invoice_prefix ?? "INV-").toString().trim(),
+        receipt_prefix: (prefixes.receipt_prefix ?? "REC-").toString().trim(),
+        booking_voucher_prefix: (prefixes.booking_voucher_prefix ?? "BV-").toString().trim(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1);
@@ -718,31 +724,35 @@ export async function updateDocumentPdfSettings(input: UpdatePdfSettingsInput): 
     // 2. Update all document templates across types
     const docTypes: DocumentType[] = ["quotation", "invoice", "receipt", "booking_voucher"];
     for (const dt of docTypes) {
-      const termsForType = input.terms[dt] ?? input.terms.quotation;
+      const termsForType = terms[dt] ?? terms.quotation ?? null;
       await supabase
         .from("document_templates")
         .update({
-          terms_text: termsForType || null,
-          company_phone: input.company.phone || null,
-          company_email: input.company.email || null,
-          company_website: input.company.website || null,
-          company_address: input.company.address || null,
-          bank_name: input.bank.name || null,
-          bank_account_name: input.bank.account_name || null,
-          bank_account_number: input.bank.account_number || null,
-          bank_iban: input.bank.iban || null,
-          bank_swift_code: input.bank.swift_code || null,
-          blessing_note: input.notes.blessing_note || null,
-          signature_name: input.notes.signature_name || null,
-          signature_title: input.notes.signature_title || null,
+          terms_text: termsForType ? termsForType.toString() : null,
+          company_phone: company.phone ? company.phone.toString() : null,
+          company_email: company.email ? company.email.toString() : null,
+          company_website: company.website ? company.website.toString() : null,
+          company_address: company.address ? company.address.toString() : null,
+          bank_name: bank.name ? bank.name.toString() : null,
+          bank_account_name: bank.account_name ? bank.account_name.toString() : null,
+          bank_account_number: bank.account_number ? bank.account_number.toString() : null,
+          bank_iban: bank.iban ? bank.iban.toString() : null,
+          bank_swift_code: bank.swift_code ? bank.swift_code.toString() : null,
+          blessing_note: notes.blessing_note ? notes.blessing_note.toString() : null,
+          signature_name: notes.signature_name ? notes.signature_name.toString() : null,
+          signature_title: notes.signature_title ? notes.signature_title.toString() : null,
           updated_at: new Date().toISOString(),
         })
         .eq("document_type", dt);
     }
 
-    revalidatePath("/admin/documents/settings");
-    revalidatePath("/admin/documents/templates");
-    revalidatePath("/admin/documents");
+    try {
+      revalidatePath("/admin/documents/settings");
+      revalidatePath("/admin/documents/templates");
+      revalidatePath("/admin/documents");
+    } catch {
+      // ignore
+    }
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to update PDF settings." };

@@ -207,7 +207,7 @@ export function SendDocumentPanel({
 
           <Card>
             <h2 className="mb-1 text-sm font-semibold text-masaar-black/60">{typeLabel} Total</h2>
-            <p className="text-2xl font-bold text-masaar-black">AED {totalAed.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-masaar-black">AED {Number(totalAed ?? 0).toLocaleString()}</p>
           </Card>
         </div>
       </div>

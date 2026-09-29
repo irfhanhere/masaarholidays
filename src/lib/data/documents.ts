@@ -24,15 +24,15 @@ import type {
  */
 async function getClient() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) return supabase;
+    return createAdminClient();
   } catch {
     // ignore
   }
 
   try {
-    return createAdminClient();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return supabase;
   } catch {
     // ignore
   }
@@ -147,7 +147,7 @@ export async function getDocumentTemplates(documentType: DocumentType): Promise<
 }
 
 export async function getDefaultTemplate(documentType: DocumentType): Promise<DocumentTemplateRow | null> {
-  const supabase = await getClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("document_templates")
     .select("*")
@@ -159,7 +159,7 @@ export async function getDefaultTemplate(documentType: DocumentType): Promise<Do
 }
 
 export async function getDocumentSettings(): Promise<DocumentSettingsRow | null> {
-  const supabase = await getClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("document_settings").select("*").eq("id", 1).maybeSingle();
   logIfError("getDocumentSettings", error);
   return (data as DocumentSettingsRow | null) ?? null;
@@ -212,6 +212,8 @@ export async function ensureDocumentShare(documentId: string): Promise<DocumentS
   return data as DocumentShareRow;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Public, non-admin lookup by share token — the ONLY read path documents
  * ever go through without an authenticated admin session, so it uses the
@@ -227,7 +229,7 @@ export async function getSharedDocument(
   let { data: share, error: shareError } = await supabase.from("document_shares").select("*").eq("share_token", token).maybeSingle();
   logIfError("getSharedDocument (share)", shareError);
 
-  if (!share) {
+  if (!share && UUID_REGEX.test(token)) {
     // Fallback: check if token is the document ID itself
     const { data: docById } = await supabase.from("documents").select("id").eq("id", token).maybeSingle();
     if (docById) {
@@ -252,10 +254,16 @@ export async function getSharedDocument(
   logIfError("getSharedDocument (template)", templateError);
 
   if (!share.viewed_at) {
-    await supabase.from("document_shares").update({ viewed_at: new Date().toISOString() }).eq("id", share.id);
-    if (document.status === "sent") {
-      await supabase.from("documents").update({ status: "viewed" }).eq("id", document.id);
-      document.status = "viewed";
+    try {
+      if (UUID_REGEX.test(share.id)) {
+        await supabase.from("document_shares").update({ viewed_at: new Date().toISOString() }).eq("id", share.id);
+      }
+      if (document.status === "sent") {
+        await supabase.from("documents").update({ status: "viewed" }).eq("id", document.id);
+        document.status = "viewed";
+      }
+    } catch (err: any) {
+      console.warn("[getSharedDocument] non-critical status update skipped:", err?.message);
     }
   }
 

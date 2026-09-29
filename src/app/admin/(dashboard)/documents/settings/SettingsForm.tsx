@@ -73,24 +73,45 @@ export function SettingsForm({ settings, templates }: SettingsFormProps) {
   const [saved, setSaved] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  function handleSaveAll() {
+  async function handleSaveAll() {
     setErrorMessage(null);
     startTransition(async () => {
-      const res = await updateDocumentPdfSettings({
-        prefixes,
-        terms,
-        company,
-        bank,
-        notes,
-      });
+      try {
+        const res = await fetch("/api/admin/documents/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prefixes,
+            terms,
+            company,
+            bank,
+            notes,
+          }),
+        });
 
-      if (res && !res.success) {
-        setErrorMessage(res.error || "Failed to update settings.");
-        return;
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.success) {
+          // If api fails, try server action as fallback
+          const saRes = await updateDocumentPdfSettings({
+            prefixes,
+            terms,
+            company,
+            bank,
+            notes,
+          }).catch(() => null);
+
+          if (!saRes?.success) {
+            setErrorMessage(data?.error || saRes?.error || "Failed to update settings. Please check your connection.");
+            return;
+          }
+        }
+
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3500);
+      } catch (err: any) {
+        setErrorMessage(err?.message || "An unexpected error occurred while saving.");
       }
-
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
     });
   }
 

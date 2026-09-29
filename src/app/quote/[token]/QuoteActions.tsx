@@ -38,7 +38,7 @@ export function QuoteActions({
   status: string;
   documentType: string;
   documentNumber: string;
-  totalAed: number;
+  totalAed?: number | null;
   whatsappPhone: string;
 }) {
   const [currentStatus, setCurrentStatus] = useState(status);
@@ -93,7 +93,7 @@ export function QuoteActions({
         <div>
           <p className="text-xs uppercase tracking-wide text-masaar-black/50">Total Amount</p>
           <p className="text-2xl font-serif font-bold text-masaar-black">
-            AED {totalAed.toLocaleString()}
+            AED {Number(totalAed ?? 0).toLocaleString()}
           </p>
           {isQuotation && (
             <div className="mt-1">

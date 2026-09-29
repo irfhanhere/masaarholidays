@@ -25,8 +25,7 @@ export function ShareQuotationModal({
     return true;
   });
 
-  if (!isOpen) return null;
-
+  // All computations must run before any early return (Rules of Hooks)
   const docType = document.document_type || "quotation";
   const docTypeLabel =
     docType === "invoice"
@@ -92,7 +91,10 @@ If you would like any revisions or wish to proceed with your booking, feel free 
 Warm regards,
 Masaar Holidays`;
 
+  // whatsappText MUST be called here — before any early return — to satisfy React Rules of Hooks.
   const [whatsappText, setWhatsappText] = useState(defaultWhatsappMessage);
+
+  if (!isOpen) return null;
 
   async function handleCopyLink() {
     try {
