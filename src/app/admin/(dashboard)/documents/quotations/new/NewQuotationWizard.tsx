@@ -18,6 +18,7 @@ interface EnquirySeed {
   passengers?: number | null;
   origin?: string | null;
   destination?: string | null;
+  source?: string;
 }
 
 const JOURNEY_TYPES: Array<{
@@ -558,28 +559,68 @@ export function NewQuotationWizard({
                     </div>
 
                     {showSearchDropdown && (
-                      <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-black/15 bg-white p-1.5 shadow-xl">
+                      <div className="absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-black/15 bg-white p-1.5 shadow-xl">
                         {filteredEnquiries.length === 0 ? (
-                          <div className="p-3 text-center text-xs text-masaar-black/50">
-                            No clients or enquiries found. You can switch to &ldquo;Create New Client&rdquo;.
+                          <div className="p-3 text-center text-xs text-masaar-black/60 space-y-2">
+                            <p>No existing client or enquiry matches &ldquo;{searchQuery}&rdquo;.</p>
+                            {searchQuery.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setClientMode("new");
+                                  setClientName(searchQuery.trim());
+                                  setShowSearchDropdown(false);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-[#b37e28] px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#96671e]"
+                              >
+                                + Create New Client &ldquo;{searchQuery.trim()}&rdquo;
+                              </button>
+                            )}
                           </div>
                         ) : (
-                          filteredEnquiries.map((enq) => (
-                            <button
-                              key={enq.id}
-                              type="button"
-                              onClick={() => handleSelectEnquiry(enq)}
-                              className="w-full text-left rounded-lg p-2.5 hover:bg-black/[0.04] transition-colors flex items-center justify-between"
-                            >
-                              <div>
-                                <p className="font-semibold text-xs text-masaar-black">{enq.name}</p>
-                                <p className="text-[11px] text-masaar-black/50">{enq.email || enq.phone || "No contact info"}</p>
+                          <>
+                            {filteredEnquiries.map((enq) => (
+                              <button
+                                key={enq.id}
+                                type="button"
+                                onClick={() => handleSelectEnquiry(enq)}
+                                className="w-full text-left rounded-lg p-2.5 hover:bg-black/[0.04] transition-colors flex items-center justify-between group"
+                              >
+                                <div>
+                                  <p className="font-semibold text-xs text-masaar-black group-hover:text-[#916d28]">
+                                    {enq.name}
+                                  </p>
+                                  <p className="text-[11px] text-masaar-black/50">
+                                    {enq.phone ? `📞 ${enq.phone}` : ""} {enq.email ? `• ✉️ ${enq.email}` : ""}
+                                    {!enq.phone && !enq.email ? "No contact info" : ""}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] text-[#916d28] font-bold uppercase tracking-wider bg-light-gold/20 px-2 py-0.5 rounded">
+                                    {enq.source || "Enquiry"} • {enq.enquiry_type || "Umrah"}
+                                  </span>
+                                  {enq.travel_date && (
+                                    <p className="text-[10px] text-masaar-black/40 mt-0.5">{enq.travel_date}</p>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                            {searchQuery.trim() && (
+                              <div className="border-t border-black/10 mt-1 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setClientMode("new");
+                                    setClientName(searchQuery.trim());
+                                    setShowSearchDropdown(false);
+                                  }}
+                                  className="w-full text-left rounded-lg p-2 text-xs font-semibold text-[#865d1d] hover:bg-light-gold/15"
+                                >
+                                  + Or add &ldquo;{searchQuery.trim()}&rdquo; as a brand new client
+                                </button>
                               </div>
-                              <span className="text-[11px] text-[#916d28] font-medium uppercase">
-                                {enq.enquiry_type || "Enquiry"}
-                              </span>
-                            </button>
-                          ))
+                            )}
+                          </>
                         )}
                       </div>
                     )}

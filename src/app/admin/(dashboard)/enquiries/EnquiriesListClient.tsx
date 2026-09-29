@@ -533,17 +533,26 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
                         </span>
                       </td>
                       <td className="px-3 py-3 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedEnquiryId(e.id);
-                            setModalEnquiryId(e.id);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md border border-admin-primary/20 bg-admin-primary/5 px-2.5 py-1 text-xs font-semibold text-admin-primary transition-colors hover:bg-admin-primary hover:text-white"
-                        >
-                          View Details →
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/admin/documents/quotations/new?seedEnquiryId=${e.id}`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-md bg-admin-primary px-2.5 py-1 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-admin-primary-dark"
+                          >
+                            + Create Quote
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedEnquiryId(e.id);
+                              setModalEnquiryId(e.id);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md border border-admin-primary/20 bg-admin-primary/5 px-2.5 py-1 text-xs font-semibold text-admin-primary transition-colors hover:bg-admin-primary hover:text-white"
+                          >
+                            View Details →
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -718,7 +727,17 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
                 </select>
               </div>
 
-              {/* 4. Direct Communication Actions */}
+              {/* 4. Create Quotation Button */}
+              <div className="pt-2">
+                <Link
+                  href={`/admin/documents/quotations/new?seedEnquiryId=${selectedEnquiry.id}`}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-admin-primary py-2.5 px-4 text-xs font-bold text-white shadow-xs hover:bg-admin-primary-dark transition-all"
+                >
+                  <span>📋</span> Create Quotation for {selectedEnquiry.name}
+                </Link>
+              </div>
+
+              {/* 5. Direct Communication Actions */}
               <div className="pt-3 border-t border-black/10">
                 <p className="text-[11px] font-semibold text-masaar-black/50 uppercase tracking-wider mb-2">
                   Client Communication
@@ -1073,9 +1092,17 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
                 )}
               </div>
 
-              <SecondaryButton type="button" onClick={() => setModalEnquiryId(null)}>
-                Close
-              </SecondaryButton>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/admin/documents/quotations/new?seedEnquiryId=${modalEnquiry.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-admin-primary px-3.5 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark shadow-xs"
+                >
+                  <span>📋</span> Create Quotation
+                </Link>
+                <SecondaryButton type="button" onClick={() => setModalEnquiryId(null)}>
+                  Close
+                </SecondaryButton>
+              </div>
             </div>
           </div>
         </div>
