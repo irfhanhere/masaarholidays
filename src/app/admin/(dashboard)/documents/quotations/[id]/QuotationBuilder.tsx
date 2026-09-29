@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types/database";
 import { CustomPackageBuilderModal } from "./CustomPackageBuilderModal";
 import { ShareQuotationModal } from "@/components/documents/ShareQuotationModal";
+import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 
 const STATUS_OPTS = [
   { id: "draft", label: "Draft", tone: "blue" },
@@ -138,6 +139,7 @@ export function QuotationBuilder({
   // 2. Transfer Modal
   const [isEditingTransferModalOpen, setIsEditingTransferModalOpen] = useState(false);
   const [editingTransferId, setEditingTransferId] = useState<string | null>(null);
+  const [transferVehicleType, setTransferVehicleType] = useState<"sedan" | "suv" | "staria" | "custom">("sedan");
   const [transferRouteName, setTransferRouteName] = useState("");
   const [transferDetails, setTransferDetails] = useState("");
   const [transferQty, setTransferQty] = useState(1);
@@ -515,12 +517,23 @@ export function QuotationBuilder({
       setTransferDetails(item.details || "");
       setTransferQty(item.quantity || 1);
       setTransferPrice(item.unit_price_aed || 0);
+      const text = `${item.description} ${item.details || ""}`.toLowerCase();
+      if (text.includes("sedan") || text.includes("camry") || text.includes("lexus")) {
+        setTransferVehicleType("sedan");
+      } else if (text.includes("gmc") || text.includes("yukon") || text.includes("suv") || text.includes("suburban")) {
+        setTransferVehicleType("suv");
+      } else if (text.includes("staria") || text.includes("van") || text.includes("hiace")) {
+        setTransferVehicleType("staria");
+      } else {
+        setTransferVehicleType("custom");
+      }
     } else {
       setEditingTransferId(null);
-      setTransferRouteName("Private GMC Yukon XL Transfers");
-      setTransferDetails("Jeddah Airport → Makkah Hotel • Makkah → Madinah • Madinah → Airport");
+      setTransferVehicleType("sedan");
+      setTransferRouteName("Private Sedan Airport Transfers (Roundtrip)");
+      setTransferDetails("Jeddah Airport (JED) ⇄ Makkah Hotel roundtrip with dedicated chauffeur & luggage assistance");
       setTransferQty(1);
-      setTransferPrice(950);
+      setTransferPrice(1000);
     }
     setIsEditingTransferModalOpen(true);
   }
@@ -1241,8 +1254,7 @@ export function QuotationBuilder({
                 </p>
               ) : (
                 hotelItems.map((h) => {
-                  const isMakkah = h.description.toLowerCase().includes("makkah");
-                  const img = isMakkah ? "/hotels/swissotel-makkah/hero.jpg" : "/hotels/anwar-al-madinah-movenpick/hero.jpg";
+                  const img = getHotelImage(h.description);
                   return (
                     <div key={h.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
                       <div className="flex items-start gap-3 min-w-0">
@@ -1330,7 +1342,7 @@ export function QuotationBuilder({
                   <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
-                        <Image src="/vehicles/gmc-yukon-suburban.jpg" alt="Transfer" fill className="object-cover" unoptimized />
+                        <Image src={getTransportImage(t.description, t.details)} alt="Transfer" fill className="object-cover" unoptimized />
                       </div>
                       <div className="min-w-0">
                         <p className="font-bold text-masaar-black text-xs">{t.description}</p>
@@ -2268,6 +2280,26 @@ export function QuotationBuilder({
                 />
               </Field>
 
+              <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-[#FAF9F7] p-2.5">
+                <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-lg border border-black/10 bg-white">
+                  <Image
+                    src={getHotelImage(hotelName, hotelCity || undefined)}
+                    alt="Hotel Preview"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <div className="text-[11px] text-masaar-black/70">
+                  <p className="font-bold text-masaar-black">
+                    {hotelName || "Hotel Photo Preview"}
+                  </p>
+                  <p className="text-[10px] text-masaar-black/50">
+                    Verified luxury hotel photo (hotel architecture/interior, never Ziyarat).
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Room Sharing Type">
                   <select
@@ -2364,6 +2396,60 @@ export function QuotationBuilder({
             </div>
 
             <form onSubmit={handleSaveTransferSubmit} className="mt-4 space-y-3 text-xs">
+              <Field label="Select Vehicle Type">
+                <select
+                  value={transferVehicleType}
+                  onChange={(e) => {
+                    const v = e.target.value as "sedan" | "suv" | "staria" | "custom";
+                    setTransferVehicleType(v);
+                    if (v === "sedan") {
+                      setTransferRouteName("Private Sedan Airport Transfers (Roundtrip)");
+                      setTransferDetails("Private air-conditioned Sedan (Toyota Camry / Lexus) with dedicated professional chauffeur & luggage assistance");
+                      setTransferPrice(1000);
+                    } else if (v === "suv") {
+                      setTransferRouteName("Private GMC Yukon XL Airport Transfers (Roundtrip)");
+                      setTransferDetails("Private luxury SUV (GMC Yukon XL / Chevrolet Suburban) with dedicated professional chauffeur & meet & assist");
+                      setTransferPrice(1600);
+                    } else if (v === "staria") {
+                      setTransferRouteName("Private Family Van Airport Transfers (Roundtrip)");
+                      setTransferDetails("Spacious 7-seater Hyundai Staria / Toyota HiAce with dedicated chauffeur & ample luggage space");
+                      setTransferPrice(1300);
+                    }
+                  }}
+                  className={inputClass}
+                >
+                  <option value="sedan">🚗 Private Sedan (Toyota Camry / Lexus / Saloon Car)</option>
+                  <option value="suv">🚙 Luxury SUV (GMC Yukon XL / Suburban)</option>
+                  <option value="staria">🚐 Family Van (Hyundai Staria / Toyota HiAce)</option>
+                  <option value="custom">⚙️ Custom Route / Vehicle</option>
+                </select>
+              </Field>
+
+              <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-[#FAF9F7] p-2.5">
+                <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-lg border border-black/10 bg-white">
+                  <Image
+                    src={getTransportImage(transferRouteName, transferDetails)}
+                    alt="Vehicle Preview"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <div className="text-[11px] text-masaar-black/70">
+                  <p className="font-bold text-masaar-black">
+                    {transferVehicleType === "sedan"
+                      ? "Sedan Vehicle Photo (Toyota Camry / Lexus)"
+                      : transferVehicleType === "suv"
+                      ? "Luxury SUV Photo (GMC Yukon XL)"
+                      : transferVehicleType === "staria"
+                      ? "Family Van Photo (Hyundai Staria)"
+                      : "Vehicle Photo"}
+                  </p>
+                  <p className="text-[10px] text-masaar-black/50">
+                    This vehicle photo will appear on the client quotation and PDF.
+                  </p>
+                </div>
+              </div>
               {availableTransfers.length > 0 && (
                 <Field label="Choose from Transfer Inventory (Optional quick fill)">
                   <select

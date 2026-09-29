@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { DocumentItemRow, DocumentRow, DocumentTemplateRow } from "@/lib/types/database";
+import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 
 function formatMoney(amountAed: number): string {
   return `AED ${amountAed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -504,7 +505,7 @@ export function QuotationDocumentView({
                     const isMakkah = h.description.toLowerCase().includes("makkah");
                     const isMadinah = h.description.toLowerCase().includes("madinah");
                     const tag = isMakkah ? "Holy Makkah" : isMadinah ? "Madinah Al Munawwarah" : "Hotel Accommodation";
-                    const img = isMakkah ? "/Assets/PRIVATE-TRIP-MAKKAH-CARD.png" : "/Assets/PRIVATE-TRIP-MADINAH-CARD.png";
+                    const img = getHotelImage(h.description, isMakkah ? "Makkah" : isMadinah ? "Madinah" : undefined);
                     return (
                       <div key={h.id || idx} className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
                         <div className="grid grid-cols-3">
@@ -556,7 +557,7 @@ export function QuotationDocumentView({
                 <div className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
                   <div className="relative h-48 w-full bg-neutral-100">
                     <Image
-                      src="/Assets/PRIVATE-TRIP-TRANSPORT.png"
+                      src={getTransportImage(transferItems[0]?.description, transferItems[0]?.details)}
                       alt={transferItems[0]?.description || "Private Chauffeur Fleet"}
                       fill
                       className="object-cover object-center"

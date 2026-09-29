@@ -10,6 +10,7 @@ import type {
   DocumentRow,
   DocumentTemplateRow,
 } from "@/lib/types/database";
+import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 
 const CHANGE_OPTIONS = [
   "Hotel",
@@ -508,7 +509,7 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                     const isMakkah = h.description.toLowerCase().includes("makkah");
                     const isMadinah = h.description.toLowerCase().includes("madinah");
                     const tag = isMakkah ? "Holy Makkah" : isMadinah ? "Madinah Al Munawwarah" : "Hotel Accommodation";
-                    const img = isMakkah ? "/Assets/PRIVATE-TRIP-MAKKAH-CARD.png" : "/Assets/PRIVATE-TRIP-MADINAH-CARD.png";
+                    const img = getHotelImage(h.description, isMakkah ? "Makkah" : isMadinah ? "Madinah" : undefined);
                     return (
                       <div key={h.id || idx} className="overflow-hidden rounded-xl border border-black/10 bg-[#FAF9F7]">
                         <div className="relative aspect-video w-full overflow-hidden">
@@ -560,9 +561,9 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
               </div>
 
               <div className="grid gap-5 md:grid-cols-12 items-center">
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5">
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5 bg-neutral-100">
                   <Image
-                    src="/Assets/PRIVATE-TRIP-TRANSPORT.png"
+                    src={getTransportImage(transport?.description, transport?.details)}
                     alt={transport?.description || "Private Transfer"}
                     fill
                     className="object-cover"
