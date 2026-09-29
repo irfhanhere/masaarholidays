@@ -181,6 +181,32 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
     .filter((i) => i.item_type === "flight")
     .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
 
+  const additionalTotal = additional.reduce(
+    (sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed),
+    0
+  );
+
+  const mealsTotal = items
+    .filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"))
+    .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
+
+  const packageItemsTotal = items
+    .filter((i) => ["umrah_package", "hajj_package"].includes(i.item_type))
+    .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
+
+  const allItemsSum = items.reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
+
+  // Ensure subtotal reflects all items (Hotel, Transport, Flights, Add-ons, Meals)
+  const packageSubtotal = allItemsSum > 0 ? Math.max(allItemsSum, Number(document.subtotal_aed || 0)) : Number(document.subtotal_aed || 8800);
+
+  // VAT: Respect document.tax_aed. If tax_aed is 0, no VAT is added.
+  const hasVat = document.tax_aed !== null && document.tax_aed !== undefined
+    ? Number(document.tax_aed) > 0
+    : false;
+  const vatAmount = hasVat ? Number(document.tax_aed || Math.round(packageSubtotal * 0.05)) : 0;
+  const discountAmount = Number(document.discount_aed || 0);
+  const finalPrice = Math.round((packageSubtotal + vatAmount - discountAmount) * 100) / 100;
+
   let activeItinerary: ItineraryDay[] = [];
   let isItineraryExplicitlyRemoved = false;
 
@@ -202,7 +228,7 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
     activeItinerary = generateItineraryForDays(durationDays, isHajj);
   }
 
-  const whatsappMessage = `Assalamu Alaikum Masaar Holidays, I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${Number(document.total_aed || 9240).toLocaleString()}) and would like to speak with a travel advisor.`;
+  const whatsappMessage = `Assalamu Alaikum Masaar Holidays, I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${Number(finalPrice).toLocaleString()}) and would like to speak with a travel advisor.`;
   const whatsappHref = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMessage)}`;
   const pdfDownloadUrl = `/quote/${token}/pdf`;
 
@@ -862,7 +888,7 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                 <div className="rounded-xl border border-[#b37e28]/40 bg-gradient-to-br from-[#FAF6EE] to-[#F5ECE0] p-4 space-y-2.5 text-xs shadow-xs">
                   <div className="flex justify-between items-center text-masaar-black font-semibold border-b border-black/10 pb-2">
                     <span className="text-xs uppercase tracking-wider font-bold text-masaar-black/80">Total Package Price</span>
-                    <span className="font-bold text-base text-masaar-black">AED {Number(document.subtotal_aed || 8800).toLocaleString()}</span>
+                    <span className="font-bold text-base text-masaar-black">AED {Number(packageSubtotal).toLocaleString()}</span>
                   </div>
 
                   {/* Component items sub-breakdown */}
@@ -883,11 +909,35 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                         <span className="font-semibold text-masaar-black">AED {Number(flightTotal).toLocaleString()}</span>
                       </div>
                     )}
+                    {additionalTotal > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[#b37e28]">✓</span> Add-ons &amp; Services ({additional.length} {additional.length === 1 ? "Inclusion" : "Inclusions"})
+                        </span>
+                        <span className="font-semibold text-masaar-black">AED {Number(additionalTotal).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {mealsTotal > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[#b37e28]">✓</span> Dining &amp; Meals ({meals?.quantity || document.adults} Pax)
+                        </span>
+                        <span className="font-semibold text-masaar-black">AED {Number(mealsTotal).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {packageItemsTotal > 0 && hotelAndTransportTotal === 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[#b37e28]">✓</span> Package Inclusions
+                        </span>
+                        <span className="font-semibold text-masaar-black">AED {Number(packageItemsTotal).toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center border-t border-black/10 pt-2 font-bold text-masaar-black text-xs">
-                    <span>VAT (5%)</span>
-                    <span>AED {Number(document.tax_aed || Math.round(Number(document.subtotal_aed || 8800) * 0.05)).toLocaleString()}</span>
+                    <span>{hasVat ? "VAT (5%)" : "VAT (0% / Tax Inclusive)"}</span>
+                    <span>AED {Number(vatAmount).toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between items-center border-t-2 border-[#b37e28] pt-2.5">
@@ -895,7 +945,7 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                       Final Price
                     </span>
                     <span className="font-serif text-2xl font-bold text-masaar-black">
-                      AED {Number(document.total_aed || 9240).toLocaleString()}
+                      AED {Number(finalPrice).toLocaleString()}
                     </span>
                   </div>
                 </div>

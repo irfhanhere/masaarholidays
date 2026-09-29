@@ -145,13 +145,19 @@ export function QuotationBuilder({
   const [transferDetails, setTransferDetails] = useState("");
   const [transferQty, setTransferQty] = useState(1);
   const [transferPrice, setTransferPrice] = useState(950);
+  const initialItemsSum = items.reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
+  const initialDocSub = Number(document.subtotal_aed || 0);
+  const initialSubtotal = initialItemsSum > 0 && initialDocSub < initialItemsSum ? initialItemsSum : (initialDocSub || initialItemsSum || 8800);
+  const initialHasVat = Number(document.tax_aed) > 0;
+  const initialTax = initialHasVat ? Number(document.tax_aed) : 0;
+  const initialDocTot = Number(document.total_aed || 0);
+  const initialTotal = initialDocTot > 0 && initialDocTot >= initialSubtotal ? initialDocTot : (initialSubtotal + initialTax);
+
   const [itemsList, setItemsList] = useState<DocumentItemRow[]>(items);
-  const [applyVat, setApplyVat] = useState<boolean>(
-    Number(document.tax_aed) > 0 || document.tax_aed === null || document.tax_aed === undefined
-  );
-  const [manualSubtotal, setManualSubtotal] = useState<number>(Number(document.subtotal_aed || 8800));
-  const [manualTax, setManualTax] = useState<number>(Number(document.tax_aed || 440));
-  const [manualTotal, setManualTotal] = useState<number>(Number(document.total_aed || 9240));
+  const [applyVat, setApplyVat] = useState<boolean>(initialHasVat);
+  const [manualSubtotal, setManualSubtotal] = useState<number>(initialSubtotal);
+  const [manualTax, setManualTax] = useState<number>(initialTax);
+  const [manualTotal, setManualTotal] = useState<number>(initialTotal);
   const [isEditingPricing, setIsEditingPricing] = useState(false);
   const [isSavingPricing, setIsSavingPricing] = useState(false);
   const [isPackageDismissed, setIsPackageDismissed] = useState(false);
@@ -159,12 +165,16 @@ export function QuotationBuilder({
   // Sync props if items change from server
   useEffect(() => {
     setItemsList(items);
-    setManualSubtotal(Number(document.subtotal_aed || 8800));
-    setManualTax(Number(document.tax_aed || 440));
-    setManualTotal(Number(document.total_aed || 9240));
-    if (document.tax_aed !== null && document.tax_aed !== undefined) {
-      setApplyVat(Number(document.tax_aed) > 0);
-    }
+    const sum = items.reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
+    const docSub = Number(document.subtotal_aed || 0);
+    const sub = sum > 0 && docSub < sum ? sum : (docSub || sum || 8800);
+    setManualSubtotal(sub);
+    const hasV = Number(document.tax_aed) > 0;
+    setApplyVat(hasV);
+    const tx = hasV ? Number(document.tax_aed) : 0;
+    setManualTax(tx);
+    const tot = Number(document.total_aed || 0);
+    setManualTotal(tot > 0 && tot >= sub ? tot : (sub + tx));
   }, [items, document.subtotal_aed, document.tax_aed, document.total_aed]);
 
   // 3. Flight Modal
@@ -385,6 +395,7 @@ export function QuotationBuilder({
             quantity: newQty,
             unit_price_aed: newPrice,
           },
+          applyVat,
         }),
       }).then((r) => r.json());
 
@@ -394,6 +405,11 @@ export function QuotationBuilder({
       }
       if (res.item) {
         setItemsList((prev) => [...prev, res.item]);
+      }
+      if (res.totals) {
+        setManualSubtotal(res.totals.subtotal);
+        setManualTax(res.totals.tax);
+        setManualTotal(res.totals.total);
       }
 
       setIsAddingItem(false);
@@ -412,12 +428,17 @@ export function QuotationBuilder({
     setItemsList((prev) => prev.filter((i) => i.id !== itemId));
     try {
       const res = await fetch(
-        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}`,
+        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}&applyVat=${applyVat}`,
         { method: "DELETE" }
       );
       const data = await res.json();
       if (!data.success) {
         alert(data.error || "Failed to remove item.");
+      }
+      if (data.totals) {
+        setManualSubtotal(data.totals.subtotal);
+        setManualTax(data.totals.tax);
+        setManualTotal(data.totals.total);
       }
       router.refresh();
     } catch (e: any) {
@@ -436,11 +457,17 @@ export function QuotationBuilder({
             documentId: document.id,
             itemId,
             patch: payload,
+            applyVat,
           }),
         });
         const data = await res.json();
         if (data.success && data.item) {
           setItemsList((prev) => prev.map((it) => (it.id === itemId ? data.item : it)));
+        }
+        if (data.totals) {
+          setManualSubtotal(data.totals.subtotal);
+          setManualTax(data.totals.tax);
+          setManualTotal(data.totals.total);
         }
       } else {
         const res = await fetch("/api/admin/documents/items", {
@@ -450,11 +477,17 @@ export function QuotationBuilder({
             documentId: document.id,
             documentType: "quotation",
             item: payload,
+            applyVat,
           }),
         });
         const data = await res.json();
         if (data.success && data.item) {
           setItemsList((prev) => [...prev, data.item]);
+        }
+        if (data.totals) {
+          setManualSubtotal(data.totals.subtotal);
+          setManualTax(data.totals.tax);
+          setManualTotal(data.totals.total);
         }
       }
       router.refresh();
@@ -1941,31 +1974,59 @@ export function QuotationBuilder({
 
               {/* Sub-breakdown items */}
               <div className="space-y-1 text-[11px] text-masaar-black/70 pl-2.5 border-l-2 border-[#b37e28]/40">
-                <div className="flex justify-between">
-                  <span>Hotel &amp; Transport</span>
-                  <span className="font-semibold text-masaar-black">
-                    AED {Number(
-                      itemsList
-                        .filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type))
-                        .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0) || 6400
-                    ).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Flights ({flightItems.length > 0 ? flightItems[0].quantity : adults} Pax)</span>
-                  <span className="font-semibold text-masaar-black">
-                    AED {Number(
-                      itemsList
-                        .filter((i) => i.item_type === "flight")
-                        .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0) || 2400
-                    ).toLocaleString()}
-                  </span>
-                </div>
+                {itemsList.filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type)).length > 0 && (
+                  <div className="flex justify-between">
+                    <span>Hotel &amp; Transport</span>
+                    <span className="font-semibold text-masaar-black">
+                      AED {Number(
+                        itemsList
+                          .filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type))
+                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {itemsList.filter((i) => i.item_type === "flight").length > 0 && (
+                  <div className="flex justify-between">
+                    <span>Flights ({flightItems.length > 0 ? flightItems[0].quantity : adults} Pax)</span>
+                    <span className="font-semibold text-masaar-black">
+                      AED {Number(
+                        itemsList
+                          .filter((i) => i.item_type === "flight")
+                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {itemsList.filter((i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal")).length > 0 && (
+                  <div className="flex justify-between">
+                    <span>Add-ons &amp; Services ({itemsList.filter((i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal")).length} Inclusions)</span>
+                    <span className="font-semibold text-masaar-black">
+                      AED {Number(
+                        itemsList
+                          .filter((i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal"))
+                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {itemsList.filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal")).length > 0 && (
+                  <div className="flex justify-between">
+                    <span>Dining &amp; Meals ({itemsList.find((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"))?.quantity || adults} Pax)</span>
+                    <span className="font-semibold text-masaar-black">
+                      AED {Number(
+                        itemsList
+                          .filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"))
+                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between border-t border-black/10 pt-2 font-bold text-masaar-black">
-                <span>VAT (5%)</span>
-                <span>AED {Number(document.tax_aed || manualTax).toLocaleString()}</span>
+                <span>{applyVat ? "VAT (5%)" : "VAT (0% / Inclusive)"}</span>
+                <span>AED {Number(manualTax).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between items-center border-t-2 border-[#b37e28] pt-2">

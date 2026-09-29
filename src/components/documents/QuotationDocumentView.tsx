@@ -739,6 +739,13 @@ export function QuotationDocumentView({
 
         // 10. PRICING & BREAKDOWN
         if (sec.id === "pricing") {
+          const itemsSum = items.reduce((s, i) => s + ((i.quantity || 1) * (i.unit_price_aed || 0) - (i.discount_aed || 0)), 0);
+          const pdfSubtotal = itemsSum > 0 ? Math.max(itemsSum, Number(document.subtotal_aed || 0)) : Number(document.subtotal_aed || document.total_aed || 17000);
+          const pdfHasVat = Number(document.tax_aed) > 0;
+          const pdfTax = pdfHasVat ? Number(document.tax_aed || Math.round(pdfSubtotal * 0.05)) : 0;
+          const pdfDiscount = Number(document.discount_aed || 0);
+          const pdfTotal = Math.round((pdfSubtotal + pdfTax - pdfDiscount) * 100) / 100;
+
           return (
             <div key="pricing" className="masaar-pdf-page p-10">
               {renderPageHeader("Quotation Pricing & Summary")}
@@ -790,21 +797,21 @@ export function QuotationDocumentView({
                   <div className="w-72 rounded-xl border border-black/10 bg-[#FAF8F5] p-4 space-y-2">
                     <div className="flex justify-between text-black/70">
                       <span>Subtotal:</span>
-                      <span>{formatMoney(document.subtotal_aed || document.total_aed || 17000)}</span>
+                      <span>{formatMoney(pdfSubtotal)}</span>
                     </div>
-                    {document.discount_aed > 0 && (
+                    {pdfDiscount > 0 && (
                       <div className="flex justify-between text-green-700">
                         <span>Discount:</span>
-                        <span>- {formatMoney(document.discount_aed)}</span>
+                        <span>- {formatMoney(pdfDiscount)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-black/70">
-                      <span>VAT (5% Inclusive):</span>
-                      <span>{formatMoney(document.tax_aed || 0)}</span>
+                      <span>{pdfHasVat ? "VAT (5%):" : "VAT (0% Inclusive):"}</span>
+                      <span>{formatMoney(pdfTax)}</span>
                     </div>
                     <div className="border-t border-black/10 pt-2 flex justify-between font-serif text-base font-bold text-masaar-black">
                       <span>Total Amount:</span>
-                      <span className="text-[#b37e28]">{formatMoney(document.total_aed || 17000)}</span>
+                      <span className="text-[#b37e28]">{formatMoney(pdfTotal)}</span>
                     </div>
                   </div>
                 </div>
