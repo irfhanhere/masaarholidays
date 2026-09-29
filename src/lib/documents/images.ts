@@ -101,15 +101,31 @@ export function getHotelImage(name?: string | null, city?: string | null): strin
     return "/hotels/crowne-plaza-madinah/hero.webp";
   }
 
-  // City-based luxury hotel fallbacks (guaranteed hotel photo, never Ziyarat)
-  if (n.includes("madinah") || city === "Madinah") {
-    return "/hotels/madinah-hilton/hero.jpg";
-  }
-  if (n.includes("makkah") || city === "Makkah") {
-    return "/hotels/intercontinental-dar-al-tawhid/hero.webp";
+  // Leader Al Muna Kareem / Almuna Kareem / Al Muna
+  if (n.includes("muna") || n.includes("kareem") || n.includes("almuna")) {
+    return "/hotels/al-manakha-rotana-madinah/rooms/standard.jpg";
   }
 
-  return "/brand/heroes/hotel-hero.jpg";
+  // Golden Tulip / Shakreen
+  if (n.includes("tulip") || n.includes("shakreen")) {
+    return "/hotels/al-manakha-rotana-madinah/hero.jpg";
+  }
+
+  // Millennium Taiba / Elaf / Saja
+  if (n.includes("taiba") || n.includes("millennium") || n.includes("elaf") || n.includes("saja")) {
+    return "/hotels/al-manakha-rotana-madinah/rooms/standard.jpg";
+  }
+
+  // City-based luxury hotel fallbacks (always real luxury hotel room, never banner or non-hotel photo)
+  if (n.includes("madinah") || city === "Madinah") {
+    return "/hotels/al-manakha-rotana-madinah/rooms/standard.jpg";
+  }
+  if (n.includes("makkah") || city === "Makkah") {
+    return "/hotels/conrad-jabal-omar/rooms/executive.jpg";
+  }
+
+  // Safe global fallback: high-end 5-star hotel room photo
+  return "/hotels/al-manakha-rotana-madinah/rooms/standard.jpg";
 }
 
 export function getTransportImage(title?: string | null, details?: string | null): string {

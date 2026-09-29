@@ -24,7 +24,14 @@ export default async function PublicQuotePage({
   const { document, items, template } = result;
 
   const supabase = createAdminClient();
-  const { data: settings } = await supabase.from("whatsapp_settings").select("phone_number").eq("id", 1).maybeSingle();
+  const [{ data: settings }, { data: hotelsCatalog }] = await Promise.all([
+    supabase.from("whatsapp_settings").select("phone_number").eq("id", 1).maybeSingle(),
+    supabase
+      .from("hotels")
+      .select("id, name, slug, city, star_rating, distance_from_haram_meters, walk_time_minutes, walk_time_minutes_max, route_type, terrain_note, accessibility_note, elderly_family_suitability_note, nearest_mens_gate, nearest_ladies_gate, mens_gate_walk_minutes_min, mens_gate_walk_minutes_max, ladies_gate_walk_minutes_min, ladies_gate_walk_minutes_max, primary_gate, in_haram_plaza_walk_note, image_url")
+      .eq("is_active", true),
+  ]);
+
   const { data: sourceDocument } =
     document.document_type === "receipt" && document.source_document_id
       ? await supabase.from("documents").select("document_number").eq("id", document.source_document_id).maybeSingle()
@@ -39,6 +46,7 @@ export default async function PublicQuotePage({
         template={template}
         whatsappPhone={settings?.phone_number || "971552276299"}
         isPrintMode={print === "true"}
+        hotelsCatalog={hotelsCatalog ?? []}
       />
     );
   }

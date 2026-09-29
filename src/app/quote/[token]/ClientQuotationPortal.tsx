@@ -12,6 +12,13 @@ import type {
 } from "@/lib/types/database";
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
+import {
+  formatCardWalkTime,
+  formatLadiesGateWalkTime,
+  formatMensGateWalkTime,
+  formatDistance,
+  splitTerrainNote,
+} from "@/lib/hotel-format";
 
 const CHANGE_OPTIONS = [
   "Hotel",
@@ -24,6 +31,49 @@ const CHANGE_OPTIONS = [
   "Other",
 ];
 
+function findMatchingHotel(itemDescription: string, catalog: any[]) {
+  if (!catalog || catalog.length === 0 || !itemDescription) return null;
+  const desc = itemDescription.toLowerCase().replace(/^(makkah hotel|madinah hotel)\s*[-—:]\s*/i, "").trim();
+
+  // Try exact match on name
+  let matched = catalog.find((h) => h.name.toLowerCase() === desc);
+  if (matched) return matched;
+
+  // Try contains
+  matched = catalog.find((h) => {
+    const name = h.name.toLowerCase();
+    return desc.includes(name) || name.includes(desc);
+  });
+  if (matched) return matched;
+
+  // Try keyword matching (e.g. "swissotel" & "maqam", "muna" & "kareem")
+  const keywords = desc.split(/[\s—\-–]+/).filter((w) => w.length > 3);
+  matched = catalog.find((h) => {
+    const name = h.name.toLowerCase();
+    return keywords.length > 0 && keywords.every((k) => name.includes(k));
+  });
+  if (matched) return matched;
+
+  // Partial major keywords
+  matched = catalog.find((h) => {
+    const name = h.name.toLowerCase();
+    return (
+      (desc.includes("maqam") && name.includes("maqam")) ||
+      (desc.includes("kareem") && name.includes("kareem")) ||
+      (desc.includes("muna") && name.includes("muna")) ||
+      (desc.includes("movenpick") && name.includes("movenpick")) ||
+      (desc.includes("hilton") && name.includes("hilton")) ||
+      (desc.includes("fairmont") && name.includes("fairmont")) ||
+      (desc.includes("conrad") && name.includes("conrad")) ||
+      (desc.includes("oberoi") && name.includes("oberoi")) ||
+      (desc.includes("dar al iman") && name.includes("dar al iman")) ||
+      (desc.includes("dar al taqwa") && name.includes("dar al taqwa"))
+    );
+  });
+
+  return matched || null;
+}
+
 export function ClientQuotationPortal({
   token,
   document,
@@ -31,6 +81,7 @@ export function ClientQuotationPortal({
   template,
   whatsappPhone,
   isPrintMode = false,
+  hotelsCatalog = [],
 }: {
   token: string;
   document: DocumentRow;
@@ -38,6 +89,7 @@ export function ClientQuotationPortal({
   template: DocumentTemplateRow | null;
   whatsappPhone: string;
   isPrintMode?: boolean;
+  hotelsCatalog?: any[];
 }) {
   const [currentStatus, setCurrentStatus] = useState(document.status);
   const [isPending, startTransition] = useTransition();
@@ -546,39 +598,134 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
               {hotels.length > 0 ? (
                 <div className={`grid gap-4 ${hotels.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"}`}>
                   {hotels.map((h, idx) => {
-                    const isMakkah = h.description.toLowerCase().includes("makkah");
-                    const isMadinah = h.description.toLowerCase().includes("madinah");
+                    const matchedHotel = findMatchingHotel(h.description, hotelsCatalog);
+                    const isMakkah = matchedHotel?.city === "Makkah" || h.description.toLowerCase().includes("makkah");
+                    const isMadinah = matchedHotel?.city === "Madinah" || h.description.toLowerCase().includes("madinah");
                     const tag = isMakkah ? "Holy Makkah" : isMadinah ? "Madinah Al Munawwarah" : "Hotel Accommodation";
-                    const img = getHotelImage(h.description, isMakkah ? "Makkah" : isMadinah ? "Madinah" : undefined);
+                    
+                    const mensWalk = matchedHotel ? formatMensGateWalkTime(matchedHotel) : null;
+                    const ladiesWalk = matchedHotel ? formatLadiesGateWalkTime(matchedHotel) : null;
+                    const cardWalk = matchedHotel ? formatCardWalkTime(matchedHotel) : null;
+                    const distStr = matchedHotel ? formatDistance(matchedHotel) : null;
+                    const distanceDisplay = cardWalk
+                      ? `${cardWalk}${matchedHotel?.distance_from_haram_meters ? ` (${matchedHotel.distance_from_haram_meters}m)` : ""}`
+                      : distStr;
+                    const walkBadge = isMadinah ? (mensWalk || ladiesWalk) : cardWalk;
+                    const terrainLines = splitTerrainNote(matchedHotel?.terrain_note);
+
+                    const img = (matchedHotel?.image_url && !matchedHotel.image_url.includes("Program Files") && !matchedHotel.image_url.includes("hotel-hero.jpg"))
+                      ? matchedHotel.image_url
+                      : getHotelImage(h.description, isMakkah ? "Makkah" : isMadinah ? "Madinah" : undefined);
+
                     return (
-                      <div key={h.id || idx} className="overflow-hidden rounded-xl border border-black/10 bg-[#FAF9F7]">
-                        <div className="relative aspect-video w-full overflow-hidden">
-                          <Image
-                            src={img}
-                            alt={h.description}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                          <div className="absolute top-2 left-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-bold text-white">
-                            {tag}
+                      <div key={h.id || idx} className="overflow-hidden rounded-xl border border-black/10 bg-[#FAF9F7] flex flex-col justify-between">
+                        <div>
+                          <div className="relative aspect-video w-full overflow-hidden">
+                            <Image
+                              src={img}
+                              alt={h.description}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                            <div className="absolute top-2 left-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-bold text-white">
+                              {tag}
+                            </div>
+                            {walkBadge && (
+                              <div className="absolute top-2 right-2 rounded-md bg-black/80 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                                🚶 {walkBadge}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <div className="p-4 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-serif font-bold text-sm text-masaar-black">
-                              {h.description}
-                            </h4>
-                            <span className="text-xs text-[#D4AF37]">★★★★★</span>
+                          <div className="p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-serif font-bold text-sm text-masaar-black">
+                                {h.description}
+                              </h4>
+                              <span className="text-xs text-[#D4AF37]">
+                                {matchedHotel?.star_rating ? "★".repeat(matchedHotel.star_rating) : "★★★★★"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-masaar-black/60 flex items-center gap-1.5">
+                              <span>📍 {isMadinah ? "Markaziyah / Haram Central Area" : isMakkah ? "Ibrahim Al Khalil / Clock Tower" : "Prime Location"}</span>
+                              <span>•</span>
+                              <span>{h.quantity} Nights</span>
+                            </p>
+                            <p className="text-[11px] text-masaar-black/70 pt-1 border-t border-black/5 leading-relaxed">
+                              {h.details || "Luxury room with daily buffet breakfast included."}
+                            </p>
+
+                            {/* Structured Walk, Distance, Path & Terrain Proximity Box (matching website HotelCard) */}
+                            {(distanceDisplay || mensWalk || ladiesWalk || matchedHotel?.route_type || matchedHotel?.accessibility_note || terrainLines.length > 0 || matchedHotel?.elderly_family_suitability_note) && (
+                              <div className="mt-2.5 rounded-lg border border-black/10 bg-warm-ivory/60 p-2.5 space-y-1.5 text-xs font-sans">
+                                {isMadinah ? (
+                                  <>
+                                    {mensWalk && (
+                                      <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                        <span className="font-semibold text-masaar-black">Men&apos;s Gate:</span>
+                                        <span className="text-masaar-black/80">
+                                          {mensWalk}
+                                          {matchedHotel.nearest_mens_gate && ` — Gate ${matchedHotel.nearest_mens_gate}`}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {ladiesWalk && (
+                                      <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                        <span className="font-semibold text-masaar-black">Ladies&apos; Gate:</span>
+                                        <span className="text-masaar-black/80">
+                                          {ladiesWalk}
+                                          {matchedHotel.nearest_ladies_gate && ` — Gate ${matchedHotel.nearest_ladies_gate}`}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  distanceDisplay && (
+                                    <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                      <span className="font-semibold text-masaar-black">Distance:</span>
+                                      <span className="text-masaar-black/80">{distanceDisplay}</span>
+                                    </div>
+                                  )
+                                )}
+                                {matchedHotel?.route_type && (
+                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                    <span className="font-semibold text-masaar-black">Route:</span>
+                                    <span className="text-masaar-black/80">{matchedHotel.route_type}</span>
+                                  </div>
+                                )}
+                                {matchedHotel?.accessibility_note && (
+                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                    <span className="font-semibold text-masaar-black">Access:</span>
+                                    <span className="text-masaar-black/80">{matchedHotel.accessibility_note}</span>
+                                  </div>
+                                )}
+                                {terrainLines.length > 0 && (
+                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                    <span className="font-semibold text-masaar-black">Path &amp; Terrain:</span>
+                                    <div className="text-masaar-black/80">
+                                      {terrainLines.length > 1 ? (
+                                        <ul className="space-y-0.5 list-disc list-inside">
+                                          {terrainLines.map((line, i) => (
+                                            <li key={i}>{line}</li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        terrainLines[0]
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {matchedHotel?.elderly_family_suitability_note && (
+                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
+                                    <span className="font-semibold text-masaar-black">Best for:</span>
+                                    <span className="text-[#865d1d] font-medium">
+                                      {matchedHotel.elderly_family_suitability_note}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <p className="text-xs text-masaar-black/60 flex items-center gap-1.5">
-                            <span>📍 Prime Location</span>
-                            <span>•</span>
-                            <span>{h.quantity} Nights</span>
-                          </p>
-                          <p className="text-[11px] text-masaar-black/70 pt-1 border-t border-black/5">
-                            {h.details || "Luxury room with daily buffet breakfast included."}
-                          </p>
                         </div>
                       </div>
                     );
@@ -877,9 +1024,29 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                   </div>
 
                   {additional.length > 0 && (
-                    <div className="flex justify-between text-masaar-black/70 border-t border-black/5 pt-2">
-                      <span>Add-ons &amp; Services</span>
-                      <span className="font-bold text-[#865d1d]">{additional.length} Inclusions</span>
+                    <div className="border-t border-black/5 pt-2 space-y-1.5">
+                      <div className="flex justify-between text-masaar-black/70">
+                        <span className="font-medium">Add-ons &amp; Services</span>
+                        <span className="font-bold text-[#865d1d]">{additional.length} {additional.length === 1 ? "Inclusion" : "Inclusions"}</span>
+                      </div>
+                      <div className="space-y-1 pl-2 border-l-2 border-[#b37e28]/30">
+                        {additional.map((item, idx) => {
+                          const itemPrice = Number(item.amount_aed ?? (item.quantity * item.unit_price_aed));
+                          return (
+                            <div key={item.id || idx} className="flex justify-between items-start text-[11px] text-masaar-black/80">
+                              <span className="leading-snug pr-2">
+                                • {item.description}
+                                {item.quantity && item.quantity > 1 ? ` (${item.quantity} Pax)` : ""}
+                              </span>
+                              {itemPrice > 0 && (
+                                <span className="font-semibold text-masaar-black shrink-0">
+                                  AED {itemPrice.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -909,12 +1076,21 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                         <span className="font-semibold text-masaar-black">AED {Number(flightTotal).toLocaleString()}</span>
                       </div>
                     )}
-                    {additionalTotal > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[#b37e28]">✓</span> Add-ons &amp; Services ({additional.length} {additional.length === 1 ? "Inclusion" : "Inclusions"})
-                        </span>
-                        <span className="font-semibold text-masaar-black">AED {Number(additionalTotal).toLocaleString()}</span>
+                    {additional.length > 0 && (
+                      <div className="space-y-1">
+                        {additional.map((item, idx) => {
+                          const itemPrice = Number(item.amount_aed ?? (item.quantity * item.unit_price_aed));
+                          return (
+                            <div key={item.id || idx} className="flex justify-between items-center text-[11px] text-masaar-black/75">
+                              <span className="flex items-center gap-1.5 truncate max-w-[210px]" title={item.description}>
+                                <span className="text-[#b37e28]">✓</span> {item.description}
+                              </span>
+                              <span className="font-semibold text-masaar-black">
+                                AED {itemPrice.toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     {mealsTotal > 0 && (
