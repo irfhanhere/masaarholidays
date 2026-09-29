@@ -227,10 +227,12 @@ export function InvoiceDocumentView({
                 <span>-{formatMoney(document.discount_aed)}</span>
               </div>
             )}
-            <div className="flex justify-between px-4 py-2 text-sm">
-              <span className="text-masaar-black/60">VAT (5%)</span>
-              <span>{formatMoney(document.tax_aed)}</span>
-            </div>
+            {Number(document.tax_aed) > 0 && (
+              <div className="flex justify-between px-4 py-2 text-sm">
+                <span className="text-masaar-black/60">VAT (5%)</span>
+                <span>{formatMoney(document.tax_aed)}</span>
+              </div>
+            )}
             <div className="flex justify-between bg-pure-gold/90 px-4 py-2.5 text-sm font-bold text-white">
               <span>Total Amount</span>
               <span>{formatMoney(document.total_aed)}</span>

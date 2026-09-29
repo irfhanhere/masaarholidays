@@ -30,6 +30,19 @@ export default async function PublicQuotePage({
       ? await supabase.from("documents").select("document_number").eq("id", document.source_document_id).maybeSingle()
       : { data: null };
 
+  if (document.document_type === "quotation") {
+    return (
+      <ClientQuotationPortal
+        token={token}
+        document={document}
+        items={items}
+        template={template}
+        whatsappPhone={settings?.phone_number || "971552276299"}
+        isPrintMode={print === "true"}
+      />
+    );
+  }
+
   if (print === "true") {
     return (
       <div className="bg-white">
@@ -51,18 +64,6 @@ export default async function PublicQuotePage({
           }}
         />
       </div>
-    );
-  }
-
-  if (document.document_type === "quotation") {
-    return (
-      <ClientQuotationPortal
-        token={token}
-        document={document}
-        items={items}
-        template={template}
-        whatsappPhone={settings?.phone_number ?? WHATSAPP_DEFAULT_PHONE}
-      />
     );
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -83,7 +83,112 @@ export function QuotationBuilder({
   const [notes, setNotes] = useState(document.notes ?? "");
   const [terms, setTerms] = useState(document.terms ?? "");
 
-  // Add Item / Section Modal
+  // Parsed Package Scope, Duration, Room Type, and Customer Requirements
+  const parsedScope = (() => {
+    if (document.notes?.includes("Makkah only") || document.notes?.includes("Makkah Only")) return "makkah_only";
+    if (document.notes?.includes("Madinah only") || document.notes?.includes("Madinah Only")) return "madinah_only";
+    return "both";
+  })();
+
+  const parsedDuration = (() => {
+    const match = document.notes?.match(/Duration:\s*([^\n\r]+)/i);
+    if (match) return match[1].trim();
+    const pkg = items.find((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
+    const pkgMatch = pkg?.description.match(/\(([^)]+)\)/);
+    if (pkgMatch) return pkgMatch[1].trim();
+    return "10D9N";
+  })();
+
+  const parsedRoomType = (() => {
+    const match = document.notes?.match(/Room Type:\s*([^\n\r]+)/i);
+    if (match) return match[1].trim();
+    if (document.notes?.includes("QUAD")) return "QUAD";
+    if (document.notes?.includes("TRIPLE")) return "TRIPLE";
+    return "TWIN/DOUBLE";
+  })();
+
+  const parsedReq = (() => {
+    const match = document.notes?.match(/Customer Requirement:\s*([^\n\r]+)/i);
+    if (match) return match[1].trim();
+    return document.special_requirements && !document.special_requirements.startsWith("[") ? document.special_requirements : "";
+  })();
+
+  const [duration, setDuration] = useState(parsedDuration);
+  const [packageScope, setPackageScope] = useState<"both" | "makkah_only" | "madinah_only">(parsedScope);
+  const [roomType, setRoomType] = useState(parsedRoomType);
+  const [customerRequirement, setCustomerRequirement] = useState(parsedReq);
+
+  // Available CMS inventories
+  const availableHotels: Array<{ id: string; name: string; city: string; star_rating?: number | null; price_from_aed?: number | null }> =
+    products?.hotels ?? [];
+  const availableTransfers: Array<{ id: string; route_name: string; vehicle_type?: string | null; price_from_aed?: number | null }> =
+    products?.transfers ?? [];
+
+  // Dedicated Section Modals State
+  // 1. Accommodation Modal
+  const [isEditingHotelModalOpen, setIsEditingHotelModalOpen] = useState(false);
+  const [editingHotelId, setEditingHotelId] = useState<string | null>(null);
+  const [hotelCity, setHotelCity] = useState<"Makkah" | "Madinah" | null>("Makkah");
+  const [hotelName, setHotelName] = useState("");
+  const [hotelRoomType, setHotelRoomType] = useState("TWIN/DOUBLE");
+  const [hotelNights, setHotelNights] = useState(5);
+  const [hotelPricePerNight, setHotelPricePerNight] = useState(840);
+  const [hotelDetails, setHotelDetails] = useState("");
+
+  // 2. Transfer Modal
+  const [isEditingTransferModalOpen, setIsEditingTransferModalOpen] = useState(false);
+  const [editingTransferId, setEditingTransferId] = useState<string | null>(null);
+  const [transferRouteName, setTransferRouteName] = useState("");
+  const [transferDetails, setTransferDetails] = useState("");
+  const [transferQty, setTransferQty] = useState(1);
+  const [transferPrice, setTransferPrice] = useState(950);
+  const [itemsList, setItemsList] = useState<DocumentItemRow[]>(items);
+  const [applyVat, setApplyVat] = useState<boolean>(
+    Number(document.tax_aed) > 0 || document.tax_aed === null || document.tax_aed === undefined
+  );
+  const [manualSubtotal, setManualSubtotal] = useState<number>(Number(document.subtotal_aed || 8800));
+  const [manualTax, setManualTax] = useState<number>(Number(document.tax_aed || 440));
+  const [manualTotal, setManualTotal] = useState<number>(Number(document.total_aed || 9240));
+  const [isEditingPricing, setIsEditingPricing] = useState(false);
+  const [isSavingPricing, setIsSavingPricing] = useState(false);
+  const [isPackageDismissed, setIsPackageDismissed] = useState(false);
+
+  // Sync props if items change from server
+  useEffect(() => {
+    setItemsList(items);
+    setManualSubtotal(Number(document.subtotal_aed || 8800));
+    setManualTax(Number(document.tax_aed || 440));
+    setManualTotal(Number(document.total_aed || 9240));
+    if (document.tax_aed !== null && document.tax_aed !== undefined) {
+      setApplyVat(Number(document.tax_aed) > 0);
+    }
+  }, [items, document.subtotal_aed, document.tax_aed, document.total_aed]);
+
+  // 3. Flight Modal
+  const [isEditingFlightModalOpen, setIsEditingFlightModalOpen] = useState(false);
+  const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
+  const [flightAirline, setFlightAirline] = useState("");
+  const [flightDetails, setFlightDetails] = useState("");
+  const [flightQty, setFlightQty] = useState(adults);
+  const [flightPrice, setFlightPrice] = useState(4500);
+
+  // 4. Meals Modal
+  const [isEditingMealsModalOpen, setIsEditingMealsModalOpen] = useState(false);
+  const [editingMealId, setEditingMealId] = useState<string | null>(null);
+  const [mealTitle, setMealTitle] = useState("");
+  const [mealDetails, setMealDetails] = useState("");
+  const [mealQty, setMealQty] = useState(adults);
+  const [mealPrice, setMealPrice] = useState(450);
+
+  // 5. Add-on Modal
+  const [isEditingAddonModalOpen, setIsEditingAddonModalOpen] = useState(false);
+  const [editingAddonId, setEditingAddonId] = useState<string | null>(null);
+  const [addonTitle, setAddonTitle] = useState("");
+  const [addonDetails, setAddonDetails] = useState("");
+  const [addonQty, setAddonQty] = useState(1);
+  const [addonPrice, setAddonPrice] = useState(550);
+
+  // Add Item / Custom Section Modal
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemType, setNewItemType] = useState<DocumentItemType>("custom");
   const [newDesc, setNewDesc] = useState("");
@@ -174,6 +279,14 @@ export function QuotationBuilder({
 
   function handleSaveBasics() {
     run(async () => {
+      const notesParts = [
+        customerRequirement ? `Customer Requirement: ${customerRequirement}` : "",
+        `Package Scope: ${packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"}`,
+        `Duration: ${duration}`,
+        `Room Type: ${roomType}`,
+        notes ? `Notes: ${notes}` : "",
+      ].filter(Boolean);
+
       const res = await fetch(`/api/admin/documents/${document.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -193,8 +306,9 @@ export function QuotationBuilder({
           destination,
           valid_until: validUntil || null,
           status,
-          notes: notes || null,
+          notes: notesParts.join("\n") || null,
           terms: terms || null,
+          special_requirements: customerRequirement || null,
         }),
       }).then((r) => r.json());
 
@@ -203,10 +317,39 @@ export function QuotationBuilder({
         return;
       }
 
+      setIsEditingClient(false);
       setSavedMessage("Saved successfully.");
       router.refresh();
       setTimeout(() => setSavedMessage(null), 3500);
     });
+  }
+
+  async function handleSaveManualPricing(subtotal: number, tax: number, total: number) {
+    setIsSavingPricing(true);
+    try {
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subtotal_aed: subtotal,
+          tax_aed: tax,
+          total_aed: total,
+        }),
+      }).then((r) => r.json());
+
+      if (!res.success) {
+        alert(res.error || "Failed to update pricing.");
+        return;
+      }
+      setIsEditingPricing(false);
+      setSavedMessage("Quotation pricing updated successfully.");
+      router.refresh();
+      setTimeout(() => setSavedMessage(null), 3500);
+    } catch (e: any) {
+      alert(e?.message || "Failed to save pricing.");
+    } finally {
+      setIsSavingPricing(false);
+    }
   }
 
   function handleStatusChange(nextStatus: string) {
@@ -246,6 +389,9 @@ export function QuotationBuilder({
         alert(res.error || "Failed to add item.");
         return;
       }
+      if (res.item) {
+        setItemsList((prev) => [...prev, res.item]);
+      }
 
       setIsAddingItem(false);
       setNewDesc("");
@@ -258,16 +404,235 @@ export function QuotationBuilder({
     }
   }
 
-  function handleDeleteItem(itemId: string) {
+  async function handleDeleteItem(itemId: string) {
     if (!confirm("Remove this section/item from the quotation?")) return;
+    setItemsList((prev) => prev.filter((i) => i.id !== itemId));
     try {
-      fetch(
+      const res = await fetch(
         `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}`,
         { method: "DELETE" }
-      ).then(() => router.refresh());
+      );
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || "Failed to remove item.");
+      }
+      router.refresh();
     } catch (e: any) {
       alert(e?.message || "Failed to delete item.");
     }
+  }
+
+  // Generic Line Item Saver (handles create or update)
+  async function saveLineItemPayload(itemId: string | null, payload: any) {
+    try {
+      if (itemId) {
+        const res = await fetch("/api/admin/documents/items", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            documentId: document.id,
+            itemId,
+            patch: payload,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.item) {
+          setItemsList((prev) => prev.map((it) => (it.id === itemId ? data.item : it)));
+        }
+      } else {
+        const res = await fetch("/api/admin/documents/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            documentId: document.id,
+            documentType: "quotation",
+            item: payload,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.item) {
+          setItemsList((prev) => [...prev, data.item]);
+        }
+      }
+      router.refresh();
+    } catch (err: any) {
+      alert(err?.message || "Failed to save item.");
+    }
+  }
+
+  // 1. Hotel modal open & submit
+  function openHotelModal(item?: DocumentItemRow | null) {
+    if (item) {
+      setEditingHotelId(item.id);
+      setHotelName(item.description);
+      setHotelDetails(item.details || "");
+      setHotelNights(item.quantity || 5);
+      setHotelPricePerNight(item.unit_price_aed || 0);
+      const isMakkah = item.description.toLowerCase().includes("makkah") || item.details?.toLowerCase().includes("makkah");
+      const isMadinah = item.description.toLowerCase().includes("madinah") || item.details?.toLowerCase().includes("madinah");
+      setHotelCity(isMakkah ? "Makkah" : isMadinah ? "Madinah" : null);
+      if (item.details?.includes("QUAD")) setHotelRoomType("QUAD");
+      else if (item.details?.includes("TRIPLE")) setHotelRoomType("TRIPLE");
+      else setHotelRoomType("TWIN/DOUBLE");
+    } else {
+      setEditingHotelId(null);
+      setHotelCity("Makkah");
+      setHotelName("Swissôtel Makkah");
+      setHotelDetails("5 Nights • Near Haram Courtyard • 5★ Luxury Buffet Breakfast Included");
+      setHotelRoomType("TWIN/DOUBLE");
+      setHotelNights(5);
+      setHotelPricePerNight(840);
+    }
+    setIsEditingHotelModalOpen(true);
+  }
+
+  async function handleSaveHotelSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!hotelName.trim()) return;
+
+    const cityTag = hotelCity ? `${hotelCity}` : "";
+    const cleanHotel = hotelName.trim();
+    const fullDesc = cleanHotel.toLowerCase().includes("hotel") || cleanHotel.toLowerCase().includes("makkah") || cleanHotel.toLowerCase().includes("madinah")
+      ? cleanHotel
+      : `${cityTag ? `${cityTag} Hotel — ` : ""}${cleanHotel}`;
+    const fullDetails = `${hotelNights} Nights • ${hotelRoomType} Room Sharing${hotelDetails ? ` • ${hotelDetails.trim()}` : ""}`;
+
+    await saveLineItemPayload(editingHotelId, {
+      item_type: "hotel",
+      description: fullDesc,
+      details: fullDetails,
+      quantity: hotelNights,
+      unit_price_aed: hotelPricePerNight,
+    });
+    setIsEditingHotelModalOpen(false);
+  }
+
+  // 2. Transfer modal open & submit
+  function openTransferModal(item?: DocumentItemRow | null) {
+    if (item) {
+      setEditingTransferId(item.id);
+      setTransferRouteName(item.description);
+      setTransferDetails(item.details || "");
+      setTransferQty(item.quantity || 1);
+      setTransferPrice(item.unit_price_aed || 0);
+    } else {
+      setEditingTransferId(null);
+      setTransferRouteName("Private GMC Yukon XL Transfers");
+      setTransferDetails("Jeddah Airport → Makkah Hotel • Makkah → Madinah • Madinah → Airport");
+      setTransferQty(1);
+      setTransferPrice(950);
+    }
+    setIsEditingTransferModalOpen(true);
+  }
+
+  async function handleSaveTransferSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!transferRouteName.trim()) return;
+
+    await saveLineItemPayload(editingTransferId, {
+      item_type: "transfer",
+      description: transferRouteName.trim(),
+      details: transferDetails.trim() || null,
+      quantity: transferQty,
+      unit_price_aed: transferPrice,
+    });
+    setIsEditingTransferModalOpen(false);
+  }
+
+  // 3. Flight modal open & submit
+  function openFlightModal(item?: DocumentItemRow | null) {
+    if (item) {
+      setEditingFlightId(item.id);
+      setFlightAirline(item.description);
+      setFlightDetails(item.details || "");
+      setFlightQty(item.quantity || adults);
+      setFlightPrice(item.unit_price_aed || 0);
+    } else {
+      setEditingFlightId(null);
+      setFlightAirline("Emirates – Business Class");
+      setFlightDetails("Dubai (DXB) ⇄ Jeddah (JED) • 25kg checked baggage included");
+      setFlightQty(adults);
+      setFlightPrice(4500);
+    }
+    setIsEditingFlightModalOpen(true);
+  }
+
+  async function handleSaveFlightSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!flightAirline.trim()) return;
+
+    await saveLineItemPayload(editingFlightId, {
+      item_type: "flight",
+      description: flightAirline.trim(),
+      details: flightDetails.trim() || null,
+      quantity: flightQty,
+      unit_price_aed: flightPrice,
+    });
+    setIsEditingFlightModalOpen(false);
+  }
+
+  // 4. Meals modal open & submit
+  function openMealsModal(item?: DocumentItemRow | null) {
+    if (item) {
+      setEditingMealId(item.id);
+      setMealTitle(item.description);
+      setMealDetails(item.details || "");
+      setMealQty(item.quantity || adults);
+      setMealPrice(item.unit_price_aed || 0);
+    } else {
+      setEditingMealId(null);
+      setMealTitle("Daily 3-Course Gourmet Meals");
+      setMealDetails("Daily breakfast, lunch and dinner included in 5-star hotel dining rooms.");
+      setMealQty(adults);
+      setMealPrice(450);
+    }
+    setIsEditingMealsModalOpen(true);
+  }
+
+  async function handleSaveMealsSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mealTitle.trim()) return;
+
+    await saveLineItemPayload(editingMealId, {
+      item_type: "custom",
+      description: mealTitle.trim(),
+      details: mealDetails.trim() || null,
+      quantity: mealQty,
+      unit_price_aed: mealPrice,
+    });
+    setIsEditingMealsModalOpen(false);
+  }
+
+  // 5. Addon modal open & submit
+  function openAddonModal(item?: DocumentItemRow | null) {
+    if (item) {
+      setEditingAddonId(item.id);
+      setAddonTitle(item.description);
+      setAddonDetails(item.details || "");
+      setAddonQty(item.quantity || 1);
+      setAddonPrice(item.unit_price_aed || 0);
+    } else {
+      setEditingAddonId(null);
+      setAddonTitle("Saudi Electronic Tourist / Umrah Visa");
+      setAddonDetails("1-year multiple entry visa with medical insurance coverage across KSA.");
+      setAddonQty(adults);
+      setAddonPrice(550);
+    }
+    setIsEditingAddonModalOpen(true);
+  }
+
+  async function handleSaveAddonSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!addonTitle.trim()) return;
+
+    await saveLineItemPayload(editingAddonId, {
+      item_type: "service",
+      description: addonTitle.trim(),
+      details: addonDetails.trim() || null,
+      quantity: addonQty,
+      unit_price_aed: addonPrice,
+    });
+    setIsEditingAddonModalOpen(false);
   }
 
   function handleConvertToInvoice() {
@@ -311,19 +676,29 @@ export function QuotationBuilder({
     totalAmount: number;
   }) {
     run(async () => {
-      await addLineItem(document.id, "quotation", {
-        item_type: journeyType === "hajj" ? "hajj_package" : "umrah_package",
-        description: `${journeyType === "hajj" ? "Hajj 2027" : "Umrah 2026"} – ${config.tier} Package`,
-        details: `${config.tier} Tier • ${config.roomType} Room Sharing • Includes direct flights & 5★ luxury hospitality`,
-        quantity: adults,
-        unit_price_aed: config.tierPrice,
-      });
+      // Remove any existing package items first so we don't pile up duplicates
+      for (const p of packageItems) {
+        await fetch(
+          `/api/admin/documents/items?itemId=${encodeURIComponent(p.id)}&documentId=${encodeURIComponent(document.id)}`,
+          { method: "DELETE" }
+        );
+      }
+
+      if (config.tier !== "CUSTOM" && config.tierPrice > 0) {
+        await addLineItem(document.id, "quotation", {
+          item_type: journeyType === "hajj" ? "hajj_package" : "umrah_package",
+          description: `${journeyType === "hajj" ? "Hajj 2027" : "Umrah 2026"} – ${config.tier} Package (${duration})`,
+          details: `${config.tier} Tier • ${config.roomType} Room Sharing • Includes direct flights & 5★ luxury hospitality`,
+          quantity: adults,
+          unit_price_aed: config.tierPrice,
+        });
+      }
 
       if (config.makkahHotel) {
         await addLineItem(document.id, "quotation", {
           item_type: "hotel",
           description: `Makkah Hotel — ${config.makkahHotel}`,
-          details: `5 Nights • Near Haram Courtyard • 5★ Luxury Buffet Breakfast Included`,
+          details: `5 Nights • Near Haram Courtyard • ${config.roomType} Sharing • 5★ Luxury Buffet Breakfast Included`,
           quantity: 5,
           unit_price_aed: Math.round(config.makkahPrice / 5),
         });
@@ -333,7 +708,7 @@ export function QuotationBuilder({
         await addLineItem(document.id, "quotation", {
           item_type: "hotel",
           description: `Madinah Hotel — ${config.madinahHotel}`,
-          details: `5 Nights • Steps from Prophet's Mosque • 5★ Luxury Buffet Breakfast Included`,
+          details: `5 Nights • Steps from Prophet's Mosque • ${config.roomType} Sharing • 5★ Luxury Buffet Breakfast Included`,
           quantity: 5,
           unit_price_aed: Math.round(config.madinahPrice / 5),
         });
@@ -353,7 +728,7 @@ export function QuotationBuilder({
         await addLineItem(document.id, "quotation", {
           item_type: "flight",
           description: `Emirates – Business Class Upgrade`,
-          details: `Dubai (DXB) ↔ Jeddah/Madinah scheduled luxury cabin`,
+          details: `Dubai (DXB) ⇄ Jeddah/Madinah scheduled luxury cabin`,
           quantity: adults,
           unit_price_aed: config.flightPrice,
         });
@@ -426,13 +801,13 @@ export function QuotationBuilder({
     setIsAddingItem(true);
   }
 
-  // Group line items
-  const packageItems = items.filter((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
-  const hotelItems = items.filter((i) => i.item_type === "hotel");
-  const transferItems = items.filter((i) => i.item_type === "transfer");
-  const flightItems = items.filter((i) => i.item_type === "flight");
-  const mealItems = items.filter((i) => i.description.toLowerCase().includes("meal") || i.description.toLowerCase().includes("breakfast"));
-  const otherItems = items.filter(
+  // Group line items from dynamic itemsList
+  const packageItems = itemsList.filter((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
+  const hotelItems = itemsList.filter((i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation");
+  const transferItems = itemsList.filter((i) => i.item_type === "transfer");
+  const flightItems = itemsList.filter((i) => i.item_type === "flight");
+  const mealItems = itemsList.filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"));
+  const otherItems = itemsList.filter(
     (i) =>
       !packageItems.includes(i) &&
       !hotelItems.includes(i) &&
@@ -620,9 +995,9 @@ export function QuotationBuilder({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs text-masaar-black/60">
-                  {adults} Adults, {children} Children
+                  {adults} Adults{children ? `, ${children} Children` : ""} • <span className="font-semibold text-admin-primary">{duration}</span> • <span className="font-semibold text-admin-primary">{packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"}</span>
                 </span>
                 <button
                   type="button"
@@ -664,54 +1039,110 @@ export function QuotationBuilder({
                     className={inputClass}
                   />
                 </Field>
+                <Field label="Duration (e.g. 3D2N, 7D6N, 10D9N)">
+                  <input
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    placeholder="e.g. 3D2N"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Package Scope">
+                  <select
+                    value={packageScope}
+                    onChange={(e) => setPackageScope(e.target.value as any)}
+                    className={inputClass}
+                  >
+                    <option value="both">Makkah &amp; Madinah</option>
+                    <option value="makkah_only">Makkah only</option>
+                    <option value="madinah_only">Madinah only</option>
+                  </select>
+                </Field>
+                <Field label="Room Type">
+                  <select
+                    value={roomType}
+                    onChange={(e) => setRoomType(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="TWIN/DOUBLE">TWIN/DOUBLE</option>
+                    <option value="TRIPLE">TRIPLE</option>
+                    <option value="QUAD">QUAD</option>
+                  </select>
+                </Field>
+                <Field label="Customer Requirements / Special Requests">
+                  <input
+                    value={customerRequirement}
+                    onChange={(e) => setCustomerRequirement(e.target.value)}
+                    placeholder="e.g. Elderly wheelchair support, high floor Haram view..."
+                    className={inputClass}
+                  />
+                </Field>
               </div>
             )}
           </Card>
 
           {/* 2. Package Details Section */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <span className="text-black/30 font-bold mt-2">⋮⋮</span>
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  📦
+          {!isPackageDismissed && (
+            <Card className="!p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="text-black/30 font-bold mt-2">⋮⋮</span>
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-light-gold/20 text-base">
+                    📦
+                  </div>
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
+                    <Image
+                      src="/Assets/BANNER IMAGE.png"
+                      alt="Package"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
+                      Package
+                    </span>
+                    <h3 className="font-semibold text-masaar-black text-sm">
+                      {packageItems[0]?.description || `${document.journey_type === "hajj" ? "Hajj 2027" : "Custom Umrah"} — Signature Tier`}
+                    </h3>
+                    <p className="text-xs text-masaar-black/60">
+                      {packageItems[0]?.details || `${duration} | ${packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"} Luxury Experience with complete inclusions.`}
+                    </p>
+                  </div>
                 </div>
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
-                  <Image
-                    src="/Assets/BANNER IMAGE.png"
-                    alt="Package"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Package
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    {packageItems[0]?.description || `${document.journey_type === "hajj" ? "Hajj 2027" : "Custom Umrah"} — Platinum Tier`}
-                  </h3>
-                  <p className="text-xs text-masaar-black/60">
-                    {packageItems[0]?.details || "10 Days | Makkah & Madinah Luxury Experience with complete inclusions."}
-                  </p>
-                </div>
-              </div>
 
-              <div className="text-right shrink-0">
-                <p className="font-bold text-masaar-black text-sm">
-                  {packageItems[0] ? `AED ${Number(packageItems[0].amount_aed).toLocaleString()}` : "Included"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsPackageModalOpen(true)}
-                  className="rounded-md border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  Edit
-                </button>
+                <div className="text-right shrink-0 space-y-1">
+                  <p className="font-bold text-masaar-black text-sm">
+                    {packageItems[0] ? `AED ${Number(packageItems[0].amount_aed).toLocaleString()}` : "Included"}
+                  </p>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsPackageModalOpen(true)}
+                      className="rounded-md border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (packageItems[0]) {
+                          handleDeleteItem(packageItems[0].id);
+                        } else {
+                          setIsPackageDismissed(true);
+                        }
+                      }}
+                      className="rounded-md border border-red-200 bg-red-50/80 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-100"
+                      title="Remove package"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* 3. Itinerary Section */}
           <Card className="!p-4">
@@ -789,208 +1220,315 @@ export function QuotationBuilder({
                     Accommodation
                   </span>
                   <h3 className="font-semibold text-masaar-black text-sm">
-                    Makkah &amp; Madinah 5★ Hotels
+                    Hotels &amp; Room Configuration
                   </h3>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  openAddSectionWithPreset(
-                    "hotel",
-                    "Swissôtel Makkah (5★ Clock Tower)",
-                    "5 Nights • Quad/Twin sharing • Buffet breakfast included • Near Haram",
-                    2800
-                  )
-                }
+                onClick={() => openHotelModal(null)}
                 className="text-xs text-admin-primary font-semibold hover:underline"
               >
                 + Add Hotel
               </button>
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 text-xs">
-              <div className="flex items-center gap-3 rounded-lg border border-black/10 p-2.5">
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-black/10">
-                  <Image
-                    src="/hotels/swissotel-makkah/hero.jpg"
-                    alt="Swissôtel Makkah"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-masaar-black">Swissôtel Makkah</p>
-                  <p className="text-[11px] text-masaar-black/60">5 Nights • Near Haram • 5★</p>
-                  <p className="text-[10px] text-pure-gold font-bold">★★★★★</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 rounded-lg border border-black/10 p-2.5">
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-black/10">
-                  <Image
-                    src="/hotels/anwar-al-madinah-movenpick/hero.jpg"
-                    alt="Anwar Al Madinah"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-masaar-black">Anwar Al Madinah Mövenpick</p>
-                  <p className="text-[11px] text-masaar-black/60">4 Nights • Courtyard Access • 5★</p>
-                  <p className="text-[10px] text-pure-gold font-bold">★★★★★</p>
-                </div>
-              </div>
+            <div className="mt-3 space-y-3">
+              {hotelItems.length === 0 ? (
+                <p className="text-xs text-masaar-black/50 italic py-2">
+                  No hotel configured yet. Click &quot;+ Add Hotel&quot; to select from inventory or enter manually.
+                </p>
+              ) : (
+                hotelItems.map((h) => {
+                  const isMakkah = h.description.toLowerCase().includes("makkah");
+                  const img = isMakkah ? "/hotels/swissotel-makkah/hero.jpg" : "/hotels/anwar-al-madinah-movenpick/hero.jpg";
+                  return (
+                    <div key={h.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
+                          <Image src={img} alt="Hotel" fill className="object-cover" unoptimized />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-masaar-black text-xs">{h.description}</p>
+                          <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{h.details || `${h.quantity} Nights • 5★ Hotel`}</p>
+                          <p className="text-[11px] text-admin-primary font-semibold mt-1">
+                            {h.quantity} Nights @ AED {Number(h.unit_price_aed).toLocaleString()}/night
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 space-y-1">
+                        <p className="font-bold text-masaar-black text-xs">
+                          AED {Number(h.amount_aed ?? (h.quantity * h.unit_price_aed)).toLocaleString()}
+                        </p>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openHotelModal(h)}
+                            className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
+                          >
+                            ✎ Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(h.id)}
+                            className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                            title="Remove hotel"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </Card>
 
           {/* 5. Transportation Section */}
           <Card className="!p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <span className="text-black/30 font-bold mt-2">⋮⋮</span>
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-light-gold/20 text-base">
+            <div className="flex items-start justify-between border-b border-black/10 pb-3">
+              <div className="flex items-center gap-3">
+                <span className="text-black/30 font-bold">⋮⋮</span>
+                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
                   🚗
-                </div>
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
-                  <Image
-                    src="/vehicles/gmc-yukon-suburban.jpg"
-                    alt="GMC Yukon"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
                     Transportation
                   </span>
                   <h3 className="font-semibold text-masaar-black text-sm">
-                    Private GMC Yukon XL / Chauffeur
+                    Private Vehicles &amp; Chauffeur Transfers
                   </h3>
-                  <p className="text-xs text-masaar-black/60">
-                    Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport
-                  </p>
                 </div>
               </div>
 
-              <div className="text-right shrink-0">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openAddSectionWithPreset(
-                      "transfer",
-                      "Private GMC Yukon XL — Airport & Intercity Transfer",
-                      "Full private intercity transfers with personal chauffeur.",
-                      950
-                    )
-                  }
-                  className="text-xs text-admin-primary font-semibold hover:underline"
-                >
-                  Configure
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => openTransferModal(null)}
+                className="text-xs text-admin-primary font-semibold hover:underline"
+              >
+                + Add Transfer
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {transferItems.length === 0 ? (
+                <div className="flex items-center justify-between text-xs text-masaar-black/50 py-2">
+                  <span>No specific transfer line item added yet.</span>
+                  <button
+                    type="button"
+                    onClick={() => openTransferModal(null)}
+                    className="text-admin-primary font-semibold hover:underline"
+                  >
+                    ✎ Edit Transfer
+                  </button>
+                </div>
+              ) : (
+                transferItems.map((t) => (
+                  <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
+                        <Image src="/vehicles/gmc-yukon-suburban.jpg" alt="Transfer" fill className="object-cover" unoptimized />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-masaar-black text-xs">{t.description}</p>
+                        <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{t.details || "Private intercity & airport transfers"}</p>
+                        <p className="text-[11px] text-admin-primary font-semibold mt-1">
+                          Qty: {t.quantity} • AED {Number(t.unit_price_aed).toLocaleString()} ea
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      <p className="font-bold text-masaar-black text-xs">
+                        AED {Number(t.amount_aed ?? (t.quantity * t.unit_price_aed)).toLocaleString()}
+                      </p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openTransferModal(t)}
+                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
+                        >
+                          ✎ Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(t.id)}
+                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                          title="Remove transfer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
 
           {/* 6. Flights Section */}
           <Card className="!p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <span className="text-black/30 font-bold mt-2">⋮⋮</span>
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-light-gold/20 text-base">
+            <div className="flex items-start justify-between border-b border-black/10 pb-3">
+              <div className="flex items-center gap-3">
+                <span className="text-black/30 font-bold">⋮⋮</span>
+                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
                   ✈️
-                </div>
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
-                  <Image
-                    src="/Assets/IMAGE 6 FLIGHT.jpg"
-                    alt="Flight"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
                     Flights
                   </span>
                   <h3 className="font-semibold text-masaar-black text-sm">
-                    Emirates — Return Business / Economy
+                    Airline Tickets &amp; Cabin Class
                   </h3>
-                  <p className="text-xs text-masaar-black/60">
-                    Dubai (DXB) → Jeddah (JED) | Madinah (MED) → Dubai (DXB)
-                  </p>
                 </div>
               </div>
 
-              <div className="text-right shrink-0">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openAddSectionWithPreset(
-                      "flight",
-                      "Emirates Airlines Return Flight",
-                      "Dubai (DXB) ⇄ Jeddah (JED) • 25kg checked baggage included",
-                      1850
-                    )
-                  }
-                  className="text-xs text-admin-primary font-semibold hover:underline"
-                >
-                  Configure
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => openFlightModal(null)}
+                className="text-xs text-admin-primary font-semibold hover:underline"
+              >
+                + Add Flight
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {flightItems.length === 0 ? (
+                <div className="flex items-center justify-between text-xs text-masaar-black/50 py-2">
+                  <span>No flight line item configured yet.</span>
+                  <button
+                    type="button"
+                    onClick={() => openFlightModal(null)}
+                    className="text-admin-primary font-semibold hover:underline"
+                  >
+                    ✎ Edit Flight
+                  </button>
+                </div>
+              ) : (
+                flightItems.map((f) => (
+                  <div key={f.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
+                        <Image src="/Assets/IMAGE 6 FLIGHT.jpg" alt="Flight" fill className="object-cover" unoptimized />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-masaar-black text-xs">{f.description}</p>
+                        <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{f.details || "Scheduled return flights"}</p>
+                        <p className="text-[11px] text-admin-primary font-semibold mt-1">
+                          Seats: {f.quantity} • AED {Number(f.unit_price_aed).toLocaleString()} ea
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      <p className="font-bold text-masaar-black text-xs">
+                        AED {Number(f.amount_aed ?? (f.quantity * f.unit_price_aed)).toLocaleString()}
+                      </p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openFlightModal(f)}
+                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
+                        >
+                          ✎ Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(f.id)}
+                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                          title="Remove flight"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
 
           {/* 7. Meals Section */}
           <Card className="!p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <span className="text-black/30 font-bold mt-2">⋮⋮</span>
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-light-gold/20 text-base">
+            <div className="flex items-start justify-between border-b border-black/10 pb-3">
+              <div className="flex items-center gap-3">
+                <span className="text-black/30 font-bold">⋮⋮</span>
+                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
                   🍽️
-                </div>
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
-                  <Image
-                    src="/Assets/IMAGE 4.jpg"
-                    alt="Meals"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
                     Meals
                   </span>
                   <h3 className="font-semibold text-masaar-black text-sm">
-                    Daily 3-Course Meals &amp; Dining
+                    Dining &amp; Catering Inclusions
                   </h3>
-                  <p className="text-xs text-masaar-black/60">
-                    Daily buffet breakfast and curated Arabic/Continental dining at hotel restaurants.
-                  </p>
                 </div>
               </div>
 
-              <div className="text-right shrink-0">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openAddSectionWithPreset(
-                      "service",
-                      "Daily 3-Course Meals & Dining",
-                      "Daily breakfast and dinner at 5-star hotel buffet.",
-                      450
-                    )
-                  }
-                  className="text-xs text-admin-primary font-semibold hover:underline"
-                >
-                  Configure
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => openMealsModal(null)}
+                className="text-xs text-admin-primary font-semibold hover:underline"
+              >
+                + Add Meals
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {mealItems.length === 0 ? (
+                <div className="flex items-center justify-between text-xs text-masaar-black/50 py-2">
+                  <span>Buffet breakfast included with 5★ hotels or customize dining.</span>
+                  <button
+                    type="button"
+                    onClick={() => openMealsModal(null)}
+                    className="text-admin-primary font-semibold hover:underline"
+                  >
+                    ✎ Edit Meals
+                  </button>
+                </div>
+              ) : (
+                mealItems.map((m) => (
+                  <div key={m.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
+                        <Image src="/Assets/IMAGE 4.jpg" alt="Meals" fill className="object-cover" unoptimized />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-masaar-black text-xs">{m.description}</p>
+                        <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{m.details || "Daily hotel buffet & dining inclusions"}</p>
+                        <p className="text-[11px] text-admin-primary font-semibold mt-1">
+                          Guests: {m.quantity} • AED {Number(m.unit_price_aed).toLocaleString()} ea
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      <p className="font-bold text-masaar-black text-xs">
+                        AED {Number(m.amount_aed ?? (m.quantity * m.unit_price_aed)).toLocaleString()}
+                      </p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openMealsModal(m)}
+                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
+                        >
+                          ✎ Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(m.id)}
+                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                          title="Remove meals"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
 
@@ -1004,76 +1542,68 @@ export function QuotationBuilder({
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Additional Services &amp; Private Trips
+                    Additional Services &amp; Add-ons
                   </span>
                   <h3 className="font-semibold text-masaar-black text-sm">
-                    High Speed Train, Ziyarat, Visa &amp; VIP Assistance
+                    Train, Ziyarat, Visa &amp; Custom Add-ons
                   </h3>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  openAddSectionWithPreset(
-                    "service",
-                    "Saudi Electronic Tourist / Umrah Visa",
-                    "1-year multiple entry visa with medical insurance coverage across KSA.",
-                    550
-                  )
-                }
+                onClick={() => openAddonModal(null)}
                 className="text-xs text-admin-primary font-semibold hover:underline"
               >
-                + Add Service
+                + Add Add-on
               </button>
             </div>
 
-            <div className="mt-3 space-y-1.5 text-xs text-masaar-black/80">
-              <div className="flex items-center gap-2">
-                <span className="text-admin-primary font-bold">✓</span>
-                <span>Haramain High Speed Rail ticket (Makkah → Madinah)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-admin-primary font-bold">✓</span>
-                <span>Guided Historical Ziyarat in Makkah Mukarramah &amp; Madinah Munawwarah</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-admin-primary font-bold">✓</span>
-                <span>Saudi Electronic Tourist / Umrah Visa with mandatory KSA medical insurance</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-admin-primary font-bold">✓</span>
-                <span>24/7 Dedicated On-Ground Concierge &amp; Pilgrimage Support</span>
-              </div>
+            <div className="mt-3 space-y-2">
+              {otherItems.length === 0 ? (
+                <p className="text-xs text-masaar-black/50 italic py-2">
+                  No additional services or add-ons added yet. Click &quot;+ Add Add-on&quot; to include Visa, Train, Ziyarat, etc.
+                </p>
+              ) : (
+                otherItems.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
+                        {item.item_type.replace(/_/g, " ")}
+                      </span>
+                      <p className="font-bold text-masaar-black text-xs mt-0.5">{item.description}</p>
+                      {item.details && <p className="text-[11px] text-masaar-black/60 mt-0.5">{item.details}</p>}
+                      <p className="text-[11px] text-admin-primary font-semibold mt-1">
+                        Qty: {item.quantity} • AED {Number(item.unit_price_aed).toLocaleString()} ea
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      <p className="font-bold text-masaar-black text-xs">
+                        AED {Number(item.amount_aed ?? (item.quantity * item.unit_price_aed)).toLocaleString()}
+                      </p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openAddonModal(item)}
+                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
+                        >
+                          ✎ Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                          title="Remove item"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
-
-          {/* 9. Configured Custom Line Items (if any) */}
-          {items.map((item, idx) => (
-            <Card key={item.id} className="!p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    {item.item_type.replace(/_/g, " ")} #{idx + 1}
-                  </span>
-                  <h4 className="font-semibold text-masaar-black text-sm">{item.description}</h4>
-                  {item.details && <p className="text-xs text-masaar-black/60">{item.details}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-masaar-black text-sm">
-                    AED {Number(item.amount_aed ?? 0).toLocaleString()}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))}
 
           {/* 10. Thank You & Blessing Section */}
           <div className="rounded-xl border-2 border-pure-gold/30 bg-warm-ivory/50 p-5 text-center">
@@ -1184,7 +1714,7 @@ export function QuotationBuilder({
                   Tailored Journeys for a Higher Purpose
                 </p>
                 <h4 className="font-serif text-sm font-bold text-white mt-1 uppercase">
-                  {journeyType === "hajj" ? "HAJJ 2027 PLATINUM PACKAGE" : "UMRAH 2026 PLATINUM PACKAGE"}
+                  {journeyType === "hajj" ? "HAJJ 2027 EXCLUSIVE PACKAGE" : "UMRAH 2026 EXCLUSIVE PACKAGE"}
                 </h4>
                 <p className="text-[9px] tracking-widest text-white/70 uppercase mt-1">
                   FAITH • CLARITY • CARE • PEACE
@@ -1193,32 +1723,194 @@ export function QuotationBuilder({
             </div>
           </div>
 
-          {/* Quotation Summary Card */}
+          {/* Quotation Summary Card with Manual Pricing Box */}
           <Card className="sticky top-6">
-            <div className="border-b border-black/10 pb-3">
-              <h3 className="font-serif text-base font-bold text-masaar-black">
-                Summary
-              </h3>
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-base font-bold text-masaar-black">
+                  Summary &amp; Pricing
+                </h3>
+                <p className="text-[10px] text-masaar-black/50">Manual pricing control</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingPricing(!isEditingPricing)}
+                className="rounded-md border border-[#b37e28]/40 bg-[#FAF8F5] px-2 py-1 text-[11px] font-bold text-[#865d1d] hover:bg-[#F5ECE0]"
+              >
+                {isEditingPricing ? "Close" : "✎ Edit Price"}
+              </button>
             </div>
 
-            <div className="mt-3 space-y-2.5 text-xs font-sans">
-              <div className="flex justify-between text-masaar-black/70">
-                <span>Total (AED)</span>
+            {/* Manual Pricing Editor Form */}
+            {isEditingPricing ? (
+              <div className="mt-3 space-y-2.5 rounded-xl border border-[#b37e28]/30 bg-light-gold/10 p-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-masaar-black mb-1">
+                    Package Base Price / Subtotal (AED)
+                  </label>
+                  <input
+                    type="number"
+                    value={manualSubtotal}
+                    onChange={(e) => {
+                      const sub = Number(e.target.value) || 0;
+                      setManualSubtotal(sub);
+                      if (applyVat) {
+                        const tx = Math.round(sub * 0.05 * 100) / 100;
+                        setManualTax(tx);
+                        setManualTotal(sub + tx);
+                      } else {
+                        setManualTax(0);
+                        setManualTotal(sub);
+                      }
+                    }}
+                    className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs font-bold text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
+                  />
+                </div>
+
+                {/* VAT 5% Tick Box */}
+                <div className="flex items-center justify-between rounded-lg border border-[#b37e28]/30 bg-white px-3 py-2">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-masaar-black">
+                    <input
+                      type="checkbox"
+                      checked={applyVat}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setApplyVat(checked);
+                        if (checked) {
+                          const tx = Math.round(manualSubtotal * 0.05 * 100) / 100;
+                          setManualTax(tx);
+                          setManualTotal(manualSubtotal + tx);
+                        } else {
+                          setManualTax(0);
+                          setManualTotal(manualSubtotal);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-black/20 text-[#b37e28] focus:ring-[#b37e28] cursor-pointer"
+                    />
+                    <span>Apply 5% VAT</span>
+                  </label>
+                  <span className="text-xs font-bold text-[#865d1d]">
+                    AED {applyVat ? manualTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-masaar-black/70 mb-1">
+                      VAT Amount (AED)
+                    </label>
+                    <input
+                      type="number"
+                      value={manualTax}
+                      onChange={(e) => {
+                        const tx = Number(e.target.value) || 0;
+                        setManualTax(tx);
+                        setManualTotal(manualSubtotal + tx);
+                        setApplyVat(tx > 0);
+                      }}
+                      className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs font-bold text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-masaar-black/70 mb-1">
+                      Final Total (AED)
+                    </label>
+                    <input
+                      type="number"
+                      value={manualTotal}
+                      onChange={(e) => setManualTotal(Number(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-[#b37e28] bg-white px-2.5 py-1.5 text-xs font-bold text-[#865d1d] focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={isSavingPricing}
+                    onClick={() => handleSaveManualPricing(manualSubtotal, manualTax, manualTotal)}
+                    className="flex-1 rounded-lg bg-[#b37e28] py-2 text-xs font-bold text-white shadow-xs hover:bg-[#96671e] disabled:opacity-60 cursor-pointer"
+                  >
+                    {isSavingPricing ? "Saving..." : "Save Pricing"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const itemsSubtotal = itemsList.reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
+                      setManualSubtotal(itemsSubtotal);
+                      if (applyVat) {
+                        const tx = Math.round(itemsSubtotal * 0.05 * 100) / 100;
+                        setManualTax(tx);
+                        setManualTotal(itemsSubtotal + tx);
+                      } else {
+                        setManualTax(0);
+                        setManualTotal(itemsSubtotal);
+                      }
+                    }}
+                    className="rounded-lg border border-black/15 bg-white px-2.5 py-2 text-[10px] font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
+                    title="Calculate from line items"
+                  >
+                    Sum Items
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Price Breakdown Display */}
+            <div className="mt-3 space-y-2 text-xs font-sans">
+              <div className="flex justify-between text-masaar-black font-semibold">
+                <span>Total Package Price</span>
                 <span className="font-bold text-masaar-black">
-                  {Number(document.total_aed ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  AED {Number(document.subtotal_aed || manualSubtotal).toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between text-masaar-black/70">
-                <span>Paid</span>
-                <span className="font-medium text-masaar-black">
-                  {Number(document.amount_paid_aed ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+
+              {/* Sub-breakdown items */}
+              <div className="space-y-1 text-[11px] text-masaar-black/70 pl-2.5 border-l-2 border-[#b37e28]/40">
+                <div className="flex justify-between">
+                  <span>Hotel &amp; Transport</span>
+                  <span className="font-semibold text-masaar-black">
+                    AED {Number(
+                      itemsList
+                        .filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type))
+                        .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0) || 6400
+                    ).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Flights ({flightItems.length > 0 ? flightItems[0].quantity : adults} Pax)</span>
+                  <span className="font-semibold text-masaar-black">
+                    AED {Number(
+                      itemsList
+                        .filter((i) => i.item_type === "flight")
+                        .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0) || 2400
+                    ).toLocaleString()}
+                  </span>
+                </div>
               </div>
+
               <div className="flex justify-between border-t border-black/10 pt-2 font-bold text-masaar-black">
-                <span>Balance</span>
-                <span>
-                  {Number((document.total_aed ?? 0) - (document.amount_paid_aed ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span>VAT (5%)</span>
+                <span>AED {Number(document.tax_aed || manualTax).toLocaleString()}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-t-2 border-[#b37e28] pt-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#865d1d]">
+                  Final Total
                 </span>
+                <span className="font-serif text-lg font-bold text-masaar-black">
+                  AED {Number(document.total_aed || manualTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-masaar-black/60 pt-1 text-[11px]">
+                <span>Paid</span>
+                <span>AED {Number(document.amount_paid_aed ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <div className="flex justify-between text-masaar-black/80 font-semibold text-[11px] border-t border-black/5 pt-1">
+                <span>Balance Due</span>
+                <span>AED {Number((document.total_aed || manualTotal) - (document.amount_paid_aed ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
 
@@ -1479,7 +2171,599 @@ export function QuotationBuilder({
         </div>
       )}
 
-      {/* Custom Package Builder Modal matching CUSTOM PACKAGE BUILDER.png */}
+      {/* 1. Accommodation (Hotel) Modal */}
+      {isEditingHotelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                  {editingHotelId ? "Edit Accommodation" : "Add Hotel Accommodation"}
+                </h3>
+                <p className="text-xs text-masaar-black/60 mt-0.5">
+                  Select city, pick from inventory or type hotel details manually.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingHotelModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHotelSubmit} className="mt-4 space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-masaar-black">City</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHotelCity(hotelCity === "Makkah" ? null : "Makkah")}
+                    className={`flex-1 rounded-lg border py-2 text-xs font-bold transition-all ${
+                      hotelCity === "Makkah"
+                        ? "border-[#b37e28] bg-light-gold/20 text-[#865d1d]"
+                        : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/[0.02]"
+                    }`}
+                  >
+                    🕋 Makkah {hotelCity === "Makkah" && "✓"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHotelCity(hotelCity === "Madinah" ? null : "Madinah")}
+                    className={`flex-1 rounded-lg border py-2 text-xs font-bold transition-all ${
+                      hotelCity === "Madinah"
+                        ? "border-[#b37e28] bg-light-gold/20 text-[#865d1d]"
+                        : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/[0.02]"
+                    }`}
+                  >
+                    🕌 Madinah {hotelCity === "Madinah" && "✓"}
+                  </button>
+                  {hotelCity && (
+                    <button
+                      type="button"
+                      onClick={() => setHotelCity(null)}
+                      className="px-2.5 py-2 text-xs text-masaar-black/50 hover:text-masaar-black underline"
+                    >
+                      Clear City
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {availableHotels.length > 0 && (
+                <Field label="Choose from Hotel Inventory (Optional quick fill)">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const h = availableHotels.find((x) => x.id === e.target.value);
+                      if (h) {
+                        setHotelName(h.name);
+                        if (h.city?.toLowerCase().includes("makkah")) setHotelCity("Makkah");
+                        else if (h.city?.toLowerCase().includes("madinah")) setHotelCity("Madinah");
+                        if (h.price_from_aed) setHotelPricePerNight(h.price_from_aed);
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">-- Or select an inventory hotel --</option>
+                    {availableHotels
+                      .filter((h) => !hotelCity || h.city?.toLowerCase() === hotelCity.toLowerCase())
+                      .map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name} ({h.city} • {h.star_rating ? `${h.star_rating}★` : "5★"}{h.price_from_aed ? ` • AED ${h.price_from_aed}/nt` : ""})
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              )}
+
+              <Field label="Hotel Name (manual or selected)" required>
+                <input
+                  required
+                  value={hotelName}
+                  onChange={(e) => setHotelName(e.target.value)}
+                  placeholder="e.g. Swissôtel Makkah"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Room Sharing Type">
+                  <select
+                    value={hotelRoomType}
+                    onChange={(e) => setHotelRoomType(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="TWIN/DOUBLE">TWIN/DOUBLE</option>
+                    <option value="TRIPLE">TRIPLE</option>
+                    <option value="QUAD">QUAD</option>
+                  </select>
+                </Field>
+
+                <Field label="Number of Nights">
+                  <input
+                    type="number"
+                    min="1"
+                    value={hotelNights}
+                    onChange={(e) => setHotelNights(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Rate per Night (AED)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={hotelPricePerNight}
+                  onChange={(e) => setHotelPricePerNight(Number(e.target.value))}
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Hotel Inclusions &amp; Room Details">
+                <textarea
+                  rows={2}
+                  value={hotelDetails}
+                  onChange={(e) => setHotelDetails(e.target.value)}
+                  placeholder="e.g. Near Haram courtyard • 5★ luxury buffet breakfast included • High floor city view"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
+                <span>Calculated Total:</span>
+                <span className="font-bold text-admin-primary">
+                  AED {Number(hotelNights * hotelPricePerNight).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingHotelModalOpen(false)}
+                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
+                >
+                  Save Hotel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Transportation Modal */}
+      {isEditingTransferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                  {editingTransferId ? "Edit Transportation" : "Add Transportation"}
+                </h3>
+                <p className="text-xs text-masaar-black/60 mt-0.5">
+                  Pick vehicle/transfer from inventory or manually write route, quantity, and price.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingTransferModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTransferSubmit} className="mt-4 space-y-3 text-xs">
+              {availableTransfers.length > 0 && (
+                <Field label="Choose from Transfer Inventory (Optional quick fill)">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const t = availableTransfers.find((x) => x.id === e.target.value);
+                      if (t) {
+                        setTransferRouteName(t.route_name);
+                        if (t.price_from_aed) setTransferPrice(t.price_from_aed);
+                        if (t.vehicle_type) setTransferDetails(`Vehicle: ${t.vehicle_type} with dedicated chauffeur`);
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">-- Or select an inventory transfer --</option>
+                    {availableTransfers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.route_name} ({t.vehicle_type || "Private Vehicle"}{t.price_from_aed ? ` • AED ${t.price_from_aed}` : ""})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              <Field label="Transfer / Route Title" required>
+                <input
+                  required
+                  value={transferRouteName}
+                  onChange={(e) => setTransferRouteName(e.target.value)}
+                  placeholder="e.g. Private GMC Yukon XL Transfers"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Route Details &amp; Inclusions">
+                <textarea
+                  rows={2}
+                  value={transferDetails}
+                  onChange={(e) => setTransferDetails(e.target.value)}
+                  placeholder="e.g. Jeddah Airport → Makkah Hotel • Makkah → Madinah • Madinah → Airport"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Quantity / Vehicles">
+                  <input
+                    type="number"
+                    min="1"
+                    value={transferQty}
+                    onChange={(e) => setTransferQty(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Unit Price (AED)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={transferPrice}
+                    onChange={(e) => setTransferPrice(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+
+              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
+                <span>Total Transfer Amount:</span>
+                <span className="font-bold text-admin-primary">
+                  AED {Number(transferQty * transferPrice).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTransferModalOpen(false)}
+                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
+                >
+                  Save Transfer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Flight Modal */}
+      {isEditingFlightModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                  {editingFlightId ? "Edit Flight" : "Add Flight Line Item"}
+                </h3>
+                <p className="text-xs text-masaar-black/60 mt-0.5">
+                  Write down airline, route details, quantity of seats, and ticket price.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingFlightModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveFlightSubmit} className="mt-4 space-y-3 text-xs">
+              <Field label="Airline &amp; Class" required>
+                <input
+                  required
+                  value={flightAirline}
+                  onChange={(e) => setFlightAirline(e.target.value)}
+                  placeholder="e.g. Emirates – Business Class"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Flight Details &amp; Route">
+                <textarea
+                  rows={2}
+                  value={flightDetails}
+                  onChange={(e) => setFlightDetails(e.target.value)}
+                  placeholder="e.g. Dubai (DXB) ⇄ Jeddah (JED) • 25kg luggage included"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Seats / Passengers">
+                  <input
+                    type="number"
+                    min="1"
+                    value={flightQty}
+                    onChange={(e) => setFlightQty(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Price per Seat (AED)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={flightPrice}
+                    onChange={(e) => setFlightPrice(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+
+              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
+                <span>Total Flight Amount:</span>
+                <span className="font-bold text-admin-primary">
+                  AED {Number(flightQty * flightPrice).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingFlightModalOpen(false)}
+                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
+                >
+                  Save Flight
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Meals Modal */}
+      {isEditingMealsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                  {editingMealId ? "Edit Meals" : "Add Dining & Meals"}
+                </h3>
+                <p className="text-xs text-masaar-black/60 mt-0.5">
+                  Write down meal plan, catering inclusions, quantity, and price.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingMealsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMealsSubmit} className="mt-4 space-y-3 text-xs">
+              <Field label="Meal Plan Title" required>
+                <input
+                  required
+                  value={mealTitle}
+                  onChange={(e) => setMealTitle(e.target.value)}
+                  placeholder="e.g. Daily 3-Course Gourmet Meals"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Dining Inclusions">
+                <textarea
+                  rows={2}
+                  value={mealDetails}
+                  onChange={(e) => setMealDetails(e.target.value)}
+                  placeholder="e.g. Daily breakfast, lunch, and dinner buffet at 5-star hotel restaurant."
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Pax / Portions">
+                  <input
+                    type="number"
+                    min="1"
+                    value={mealQty}
+                    onChange={(e) => setMealQty(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Price per Pax (AED)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={mealPrice}
+                    onChange={(e) => setMealPrice(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+
+              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
+                <span>Total Meals Amount:</span>
+                <span className="font-bold text-admin-primary">
+                  AED {Number(mealQty * mealPrice).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingMealsModalOpen(false)}
+                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
+                >
+                  Save Meals
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Add-ons Modal */}
+      {isEditingAddonModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                  {editingAddonId ? "Edit Add-on" : "Add Service / Add-on"}
+                </h3>
+                <p className="text-xs text-masaar-black/60 mt-0.5">
+                  Add Visa, Train, Ziyarat tours, or custom pilgrim add-ons.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingAddonModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAddonSubmit} className="mt-4 space-y-3 text-xs">
+              <Field label="Quick Add-on Presets">
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { title: "Saudi Electronic Tourist / Umrah Visa", price: 550, desc: "1-year multiple entry visa with medical insurance coverage across KSA." },
+                    { title: "Haramain High-Speed Train (Business)", price: 320, desc: "Direct business-class transit between Makkah & Madinah." },
+                    { title: "Guided Historical Makkah & Madinah Ziyarat", price: 600, desc: "Private historical tour to Cave Hira, Mount Thawr, Uhud, and Quba with licensed guide." },
+                    { title: "Comprehensive Pilgrimage Travel Insurance", price: 250, desc: "Medical emergencies, baggage loss, and trip cancellation coverage." },
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setAddonTitle(p.title);
+                        setAddonPrice(p.price);
+                        setAddonDetails(p.desc);
+                      }}
+                      className="rounded border border-black/10 bg-black/[0.03] px-2 py-1 text-[11px] font-medium text-masaar-black/80 hover:bg-light-gold/20 hover:border-[#b37e28]"
+                    >
+                      {p.title.split("(")[0].split("/")[0].trim()}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="Add-on Title" required>
+                <input
+                  required
+                  value={addonTitle}
+                  onChange={(e) => setAddonTitle(e.target.value)}
+                  placeholder="e.g. Haramain High Speed Train"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Add-on Details">
+                <textarea
+                  rows={2}
+                  value={addonDetails}
+                  onChange={(e) => setAddonDetails(e.target.value)}
+                  placeholder="e.g. Business class seats with seat reservations"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Quantity">
+                  <input
+                    type="number"
+                    min="1"
+                    value={addonQty}
+                    onChange={(e) => setAddonQty(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Unit Price (AED)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={addonPrice}
+                    onChange={(e) => setAddonPrice(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+
+              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
+                <span>Total Add-on Amount:</span>
+                <span className="font-bold text-admin-primary">
+                  AED {Number(addonQty * addonPrice).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingAddonModalOpen(false)}
+                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
+                >
+                  Save Add-on
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <CustomPackageBuilderModal
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}

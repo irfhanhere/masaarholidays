@@ -70,6 +70,11 @@ export function QuotationDocumentView({
     .filter(Boolean)
     .join(", ") || "2 Adults";
 
+  const packageItem = items.find((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
+  const hotelItems = items.filter((i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation");
+  const transferItems = items.filter((i) => i.item_type === "transfer");
+  const flightItems = items.filter((i) => i.item_type === "flight");
+
   // Parse itinerary
   let activeItinerary: Array<{ day: number | string; title: string; desc: string }> = [];
   if (document.special_requirements) {
@@ -422,7 +427,7 @@ export function QuotationDocumentView({
                         Masaar Signature Tier
                       </span>
                       <h2 className="mt-2 font-serif text-2xl font-bold text-masaar-black">
-                        {document.journey_type ? document.journey_type.toUpperCase() : "UMRAH"} 2026 — Platinum Package
+                        {document.journey_type ? document.journey_type.toUpperCase() : "UMRAH"} 2026 — Exclusive Package
                       </h2>
                       <p className="mt-1 text-masaar-black/60">
                         10 Days / 9 Nights | Direct Flights, 5-Star Luxury Hotels, Private GMC Transfers &amp; Ziyarat
@@ -494,75 +499,46 @@ export function QuotationDocumentView({
               {renderPageHeader("5★ Luxury Accommodations")}
 
               <div className="space-y-5 flex-1 text-xs">
-                {/* Makkah Hotel Card */}
-                <div className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
-                  <div className="grid grid-cols-3">
-                    <div className="relative h-44 w-full bg-neutral-200">
-                      <Image
-                        src="/Assets/PRIVATE-TRIP-MAKKAH-CARD.png"
-                        alt="Swissôtel Makkah"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <div className="col-span-2 p-4 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase text-[#8c6d23]">Holy Makkah — 5 Nights</span>
-                          <span className="text-xs text-amber-500 font-bold">★★★★★ 5 Star</span>
-                        </div>
-                        <h3 className="font-serif text-base font-bold text-masaar-black mt-1">Swissôtel Makkah (Clock Tower)</h3>
-                        <p className="text-[11px] text-masaar-black/60 mt-0.5">Abraj Al Bait Complex • 0m to Haram Courtyard</p>
-                        
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-masaar-black/80">
-                          <div>• <strong>Room:</strong> Deluxe Twin / Kaaba View</div>
-                          <div>• <strong>Meals:</strong> Daily International Buffet</div>
-                          <div>• <strong>Check-in:</strong> Direct VIP Desk</div>
-                          <div>• <strong>Elevators:</strong> Direct Haram Access</div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-masaar-black/50 mt-2 border-t border-black/5 pt-1.5">
-                        Private prayer halls with Haram audio feed; 24-hour concierge assistance.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Madinah Hotel Card */}
-                <div className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
-                  <div className="grid grid-cols-3">
-                    <div className="relative h-44 w-full bg-neutral-200">
-                      <Image
-                        src="/Assets/PRIVATE-TRIP-MADINAH-CARD.png"
-                        alt="Anwar Al Madinah Mövenpick"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <div className="col-span-2 p-4 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase text-[#8c6d23]">Madinah Al Munawwarah — 4 Nights</span>
-                          <span className="text-xs text-amber-500 font-bold">★★★★★ 5 Star</span>
-                        </div>
-                        <h3 className="font-serif text-base font-bold text-masaar-black mt-1">Anwar Al Madinah Mövenpick</h3>
-                        <p className="text-[11px] text-masaar-black/60 mt-0.5">Northern Courtyard • Direct Piazza Entry to Prophet’s Mosque</p>
-                        
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-masaar-black/80">
-                          <div>• <strong>Room:</strong> Superior Room (Twin Bed)</div>
-                          <div>• <strong>Meals:</strong> Daily International Breakfast</div>
-                          <div>• <strong>Proximity:</strong> 2-min walk to Ladies&apos; Gate</div>
-                          <div>• <strong>Amenities:</strong> High-speed Wi-Fi, 24/7 Room Service</div>
+                {hotelItems.length > 0 ? (
+                  hotelItems.map((h, idx) => {
+                    const isMakkah = h.description.toLowerCase().includes("makkah");
+                    const isMadinah = h.description.toLowerCase().includes("madinah");
+                    const tag = isMakkah ? "Holy Makkah" : isMadinah ? "Madinah Al Munawwarah" : "Hotel Accommodation";
+                    const img = isMakkah ? "/Assets/PRIVATE-TRIP-MAKKAH-CARD.png" : "/Assets/PRIVATE-TRIP-MADINAH-CARD.png";
+                    return (
+                      <div key={h.id || idx} className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
+                        <div className="grid grid-cols-3">
+                          <div className="relative h-44 w-full bg-neutral-200">
+                            <Image
+                              src={img}
+                              alt={h.description}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                          <div className="col-span-2 p-4 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase text-[#8c6d23]">{tag} — {h.quantity} Nights</span>
+                                <span className="text-xs text-amber-500 font-bold">★★★★★ 5 Star</span>
+                              </div>
+                              <h3 className="font-serif text-base font-bold text-masaar-black mt-1">{h.description}</h3>
+                              <p className="text-[11px] text-masaar-black/70 mt-1 whitespace-pre-line">{h.details || "Luxury accommodations with daily breakfast included."}</p>
+                            </div>
+                            <p className="text-[10px] text-masaar-black/50 mt-2 border-t border-black/5 pt-1.5">
+                              Daily international buffet breakfast included; 24-hour concierge assistance.
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <p className="text-[10px] text-masaar-black/50 mt-2 border-t border-black/5 pt-1.5">
-                        Unmatched convenience for Tahajjud prayers and Rawdah visiting gates.
-                      </p>
-                    </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-xl border border-black/10 bg-white p-6 text-xs text-masaar-black/60 italic">
+                    Accommodation details to be confirmed upon reservation.
                   </div>
-                </div>
+                )}
               </div>
 
               {renderPageFooter(pageNum)}
@@ -581,17 +557,24 @@ export function QuotationDocumentView({
                   <div className="relative h-48 w-full bg-neutral-100">
                     <Image
                       src="/Assets/PRIVATE-TRIP-TRANSPORT.png"
-                      alt="GMC Yukon XL Luxury Fleet"
+                      alt={transferItems[0]?.description || "Private Chauffeur Fleet"}
                       fill
                       className="object-cover object-center"
                       unoptimized
                     />
                     <div className="absolute bottom-2 left-4 rounded-md bg-black/70 px-3 py-1 text-[11px] font-bold text-white">
-                      Private Chauffeur Fleet: GMC Yukon XL / VIP Staria
+                      {transferItems[0]?.description || "Private Chauffeur Fleet"}
                     </div>
                   </div>
 
                   <div className="p-5 space-y-4">
+                    <div className="rounded-lg bg-[#FAF8F5] p-3 border border-black/5">
+                      <span className="font-bold text-masaar-black">{transferItems[0]?.description || "Private Chauffeur Transfer"}</span>
+                      <p className="text-[11px] text-masaar-black/70 mt-1 whitespace-pre-line">
+                        {transferItems[0]?.details || "Dedicated private air-conditioned vehicle throughout your pilgrimage with meet & assist service."}
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="rounded-lg bg-[#FAF8F5] p-3 border border-black/5">
                         <span className="font-bold text-masaar-black">Door-to-Door Chauffeur</span>
@@ -602,21 +585,9 @@ export function QuotationDocumentView({
                       <div className="rounded-lg bg-[#FAF8F5] p-3 border border-black/5">
                         <span className="font-bold text-masaar-black">Luggage Concierge</span>
                         <p className="text-[11px] text-masaar-black/70 mt-1">
-                          Full baggage handling from airport arrival belt straight to your hotel room.
+                          Full baggage handling from airport arrival straight to your hotel room.
                         </p>
                       </div>
-                    </div>
-
-                    <div className="border-t border-black/10 pt-3">
-                      <h4 className="font-serif font-bold text-masaar-black mb-2">Included Vehicle Routes:</h4>
-                      <ol className="space-y-1.5 text-masaar-black/80 list-decimal list-inside">
-                        <li>King Abdulaziz Airport (JED) → Holy Makkah Hotel</li>
-                        <li>Historical Makkah Sacred Sites Ziyarat (Cave Hira, Mount Thawr, Mina, Arafat)</li>
-                        <li>Makkah Hotel → Haramain Train Station</li>
-                        <li>Madinah Train Station → Madinah Hotel</li>
-                        <li>Madinah Historical Sites Ziyarat (Masjid Quba, Mount Uhud, Seven Mosques)</li>
-                        <li>Madinah Hotel → Prince Mohammad Airport (MED)</li>
-                      </ol>
                     </div>
                   </div>
                 </div>
@@ -638,7 +609,7 @@ export function QuotationDocumentView({
                   <div className="relative h-44 w-full bg-neutral-100">
                     <Image
                       src="/Assets/image-flight.jpg"
-                      alt="Luxury Airline"
+                      alt={flightItems[0]?.description || "Scheduled Flight"}
                       fill
                       className="object-cover"
                       unoptimized
@@ -647,27 +618,16 @@ export function QuotationDocumentView({
                   <div className="p-5">
                     <div className="flex items-center justify-between border-b border-black/10 pb-3">
                       <div>
-                        <h3 className="font-serif text-base font-bold text-masaar-black">Emirates Airlines / Saudia</h3>
-                        <p className="text-[11px] text-masaar-black/60">Direct Non-Stop Flights (Dubai DXB ⇄ Jeddah JED / Madinah MED)</p>
+                        <h3 className="font-serif text-base font-bold text-masaar-black">
+                          {flightItems[0]?.description || "Scheduled Direct Flights"}
+                        </h3>
+                        <p className="text-[11px] text-masaar-black/70 whitespace-pre-line mt-1">
+                          {flightItems[0]?.details || "Direct scheduled return flights with luggage allowance included."}
+                        </p>
                       </div>
                       <span className="rounded bg-light-gold/30 px-2.5 py-1 text-[10px] font-bold text-admin-primary uppercase">
-                        Direct Routing
+                        Scheduled Flights
                       </span>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                      <div className="rounded-lg bg-[#FAF8F5] p-2.5">
-                        <span className="text-[10px] uppercase font-bold text-black/50">Checked Baggage</span>
-                        <p className="font-bold text-masaar-black mt-0.5">30 KG per person</p>
-                      </div>
-                      <div className="rounded-lg bg-[#FAF8F5] p-2.5">
-                        <span className="text-[10px] uppercase font-bold text-black/50">Cabin Baggage</span>
-                        <p className="font-bold text-masaar-black mt-0.5">7 KG + Personal item</p>
-                      </div>
-                      <div className="rounded-lg bg-[#FAF8F5] p-2.5">
-                        <span className="text-[10px] uppercase font-bold text-black/50">Zamzam Allowance</span>
-                        <p className="font-bold text-masaar-black mt-0.5">5 Litres complimentary</p>
-                      </div>
                     </div>
                   </div>
                 </div>

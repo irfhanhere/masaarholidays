@@ -71,16 +71,30 @@ function moduleSlug(documentType: DocumentType): string {
   }[documentType];
 }
 
-/** Recomputes subtotal/discount/VAT/total on the parent document from its current line items. VAT is a flat 5% of (subtotal - discount), matching every reference invoice/quotation screenshot rather than per-item tax entry. */
-async function recalcDocumentTotals(supabase: Awaited<ReturnType<typeof getClient>>, documentId: string) {
+/** Recomputes subtotal/discount/VAT/total on the parent document from its current line items. Respects whether VAT is disabled (tax_aed = 0). */
+async function recalcDocumentTotals(supabase: Awaited<ReturnType<typeof getClient>>, documentId: string, applyVat?: boolean) {
   const { data: items } = await supabase
     .from("document_items")
     .select("quantity, unit_price_aed, discount_aed")
     .eq("document_id", documentId);
 
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("tax_aed")
+    .eq("id", documentId)
+    .single();
+
   const subtotal = (items ?? []).reduce((sum, i) => sum + Number(i.quantity) * Number(i.unit_price_aed), 0);
   const discount = (items ?? []).reduce((sum, i) => sum + Number(i.discount_aed ?? 0), 0);
-  const tax = Math.round((subtotal - discount) * VAT_RATE * 100) / 100;
+
+  let hasVat = true;
+  if (applyVat !== undefined) {
+    hasVat = applyVat;
+  } else if (doc && doc.tax_aed !== null && doc.tax_aed !== undefined) {
+    hasVat = Number(doc.tax_aed) > 0;
+  }
+
+  const tax = hasVat ? Math.round((subtotal - discount) * VAT_RATE * 100) / 100 : 0;
   const total = Math.round((subtotal - discount + tax) * 100) / 100;
 
   await supabase

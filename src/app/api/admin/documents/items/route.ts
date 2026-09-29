@@ -5,11 +5,17 @@ import type { DocumentType } from "@/lib/types/database";
 
 const VAT_RATE = 0.05;
 
-async function recalcTotals(supabase: any, documentId: string) {
+async function recalcTotals(supabase: any, documentId: string, applyVat?: boolean) {
   const { data: items } = await supabase
     .from("document_items")
     .select("quantity, unit_price_aed, discount_aed")
     .eq("document_id", documentId);
+
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("tax_aed")
+    .eq("id", documentId)
+    .single();
 
   const subtotal = (items ?? []).reduce(
     (sum: number, i: any) => sum + Number(i.quantity) * Number(i.unit_price_aed),
@@ -19,7 +25,15 @@ async function recalcTotals(supabase: any, documentId: string) {
     (sum: number, i: any) => sum + Number(i.discount_aed ?? 0),
     0
   );
-  const tax = Math.round((subtotal - discount) * VAT_RATE * 100) / 100;
+
+  let hasVat = true;
+  if (applyVat !== undefined) {
+    hasVat = applyVat;
+  } else if (doc && doc.tax_aed !== null && doc.tax_aed !== undefined) {
+    hasVat = Number(doc.tax_aed) > 0;
+  }
+
+  const tax = hasVat ? Math.round((subtotal - discount) * VAT_RATE * 100) / 100 : 0;
   const total = Math.round((subtotal - discount + tax) * 100) / 100;
 
   await supabase
@@ -37,10 +51,11 @@ async function recalcTotals(supabase: any, documentId: string) {
 
 export async function POST(req: Request) {
   try {
-    const { documentId, item } = (await req.json()) as {
+    const { documentId, item, applyVat } = (await req.json()) as {
       documentId: string;
       documentType?: DocumentType;
       item: LineItemInput;
+      applyVat?: boolean;
     };
 
     if (!documentId || !item || !item.description) {
@@ -87,7 +102,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const totals = await recalcTotals(supabase, documentId);
+    const totals = await recalcTotals(supabase, documentId, applyVat);
 
     return NextResponse.json({ success: true, item: inserted, totals });
   } catch (err: any) {
@@ -101,10 +116,11 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { itemId, documentId, patch } = (await req.json()) as {
+    const { itemId, documentId, patch, applyVat } = (await req.json()) as {
       itemId: string;
       documentId: string;
       patch: Partial<LineItemInput>;
+      applyVat?: boolean;
     };
 
     if (!itemId || !documentId) {
@@ -152,7 +168,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const totals = await recalcTotals(supabase, documentId);
+    const totals = await recalcTotals(supabase, documentId, applyVat);
 
     return NextResponse.json({ success: true, item: updated, totals });
   } catch (err: any) {
@@ -169,6 +185,8 @@ export async function DELETE(req: Request) {
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get("itemId");
     const documentId = searchParams.get("documentId");
+    const applyVatParam = searchParams.get("applyVat");
+    const applyVat = applyVatParam !== null ? applyVatParam === "true" : undefined;
 
     if (!itemId || !documentId) {
       return NextResponse.json(
@@ -184,7 +202,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    const totals = await recalcTotals(supabase, documentId);
+    const totals = await recalcTotals(supabase, documentId, applyVat);
 
     return NextResponse.json({ success: true, totals });
   } catch (err: any) {

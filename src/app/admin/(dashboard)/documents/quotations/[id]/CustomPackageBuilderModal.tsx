@@ -41,36 +41,36 @@ export function CustomPackageBuilderModal({
 }: CustomPackageBuilderModalProps) {
   const isHajj = journeyType === "hajj";
 
-  // Tier selection
-  const [selectedTier, setSelectedTier] = useState<"gold" | "platinum" | "vip">("platinum");
+  // Tier selection: Essential, Signature, Exclusive (selectable and unselectable)
+  const [selectedTier, setSelectedTier] = useState<"essential" | "signature" | "exclusive" | null>("signature");
   const tierPricing = isHajj
-    ? { gold: 14500, platinum: 18750, vip: 24900 }
-    : { gold: 6500, platinum: 8500, vip: 12500 };
+    ? { essential: 12500, signature: 15500, exclusive: 19500 }
+    : { essential: 4950, signature: 6950, exclusive: 8950 };
 
-  // Hotels
-  const [selectedMakkah, setSelectedMakkah] = useState("Swissôtel Makkah");
+  // Hotels (selectable and unselectable)
+  const [selectedMakkah, setSelectedMakkah] = useState<string | null>("Swissôtel Makkah");
   const makkahHotels = [
     { name: "Swissôtel Makkah", stars: 5, price: isHajj ? 4200 : 2500, distance: "Near Haram" },
     { name: "Fairmont Makkah", stars: 5, price: isHajj ? 4800 : 3200, distance: "Clock Tower" },
     { name: "Raffles Makkah", stars: 5, price: isHajj ? 5500 : 4200, distance: "Direct Haram View" },
   ];
 
-  const [selectedMadinah, setSelectedMadinah] = useState("Anwar Al Madinah");
+  const [selectedMadinah, setSelectedMadinah] = useState<string | null>("Anwar Al Madinah");
   const madinahHotels = [
     { name: "Anwar Al Madinah", stars: 5, price: isHajj ? 2800 : 1800, distance: "Near Haram Courtyard" },
     { name: "Madinah Hilton", stars: 5, price: isHajj ? 3200 : 2200, distance: "Facing Prophet's Mosque" },
   ];
 
-  // Room Type
-  const [selectedRoom, setSelectedRoom] = useState<"twin" | "triple" | "quad">("twin");
+  // Room Type (TWIN/DOUBLE, TRIPLE, QUAD)
+  const [selectedRoom, setSelectedRoom] = useState<"TWIN/DOUBLE" | "TRIPLE" | "QUAD" | null>("TWIN/DOUBLE");
   const roomAdjustments = {
-    twin: 0,
-    triple: -350,
-    quad: -650,
+    "TWIN/DOUBLE": 0,
+    TRIPLE: -350,
+    QUAD: -650,
   };
 
-  // Transport
-  const [selectedVehicle, setSelectedVehicle] = useState("GMC Yukon");
+  // Transport (selectable and unselectable)
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>("GMC Yukon");
   const vehicles = [
     { name: "Sedan", price: 500, label: "Per trip" },
     { name: "Staria", price: 750, label: "Per trip" },
@@ -78,9 +78,9 @@ export function CustomPackageBuilderModal({
     { name: "Hiace", price: 1200, label: "Per trip" },
   ];
 
-  // Flight Class
-  const [flightClass, setFlightClass] = useState<"economy" | "business">("business");
-  const flightPricePerPerson = flightClass === "business" ? 4500 : 0;
+  // Flight Class (selectable and unselectable)
+  const [flightClass, setFlightClass] = useState<"economy" | "business" | null>("business");
+  const flightPricePerPerson = flightClass === "business" ? 4500 : (flightClass === "economy" ? 1850 : 0);
 
   // Additional Services
   const [selectedServices, setSelectedServices] = useState<Set<string>>(
@@ -107,18 +107,18 @@ export function CustomPackageBuilderModal({
     });
   }
 
-  // Live Pricing Calculation (Exact match CUSTOM PACKAGE BUILDER.png)
-  const baseRate = tierPricing[selectedTier];
-  const makkahHotelObj = makkahHotels.find((h) => h.name === selectedMakkah) || makkahHotels[0];
-  const madinahHotelObj = madinahHotels.find((h) => h.name === selectedMadinah) || madinahHotels[0];
-  const vehicleObj = vehicles.find((v) => v.name === selectedVehicle) || vehicles[2];
+  // Live Pricing Calculation
+  const baseRate = selectedTier ? tierPricing[selectedTier] : 0;
+  const makkahHotelObj = makkahHotels.find((h) => h.name === selectedMakkah) || null;
+  const madinahHotelObj = madinahHotels.find((h) => h.name === selectedMadinah) || null;
+  const vehicleObj = vehicles.find((v) => v.name === selectedVehicle) || null;
 
   const baseTotal = baseRate * adults;
-  const makkahTotal = makkahHotelObj.price * adults;
-  const madinahTotal = madinahHotelObj.price * adults;
-  const roomAdjTotal = roomAdjustments[selectedRoom] * adults;
+  const makkahTotal = (makkahHotelObj?.price ?? 0) * adults;
+  const madinahTotal = (madinahHotelObj?.price ?? 0) * adults;
+  const roomAdjTotal = selectedRoom ? roomAdjustments[selectedRoom] * adults : 0;
   const flightTotal = flightPricePerPerson * adults;
-  const vehicleTotal = vehicleObj.price;
+  const vehicleTotal = vehicleObj?.price ?? 0;
 
   let servicesTotal = 0;
   selectedServices.forEach((sId) => {
@@ -126,9 +126,11 @@ export function CustomPackageBuilderModal({
     if (s) servicesTotal += s.price;
   });
 
+  const [applyVat, setApplyVat] = useState(true);
+
   const subtotal =
     baseTotal + makkahTotal + madinahTotal + roomAdjTotal + flightTotal + vehicleTotal + servicesTotal;
-  const vat = Math.round(subtotal * 0.05 * 100) / 100;
+  const vat = applyVat ? Math.round(subtotal * 0.05 * 100) / 100 : 0;
   const grandTotal = Math.round((subtotal + vat) * 100) / 100;
 
   async function handleConfirm() {
@@ -141,17 +143,17 @@ export function CustomPackageBuilderModal({
       });
 
       await onSavePackage({
-        tier: selectedTier.toUpperCase(),
+        tier: selectedTier ? selectedTier.toUpperCase() : "CUSTOM",
         tierPrice: baseRate,
-        makkahHotel: makkahHotelObj.name,
-        makkahPrice: makkahHotelObj.price,
-        madinahHotel: madinahHotelObj.name,
-        madinahPrice: madinahHotelObj.price,
-        roomType: selectedRoom.toUpperCase(),
-        roomAdjustment: roomAdjustments[selectedRoom],
-        vehicle: vehicleObj.name,
-        vehiclePrice: vehicleObj.price,
-        flightClass: flightClass.toUpperCase(),
+        makkahHotel: makkahHotelObj?.name ?? "",
+        makkahPrice: makkahHotelObj?.price ?? 0,
+        madinahHotel: madinahHotelObj?.name ?? "",
+        madinahPrice: madinahHotelObj?.price ?? 0,
+        roomType: selectedRoom ?? "TWIN/DOUBLE",
+        roomAdjustment: selectedRoom ? roomAdjustments[selectedRoom] : 0,
+        vehicle: vehicleObj?.name ?? "",
+        vehiclePrice: vehicleObj?.price ?? 0,
+        flightClass: flightClass ? flightClass.toUpperCase() : "NONE",
         flightPrice: flightPricePerPerson,
         extraServices: extraList,
         totalAmount: grandTotal,
@@ -233,65 +235,80 @@ export function CustomPackageBuilderModal({
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  {/* Gold */}
+                  {/* Essential */}
                   <div
-                    onClick={() => setSelectedTier("gold")}
-                    className={`cursor-pointer rounded-xl border p-4 transition-all ${
-                      selectedTier === "gold"
-                        ? "border-[#b37e28] bg-white ring-2 ring-[#b37e28] shadow-sm"
-                        : "border-black/10 hover:border-black/25"
+                    onClick={() => setSelectedTier((prev) => (prev === "essential" ? null : "essential"))}
+                    className={`cursor-pointer rounded-xl border p-4 transition-all relative ${
+                      selectedTier === "essential"
+                        ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-sm"
+                        : "border-black/10 hover:border-black/25 bg-white"
                     }`}
                   >
+                    {selectedTier === "essential" && (
+                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-[#b37e28] text-white px-1.5 py-0.5 rounded-full">
+                        ✓ Selected
+                      </span>
+                    )}
                     <div className="flex items-center justify-between">
-                      <span className="font-serif font-bold text-sm text-masaar-black">Gold</span>
-                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.gold.toLocaleString()}</span>
+                      <span className="font-serif font-bold text-sm text-masaar-black">Essential</span>
+                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.essential.toLocaleString()}</span>
                     </div>
-                    <p className="text-[11px] text-masaar-black/50">per person</p>
+                    <p className="text-[11px] text-masaar-black/50">per person • click to {selectedTier === "essential" ? "unselect" : "select"}</p>
                     <ul className="mt-2.5 text-[11px] text-masaar-black/70 space-y-1">
-                      <li>• Direct Scheduled Flights</li>
-                      <li>• Standard 5-Star Accommodations</li>
-                      <li>• Dedicated Transport</li>
+                      <li>• Standard 4★/5★ Hospitality</li>
+                      <li>• Shared / Standard Transfers</li>
+                      <li>• Comprehensive Pilgrim Support</li>
                     </ul>
                   </div>
 
-                  {/* Platinum */}
+                  {/* Signature */}
                   <div
-                    onClick={() => setSelectedTier("platinum")}
-                    className={`cursor-pointer rounded-xl border p-4 transition-all ${
-                      selectedTier === "platinum"
-                        ? "border-[#b37e28] bg-white ring-2 ring-[#b37e28] shadow-sm"
-                        : "border-black/10 hover:border-black/25"
+                    onClick={() => setSelectedTier((prev) => (prev === "signature" ? null : "signature"))}
+                    className={`cursor-pointer rounded-xl border p-4 transition-all relative ${
+                      selectedTier === "signature"
+                        ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-sm"
+                        : "border-black/10 hover:border-black/25 bg-white"
                     }`}
                   >
+                    {selectedTier === "signature" && (
+                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-[#b37e28] text-white px-1.5 py-0.5 rounded-full">
+                        ✓ Selected
+                      </span>
+                    )}
                     <div className="flex items-center justify-between">
-                      <span className="font-serif font-bold text-sm text-masaar-black">Platinum</span>
-                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.platinum.toLocaleString()}</span>
+                      <span className="font-serif font-bold text-sm text-masaar-black">Signature</span>
+                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.signature.toLocaleString()}</span>
                     </div>
-                    <p className="text-[11px] text-masaar-black/50">per person</p>
+                    <p className="text-[11px] text-masaar-black/50">per person • click to {selectedTier === "signature" ? "unselect" : "select"}</p>
                     <ul className="mt-2.5 text-[11px] text-masaar-black/70 space-y-1">
                       <li>• Direct Scheduled Flights</li>
-                      <li>• Clock Tower / Near Haram Courtyard</li>
-                      <li>• Kidana / Category A Luxury</li>
+                      <li>• 5-Star Accommodations Near Haram</li>
+                      <li>• Dedicated Private Transport</li>
                     </ul>
                   </div>
 
-                  {/* VIP */}
+                  {/* Exclusive */}
                   <div
-                    onClick={() => setSelectedTier("vip")}
-                    className={`cursor-pointer rounded-xl border p-4 transition-all ${
-                      selectedTier === "vip"
-                        ? "border-[#b37e28] bg-white ring-2 ring-[#b37e28] shadow-sm"
-                        : "border-black/10 hover:border-black/25"
+                    onClick={() => setSelectedTier((prev) => (prev === "exclusive" ? null : "exclusive"))}
+                    className={`cursor-pointer rounded-xl border p-4 transition-all relative ${
+                      selectedTier === "exclusive"
+                        ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-sm"
+                        : "border-black/10 hover:border-black/25 bg-white"
                     }`}
                   >
+                    {selectedTier === "exclusive" && (
+                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-[#b37e28] text-white px-1.5 py-0.5 rounded-full">
+                        ✓ Selected
+                      </span>
+                    )}
                     <div className="flex items-center justify-between">
-                      <span className="font-serif font-bold text-sm text-masaar-black">VIP</span>
-                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.vip.toLocaleString()}</span>
+                      <span className="font-serif font-bold text-sm text-masaar-black">Exclusive</span>
+                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.exclusive.toLocaleString()}</span>
                     </div>
-                    <p className="text-[11px] text-masaar-black/50">per person</p>
+                    <p className="text-[11px] text-masaar-black/50">per person • click to {selectedTier === "exclusive" ? "unselect" : "select"}</p>
                     <ul className="mt-2.5 text-[11px] text-masaar-black/70 space-y-1">
-                      <li>• Business Class Flights Included</li>
-                      <li>• Direct Kaaba &amp; Rawdah Views</li>
+                      <li>• Premium Cabin Flights Included</li>
+                      <li>• Clock Tower / Facing Haram Courtyard</li>
                       <li>• Private GMC Yukon Concierge</li>
                     </ul>
                   </div>
@@ -311,12 +328,23 @@ export function CustomPackageBuilderModal({
 
                 {/* Makkah Hotels */}
                 <div>
-                  <span className="text-xs font-bold text-masaar-black">Holy Makkah Hotel:</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-masaar-black">Holy Makkah Hotel:</span>
+                    {selectedMakkah && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMakkah(null)}
+                        className="text-[11px] text-[#b37e28] hover:underline"
+                      >
+                        ✕ Unselect Makkah Hotel
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-2 grid gap-3 sm:grid-cols-3">
                     {makkahHotels.map((h) => (
                       <div
                         key={h.name}
-                        onClick={() => setSelectedMakkah(h.name)}
+                        onClick={() => setSelectedMakkah((prev) => (prev === h.name ? null : h.name))}
                         className={`cursor-pointer rounded-xl border p-3 text-xs transition-all ${
                           selectedMakkah === h.name
                             ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-xs"
@@ -333,12 +361,23 @@ export function CustomPackageBuilderModal({
 
                 {/* Madinah Hotels */}
                 <div>
-                  <span className="text-xs font-bold text-masaar-black">Madinah Al Munawwarah Hotel:</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-masaar-black">Madinah Al Munawwarah Hotel:</span>
+                    {selectedMadinah && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMadinah(null)}
+                        className="text-[11px] text-[#b37e28] hover:underline"
+                      >
+                        ✕ Unselect Madinah Hotel
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-2 grid gap-3 sm:grid-cols-2">
                     {madinahHotels.map((h) => (
                       <div
                         key={h.name}
-                        onClick={() => setSelectedMadinah(h.name)}
+                        onClick={() => setSelectedMadinah((prev) => (prev === h.name ? null : h.name))}
                         className={`cursor-pointer rounded-xl border p-3 text-xs transition-all ${
                           selectedMadinah === h.name
                             ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-xs"
@@ -358,22 +397,33 @@ export function CustomPackageBuilderModal({
               <div className="grid gap-4 sm:grid-cols-3">
                 {/* Room Type */}
                 <div className="rounded-xl border border-black/10 bg-white p-4 space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-masaar-black">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-[#b37e28] text-[10px] font-bold text-white">
-                      C
-                    </span>
-                    <span>Room Type</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-masaar-black">
+                      <span className="flex size-5 items-center justify-center rounded-full bg-[#b37e28] text-[10px] font-bold text-white">
+                        C
+                      </span>
+                      <span>Room Type</span>
+                    </div>
+                    {selectedRoom && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRoom(null)}
+                        className="text-[10px] text-[#b37e28] hover:underline"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-1.5 text-xs">
-                    {(["twin", "triple", "quad"] as const).map((r) => (
+                    {(["TWIN/DOUBLE", "TRIPLE", "QUAD"] as const).map((r) => (
                       <div
                         key={r}
-                        onClick={() => setSelectedRoom(r)}
-                        className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center ${
-                          selectedRoom === r ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10"
+                        onClick={() => setSelectedRoom((prev) => (prev === r ? null : r))}
+                        className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center transition-all ${
+                          selectedRoom === r ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10 hover:bg-black/[0.02]"
                         }`}
                       >
-                        <span className="capitalize font-semibold text-masaar-black">{r}</span>
+                        <span className="font-bold text-masaar-black text-[11px]">{r}</span>
                         <span className="text-[11px] text-masaar-black/60">
                           {roomAdjustments[r] === 0 ? "Included" : `${roomAdjustments[r]} AED`}
                         </span>
@@ -384,19 +434,30 @@ export function CustomPackageBuilderModal({
 
                 {/* Transport */}
                 <div className="rounded-xl border border-black/10 bg-white p-4 space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-masaar-black">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-[#b37e28] text-[10px] font-bold text-white">
-                      D
-                    </span>
-                    <span>Transport</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-masaar-black">
+                      <span className="flex size-5 items-center justify-center rounded-full bg-[#b37e28] text-[10px] font-bold text-white">
+                        D
+                      </span>
+                      <span>Transport</span>
+                    </div>
+                    {selectedVehicle && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedVehicle(null)}
+                        className="text-[10px] text-[#b37e28] hover:underline"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-1.5 text-xs">
                     {vehicles.map((v) => (
                       <div
                         key={v.name}
-                        onClick={() => setSelectedVehicle(v.name)}
-                        className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center ${
-                          selectedVehicle === v.name ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10"
+                        onClick={() => setSelectedVehicle((prev) => (prev === v.name ? null : v.name))}
+                        className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center transition-all ${
+                          selectedVehicle === v.name ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10 hover:bg-black/[0.02]"
                         }`}
                       >
                         <span className="font-semibold text-masaar-black">{v.name}</span>
@@ -408,26 +469,37 @@ export function CustomPackageBuilderModal({
 
                 {/* Flight Class */}
                 <div className="rounded-xl border border-black/10 bg-white p-4 space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-masaar-black">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-[#b37e28] text-[10px] font-bold text-white">
-                      E
-                    </span>
-                    <span>Flight Class</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-masaar-black">
+                      <span className="flex size-5 items-center justify-center rounded-full bg-[#b37e28] text-[10px] font-bold text-white">
+                        E
+                      </span>
+                      <span>Flight Class</span>
+                    </div>
+                    {flightClass && (
+                      <button
+                        type="button"
+                        onClick={() => setFlightClass(null)}
+                        className="text-[10px] text-[#b37e28] hover:underline"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-1.5 text-xs">
                     <div
-                      onClick={() => setFlightClass("economy")}
-                      className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center ${
-                        flightClass === "economy" ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10"
+                      onClick={() => setFlightClass((prev) => (prev === "economy" ? null : "economy"))}
+                      className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center transition-all ${
+                        flightClass === "economy" ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10 hover:bg-black/[0.02]"
                       }`}
                     >
                       <span className="font-semibold text-masaar-black">Economy</span>
-                      <span className="text-[11px] text-masaar-black/60">Included</span>
+                      <span className="text-[11px] text-masaar-black/60">+ AED 1,850</span>
                     </div>
                     <div
-                      onClick={() => setFlightClass("business")}
-                      className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center ${
-                        flightClass === "business" ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10"
+                      onClick={() => setFlightClass((prev) => (prev === "business" ? null : "business"))}
+                      className={`cursor-pointer rounded-lg border p-2 flex justify-between items-center transition-all ${
+                        flightClass === "business" ? "border-[#b37e28] bg-[#FAF8F5] ring-1 ring-[#b37e28]" : "border-black/10 hover:bg-black/[0.02]"
                       }`}
                     >
                       <span className="font-semibold text-masaar-black">Business</span>
@@ -444,7 +516,7 @@ export function CustomPackageBuilderModal({
                     F
                   </span>
                   <h3 className="font-serif font-bold text-sm text-masaar-black">
-                    Additional Services
+                    Additional Services &amp; Add-ons
                   </h3>
                 </div>
 
@@ -475,7 +547,7 @@ export function CustomPackageBuilderModal({
               </div>
             </div>
 
-            {/* Right 4 Cols: Package Summary (Exact match CUSTOM PACKAGE BUILDER.png) */}
+            {/* Right 4 Cols: Package Summary */}
             <div className="lg:col-span-4">
               <div className="sticky top-4 rounded-xl border border-black/10 bg-white p-5 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between border-b border-black/10 pb-2">
@@ -489,41 +561,43 @@ export function CustomPackageBuilderModal({
 
                 <div className="space-y-2 text-xs font-sans">
                   <div className="flex justify-between text-masaar-black/70">
-                    <span>Base Package ({selectedTier})</span>
+                    <span>Base Tier ({selectedTier ? selectedTier.toUpperCase() : "None"})</span>
                     <span className="font-medium text-masaar-black">
-                      AED {baseRate.toLocaleString()} × {adults} = {baseTotal.toLocaleString()}
+                      {selectedTier ? `AED ${baseRate.toLocaleString()} × ${adults} = ${(baseRate * adults).toLocaleString()}` : "Not Selected"}
                     </span>
                   </div>
 
                   <div className="flex justify-between text-masaar-black/70">
-                    <span>Makkah Hotel ({makkahHotelObj.name})</span>
+                    <span>Makkah Hotel</span>
                     <span className="font-medium text-masaar-black">
-                      AED {makkahHotelObj.price.toLocaleString()} × {adults} = {makkahTotal.toLocaleString()}
+                      {makkahHotelObj ? `${makkahHotelObj.name} (AED ${(makkahHotelObj.price * adults).toLocaleString()})` : "None"}
                     </span>
                   </div>
 
                   <div className="flex justify-between text-masaar-black/70">
-                    <span>Madinah Hotel ({madinahHotelObj.name})</span>
+                    <span>Madinah Hotel</span>
                     <span className="font-medium text-masaar-black">
-                      AED {madinahHotelObj.price.toLocaleString()} × {adults} = {madinahTotal.toLocaleString()}
+                      {madinahHotelObj ? `${madinahHotelObj.name} (AED ${(madinahHotelObj.price * adults).toLocaleString()})` : "None"}
                     </span>
                   </div>
 
                   <div className="flex justify-between text-masaar-black/70">
-                    <span>Room Type ({selectedRoom})</span>
+                    <span>Room Type</span>
                     <span className="font-medium text-masaar-black">
-                      {roomAdjTotal === 0 ? "Included" : `${roomAdjTotal} AED`}
+                      {selectedRoom ? `${selectedRoom} (${roomAdjTotal === 0 ? "Included" : `${roomAdjTotal} AED`})` : "Standard"}
                     </span>
                   </div>
 
                   <div className="flex justify-between text-masaar-black/70">
-                    <span>Transport ({vehicleObj.name})</span>
-                    <span className="font-medium text-masaar-black">AED {vehicleTotal.toLocaleString()}</span>
+                    <span>Transport</span>
+                    <span className="font-medium text-masaar-black">
+                      {vehicleObj ? `${vehicleObj.name} (AED ${vehicleTotal.toLocaleString()})` : "None"}
+                    </span>
                   </div>
 
-                  {flightTotal > 0 && (
+                  {flightClass && flightTotal > 0 && (
                     <div className="flex justify-between text-masaar-black/70">
-                      <span>Flight ({flightClass})</span>
+                      <span>Flight ({flightClass.toUpperCase()})</span>
                       <span className="font-medium text-masaar-black">
                         AED {flightPricePerPerson.toLocaleString()} × {adults} = {flightTotal.toLocaleString()}
                       </span>
@@ -532,19 +606,27 @@ export function CustomPackageBuilderModal({
 
                   {servicesTotal > 0 && (
                     <div className="flex justify-between text-masaar-black/70">
-                      <span>Additional Services</span>
+                      <span>Add-ons ({selectedServices.size})</span>
                       <span className="font-medium text-masaar-black">AED {servicesTotal.toLocaleString()}</span>
                     </div>
                   )}
 
-                  <div className="border-t border-black/10 pt-2 space-y-1">
+                  <div className="border-t border-black/10 pt-2 space-y-1.5">
                     <div className="flex justify-between text-masaar-black/60">
                       <span>Subtotal</span>
                       <span>AED {subtotal.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-masaar-black/60">
-                      <span>VAT (5%)</span>
-                      <span>AED {vat.toLocaleString()}</span>
+                    <div className="flex items-center justify-between text-masaar-black">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={applyVat}
+                          onChange={(e) => setApplyVat(e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border-black/20 text-[#b37e28] focus:ring-[#b37e28] cursor-pointer"
+                        />
+                        <span>VAT (5%)</span>
+                      </label>
+                      <span className="font-medium text-masaar-black">AED {vat.toLocaleString()}</span>
                     </div>
                   </div>
 

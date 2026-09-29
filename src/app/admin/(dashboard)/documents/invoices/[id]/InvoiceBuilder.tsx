@@ -69,6 +69,13 @@ export function InvoiceBuilder({
     total: Number(document.total_aed || 0),
   });
 
+  const [applyVat, setApplyVat] = useState<boolean>(() => {
+    if (document.tax_aed !== null && document.tax_aed !== undefined) {
+      return Number(document.tax_aed) > 0;
+    }
+    return true;
+  });
+
   const [invoiceNumber, setInvoiceNumber] = useState(document.document_number);
   const [clientName, setClientName] = useState(document.client_name);
   const [clientPhone, setClientPhone] = useState(document.client_phone ?? "");
@@ -77,6 +84,29 @@ export function InvoiceBuilder({
   const [bookingReference, setBookingReference] = useState(document.booking_reference ?? "");
   const [notes, setNotes] = useState(document.notes ?? "");
   const [terms, setTerms] = useState(document.terms ?? "");
+
+  async function handleToggleVat(checked: boolean) {
+    setApplyVat(checked);
+    const subtotal = totals.subtotal;
+    const discount = totals.discount;
+    const tax = checked ? Math.round((subtotal - discount) * 0.05 * 100) / 100 : 0;
+    const total = Math.round((subtotal - discount + tax) * 100) / 100;
+    setTotals((prev) => ({ ...prev, tax, total }));
+
+    try {
+      await fetch(`/api/admin/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tax_aed: tax,
+          total_aed: total,
+        }),
+      });
+      router.refresh();
+    } catch (e) {
+      console.error("Failed to update VAT setting", e);
+    }
+  }
 
   function runRedirectable(fn: () => Promise<void>) {
     startTransition(async () => {
@@ -111,6 +141,10 @@ export function InvoiceBuilder({
             booking_reference: bookingReference || null,
             notes: notes || null,
             terms: terms || null,
+            subtotal_aed: totals.subtotal,
+            discount_aed: totals.discount,
+            tax_aed: totals.tax,
+            total_aed: totals.total,
           }),
         }).then((r) => r.json());
 
@@ -191,7 +225,7 @@ export function InvoiceBuilder({
       const res = await fetch("/api/admin/documents/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId: document.id, documentType: "invoice", item }),
+        body: JSON.stringify({ documentId: document.id, documentType: "invoice", item, applyVat }),
       }).then((r) => r.json());
 
       if (!res.success) {
@@ -217,7 +251,7 @@ export function InvoiceBuilder({
       const res = await fetch("/api/admin/documents/items", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId, documentId: document.id, patch }),
+        body: JSON.stringify({ itemId, documentId: document.id, patch, applyVat }),
       }).then((r) => r.json());
 
       if (!res.success) {
@@ -242,7 +276,7 @@ export function InvoiceBuilder({
     if (!confirm("Remove this line item?")) return;
     try {
       const res = await fetch(
-        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}`,
+        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}&applyVat=${applyVat}`,
         { method: "DELETE" }
       ).then((r) => r.json());
 
@@ -362,9 +396,22 @@ export function InvoiceBuilder({
                 <span className="text-masaar-black/60">Discount</span>
                 <span>-AED {money(totals.discount)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-masaar-black/60">VAT (5%)</span>
-                <span>AED {money(totals.tax)}</span>
+              <div className="my-1 flex items-center justify-between rounded-md border border-black/5 bg-black/[0.02] px-2.5 py-1.5">
+                <label className="flex cursor-pointer select-none items-center gap-2 font-medium text-masaar-black">
+                  <input
+                    type="checkbox"
+                    checked={applyVat}
+                    onChange={(e) => handleToggleVat(e.target.checked)}
+                    className="h-4 w-4 cursor-pointer rounded border-gray-300 text-deep-gold focus:ring-deep-gold"
+                  />
+                  <span>VAT (5%)</span>
+                  {!applyVat && (
+                    <span className="text-xs font-normal text-masaar-black/50">(excluded)</span>
+                  )}
+                </label>
+                <span className={applyVat ? "font-medium text-masaar-black" : "text-masaar-black/40 line-through"}>
+                  AED {money(totals.tax)}
+                </span>
               </div>
               <div className="flex justify-between text-base font-bold">
                 <span>Total</span>

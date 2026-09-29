@@ -91,9 +91,13 @@ export function NewQuotationWizard({
     (seeded?.enquiry_type?.toLowerCase() as DocumentJourneyType) || "umrah"
   );
 
-  // 3. Travel Details
+  // 3. Travel Details & Package Requirements
   const [travelDate, setTravelDate] = useState(seeded?.travel_date || "2026-10-10");
   const [returnDate, setReturnDate] = useState("2026-10-20");
+  const [duration, setDuration] = useState("10D9N");
+  const [packageScope, setPackageScope] = useState<"both" | "makkah_only" | "madinah_only">("both");
+  const [roomType, setRoomType] = useState<"TWIN/DOUBLE" | "TRIPLE" | "QUAD">("TWIN/DOUBLE");
+  const [customerRequirement, setCustomerRequirement] = useState("");
   const [adults, setAdults] = useState<number>(seeded?.passengers || 2);
   const [children, setChildren] = useState<number>(0);
   const [infants, setInfants] = useState<number>(0);
@@ -182,36 +186,54 @@ export function NewQuotationWizard({
         display_order: number;
       }> = [];
 
+      // Parse nights from duration string (e.g. "3D2N" -> 2 nights; "10D9N" -> 9 nights)
+      const nightsMatch = duration.match(/(\d+)\s*n/i);
+      const daysMatch = duration.match(/(\d+)\s*d/i);
+      const totalNights = nightsMatch ? parseInt(nightsMatch[1], 10) : (daysMatch ? Math.max(1, parseInt(daysMatch[1], 10) - 1) : 9);
+
+      const makkahNights = packageScope === "madinah_only" ? 0 : (packageScope === "makkah_only" ? totalNights : Math.max(1, Math.ceil(totalNights * 0.6)));
+      const madinahNights = packageScope === "makkah_only" ? 0 : (packageScope === "madinah_only" ? totalNights : Math.max(1, totalNights - makkahNights));
+
+      const scopeLabel = packageScope === "makkah_only" ? "Makkah Only" : packageScope === "madinah_only" ? "Madinah Only" : "Makkah & Madinah";
+
       let order = 0;
       if (journeyType === "hajj") {
         defaultItems.push({
           item_type: "hajj_package",
-          description: "Hajj 2027 – Platinum Package",
-          details: "13 Days | Makkah – Madinah – Mina – Arafat – Muzdalifah",
+          description: `Hajj 2027 – Exclusive Package (${duration})`,
+          details: `${duration} | ${scopeLabel} • ${roomType} Sharing${customerRequirement ? ` • Requirement: ${customerRequirement}` : ""}`,
           quantity: adults,
           unit_price_aed: 18750,
           display_order: order++,
         });
-        defaultItems.push({
-          item_type: "hotel",
-          description: "Makkah Hotel — Swissôtel Makkah",
-          details: "5 Nights | Near Haram | 5★ Luxury Kaaba view",
-          quantity: 5,
-          unit_price_aed: 840,
-          display_order: order++,
-        });
-        defaultItems.push({
-          item_type: "hotel",
-          description: "Madinah Hotel — Anwar Al Madinah Mövenpick",
-          details: "5 Nights | Near Haram | 5★ Prophet's Mosque view",
-          quantity: 5,
-          unit_price_aed: 560,
-          display_order: order++,
-        });
+        if (makkahNights > 0) {
+          defaultItems.push({
+            item_type: "hotel",
+            description: "Makkah Hotel — Swissôtel Makkah",
+            details: `${makkahNights} Nights | Near Haram | ${roomType} Sharing | 5★ Luxury Kaaba view`,
+            quantity: makkahNights,
+            unit_price_aed: 840,
+            display_order: order++,
+          });
+        }
+        if (madinahNights > 0) {
+          defaultItems.push({
+            item_type: "hotel",
+            description: "Madinah Hotel — Anwar Al Madinah Mövenpick",
+            details: `${madinahNights} Nights | Near Haram | ${roomType} Sharing | 5★ Prophet's Mosque view`,
+            quantity: madinahNights,
+            unit_price_aed: 560,
+            display_order: order++,
+          });
+        }
         defaultItems.push({
           item_type: "transfer",
           description: "Private GMC Yukon XL",
-          details: "Jeddah Airport → Makkah Hotel • Makkah → Madinah Hotel",
+          details: packageScope === "makkah_only"
+            ? "Jeddah Airport ⇄ Makkah Hotel"
+            : packageScope === "madinah_only"
+            ? "Madinah Airport ⇄ Madinah Hotel"
+            : "Jeddah Airport → Makkah Hotel • Makkah → Madinah Hotel",
           quantity: 1,
           unit_price_aed: 950,
           display_order: order++,
@@ -244,45 +266,60 @@ export function NewQuotationWizard({
         // Default Umrah Package
         defaultItems.push({
           item_type: "umrah_package",
-          description: "Umrah 2026 – Platinum Package",
-          details: "10 Days / 9 Nights | Direct Flights, 5-Star Luxury Hotels, Private GMC Transfers & Ziyarat",
+          description: `Umrah 2026 – Exclusive Package (${duration})`,
+          details: `${duration} | ${scopeLabel} • ${roomType} Sharing${customerRequirement ? ` • Requirement: ${customerRequirement}` : ""}`,
           quantity: adults,
           unit_price_aed: 8500,
           display_order: order++,
         });
-        defaultItems.push({
-          item_type: "hotel",
-          description: "Makkah Hotel — Swissôtel Makkah",
-          details: "5 Nights | Clock Tower / Near Haram Courtyard | 5★ Luxury Buffet",
-          quantity: 5,
-          unit_price_aed: 840,
-          display_order: order++,
-        });
-        defaultItems.push({
-          item_type: "hotel",
-          description: "Madinah Hotel — Anwar Al Madinah Mövenpick",
-          details: "4 Nights | Steps from Prophet's Mosque | 5★ Luxury Buffet",
-          quantity: 4,
-          unit_price_aed: 650,
-          display_order: order++,
-        });
+        if (makkahNights > 0) {
+          defaultItems.push({
+            item_type: "hotel",
+            description: "Makkah Hotel — Swissôtel Makkah",
+            details: `${makkahNights} Nights | Clock Tower / Near Haram Courtyard | ${roomType} Sharing | 5★ Luxury Buffet`,
+            quantity: makkahNights,
+            unit_price_aed: 840,
+            display_order: order++,
+          });
+        }
+        if (madinahNights > 0) {
+          defaultItems.push({
+            item_type: "hotel",
+            description: "Madinah Hotel — Anwar Al Madinah Mövenpick",
+            details: `${madinahNights} Nights | Steps from Prophet's Mosque | ${roomType} Sharing | 5★ Luxury Buffet`,
+            quantity: madinahNights,
+            unit_price_aed: 650,
+            display_order: order++,
+          });
+        }
         defaultItems.push({
           item_type: "transfer",
           description: "Private GMC Yukon XL Transfers",
-          details: "Airport Jeddah → Makkah Hotel • Makkah → Madinah • Madinah → Airport",
+          details: packageScope === "makkah_only"
+            ? "Airport Jeddah ⇄ Makkah Hotel"
+            : packageScope === "madinah_only"
+            ? "Airport Madinah ⇄ Madinah Hotel"
+            : "Airport Jeddah → Makkah Hotel • Makkah → Madinah • Madinah → Airport",
           quantity: 1,
-          unit_price_aed: 950,
+          unit_price_aed: packageScope === "both" ? 950 : 600,
           display_order: order++,
         });
         defaultItems.push({
           item_type: "service",
           description: "Additional Services & Ziyarat",
-          details: "Haramain High Speed Train (Business) • Makkah & Madinah Historical Ziyarat • Saudi Tourist E-Visa",
+          details: `${packageScope === "both" ? "Haramain High Speed Train (Business) • " : ""}${packageScope !== "madinah_only" ? "Makkah " : ""}${packageScope === "both" ? "& " : ""}${packageScope !== "makkah_only" ? "Madinah " : ""}Historical Ziyarat • Saudi Tourist E-Visa`,
           quantity: 1,
           unit_price_aed: 0,
           display_order: order++,
         });
       }
+
+      const notesArr = [
+        customerRequirement ? `Customer Requirement: ${customerRequirement}` : "",
+        `Package Scope: ${scopeLabel}`,
+        `Duration: ${duration}`,
+        `Room Type: ${roomType}`,
+      ].filter(Boolean);
 
       const payload = {
         client_name: clientName.trim(),
@@ -299,6 +336,8 @@ export function NewQuotationWizard({
         destination,
         future_crm_enquiry_id: selectedEnquiry?.id || undefined,
         items: defaultItems,
+        notes: notesArr.join("\n") || undefined,
+        special_requirements: customerRequirement || undefined,
       };
 
       // Use API route instead of Server Action — works reliably on
@@ -736,6 +775,107 @@ export function NewQuotationWizard({
                   </select>
                 </Field>
               </div>
+
+              {/* Package Scope / Destination Type */}
+              <div className="sm:col-span-2 lg:col-span-3 pt-3 border-t border-black/10 space-y-2">
+                <label className="block text-xs font-bold text-masaar-black">
+                  Package Type / Scope <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "both", label: "Makkah & Madinah", sub: "Both Holy Cities", icon: "🕋🕌" },
+                    { id: "makkah_only", label: "Makkah only", sub: "Holy Makkah Stay", icon: "🕋" },
+                    { id: "madinah_only", label: "Madinah only", sub: "Madinah Stay", icon: "🕌" },
+                  ].map((scope) => {
+                    const isSelected = packageScope === scope.id;
+                    return (
+                      <button
+                        key={scope.id}
+                        type="button"
+                        onClick={() => setPackageScope(scope.id as any)}
+                        className={`rounded-xl border p-2.5 text-center transition-all ${
+                          isSelected
+                            ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-xs"
+                            : "border-black/15 bg-white hover:border-black/30"
+                        }`}
+                      >
+                        <span className="text-lg">{scope.icon}</span>
+                        <p className="mt-1 font-bold text-xs text-masaar-black">{scope.label}</p>
+                        <p className="text-[10px] text-masaar-black/50">{scope.sub}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Package Duration */}
+              <div className="sm:col-span-2 lg:col-span-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-masaar-black">
+                    Package Duration <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] text-masaar-black/50 font-normal">e.g. 3D2N, 5D4N, 10D9N</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {["3D2N", "4D3N", "5D4N", "7D6N", "10D9N", "14D13N"].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDuration(d)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                        duration === d
+                          ? "bg-[#b37e28] text-white shadow-xs"
+                          : "border border-black/15 bg-white text-masaar-black/70 hover:bg-black/5"
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  placeholder="Or enter custom duration like 3D2N..."
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Room Sharing Type */}
+              <div className="sm:col-span-2 lg:col-span-3 space-y-2">
+                <label className="block text-xs font-bold text-masaar-black">
+                  Room Type / Sharing
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["TWIN/DOUBLE", "TRIPLE", "QUAD"] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRoomType(r)}
+                      className={`rounded-xl border p-2 text-center text-xs font-bold transition-all ${
+                        roomType === r
+                          ? "border-[#b37e28] bg-[#FAF8F5] text-[#865d1d] ring-2 ring-[#b37e28]"
+                          : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/5"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Customer Requirement for the Package */}
+              <div className="sm:col-span-2 lg:col-span-3 space-y-1.5">
+                <label className="block text-xs font-bold text-masaar-black">
+                  Customer Requirement for the Package
+                </label>
+                <textarea
+                  rows={2}
+                  value={customerRequirement}
+                  onChange={(e) => setCustomerRequirement(e.target.value)}
+                  placeholder="e.g. 3D2N quick Umrah, 5-Star Kaaba view room, private VIP GMC transfers, wheelchair assistance for elderly..."
+                  className={inputClass}
+                />
+              </div>
             </div>
           </Card>
         </div>
@@ -808,6 +948,37 @@ export function NewQuotationWizard({
                     {origin} → {destination}
                   </span>
                 </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-masaar-black/60">
+                    <span>⏱️</span>
+                    <span>Duration &amp; Scope</span>
+                  </div>
+                  <span className="font-semibold text-masaar-black text-right">
+                    {duration} • {packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-masaar-black/60">
+                    <span>🛏️</span>
+                    <span>Room Type</span>
+                  </div>
+                  <span className="font-semibold text-[#865d1d] text-right">
+                    {roomType}
+                  </span>
+                </div>
+
+                {customerRequirement && (
+                  <div className="rounded-lg bg-[#FAF8F5] border border-black/10 p-2.5 space-y-1">
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-[#865d1d]">
+                      Customer Requirement:
+                    </span>
+                    <p className="text-[11px] text-masaar-black/75 line-clamp-3 italic">
+                      &ldquo;{customerRequirement}&rdquo;
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Next Step Placeholder box */}
