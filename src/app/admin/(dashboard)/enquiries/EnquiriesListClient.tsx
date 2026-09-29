@@ -33,6 +33,44 @@ function formatEnquiryId(index: number, rawId: string): string {
   return `ENQ-2026-0${num}`;
 }
 
+const PACKAGE_OPTIONS_BY_TYPE: Record<string, Array<{ value: string; label: string }>> = {
+  Umrah: [
+    { value: "5-Star Luxury Umrah", label: "5-Star Luxury Umrah" },
+    { value: "Deluxe Umrah Package", label: "Deluxe Umrah Package" },
+    { value: "Executive Umrah Package", label: "Executive Umrah Package" },
+    { value: "Economy Umrah Package", label: "Economy Umrah Package" },
+    { value: "VIP Custom Itinerary", label: "VIP Custom Itinerary" },
+  ],
+  Hajj: [
+    { value: "Exclusive Package (Non-Shifting)", label: "Exclusive Package (Non-Shifting)" },
+    { value: "Signature Package (Shifting)", label: "Signature Package (Shifting)" },
+    { value: "Essential Package (Shifting)", label: "Essential Package (Shifting)" },
+    { value: "VIP Custom Itinerary", label: "VIP Custom Itinerary" },
+  ],
+  Hotels: [
+    { value: "Makkah 5-Star Luxury", label: "Makkah 5-Star Luxury" },
+    { value: "Madinah 5-Star Luxury", label: "Madinah 5-Star Luxury" },
+    { value: "Dual City Luxury Hotels", label: "Dual City Luxury Hotels" },
+    { value: "Custom Hotel Booking", label: "Custom Hotel Booking" },
+  ],
+  Transfers: [
+    { value: "Private Luxury Sedan", label: "Private Luxury Sedan (Lexus / Camry)" },
+    { value: "Private Luxury SUV", label: "Private Luxury SUV (GMC Yukon XL)" },
+    { value: "Family Van", label: "Family Van (Hyundai Staria / HiAce)" },
+    { value: "Haramain High-Speed Train", label: "Haramain High-Speed Train (Business)" },
+  ],
+  "Private Trip": [
+    { value: "Bespoke VIP Pilgrimage", label: "Bespoke VIP Pilgrimage" },
+    { value: "Family Private Tour", label: "Family Private Tour" },
+    { value: "Tailor-Made Journey", label: "Tailor-Made Journey" },
+  ],
+  Visa: [
+    { value: "Saudi Tourist E-Visa", label: "Saudi Tourist E-Visa (Multiple Entry)" },
+    { value: "Umrah Visa with Insurance", label: "Umrah Visa with Health Insurance" },
+    { value: "GCC Resident Visa", label: "GCC Resident Visa Assistance" },
+  ],
+};
+
 export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries: EnquiryRow[] }) {
   const [enquiries, setEnquiries] = useState<EnquiryRow[]>(initialEnquiries);
   const [search, setSearch] = useState("");
@@ -43,6 +81,7 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addEnquiryType, setAddEnquiryType] = useState<string>("Umrah");
   const [modalEnquiryId, setModalEnquiryId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -770,7 +809,12 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
                 </Field>
 
                 <Field label="Trip Request / Travel Type">
-                  <select name="enquiry_type" className={inputClass} defaultValue="Umrah">
+                  <select
+                    name="enquiry_type"
+                    className={inputClass}
+                    value={addEnquiryType}
+                    onChange={(e) => setAddEnquiryType(e.target.value)}
+                  >
                     <option value="Umrah">Umrah</option>
                     <option value="Hajj">Hajj</option>
                     <option value="Hotels">Hotels</option>
@@ -781,11 +825,12 @@ export function EnquiriesListClient({ enquiries: initialEnquiries }: { enquiries
                 </Field>
 
                 <Field label="Preferred Package">
-                  <select name="preferred_package" className={inputClass} defaultValue="Exclusive">
-                    <option value="Exclusive">Exclusive Package (Non-Shifting)</option>
-                    <option value="Signature">Signature Package (Shifting)</option>
-                    <option value="Essential">Essential Package (Shifting)</option>
-                    <option value="VIP Custom">VIP Custom Itinerary</option>
+                  <select name="preferred_package" className={inputClass} key={addEnquiryType}>
+                    {(PACKAGE_OPTIONS_BY_TYPE[addEnquiryType] || PACKAGE_OPTIONS_BY_TYPE["Umrah"]).map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </Field>
 

@@ -31,6 +31,7 @@ import type {
 import { CustomPackageBuilderModal } from "./CustomPackageBuilderModal";
 import { ShareQuotationModal } from "@/components/documents/ShareQuotationModal";
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
+import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
 
 const STATUS_OPTS = [
   { id: "draft", label: "Draft", tone: "blue" },
@@ -210,26 +211,25 @@ export function QuotationBuilder({
     ? `${window.location.origin}/quote/${shareToken}`
     : `https://masaarholidays.com/quote/${shareToken}`;
 
-  // Itinerary state
-  const defaultItineraryList = [
-    { day: 1, title: "Day 1: Departure & Arrival in Holy Makkah", desc: "Jeddah Airport arrival, private GMC transfer to Makkah hotel, check-in, guided Umrah at Masjid Al Haram." },
-    { day: 2, title: "Days 2–5: Makkah Mukarramah & Sacred Sites Ziyarat", desc: "Daily prayers at Haram. Guided private Ziyarat to Cave Hira, Mount Thawr, Mina and Arafat with experienced guide." },
-    { day: 3, title: "Day 6: High Speed Train to Madinah Munawwarah", desc: "Haramain High-Speed Train business-class transit, hotel check-in, initial Salam at the Prophet’s Mosque." },
-    { day: 4, title: "Days 7–9: Madinah Munawwarah & Rawdah Visit", desc: "Guaranteed permit assistance for Rawdah Sharif. Ziyarat to Masjid Quba, Mount Uhud and Seven Mosques." },
-    { day: 5, title: "Day 10: Farewell & Return Flight", desc: "Farewell prayer at Prophet’s Mosque, private transfer to Madinah Airport (MED) and return flight." },
-  ];
+  // Calculate duration days dynamically
+  const calculatedDays = travelDate && returnDate
+    ? Math.max(1, Math.round((new Date(returnDate).getTime() - new Date(travelDate).getTime()) / (1000 * 3600 * 24)) + 1)
+    : 10;
+  const durationDays = calculatedDays;
+  const durationLabel = `${durationDays} Days / ${Math.max(1, durationDays - 1)} Nights`;
 
+  // Itinerary state
   const initialItinerary = (() => {
     if (document.special_requirements) {
       try {
         const parsed = JSON.parse(document.special_requirements);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch {}
     }
-    return defaultItineraryList;
+    return generateItineraryForDays(durationDays, journeyType === "hajj");
   })();
 
-  const [itineraryDays, setItineraryDays] = useState(initialItinerary);
+  const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>(initialItinerary);
   const [isEditingItinerary, setIsEditingItinerary] = useState(false);
   const [newDayTitle, setNewDayTitle] = useState("");
   const [newDayDesc, setNewDayDesc] = useState("");
@@ -1618,6 +1618,67 @@ export function QuotationBuilder({
             </div>
           </Card>
 
+          {/* 8. Itinerary Schedule Card */}
+          <Card className="!p-4">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📋</span>
+                <div>
+                  <h3 className="font-serif text-sm font-bold text-masaar-black">
+                    Itinerary Highlights
+                  </h3>
+                  <p className="text-[11px] text-masaar-black/60">
+                    {itineraryDays.length > 0
+                      ? `${itineraryDays.length} Days Configured (${durationLabel})`
+                      : "Itinerary removed / hidden"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {itineraryDays.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Are you sure you want to remove the itinerary from this quotation?")) {
+                        handleSaveItinerary([]);
+                      }
+                    }}
+                    className="rounded border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100 cursor-pointer"
+                  >
+                    ✕ Remove Itinerary
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsEditingItinerary(true)}
+                  className="rounded border border-[#b37e28]/30 bg-[#FAF8F5] px-2.5 py-1 text-[11px] font-semibold text-[#865d1d] hover:bg-light-gold/20 cursor-pointer"
+                >
+                  ✎ {itineraryDays.length > 0 ? "Edit Itinerary" : "+ Add / Configure Itinerary"}
+                </button>
+              </div>
+            </div>
+
+            {itineraryDays.length > 0 ? (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {itineraryDays.slice(0, 4).map((d: any, i: number) => (
+                  <div key={i} className="rounded-lg border border-black/10 bg-[#FAF9F7] p-2">
+                    <p className="font-bold text-[11px] text-[#865d1d]">{d.title || `Day ${d.day || i + 1}`}</p>
+                    <p className="text-[10px] text-masaar-black/60 line-clamp-1 mt-0.5">{d.desc}</p>
+                  </div>
+                ))}
+                {itineraryDays.length > 4 && (
+                  <div className="sm:col-span-2 text-center py-1 text-[11px] text-masaar-black/50">
+                    + {itineraryDays.length - 4} more days configured
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3 p-3 rounded-lg bg-black/[0.02] text-xs text-masaar-black/50 italic text-center">
+                No itinerary schedule. This section will be hidden on client portal and PDF.
+              </div>
+            )}
+          </Card>
+
           {/* 10. Thank You & Blessing Section */}
           <div className="rounded-xl border-2 border-pure-gold/30 bg-warm-ivory/50 p-5 text-center">
             <span className="text-2xl">🤲</span>
@@ -2851,6 +2912,140 @@ export function QuotationBuilder({
           </div>
         </div>
       )}
+
+      {/* 6. Itinerary Editor Modal */}
+      {isEditingItinerary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                  Edit Itinerary Highlights ({itineraryDays.length} Days)
+                </h3>
+                <p className="text-xs text-masaar-black/60 mt-0.5">
+                  Configure daily highlights and milestones. Shows on quotation viewer and PDF.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingItinerary(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-black/5 bg-[#FAF9F7] px-3 rounded-lg my-3">
+              <span className="text-xs text-masaar-black/70">
+                Duration: <strong>{durationLabel}</strong>
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const generated = generateItineraryForDays(durationDays, journeyType === "hajj");
+                    setItineraryDays(generated);
+                  }}
+                  className="rounded border border-[#b37e28]/30 bg-white px-2.5 py-1 text-xs font-semibold text-[#865d1d] hover:bg-light-gold/20 cursor-pointer"
+                >
+                  🔄 Auto-Generate for {durationDays} Days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setItineraryDays([])}
+                  className="rounded border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 cursor-pointer"
+                >
+                  ✕ Clear All (Hide Itinerary)
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+              {itineraryDays.length === 0 ? (
+                <div className="p-8 text-center text-masaar-black/50 italic bg-black/[0.02] rounded-xl">
+                  Itinerary is currently cleared. Saving will hide the Itinerary section on the quotation viewer and PDF.
+                </div>
+              ) : (
+                itineraryDays.map((d: any, idx: number) => (
+                  <div key={idx} className="rounded-xl border border-black/10 bg-[#FAF9F7] p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-[#865d1d]">
+                        Day {idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItineraryDay(idx)}
+                        className="text-red-500 hover:text-red-700 text-xs font-semibold cursor-pointer"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={d.title || ""}
+                      onChange={(e) => {
+                        const updated = [...itineraryDays];
+                        updated[idx] = { ...updated[idx], title: e.target.value };
+                        setItineraryDays(updated);
+                      }}
+                      placeholder={`Day ${idx + 1} Title`}
+                      className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs font-medium text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
+                    />
+                    <textarea
+                      rows={2}
+                      value={d.desc || ""}
+                      onChange={(e) => {
+                        const updated = [...itineraryDays];
+                        updated[idx] = { ...updated[idx], desc: e.target.value };
+                        setItineraryDays(updated);
+                      }}
+                      placeholder="Description of activities..."
+                      className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
+                    />
+                  </div>
+                ))
+              )}
+
+              {/* Add day button */}
+              <div className="pt-2 border-t border-black/10 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="New Day Title..."
+                  value={newDayTitle}
+                  onChange={(e) => setNewDayTitle(e.target.value)}
+                  className="flex-1 rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddItineraryDay}
+                  className="rounded-lg bg-black/5 hover:bg-black/10 px-3 py-1.5 text-xs font-bold text-masaar-black cursor-pointer"
+                >
+                  + Add Day
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsEditingItinerary(false)}
+                className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => handleSaveItinerary(itineraryDays)}
+                className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark cursor-pointer"
+              >
+                Save Itinerary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <CustomPackageBuilderModal
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}

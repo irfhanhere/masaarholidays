@@ -11,6 +11,7 @@ import type {
   DocumentTemplateRow,
 } from "@/lib/types/database";
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
+import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
 
 const CHANGE_OPTIONS = [
   "Hotel",
@@ -180,12 +181,25 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
     .filter((i) => i.item_type === "flight")
     .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
 
-  let activeItinerary: Array<{ day: number | string; title: string; desc: string }> = [];
+  let activeItinerary: ItineraryDay[] = [];
+  let isItineraryExplicitlyRemoved = false;
+
   if (document.special_requirements) {
     try {
       const parsed = JSON.parse(document.special_requirements);
-      if (Array.isArray(parsed) && parsed.length > 0) activeItinerary = parsed;
+      if (Array.isArray(parsed)) {
+        if (parsed.length > 0 && parsed[0]?.title !== undefined) {
+          activeItinerary = parsed;
+        } else if (parsed.length === 0) {
+          isItineraryExplicitlyRemoved = true;
+        }
+      }
     } catch {}
+  }
+
+  // If not explicitly removed, auto-generate matching the exact duration
+  if (!isItineraryExplicitlyRemoved && activeItinerary.length === 0) {
+    activeItinerary = generateItineraryForDays(durationDays, isHajj);
   }
 
   const whatsappMessage = `Assalamu Alaikum Masaar Holidays, I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${Number(document.total_aed || 9240).toLocaleString()}) and would like to speak with a travel advisor.`;
@@ -649,37 +663,45 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
             </div>
 
             {/* Module 5: Itinerary Highlights Timeline (Dynamic) */}
-            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-black/10 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">📋</span>
-                  <h3 className="font-serif text-lg font-bold text-masaar-black">
-                    Itinerary Highlights
-                  </h3>
-                </div>
-                <span className="text-xs font-semibold text-[#865d1d]">
-                  {activeItinerary.length > 0 ? `${activeItinerary.length} Milestones` : `${durationLabel} Timeline`}
-                </span>
-              </div>
-
-              {/* Visual timeline dynamically rendered */}
-              <div className={`grid gap-3 ${activeItinerary.length > 0 ? "sm:grid-cols-" + Math.min(5, activeItinerary.length) : "sm:grid-cols-4"} text-center`}>
-                {(activeItinerary.length > 0 ? activeItinerary : [
-                  { day: 1, title: "Day 1", desc: "Arrival & Umrah" },
-                  { day: 2, title: "Day 2", desc: "Holy Makkah Devotions" },
-                  { day: 3, title: "Day 3", desc: "Reflection & Worship" },
-                  { day: 4, title: "Day 4", desc: "Farewell & Return" },
-                ]).map((m, idx) => (
-                  <div key={idx} className="rounded-xl border border-black/10 bg-[#FAF9F7] p-3 space-y-1">
-                    <span className="text-xl">
-                      {idx === 0 ? "✈️" : idx === (activeItinerary.length || 4) - 1 ? "✈️" : "🕋"}
-                    </span>
-                    <p className="font-bold text-xs text-masaar-black">{m.title || `Day ${m.day || idx + 1}`}</p>
-                    <p className="text-[11px] text-masaar-black/60 line-clamp-2">{m.desc}</p>
+            {!isItineraryExplicitlyRemoved && activeItinerary.length > 0 && (
+              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-5">
+                <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📋</span>
+                    <h3 className="font-serif text-lg font-bold text-masaar-black">
+                      Itinerary Highlights
+                    </h3>
                   </div>
-                ))}
+                  <span className="text-xs font-semibold text-[#865d1d]">
+                    {activeItinerary.length} Days Itinerary ({durationLabel})
+                  </span>
+                </div>
+
+                {/* Visual timeline dynamically rendered across all days */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-center">
+                  {activeItinerary.map((m, idx) => {
+                    const defaultIcon =
+                      idx === 0
+                        ? "✈️"
+                        : idx === activeItinerary.length - 1
+                        ? "✈️"
+                        : m.title.toLowerCase().includes("train")
+                        ? "🚄"
+                        : m.title.toLowerCase().includes("madinah") || m.title.toLowerCase().includes("rawdah")
+                        ? "🕌"
+                        : "🕋";
+                    const icon = m.icon || defaultIcon;
+                    return (
+                      <div key={idx} className="rounded-xl border border-black/10 bg-[#FAF9F7] p-3 space-y-1.5 flex flex-col justify-start">
+                        <span className="text-xl">{icon}</span>
+                        <p className="font-bold text-xs text-masaar-black line-clamp-1">{m.title || `Day ${m.day || idx + 1}`}</p>
+                        <p className="text-[11px] text-masaar-black/60 line-clamp-2 leading-snug">{m.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Module 6: Additional Services & Add-ons */}
             <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">

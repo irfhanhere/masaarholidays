@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { DocumentItemRow, DocumentRow, DocumentTemplateRow } from "@/lib/types/database";
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
+import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
 
 function formatMoney(amountAed: number | null | undefined): string {
   return `AED ${Number(amountAed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -71,7 +72,8 @@ export function QuotationDocumentView({
     .filter(Boolean)
     .join(", ") || "2 Adults";
 
-  // Calculate duration label from travel and return dates
+  // Calculate duration label and days count from travel and return dates
+  let calculatedDurationDays = 4;
   const durationLabel = (() => {
     if (document.travel_date && document.return_date) {
       try {
@@ -81,6 +83,7 @@ export function QuotationDocumentView({
         if (diffMs > 0) {
           const nights = Math.round(diffMs / (1000 * 60 * 60 * 24));
           const days = nights + 1;
+          calculatedDurationDays = days;
           return `${days} Days / ${nights} Nights`;
         }
       } catch {}
@@ -88,50 +91,29 @@ export function QuotationDocumentView({
     return "Flexible Duration";
   })();
 
+  const isHajj = document.journey_type === "hajj";
   const packageItem = items.find((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
   const hotelItems = items.filter((i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation");
   const transferItems = items.filter((i) => i.item_type === "transfer");
   const flightItems = items.filter((i) => i.item_type === "flight");
 
   // Parse itinerary — stored in special_requirements as JSON array with {day, title, desc} shape.
-  // Must have a "title" field to be recognized as itinerary (plain customerRequirement text won't match).
-  let activeItinerary: Array<{ day: number | string; title: string; desc: string }> = [];
+  let activeItinerary: ItineraryDay[] = [];
+  let isItineraryExplicitlyRemoved = false;
   if (document.special_requirements) {
     try {
       const parsed = JSON.parse(document.special_requirements);
-      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.title !== undefined) {
-        activeItinerary = parsed;
+      if (Array.isArray(parsed)) {
+        if (parsed.length > 0 && parsed[0]?.title !== undefined) {
+          activeItinerary = parsed;
+        } else if (parsed.length === 0) {
+          isItineraryExplicitlyRemoved = true;
+        }
       }
     } catch {}
   }
-  if (activeItinerary.length === 0) {
-    activeItinerary = [
-      {
-        day: 1,
-        title: "Day 1: Departure & Arrival in Holy Makkah",
-        desc: "Arrival at King Abdulaziz International Airport (JED). VIP meet & assist by Masaar coordinator, private GMC transfer to Makkah hotel, check-in, and performing holy Umrah with guided scholar support.",
-      },
-      {
-        day: 2,
-        title: "Days 2–5: Makkah Mukarramah & Sacred Sites Ziyarat",
-        desc: "Daily prayers and worship in Masjid Al Haram. Dedicated historical Ziyarat tour visiting Jabal Al Noor (Cave Hira), Mount Thawr, Mina and Arafat with experienced scholar guidance.",
-      },
-      {
-        day: 3,
-        title: "Day 6: Haramain High Speed Rail to Madinah Al Munawwarah",
-        desc: "Smooth check-out from Makkah hotel. Boarding the luxurious Haramain High-Speed Train to Madinah Al Munawwarah. Private transfer to Madinah hotel, followed by Salam at the Prophet's Mosque.",
-      },
-      {
-        day: 4,
-        title: "Days 7–9: Madinah Munawwarah & Rawdah Sharif",
-        desc: "Prayers in the Prophet's Mosque (peace be upon him) and guaranteed permit assistance for Rawdah Sharif. Ziyarat tour covering Masjid Quba, Mount Uhud and the Seven Mosques.",
-      },
-      {
-        day: 5,
-        title: "Day 10: Farewell & Return Journey",
-        desc: "Farewell prayers at Masjid An-Nabawi, private airport transfer to Prince Mohammad Bin Abdulaziz International Airport (MED), and safe return flight with accepted pilgrimage.",
-      },
-    ];
+  if (!isItineraryExplicitlyRemoved && activeItinerary.length === 0) {
+    activeItinerary = generateItineraryForDays(calculatedDurationDays, isHajj);
   }
 
   // Filter sections to render
@@ -674,19 +656,21 @@ export function QuotationDocumentView({
 
         // 7. ITINERARY
         if (sec.id === "itinerary") {
+          if (isItineraryExplicitlyRemoved || activeItinerary.length === 0) return null;
+          const isMultiCol = activeItinerary.length > 5;
           return (
             <div key="itinerary" className="masaar-pdf-page p-10">
               {renderPageHeader("Day-by-Day Sacred Itinerary")}
 
-              <div className="space-y-4 flex-1 text-xs">
+              <div className={isMultiCol ? "grid grid-cols-2 gap-2.5 flex-1 text-xs" : "space-y-3 flex-1 text-xs"}>
                 {activeItinerary.map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 rounded-lg border border-black/10 bg-[#FAF8F5] p-3.5">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#b37e28] text-white text-[11px] font-bold">
-                      {i + 1}
+                  <div key={i} className="flex items-start gap-2.5 rounded-lg border border-black/10 bg-[#FAF8F5] p-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#b37e28] text-white text-[10px] font-bold">
+                      {item.day || i + 1}
                     </span>
-                    <div>
-                      <h4 className="font-serif font-bold text-masaar-black text-sm">{item.title}</h4>
-                      <p className="mt-1 text-masaar-black/75 leading-relaxed text-[11px]">{item.desc}</p>
+                    <div className="min-w-0">
+                      <h4 className="font-serif font-bold text-masaar-black text-xs truncate">{item.title}</h4>
+                      <p className="mt-0.5 text-masaar-black/75 leading-tight text-[10px] line-clamp-2">{item.desc}</p>
                     </div>
                   </div>
                 ))}
