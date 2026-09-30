@@ -33,6 +33,7 @@ export function Hero({
             src={image}
             alt={h1}
             fill
+            sizes="(max-width: 1024px) 100vw, 60vw"
             priority
             className="object-cover object-right"
           />

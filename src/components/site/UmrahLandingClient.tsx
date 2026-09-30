@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { PackageRow, FaqRow, UmrahDepartureMonthRow } from "@/lib/types/database";
 import type { PublicAddonCatalogRow, PublicUmrahInventoryConfig } from "@/lib/data/public";
+import dynamic from "next/dynamic";
 import { formatDepartureMonthName } from "@/lib/date-utils";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Container } from "./Container";
@@ -14,9 +15,11 @@ import { UmrahTierCards } from "./UmrahTierCards";
 import { UmrahMakkahMadinahSection } from "./UmrahMakkahMadinahSection";
 import { UmrahExperienceStrip } from "./UmrahExperienceStrip";
 import { UmrahOptionalAddons, mergeAddons } from "./UmrahOptionalAddons";
-import { UmrahAddonsCartModal } from "./UmrahAddonsCartModal";
 import { UmrahFaqSection } from "./UmrahFaqSection";
-import { UmrahEnquiryModal, type PackageEnquiryInfo } from "./UmrahEnquiryModal";
+import type { PackageEnquiryInfo } from "./UmrahEnquiryModal";
+
+const UmrahAddonsCartModal = dynamic(() => import("./UmrahAddonsCartModal").then((m) => m.UmrahAddonsCartModal), { ssr: false });
+const UmrahEnquiryModal = dynamic(() => import("./UmrahEnquiryModal").then((m) => m.UmrahEnquiryModal), { ssr: false });
 
 interface Props {
   packages: PackageRow[];
@@ -44,7 +47,7 @@ export function UmrahLandingClient({
     hotelName: "VOCO Makkah",
     hotelRating: "5-Star accommodation",
     shuttleInfo: "24/7 dedicated Haram shuttle",
-    imageUrl: "/brand/banners/umrah.png",
+    imageUrl: "/brand/banners/umrah.webp",
     shortDescription: "A simple and comfortable Umrah package designed for a meaningful spiritual journey.",
   });
   const [isAddonsCartOpen, setIsAddonsCartOpen] = useState(false);
@@ -80,7 +83,7 @@ export function UmrahLandingClient({
             hotelName: "Handpicked 5-Star Hotels",
             hotelRating: "5-Star accommodation",
             shuttleInfo: "Private transfers & Haram access",
-            imageUrl: "/brand/banners/umrah.png",
+            imageUrl: "/brand/banners/umrah.webp",
             shortDescription: "Personalized pilgrimage crafted around your family's exact dates and requirements.",
           })
         }
@@ -149,9 +152,10 @@ export function UmrahLandingClient({
       <section className="relative overflow-hidden bg-masaar-black py-16 text-white">
         <div className="absolute inset-0 opacity-25 pointer-events-none">
           <Image
-            src="/brand/banners/umrah.png"
-            alt=""
+            src="/brand/banners/umrah.webp"
+            alt="Tawaf around the Holy Kaaba during Umrah"
             fill
+            sizes="100vw"
             className="object-cover"
           />
         </div>

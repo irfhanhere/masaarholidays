@@ -14,9 +14,10 @@ export function HajjHero() {
       <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-full lg:w-7/12">
         <div className="relative h-full w-full">
           <Image
-            src="/brand/banners/hajj.png"
+            src="/brand/banners/hajj.webp"
             alt="Pilgrims at Mina during Hajj"
             fill
+            sizes="(max-width: 1024px) 100vw, 60vw"
             priority
             className="object-cover object-right"
           />

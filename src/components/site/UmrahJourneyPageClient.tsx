@@ -142,11 +142,11 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
       <div className="relative overflow-hidden bg-masaar-black">
         <div className="absolute inset-0 grid grid-cols-2">
           <div className="relative">
-            <ExternalImage src="/brand/banners/umrah.png" alt="Makkah" fill className="object-cover opacity-70" />
+            <ExternalImage src="/brand/banners/umrah.webp" alt="Makkah" fill className="object-cover opacity-70" />
           </div>
           <div className="relative" style={{ clipPath: "polygon(8% 0, 100% 0, 100% 100%, 0% 100%)" }}>
             <ExternalImage
-              src="/trips/PRIVATE-TRIP-MADINAH-CARD.png"
+              src="/trips/private-trip-madinah-card.webp"
               alt="Madinah"
               fill
               className="object-cover opacity-80"
@@ -455,7 +455,7 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
       {/* ── Bottom CTA ─────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-masaar-black py-12 text-white">
         <div className="absolute inset-0 opacity-25">
-          <ExternalImage src="/brand/banners/umrah.png" alt="" fill className="object-cover" />
+          <ExternalImage src="/brand/banners/umrah.webp" alt="" fill className="object-cover" />
         </div>
         <div className="absolute inset-0 bg-gradient-to-r from-masaar-black via-masaar-black/90 to-masaar-black/80" />
         <Container className="relative flex flex-col items-center justify-between gap-6 text-center sm:flex-row sm:text-left">

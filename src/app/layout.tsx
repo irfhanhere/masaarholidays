@@ -22,11 +22,21 @@ const cormorant = Cormorant_Garamond({
 // Fallback shell only — every real page overrides title/description via
 // its own generateMetadata (see lib/i18n.ts#buildPageMetadata, which
 // every page.tsx calls). metadataBase lets root-relative OG image paths
-// (e.g. "/brand/banners/umrah.png") resolve to absolute URLs.
+// (e.g. "/brand/banners/umrah.webp") resolve to absolute URLs.
 export const metadata: Metadata = {
   title: "Masaar Holidays",
   description: "",
   metadataBase: new URL(getSiteOrigin()),
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

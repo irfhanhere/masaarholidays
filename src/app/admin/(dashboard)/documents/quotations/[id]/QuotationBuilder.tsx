@@ -1139,7 +1139,7 @@ export function QuotationBuilder({
                   </div>
                   <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
                     <Image
-                      src="/Assets/BANNER IMAGE.png"
+                      src="/trips/banner-image.webp"
                       alt="Package"
                       fill
                       className="object-cover"
@@ -1810,7 +1810,7 @@ export function QuotationBuilder({
             </div>
             <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-white/10 my-3">
               <Image
-                src="/Assets/BANNER IMAGE.png"
+                src="/trips/banner-image.webp"
                 alt="Preview"
                 fill
                 className="object-cover"

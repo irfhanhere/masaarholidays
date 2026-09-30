@@ -28,7 +28,7 @@ export function VisaDetailTemplate({
 }) {
   const eyebrow = visaType.name.toUpperCase();
   const headline = visaType.hero_headline || visaType.name;
-  const heroImage = visaType.hero_image_url || (visaType.slug === "umrah" ? "/brand/banners/umrah.png" : "/brand/banners/default.png");
+  const heroImage = visaType.hero_image_url || (visaType.slug === "umrah" ? "/brand/banners/umrah.webp" : "/brand/banners/default.webp");
   const importantInfo = (visaType.important_info_text || FALLBACK_IMPORTANT_INFO)
     .split("\n")
     .map((p) => p.trim())

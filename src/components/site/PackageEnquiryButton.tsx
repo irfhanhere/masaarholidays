@@ -21,14 +21,14 @@ const FALLBACK_PRIVATE_TRIPS: PrivateTripOption[] = [
     name: "Private Makkah Sightseeing",
     duration: "2 – 2.5 Hours",
     short_description: "Explore selected places around Makkah with private transportation.",
-    featured_image_url: "/trips/PRIVATE-TRIP-MAKKAH-CARD.png",
+    featured_image_url: "/trips/private-trip-makkah-card.webp",
   },
   {
     id: "madinah",
     name: "Private Madinah Sightseeing",
     duration: "2 – 2.5 Hours",
     short_description: "Visit selected places around Madinah at a comfortable pace.",
-    featured_image_url: "/trips/PRIVATE-TRIP-MADINAH-CARD.png",
+    featured_image_url: "/trips/private-trip-madinah-card.webp",
   },
 ];
 
@@ -366,6 +366,7 @@ function PackageEnquiryModal({
                               src={trip.featured_image_url}
                               alt={trip.name}
                               fill
+                              sizes="200px"
                               className="object-cover"
                             />
                           )}

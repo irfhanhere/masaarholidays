@@ -19,7 +19,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     href: "/umrah",
     title: "Umrah",
     description: "Thoughtfully planned Umrah journeys for every generation of the family.",
-    image: "/brand/banners/umrah.png",
+    image: "/brand/banners/umrah.webp",
   },
   {
     key: "hajj",
@@ -104,6 +104,7 @@ export function CrossLinkServices({
                   src={service.image}
                   alt={service.title}
                   fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>

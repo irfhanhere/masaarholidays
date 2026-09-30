@@ -60,7 +60,7 @@ export default async function PrivateTripsLandingPage() {
     destination: "Makkah" as const,
     duration: "2 – 2.5 Hours",
     short_description: "Explore selected places around Makkah with private transportation.",
-    featured_image_url: "/trips/PRIVATE-TRIP-MAKKAH-CARD.png",
+    featured_image_url: "/trips/private-trip-makkah-card.webp",
   };
   const madinahTrip = trips.find((t) => t.destination === "Madinah") ?? {
     name: "Private Madinah Sightseeing",
@@ -68,7 +68,7 @@ export default async function PrivateTripsLandingPage() {
     destination: "Madinah" as const,
     duration: "2 – 2.5 Hours",
     short_description: "Visit selected places around Madinah at a comfortable pace.",
-    featured_image_url: "/trips/PRIVATE-TRIP-MADINAH-CARD.png",
+    featured_image_url: "/trips/private-trip-madinah-card.webp",
   };
   const displayTrips = [makkahTrip, madinahTrip];
 
@@ -81,7 +81,7 @@ export default async function PrivateTripsLandingPage() {
         <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-full lg:w-7/12">
           <div className="relative h-full w-full">
             <Image
-              src="/trips/PRIVATE-TRIP-TRANSPORT.png"
+              src="/trips/private-trip-transport.webp"
               alt="Private transport around Makkah and Madinah"
               fill
               priority
@@ -169,7 +169,7 @@ export default async function PrivateTripsLandingPage() {
               >
                 <div className="relative h-56 w-full overflow-hidden bg-warm-ivory">
                   <ExternalImage
-                    src={trip.featured_image_url || "/trips/PRIVATE-TRIP-MAKKAH-CARD.png"}
+                    src={trip.featured_image_url || "/trips/private-trip-makkah-card.webp"}
                     alt={trip.name}
                     fill
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -246,7 +246,13 @@ export default async function PrivateTripsLandingPage() {
       {/* ── We're Here to Help CTA ─────────────────────────────────── */}
       <section className="relative overflow-hidden bg-masaar-black py-16 text-white">
         <div className="absolute inset-0 opacity-20">
-          <Image src="/trips/PRIVATE-TRIP-TRANSPORT.png" alt="" fill className="object-cover" />
+          <Image
+            src="/trips/private-trip-transport.webp"
+            alt="Private vehicle transport for Makkah and Madinah trips"
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
         </div>
         <div className="absolute inset-0 bg-gradient-to-r from-masaar-black via-masaar-black/90 to-masaar-black/80" />
         <Container className="relative flex flex-col items-center justify-between gap-6 text-center sm:flex-row sm:text-left">

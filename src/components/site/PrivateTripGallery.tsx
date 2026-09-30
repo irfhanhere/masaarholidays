@@ -37,6 +37,7 @@ export function PrivateTripGallery({
               src={img.src}
               alt={img.alt || `Trip photo ${idx + 1}`}
               fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-cover"
             />
           </div>

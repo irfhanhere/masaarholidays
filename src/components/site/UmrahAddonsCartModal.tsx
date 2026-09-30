@@ -141,7 +141,7 @@ export function UmrahAddonsCartModal({ isOpen, onClose, addons, initialAddonId }
                     className="mt-1 size-4 shrink-0 rounded border-black/20 text-[#A87F12] focus:ring-[#A87F12]"
                   />
                   <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-warm-ivory">
-                    <Image src={addon.image_url} alt={addon.name} fill className="object-cover" />
+                    <Image src={addon.image_url} alt={addon.name} fill sizes="56px" className="object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">

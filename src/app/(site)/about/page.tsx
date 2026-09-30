@@ -75,7 +75,7 @@ export default async function AboutPage() {
         eyebrow="About Masaar"
         h1="Faith-Led Travel,"
         h1Gold="With Care at Every Step"
-        image="/brand/banners/umrah.png"
+        image="/brand/banners/umrah.webp"
       >
         <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
           {about?.hero_subline || "Masaar was created to make journeys to the Holy Cities more thoughtful, clear and personally supported."}
@@ -111,7 +111,13 @@ export default async function AboutPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-[1.3fr_1fr] sm:items-center">
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-black/5">
-              <Image src={about?.purpose_image_url || "/brand/banners/umrah.png"} alt="Our purpose — serving those on the path to Allah" fill className="object-cover" />
+              <Image
+                src={about?.purpose_image_url || "/brand/banners/umrah.webp"}
+                alt="Our purpose — serving those on the path to Allah"
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 35vw"
+                className="object-cover"
+              />
             </div>
             <div className="border-l-2 border-pure-gold pl-4">
               <p className="font-[family-name:var(--font-display)] text-lg italic leading-snug text-masaar-black">
@@ -132,9 +138,10 @@ export default async function AboutPage() {
         <Container className="grid gap-10 overflow-hidden rounded-lg bg-warm-ivory lg:grid-cols-2">
           <div className="relative h-64 lg:h-auto">
             <Image
-              src={about?.founding_story_image_url || "/brand/banners/hajj.png"}
+              src={about?.founding_story_image_url || "/brand/banners/hajj.webp"}
               alt="The founding story of Masaar Holidays"
               fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover"
             />
           </div>
@@ -204,7 +211,13 @@ export default async function AboutPage() {
       <section className="py-4">
         <Container className="grid overflow-hidden rounded-lg lg:grid-cols-2">
           <div className="relative h-64 lg:h-auto">
-            <Image src={about?.sadaqah_image_url || "/brand/banners/hajj.png"} alt="Sadaqah Jariyah — giving back through every journey" fill className="object-cover" />
+            <Image
+              src={about?.sadaqah_image_url || "/brand/banners/hajj.webp"}
+              alt="Sadaqah Jariyah — giving back through every journey"
+              fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="object-cover"
+            />
           </div>
           <div className="flex flex-col justify-center bg-warm-ivory p-8 sm:p-10">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">Giving Back</p>
@@ -278,7 +291,13 @@ export default async function AboutPage() {
       <section className="py-16">
         <Container className="grid gap-10 lg:grid-cols-[1fr_1.4fr_1fr] lg:items-center">
           <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-black/5">
-            <Image src={about?.founder_image_url || "/brand/banners/destination.png"} alt="Masaar Holidays' commitment to every traveller" fill className="object-cover" />
+            <Image
+              src={about?.founder_image_url || "/brand/banners/destination.webp"}
+              alt="Masaar Holidays' commitment to every traveller"
+              fill
+              sizes="(max-width: 1024px) 100vw, 30vw"
+              className="object-cover"
+            />
           </div>
 
           <div>

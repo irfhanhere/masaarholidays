@@ -26,7 +26,7 @@ export default function ContactPage() {
         eyebrow="Contact Masaar"
         h1="Let's Plan Your"
         h1Gold="Journey Together"
-        image="/brand/banners/default.png"
+        image="/brand/banners/default.webp"
         breadcrumb={[
           { label: "Home", href: "/" },
           { label: "Contact", href: "/contact" },

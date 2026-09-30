@@ -89,7 +89,7 @@ export async function buildPageMetadata({
   path: string;
   title: string;
   description?: string;
-  /** Absolute URL, or a root-relative path (e.g. "/brand/banners/umrah.png") resolved against NEXT_PUBLIC_SITE_URL. */
+  /** Absolute URL, or a root-relative path (e.g. "/brand/banners/umrah.webp") resolved against NEXT_PUBLIC_SITE_URL. */
   ogImageUrl?: string | null;
   /** Admin-set noindex for this specific page — combined with (not replacing) locale-based noindex. */
   noindex?: boolean | null;

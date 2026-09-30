@@ -46,7 +46,7 @@ export default async function HotelsPage() {
         eyebrow="Hotels"
         h1="Stay Closer to"
         h1Gold="What Matters"
-        image="/brand/banners/hotel.png"
+        image="/brand/banners/hotel.webp"
       >
         <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
           Carefully selected hotels in Makkah and Madinah, chosen around location, comfort and the needs of your journey.

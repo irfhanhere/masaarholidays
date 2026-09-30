@@ -315,9 +315,9 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <div className="relative min-h-[320px] w-full bg-masaar-black sm:min-h-[400px]">
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill priority className="object-cover opacity-80" />
+          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill sizes="100vw" priority className="object-cover opacity-80" />
         ) : (
-          <Image src="/brand/banners/umrah.png" alt={pkg.title} fill priority className="object-cover opacity-65" />
+          <Image src="/brand/banners/umrah.webp" alt={pkg.title} fill sizes="100vw" priority className="object-cover opacity-65" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-masaar-black via-masaar-black/40 to-transparent" />
         <Container className="relative flex h-full flex-col justify-end pb-8 pt-24 text-white sm:pb-12 sm:pt-32">
@@ -967,7 +967,7 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
           hotelName: displayConfig?.makkah_hotel?.name || pkg.makkah_hotel_name || "5-Star Hotel",
           hotelRating: "5-Star accommodation",
           shuttleInfo: displayConfig?.makkah_hotel?.shuttle_note || "24/7 dedicated Haram shuttle",
-          imageUrl: pkg.hero_image_url || "/brand/banners/umrah.png",
+          imageUrl: pkg.hero_image_url || "/brand/banners/umrah.webp",
           shortDescription: pkg.short_description || pkg.tagline || "",
         }}
       />

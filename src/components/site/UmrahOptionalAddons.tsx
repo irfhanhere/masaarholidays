@@ -24,7 +24,7 @@ const DEFAULT_ADDONS: AddonItem[] = [
     name: "Umrah Visa",
     short_description: "We assist with your visa application and documentation.",
     price_note: "Price on request",
-    image_url: "/trips/Visa Assistance card (Home).png",
+    image_url: "/trips/visa-assistance-card-home.webp",
     icon: "🛂",
   },
   {
@@ -32,7 +32,7 @@ const DEFAULT_ADDONS: AddonItem[] = [
     name: "Private Makkah Ziyarat",
     short_description: "Explore the historical and spiritual sites around Makkah with a private vehicle.",
     price_note: "From AED 300",
-    image_url: "/brand/banners/umrah.png",
+    image_url: "/brand/banners/umrah.webp",
     icon: "🕋",
   },
   {
@@ -40,7 +40,7 @@ const DEFAULT_ADDONS: AddonItem[] = [
     name: "Private Madinah Ziyarat",
     short_description: "Visit the blessed landmarks of Madinah at a comfortable pace.",
     price_note: "From AED 300",
-    image_url: "/trips/PRIVATE-TRIP-MADINAH-CARD.png",
+    image_url: "/trips/private-trip-madinah-card.webp",
     icon: "🕌",
   },
   {
@@ -48,7 +48,7 @@ const DEFAULT_ADDONS: AddonItem[] = [
     name: "Flights",
     short_description: "We can assist with flight arrangements based on your preferred travel dates.",
     price_note: "Available upon request",
-    image_url: "/trips/DESTINATION IMAGE.png",
+    image_url: "/trips/destination-image.webp",
     icon: "✈️",
   },
   {
@@ -56,7 +56,7 @@ const DEFAULT_ADDONS: AddonItem[] = [
     name: "Private Sightseeing",
     short_description: "Discover key places with a comfortable private tour.",
     price_note: "2 – 2.5 hours",
-    image_url: "/trips/PRIVATE-TRIP-MAKKAH-CARD.png",
+    image_url: "/trips/private-trip-makkah-card.webp",
     icon: "📍",
   },
 ];
@@ -154,6 +154,7 @@ export function UmrahOptionalAddons({ addons, onSelectAddon }: Props) {
                     src={addon.image_url}
                     alt={addon.name}
                     fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />

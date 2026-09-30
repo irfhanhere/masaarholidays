@@ -94,7 +94,7 @@ export default async function HomePage() {
         eyebrow="Masaar Holidays"
         h1="Thoughtfully Planned Umrah Journeys from"
         h1Gold="the UAE"
-        image="/brand/banners/umrah.png"
+        image="/brand/banners/umrah.webp"
       >
         <div className="mt-6 max-w-lg">
           <p className="text-sm text-masaar-black/60 sm:text-base">
@@ -159,7 +159,7 @@ export default async function HomePage() {
                       price_aed: rp.price_aed,
                     }))}
                     durationLabel={config.duration_label}
-                    fallbackImageUrl="/brand/banners/umrah.png"
+                    fallbackImageUrl="/brand/banners/umrah.webp"
                     makkahHotel={config.makkah_hotel ?? null}
                     madinahHotel={config.madinah_hotel ?? null}
                   />

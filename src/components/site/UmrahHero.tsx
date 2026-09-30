@@ -19,9 +19,10 @@ export function UmrahHero({ onOpenEnquiry }: Props) {
       <div className="absolute right-0 top-0 bottom-0 w-full lg:w-7/12 pointer-events-none">
         <div className="relative h-full w-full">
           <Image
-            src="/brand/banners/umrah.png"
+            src="/brand/banners/umrah.webp"
             alt="The Holy Kaaba in Makkah"
             fill
+            sizes="(max-width: 1024px) 100vw, 60vw"
             priority
             className="object-cover object-right"
           />

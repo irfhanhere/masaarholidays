@@ -28,7 +28,7 @@ export function UmrahMonthPageClient({ month, nextMonth, packages, inventoryConf
     hotelName: "VOCO Makkah",
     hotelRating: "5-Star accommodation",
     shuttleInfo: "24/7 dedicated Haram shuttle",
-    imageUrl: "/brand/banners/umrah.png",
+    imageUrl: "/brand/banners/umrah.webp",
     shortDescription: `A simple and comfortable Umrah package for ${month.display_label}.`,
   });
 
@@ -50,14 +50,16 @@ export function UmrahMonthPageClient({ month, nextMonth, packages, inventoryConf
                 src={month.hero_image_url}
                 alt={month.display_label}
                 fill
+                sizes="(max-width: 1024px) 100vw, 60vw"
                 priority
                 className="object-cover object-right"
               />
             ) : (
               <Image
-                src="/brand/banners/umrah.png"
+                src="/brand/banners/umrah.webp"
                 alt={month.display_label}
                 fill
+                sizes="(max-width: 1024px) 100vw, 60vw"
                 priority
                 className="object-cover object-right"
               />

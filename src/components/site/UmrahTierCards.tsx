@@ -31,7 +31,7 @@ const TIER_METADATA: Record<
   essential: {
     caption: "A BLESSED BEGINNING",
     badgeLabel: "ESSENTIAL",
-    defaultPhoto: "/brand/banners/umrah.png",
+    defaultPhoto: "/brand/banners/umrah.webp",
     hotelShuttleNote: "24/7 free shuttle from hotel to Haram and back",
     fallbackPrices: {
       "2 Nights / 3 Days": { double: 889, triple: 689, quad: 489 },
@@ -42,7 +42,7 @@ const TIER_METADATA: Record<
   signature: {
     caption: "A MORE MEANINGFUL JOURNEY",
     badgeLabel: "SIGNATURE",
-    defaultPhoto: "/trips/PRIVATE-TRIP-MAKKAH-CARD.png",
+    defaultPhoto: "/trips/private-trip-makkah-card.webp",
     hotelShuttleNote: "Walking distance to the Haram",
     fallbackPrices: {
       "2 Nights / 3 Days": { double: 1543, triple: 1302, quad: 1147 },
@@ -53,7 +53,7 @@ const TIER_METADATA: Record<
   exclusive: {
     caption: "THE HIGHEST STANDARD OF CARE",
     badgeLabel: "EXCLUSIVE",
-    defaultPhoto: "/trips/PRIVATE-TRIP-TRANSPORT.png",
+    defaultPhoto: "/trips/private-trip-transport.webp",
     hotelShuttleNote: "Haram Plaza access",
     fallbackPrices: {
       "2 Nights / 3 Days": { double: 2543, triple: 2102, quad: 1847 },
@@ -183,9 +183,9 @@ function TierCard({
       {/* Left Photo Panel with Caption Overlay */}
       <div className="relative h-64 lg:h-auto lg:w-5/12 bg-masaar-black shrink-0 overflow-hidden">
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill className="object-cover" />
+          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
         ) : (
-          <Image src={meta.defaultPhoto} alt={pkg.title} fill className="object-cover" />
+          <Image src={meta.defaultPhoto} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/60" />
 

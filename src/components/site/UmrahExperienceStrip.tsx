@@ -44,9 +44,10 @@ export function UmrahExperienceStrip() {
           <div className="relative md:col-span-5 rounded-2xl overflow-hidden bg-masaar-black text-white p-8 flex flex-col justify-between shadow-md">
             <div className="absolute inset-0 opacity-40">
               <Image
-                src="/trips/PRIVATE-TRIP-MAKKAH-HERO.png"
-                alt=""
+                src="/trips/private-trip-makkah-hero.webp"
+                alt="Pilgrims at the Grand Mosque in Makkah"
                 fill
+                sizes="(max-width: 768px) 100vw, 42vw"
                 className="object-cover"
               />
             </div>

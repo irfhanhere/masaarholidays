@@ -33,7 +33,13 @@ export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
         <Link href={`/hotels/${hotel.slug}`} className="block">
           <div className="relative h-44 w-full bg-warm-ivory">
             {hotel.image_url && (
-              <ExternalImage src={hotel.image_url} alt={hotel.name} fill className="object-cover" />
+              <ExternalImage
+                src={hotel.image_url}
+                alt={hotel.name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover"
+              />
             )}
             {hotel.minPriceAed != null && (
               <span className="absolute left-3 top-3 rounded bg-pure-gold px-2.5 py-1 text-[11px] font-bold text-masaar-black shadow-xs">

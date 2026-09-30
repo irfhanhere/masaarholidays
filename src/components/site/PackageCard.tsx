@@ -81,10 +81,22 @@ export function PackageCard({
         className="relative h-48 w-full shrink-0 bg-warm-ivory sm:h-auto sm:w-64 sm:self-stretch md:w-80"
       >
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill className="object-cover" />
+          <ExternalImage
+            src={pkg.hero_image_url}
+            alt={pkg.title}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 256px, 320px"
+            className="object-cover"
+          />
         ) : (
           fallbackImageUrl && (
-            <Image src={fallbackImageUrl} alt={pkg.title} fill className="object-cover" />
+            <Image
+              src={fallbackImageUrl}
+              alt={pkg.title}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 768px) 256px, 320px"
+              className="object-cover"
+            />
           )
         )}
         <span className="absolute left-3 top-3 rounded bg-masaar-black px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">

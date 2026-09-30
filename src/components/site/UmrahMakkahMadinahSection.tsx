@@ -76,7 +76,7 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
         hotelName: `${makkahHotel} & ${madinahHotel}`,
         hotelRating: "5-Star accommodation",
         shuttleInfo: "Private intercity & Haram transport",
-        imageUrl: pkg.hero_image_url || "/trips/PRIVATE-TRIP-MADINAH-CARD.png",
+        imageUrl: pkg.hero_image_url || "/trips/private-trip-madinah-card.webp",
         shortDescription: currentDurationInfo.desc,
       });
     }
@@ -114,9 +114,10 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
           {/* Left Column: Madinah Green Dome Portrait Photo */}
           <div className="relative min-h-[350px] lg:col-span-4 rounded-2xl overflow-hidden bg-masaar-black shadow-sm">
             <Image
-              src="/trips/PRIVATE-TRIP-MADINAH-CARD.png"
+              src="/trips/private-trip-madinah-card.webp"
               alt="Prophet's Mosque in Madinah"
               fill
+              sizes="(max-width: 1024px) 100vw, 33vw"
               className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -197,7 +198,7 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center rounded-xl border border-black/10 bg-warm-ivory/30 p-4">
                   <div className="sm:col-span-5 flex items-center gap-3">
                     <div className="relative size-12 rounded-lg overflow-hidden shrink-0 bg-black/10">
-                      <Image src="/brand/banners/umrah.png" alt={makkahHotel} fill className="object-cover" />
+                      <Image src="/brand/banners/umrah.webp" alt={makkahHotel} fill sizes="48px" className="object-cover" />
                     </div>
                     <div>
                       <p className="text-[10px] uppercase font-bold text-[#A87F12]">Makkah</p>
@@ -208,7 +209,7 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
 
                   <div className="sm:col-span-5 flex items-center gap-3 border-t sm:border-t-0 sm:border-l border-black/10 pt-3 sm:pt-0 sm:pl-4">
                     <div className="relative size-12 rounded-lg overflow-hidden shrink-0 bg-black/10">
-                      <Image src="/trips/PRIVATE-TRIP-MADINAH-CARD.png" alt={madinahHotel} fill className="object-cover" />
+                      <Image src="/trips/private-trip-madinah-card.webp" alt={madinahHotel} fill sizes="48px" className="object-cover" />
                     </div>
                     <div>
                       <p className="text-[10px] uppercase font-bold text-[#A87F12]">Madinah</p>

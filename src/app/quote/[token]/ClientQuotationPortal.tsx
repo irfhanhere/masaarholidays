@@ -389,7 +389,7 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
       <section className="relative overflow-hidden bg-masaar-black text-white">
         <div className="absolute inset-0 opacity-40 mix-blend-luminosity">
           <Image
-            src="/Assets/banner-image.png"
+            src="/trips/banner-image.webp"
             alt="Makkah Clock Tower & Masjid Al Haram"
             fill
             priority
@@ -543,7 +543,7 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
               <div className="grid gap-5 md:grid-cols-12 items-center">
                 <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5">
                   <Image
-                    src="/Assets/hajj-banner.png"
+                    src="/trips/hajj-banner.webp"
                     alt="Package"
                     fill
                     className="object-cover"

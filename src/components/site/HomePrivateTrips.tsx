@@ -33,7 +33,7 @@ export function HomePrivateTrips({ trips = [] }: { trips?: PrivateTripRow[] }) {
     destination: "Makkah",
     duration: "2 – 2.5 Hours",
     short_description: "Explore selected places around Makkah with private transportation.",
-    featured_image_url: "/trips/PRIVATE-TRIP-MAKKAH-CARD.png",
+    featured_image_url: "/trips/private-trip-makkah-card.webp",
   };
 
   const madinahTrip = trips.find((t) => t.destination === "Madinah" && t.status === "published") || {
@@ -42,7 +42,7 @@ export function HomePrivateTrips({ trips = [] }: { trips?: PrivateTripRow[] }) {
     destination: "Madinah",
     duration: "2 – 2.5 Hours",
     short_description: "Visit selected places around Madinah at a comfortable pace.",
-    featured_image_url: "/trips/PRIVATE-TRIP-MADINAH-CARD.png",
+    featured_image_url: "/trips/private-trip-madinah-card.webp",
   };
 
   const displayTrips = [makkahTrip, madinahTrip];
@@ -76,6 +76,7 @@ export function HomePrivateTrips({ trips = [] }: { trips?: PrivateTripRow[] }) {
                     src={item.image}
                     alt={item.label}
                     fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
@@ -106,9 +107,10 @@ export function HomePrivateTrips({ trips = [] }: { trips?: PrivateTripRow[] }) {
                 >
                   <div className="relative h-48 w-full overflow-hidden bg-warm-ivory sm:h-56">
                     <Image
-                      src={trip.featured_image_url || "/trips/PRIVATE-TRIP-MAKKAH-CARD.png"}
+                      src={trip.featured_image_url || "/trips/private-trip-makkah-card.webp"}
                       alt={trip.name}
                       fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute top-3 left-3 rounded-md bg-masaar-black/80 px-2.5 py-1 text-xs font-semibold tracking-wider text-white uppercase backdrop-blur-xs">

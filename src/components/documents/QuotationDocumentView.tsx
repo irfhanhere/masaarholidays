@@ -279,7 +279,7 @@ export function QuotationDocumentView({
               {/* Central Kaaba Banner Image */}
               <div className="relative flex-1 w-full overflow-hidden bg-black">
                 <Image
-                  src="/Assets/banner-image.png"
+                  src="/trips/banner-image.webp"
                   alt="Holy Kaaba Makkah"
                   fill
                   className="object-cover object-center"
@@ -880,7 +880,7 @@ export function QuotationDocumentView({
               {/* Dark Kaaba Background Image for rich print depth */}
               <div className="absolute inset-0 z-0 overflow-hidden opacity-30">
                 <Image
-                  src="/Assets/banner-image.png"
+                  src="/trips/banner-image.webp"
                   alt="Holy Kaaba Makkah"
                   fill
                   className="object-cover object-center"

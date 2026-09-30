@@ -125,9 +125,9 @@ export default async function HotelDetailPage({
       />
       <div className="relative h-72 w-full bg-masaar-black sm:h-96">
         {hotel.image_url ? (
-          <ExternalImage src={hotel.image_url} alt={hotel.name} fill priority className="object-cover opacity-90" />
+          <ExternalImage src={hotel.image_url} alt={hotel.name} fill sizes="100vw" priority className="object-cover opacity-90" />
         ) : (
-          <Image src="/brand/banners/hotel.png" alt={`${hotel.name} in ${hotel.city}`} fill priority className="object-cover opacity-70" />
+          <Image src="/brand/banners/hotel.webp" alt={`${hotel.name} in ${hotel.city}`} fill sizes="100vw" priority className="object-cover opacity-70" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-masaar-black/90 via-masaar-black/30 to-transparent" />
         <Container className="relative flex h-full flex-col justify-end pb-8 text-white">
@@ -536,6 +536,7 @@ export default async function HotelDetailPage({
                         src={rel.image_url}
                         alt={rel.name}
                         fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (

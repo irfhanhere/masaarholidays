@@ -47,7 +47,7 @@ export default async function TransfersPage() {
         eyebrow="Transfers"
         h1="Arrive With Ease,"
         h1Gold="Leave With Peace"
-        image="/brand/banners/default.png"
+        image="/brand/banners/default.webp"
       >
         <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
           Private transfers for your Umrah journey — airports, the Haramain train, and intercity routes, arranged with care.

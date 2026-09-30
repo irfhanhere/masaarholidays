@@ -122,9 +122,9 @@ export function FeaturedPackageCard({
         className="relative h-52 w-full shrink-0 bg-warm-ivory lg:h-auto lg:w-72 lg:self-stretch"
       >
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill className="object-cover" />
+          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 288px" className="object-cover" />
         ) : (
-          fallbackImageUrl && <Image src={fallbackImageUrl} alt={pkg.title} fill className="object-cover" />
+          fallbackImageUrl && <Image src={fallbackImageUrl} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 288px" className="object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-transparent" />
         <span className="absolute bottom-4 left-4 right-4 font-[family-name:var(--font-display)] text-lg font-bold uppercase leading-tight text-white">

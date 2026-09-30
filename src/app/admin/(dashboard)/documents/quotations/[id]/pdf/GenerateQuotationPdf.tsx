@@ -123,7 +123,7 @@ export function GenerateQuotationPdf({
 
               <div className="flex items-center gap-3 rounded-lg border border-[#b37e28] bg-light-gold/15 p-2.5 ring-1 ring-[#b37e28]">
                 <div className="relative h-10 w-9 shrink-0 overflow-hidden rounded border border-black/10 bg-neutral-100">
-                  <Image src="/Assets/banner-image.png" alt="Premium" fill className="object-cover" unoptimized />
+                  <Image src="/trips/banner-image.webp" alt="Premium" fill className="object-cover" unoptimized />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-masaar-black">Masaar Premium Layout</p>

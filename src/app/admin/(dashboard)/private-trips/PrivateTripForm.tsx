@@ -27,18 +27,18 @@ interface StopDraft {
 const DEFAULT_TIME_SLOTS = ["7:00 AM", "8:00 AM", "9:00 AM", "2:00 PM", "3:00 PM", "4:00 PM"];
 
 const PRESET_IMAGES = [
-  { label: "Makkah Card", url: "/trips/PRIVATE-TRIP-MAKKAH-CARD.png" },
-  { label: "Madinah Card", url: "/trips/PRIVATE-TRIP-MADINAH-CARD.png" },
-  { label: "Makkah Hero", url: "/trips/PRIVATE-TRIP-MAKKAH-HERO.png" },
-  { label: "Madinah Hero", url: "/trips/PRIVATE-TRIP-MADINAH-HERO.jpg" },
-  { label: "Transport", url: "/trips/PRIVATE-TRIP-TRANSPORT.png" },
-  { label: "Taif / Destination", url: "/trips/DESTINATION IMAGE.png" },
+  { label: "Makkah Card", url: "/trips/private-trip-makkah-card.webp" },
+  { label: "Madinah Card", url: "/trips/private-trip-madinah-card.webp" },
+  { label: "Makkah Hero", url: "/trips/private-trip-makkah-hero.webp" },
+  { label: "Madinah Hero", url: "/trips/private-trip-madinah-hero.webp" },
+  { label: "Transport", url: "/trips/private-trip-transport.webp" },
+  { label: "Taif / Destination", url: "/trips/destination-image.webp" },
 ];
 
 const PRESET_STOP_IMAGES = [
-  { label: "Mount Uhud", url: "/trips/STOP-MADINAH-MOUNT-UHUD.png" },
-  { label: "Shuhada Uhud", url: "/trips/STOP-MADINAH-SHUHADA-UHUD.png" },
-  { label: "Mount Rumah", url: "/trips/STOP-MADINAH-MOUNT-RUMAH.png" },
+  { label: "Mount Uhud", url: "/trips/stop-madinah-mount-uhud.webp" },
+  { label: "Shuhada Uhud", url: "/trips/stop-madinah-shuhada-uhud.webp" },
+  { label: "Mount Rumah", url: "/trips/stop-madinah-mount-rumah.webp" },
 ];
 
 export function PrivateTripForm({
@@ -68,14 +68,14 @@ export function PrivateTripForm({
   const [featuredImageUrl, setFeaturedImageUrl] = useState(
     initialTrip?.featured_image_url ??
       (destination === "Madinah"
-        ? "/trips/PRIVATE-TRIP-MADINAH-CARD.png"
-        : "/trips/PRIVATE-TRIP-MAKKAH-CARD.png")
+        ? "/trips/private-trip-madinah-card.webp"
+        : "/trips/private-trip-makkah-card.webp")
   );
   const [heroImageUrl, setHeroImageUrl] = useState(
     initialTrip?.hero_image_url ??
       (destination === "Madinah"
-        ? "/trips/PRIVATE-TRIP-MADINAH-HERO.jpg"
-        : "/trips/PRIVATE-TRIP-MAKKAH-HERO.png")
+        ? "/trips/private-trip-madinah-hero.webp"
+        : "/trips/private-trip-makkah-hero.webp")
   );
   const [pickupPoint, setPickupPoint] = useState<PrivateTripPickupPoint>(
     initialTrip?.pickup_point ?? "hotel_lobby"
@@ -143,21 +143,21 @@ export function PrivateTripForm({
             visit_type: "Visit",
             visit_duration: "25 – 30 min",
             short_description: "Explore the historic Uhud mountain.",
-            image_url: "/trips/STOP-MADINAH-MOUNT-UHUD.png",
+            image_url: "/trips/stop-madinah-mount-uhud.webp",
           },
           {
             stop_number: 3,
             stop_name: "Shuhada Uhud Cemetery",
             visit_type: "Pass By",
             short_description: "Drive past the cemetery of martyrs.",
-            image_url: "/trips/STOP-MADINAH-SHUHADA-UHUD.png",
+            image_url: "/trips/stop-madinah-shuhada-uhud.webp",
           },
           {
             stop_number: 4,
             stop_name: "Mount Rumah",
             visit_type: "Pass By",
             short_description: "View Mount Rumah from the route.",
-            image_url: "/trips/STOP-MADINAH-MOUNT-RUMAH.png",
+            image_url: "/trips/stop-madinah-mount-rumah.webp",
           },
         ]
   );
@@ -562,7 +562,7 @@ export function PrivateTripForm({
                   type="text"
                   value={featuredImageUrl}
                   onChange={(e) => setFeaturedImageUrl(e.target.value)}
-                  placeholder="/trips/PRIVATE-TRIP-MADINAH-CARD.png"
+                  placeholder="/trips/private-trip-madinah-card.webp"
                   className={inputClass}
                 />
               </Field>
@@ -592,7 +592,7 @@ export function PrivateTripForm({
                   type="text"
                   value={heroImageUrl}
                   onChange={(e) => setHeroImageUrl(e.target.value)}
-                  placeholder="/trips/PRIVATE-TRIP-MADINAH-HERO.jpg"
+                  placeholder="/trips/private-trip-madinah-hero.webp"
                   className={inputClass}
                 />
               </Field>
@@ -761,7 +761,7 @@ export function PrivateTripForm({
                       type="text"
                       value={stop.image_url ?? ""}
                       onChange={(e) => updateStop(index, { image_url: e.target.value })}
-                      placeholder="Image URL (e.g. /trips/STOP-MADINAH-MOUNT-UHUD.png)"
+                      placeholder="Image URL (e.g. /trips/stop-madinah-mount-uhud.webp)"
                       className="rounded border border-black/15 bg-white px-2 py-0.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none min-w-[260px]"
                     />
                     {PRESET_STOP_IMAGES.map((preset) => (
@@ -1076,7 +1076,7 @@ export function PrivateTripForm({
                 type="text"
                 value={newGalleryImageInput}
                 onChange={(e) => setNewGalleryImageInput(e.target.value)}
-                placeholder="Image URL (e.g. /trips/STOP-MADINAH-MOUNT-UHUD.png)"
+                placeholder="Image URL (e.g. /trips/stop-madinah-mount-uhud.webp)"
                 className="min-w-40 flex-1 rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
               />
               <input

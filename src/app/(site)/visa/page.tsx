@@ -52,7 +52,7 @@ export default async function VisaPage() {
   return (
     <>
       <Breadcrumbs items={[{ label: "Visa" }]} />
-      <Hero eyebrow="Visa Assistance" h1="Visa Assistance," h1Gold="With Clarity" image="/brand/banners/destination.png">
+      <Hero eyebrow="Visa Assistance" h1="Visa Assistance," h1Gold="With Clarity" image="/brand/banners/destination.webp">
         <p className="mt-4 max-w-xl text-sm text-masaar-black/60 sm:text-base">
           Guidance through the documentation and application process, so you know what is needed before your journey.
         </p>

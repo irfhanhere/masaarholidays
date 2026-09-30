@@ -122,13 +122,15 @@ export function UmrahEnquiryModal({ isOpen, onClose, packageInfo, initialAddon }
                   src={packageInfo.imageUrl}
                   alt={packageInfo.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 360px"
                   className="object-cover"
                 />
               ) : (
                 <Image
-                  src="/brand/banners/umrah.png"
+                  src="/brand/banners/umrah.webp"
                   alt={packageInfo.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 360px"
                   className="object-cover"
                 />
               )}

@@ -67,7 +67,7 @@ export async function generateMetadata({
     trip.short_description ||
     `Arranged private sightseeing experience in ${trip.destination} with Masaar Holidays.`;
 
-  const ogImage = trip.featured_image_url || trip.hero_image_url || "/trips/PRIVATE-TRIP-MADINAH-CARD.png";
+  const ogImage = trip.featured_image_url || trip.hero_image_url || "/trips/private-trip-madinah-card.webp";
 
   return buildPageMetadata({
     path: `/private-trips/${slug}`,
@@ -100,11 +100,11 @@ export default async function PrivateTripDetailPage({
       ? trip.gallery_images.map((src) => ({ src, alt: galleryAltByUrl.get(src) || trip.name }))
       : [
           ...(stops.filter((s) => s.image_url).map((s) => ({ src: s.image_url as string, alt: s.stop_name }))),
-          { src: "/trips/STOP-MADINAH-MOUNT-UHUD.png", alt: "Mount Uhud" },
-          { src: "/trips/STOP-MADINAH-SHUHADA-UHUD.png", alt: "Shuhada Uhud" },
-          { src: "/trips/STOP-MADINAH-MOUNT-RUMAH.png", alt: "Mount Rumah" },
-          { src: "/trips/DESTINATION IMAGE.png", alt: "Madinah Heritage" },
-          { src: "/trips/HOTEL  BANNER.png", alt: "Private Tour" },
+          { src: "/trips/stop-madinah-mount-uhud.webp", alt: "Mount Uhud" },
+          { src: "/trips/stop-madinah-shuhada-uhud.webp", alt: "Shuhada Uhud" },
+          { src: "/trips/stop-madinah-mount-rumah.webp", alt: "Mount Rumah" },
+          { src: "/trips/destination-image.webp", alt: "Madinah Heritage" },
+          { src: "/trips/hotel-banner.webp", alt: "Private Tour" },
         ]
   ).filter((img, index, self) => index === self.findIndex((t) => t.src === img.src));
 
@@ -140,9 +140,10 @@ export default async function PrivateTripDetailPage({
         {/* Hero Background Image */}
         <div className="absolute inset-0">
           <Image
-            src={trip.hero_image_url || trip.featured_image_url || "/trips/PRIVATE-TRIP-MADINAH-HERO.jpg"}
+            src={trip.hero_image_url || trip.featured_image_url || "/trips/private-trip-madinah-hero.webp"}
             alt={trip.name}
             fill
+            sizes="100vw"
             priority
             className="object-cover object-center opacity-70"
           />
@@ -262,7 +263,7 @@ export default async function PrivateTripDetailPage({
                   {/* Thumbnail */}
                   {stop.image_url && (
                     <div className="relative size-14 shrink-0 overflow-hidden rounded-lg">
-                      <Image src={stop.image_url} alt={stop.stop_name} fill className="object-cover" />
+                      <Image src={stop.image_url} alt={stop.stop_name} fill sizes="56px" className="object-cover" />
                     </div>
                   )}
 

@@ -24,7 +24,7 @@ export default async function FaqPage() {
       <Hero
         eyebrow="Support For Your Journey"
         h1="Frequently Asked Questions"
-        image="/brand/banners/destination.png"
+        image="/brand/banners/destination.webp"
       >
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-masaar-black/75 sm:text-base">
           Find quick answers to common questions about our services, processes, and your journey with Masaar Holidays.
