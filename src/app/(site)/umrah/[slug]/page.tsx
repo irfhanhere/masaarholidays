@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { UmrahInventoryDetailClient } from "@/components/site/UmrahInventoryDetailClient";
 import {
   getPackageBySlugAndType,
@@ -17,6 +17,12 @@ const SLUG_ALIASES: Record<string, string> = {
   "exclusive-umrah": "umrah-exclusive-placeholder",
 };
 
+const PLACEHOLDER_CLEAN_MAP: Record<string, string> = {
+  "umrah-essential-placeholder": "/umrah/essential",
+  "umrah-signature-placeholder": "/umrah/signature",
+  "umrah-exclusive-placeholder": "/umrah/exclusive",
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -25,7 +31,11 @@ export async function generateMetadata({
   const { slug } = await params;
   const targetSlug = SLUG_ALIASES[slug] || slug;
   const detail = await getPackageBySlugAndType(targetSlug, "umrah");
-  if (!detail) return buildPageMetadata({ path: `/umrah/${slug}`, title: "Umrah Package | Masaar Holidays" });
+  if (!detail) notFound();
+
+  // If accessed directly via placeholder slug, force noindex and exclude from indexation
+  const isPlaceholder = slug.includes("placeholder");
+
   return buildPageMetadata({
     path: `/umrah/${slug}`,
     title: detail.pkg.meta_title || `${detail.pkg.title} | Masaar Holidays`,
@@ -33,6 +43,7 @@ export async function generateMetadata({
       detail.pkg.meta_description ||
       `${detail.pkg.title} — ${detail.pkg.duration_label ?? `${detail.pkg.duration_days} days`}, arranged through Masaar Holidays.`,
     ogImageUrl: detail.pkg.hero_image_url,
+    noindex: isPlaceholder ? true : undefined,
   });
 }
 
@@ -42,6 +53,10 @@ export default async function UmrahPackageDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  if (PLACEHOLDER_CLEAN_MAP[slug]) {
+    redirect(PLACEHOLDER_CLEAN_MAP[slug]);
+  }
+
   const targetSlug = SLUG_ALIASES[slug] || slug;
   const detail = await getPackageBySlugAndType(targetSlug, "umrah");
   if (!detail) notFound();

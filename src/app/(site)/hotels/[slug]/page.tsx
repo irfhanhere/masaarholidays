@@ -34,7 +34,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const hotel = await getHotelBySlug(slug);
-  if (!hotel) return buildPageMetadata({ path: `/hotels/${slug}`, title: "Hotel | Masaar Holidays" });
+  if (!hotel) notFound();
   return buildPageMetadata({
     path: `/hotels/${slug}`,
     title: hotel.meta_title || `${hotel.name} | Masaar Holidays`,

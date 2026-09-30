@@ -29,6 +29,110 @@ export default async function HajjPage() {
       <Breadcrumbs items={[{ label: "Hajj Packages from UAE" }]} />
       <HajjHero />
 
+      {/* ── Editorial Hub Overview: Understanding Hajj from the UAE ── */}
+      <section className="border-b border-black/10 bg-white py-14">
+        <Container>
+          <div className="mx-auto max-w-4xl text-center">
+            <span className="rounded-full bg-pure-gold/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#936E0F]">
+              UAE Pilgrim Guide 2027
+            </span>
+            <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black sm:text-4xl">
+              Understanding Hajj Options: Shifting vs. Non-Shifting
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-masaar-black/75">
+              Choosing the right Hajj package depends on your family&apos;s physical endurance, schedule, and preferred level of comfort. Masaar Holidays organizes official Hajj packages from the UAE with complete transparency regarding accommodation logistics during the core pilgrimage days.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-black/10 bg-[#FAF7F2] p-6 sm:p-8">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-pure-gold/20 text-lg font-bold text-masaar-black">
+                  1
+                </span>
+                <div>
+                  <h3 className="text-lg font-bold text-masaar-black">Shifting Hajj Packages</h3>
+                  <p className="text-xs font-medium text-masaar-black/60">Essential & Signature Tiers · 9, 12 & 15 Days</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-masaar-black/75">
+                In a shifting package, pilgrims stay in dedicated accommodation in Aziziyah during the core days of Hajj (8th to 12th Dhul Hijjah). Because Aziziyah is situated within walking distance or brief shuttle access to Mina, pilgrims avoid prolonged city traffic jams during ritual transitions. Before or after the core rituals, accommodation shifts to standard Makkah and Madinah hotels.
+              </p>
+              <ul className="mt-4 space-y-2 text-xs text-masaar-black/70">
+                <li className="flex items-center gap-2">✓ Shorter walking times between Mina camps and accommodation</li>
+                <li className="flex items-center gap-2">✓ Economical pricing with full-board buffet catering</li>
+                <li className="flex items-center gap-2">✓ Available in 9-day, 12-day, and 15-day durations</li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-black/10 bg-[#FAF7F2] p-6 sm:p-8">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-pure-gold/20 text-lg font-bold text-masaar-black">
+                  2
+                </span>
+                <div>
+                  <h3 className="text-lg font-bold text-masaar-black">Non-Shifting Hajj Packages</h3>
+                  <p className="text-xs font-medium text-masaar-black/60">Exclusive Tier · 10 & 13 Days</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-masaar-black/75">
+                In a non-shifting package, your luxury hotel room (such as Al Marwa Rayhaan in the Makkah Clock Tower) remains exclusively reserved in your name for the entire pilgrimage duration. During the days of Mina, you retain 24/7 access to your private hotel room, allowing elder family members and young children to rest in full comfort between rites.
+              </p>
+              <ul className="mt-4 space-y-2 text-xs text-masaar-black/70">
+                <li className="flex items-center gap-2">✓ Uninterrupted Clock Tower stay with direct Haram courtyard access</li>
+                <li className="flex items-center gap-2">✓ VIP Category A air-conditioned Mina camps near Jamarat</li>
+                <li className="flex items-center gap-2">✓ 3-Course gourmet meals and dedicated on-ground concierge</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Tier Comparison Summary Table */}
+          <div className="mt-12 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xs">
+            <div className="border-b border-black/10 bg-warm-ivory px-6 py-4">
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+                Hajj Package Tier Comparison
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 bg-black/5 font-semibold text-masaar-black">
+                    <th className="p-4">Package Tier</th>
+                    <th className="p-4">Structure</th>
+                    <th className="p-4">Durations</th>
+                    <th className="p-4">Mina Maktab Camps</th>
+                    <th className="p-4">Makkah Stay</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/10 text-masaar-black/80">
+                  <tr>
+                    <td className="p-4 font-bold text-masaar-black">Essential</td>
+                    <td className="p-4">Shifting (Aziziyah)</td>
+                    <td className="p-4">9, 12, 15 Days</td>
+                    <td className="p-4">Category A Air-Conditioned</td>
+                    <td className="p-4">3★/4★ Hotel + Aziziyah</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-masaar-black">Signature</td>
+                    <td className="p-4">Shifting (Prime)</td>
+                    <td className="p-4">9, 12, 15 Days</td>
+                    <td className="p-4">Category A Air-Conditioned (Near Jamarat)</td>
+                    <td className="p-4">4★/5★ Walking Distance + Aziziyah</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-masaar-black">Exclusive</td>
+                    <td className="p-4">Non-Shifting VIP</td>
+                    <td className="p-4">10, 13 Days</td>
+                    <td className="p-4">VIP Category A (Zone 1/2 near Jamarat)</td>
+                    <td className="p-4">5★ Clock Tower (Marwa Rotana) Continuous</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Container>
+      </section>
+
       <section className="py-14">
         <Container>
           <SectionHeading

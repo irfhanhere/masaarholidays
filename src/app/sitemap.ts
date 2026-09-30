@@ -11,12 +11,9 @@ import {
 import { UMRAH_TIER_ORDER } from "@/lib/umrah-journey";
 import { getSiteOrigin } from "@/lib/site-url";
 
-// Every real, indexable route on the site — static top-level pages, plus
-// active/published rows from each content type with its own detail
-// route (packages, hotels, visa types, Umrah departure months).
-// Inactive/draft rows and admin-noindexed static pages are excluded by
-// the same is_active/status/noindex gates their own public routes and
-// nav already use — see lib/data/public.ts.
+/**
+ * Top-level static pages on the site that are published and indexable.
+ */
 const STATIC_ROUTES = [
   "/",
   "/umrah",
@@ -31,9 +28,13 @@ const STATIC_ROUTES = [
   "/private-trips",
 ];
 
-/** Blog posts count as live once published, or once a scheduled draft's publish
- *  time has passed (the cron flips status to published within 5 minutes, but the
- *  sitemap shouldn't lag behind what a visitor can already load at that URL). */
+// Fallback stable date for static pages if no database record exists
+const STABLE_STATIC_FALLBACK_DATE = new Date("2026-09-20T04:16:10.000Z");
+
+/**
+ * Blog posts count as live once published, or once a scheduled draft's publish
+ * time has passed.
+ */
 async function getSitemapVisibleBlogPosts() {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
@@ -53,19 +54,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = getSiteOrigin();
 
   let noindexedPaths = new Set<string>();
+  const pageSeoMap = new Map<string, { noindex: boolean; updated_at: string }>();
+
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const { data } = await supabase.from("page_seo").select("path").eq("noindex", true);
-    noindexedPaths = new Set((data ?? []).map((r) => r.path));
+    const { data } = await supabase.from("page_seo").select("path, noindex, updated_at");
+    for (const row of data ?? []) {
+      if (row.noindex) noindexedPaths.add(row.path);
+      pageSeoMap.set(row.path, row);
+    }
   }
 
+  // 1. Static pages with real updated_at dates from page_seo
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.filter((path) => !noindexedPaths.has(path)).map(
-    (path) => ({
-      url: `${origin}${path}`,
-      lastModified: new Date(),
-    })
+    (path) => {
+      const seo = pageSeoMap.get(path);
+      return {
+        url: `${origin}${path}`,
+        lastModified: seo?.updated_at ? new Date(seo.updated_at) : STABLE_STATIC_FALLBACK_DATE,
+      };
+    }
   );
 
+  // 2. Data-driven published content
   const [umrahPackages, hajjPackages, hotels, visaTypes, departureMonths, blogPosts, privateTrips] = await Promise.all([
     getPublishedPackages("umrah"),
     getPublishedPackages("hajj"),
@@ -76,7 +87,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getPublishedPrivateTrips(),
   ]);
 
-  const packageEntries: MetadataRoute.Sitemap = [...umrahPackages, ...hajjPackages].map((pkg) => ({
+  // Exclude any internal/admin placeholder slugs (e.g. umrah-*-placeholder, hajj-*-placeholder)
+  const validPackages = [...umrahPackages, ...hajjPackages].filter(
+    (pkg) => !pkg.slug.includes("placeholder") && pkg.is_active && pkg.show_on_website
+  );
+
+  const packageEntries: MetadataRoute.Sitemap = validPackages.map((pkg) => ({
     url: `${origin}/${pkg.type}/${pkg.slug}`,
     lastModified: new Date(pkg.updated_at),
   }));
@@ -91,14 +107,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(visaType.updated_at),
   }));
 
+  // Only active departure months (inactive months like July/Aug/Sept are excluded by getActiveUmrahDepartureMonths)
   const departureEntries: MetadataRoute.Sitemap = departureMonths.map((month) => ({
     url: `${origin}/umrah/departures/${month.slug}`,
     lastModified: new Date(month.updated_at),
   }));
 
-  // One journey page per active departure month per tier — see
-  // app/(site)/umrah/departures/[month]/[tier]/page.tsx, which always
-  // resolves successfully for any active month + valid tier combination.
+  // One journey page per active departure month per tier
   const journeyEntries: MetadataRoute.Sitemap = departureMonths.flatMap((month) =>
     UMRAH_TIER_ORDER.map((tier) => ({
       url: `${origin}/umrah/departures/${month.slug}/${tier}`,

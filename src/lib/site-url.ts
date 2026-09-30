@@ -1,6 +1,6 @@
 import "server-only";
 
-const PRODUCTION_FALLBACK_ORIGIN = "https://masaarholidays.com";
+const PRODUCTION_FALLBACK_ORIGIN = "https://www.masaarholidays.com";
 
 /**
  * The site's real origin (no trailing slash) — the single source every

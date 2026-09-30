@@ -39,10 +39,9 @@ export async function generateMetadata({
   params: Promise<{ month: string; tier: string }>;
 }): Promise<Metadata> {
   const { month: monthSlug, tier } = await params;
-  if (!isUmrahTierKey(tier)) {
-    return buildPageMetadata({ path: `/umrah/departures/${monthSlug}/${tier}`, title: "Umrah Journey | Masaar Holidays" });
-  }
+  if (!isUmrahTierKey(tier)) notFound();
   const month = await getActiveUmrahDepartureMonthBySlug(monthSlug);
+  if (!month) notFound();
   const title = `${UMRAH_TIER_LABEL[tier]} Umrah — Makkah + Madinah${month ? ` | ${month.display_label}` : ""} | Masaar Holidays`;
   return buildPageMetadata({
     path: `/umrah/departures/${monthSlug}/${tier}`,

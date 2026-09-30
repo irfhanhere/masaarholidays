@@ -11,9 +11,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const result = await getVisaTypeBySlug(slug);
-  if (!result) {
-    return buildPageMetadata({ path: `/visa/${slug}`, title: "Visa Assistance | Masaar Holidays" });
-  }
+  if (!result) notFound();
   const { visaType } = result;
   return buildPageMetadata({
     path: `/visa/${slug}`,

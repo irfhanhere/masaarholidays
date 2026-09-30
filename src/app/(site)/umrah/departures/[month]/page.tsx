@@ -16,9 +16,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { month: monthSlug } = await params;
   const month = await getActiveUmrahDepartureMonthBySlug(monthSlug);
-  if (!month) {
-    return buildPageMetadata({ path: `/umrah/departures/${monthSlug}`, title: "Umrah Departures | Masaar Holidays" });
-  }
+  if (!month) notFound();
   return buildPageMetadata({
     path: `/umrah/departures/${monthSlug}`,
     title: month.meta_title || `Umrah Packages — ${month.display_label} | Masaar Holidays`,

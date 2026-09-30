@@ -7,6 +7,8 @@ import {
   DEFAULT_LOCALE,
   LOCALE_HREFLANG,
   SUPPORTED_LOCALES,
+  SEO_ENABLED_LOCALES,
+  isSeoEnabledLocale,
   localizedPath,
   type Locale,
 } from "./locale-constants";
@@ -49,7 +51,7 @@ export async function getRequestLocale(): Promise<Locale> {
 export function buildAlternates(locale: Locale, path: string): Metadata["alternates"] {
   const origin = getSiteOrigin();
   const languages: Record<string, string> = {};
-  for (const l of SUPPORTED_LOCALES) {
+  for (const l of SEO_ENABLED_LOCALES) {
     languages[LOCALE_HREFLANG[l]] = `${origin}${localizedPath(l, path)}`;
   }
   languages["x-default"] = `${origin}${localizedPath(DEFAULT_LOCALE, path)}`;
@@ -60,17 +62,11 @@ export function buildAlternates(locale: Locale, path: string): Metadata["alterna
 }
 
 /**
- * Every non-default locale currently serves word-for-word the same
- * (placeholder-heavy) English content — no real translation exists for
- * ar, ur, or hi yet. Rather than tell Google "this is the Arabic/Urdu/
- * Hindi version" while it's actually English text, all three stay
- * noindex until real translated copy exists for that specific locale.
- * Remove this per-locale once it does. This is a deliberate
- * technical-SEO judgement call, not something masaar-client-data-round2.md
- * asked for explicitly — flagged so it's easy to revisit.
+ * Only locales in SEO_ENABLED_LOCALES are indexable. Untranslated locales
+ * (ar, ur, hi) stay noindex until substantive translations are published.
  */
 export function localeRobots(locale: Locale): Metadata["robots"] {
-  return locale !== DEFAULT_LOCALE ? { index: false, follow: true } : undefined;
+  return !isSeoEnabledLocale(locale) ? { index: false, follow: true } : undefined;
 }
 
 /**

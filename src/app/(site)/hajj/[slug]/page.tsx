@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { PackageDetail } from "@/components/site/PackageDetail";
 import { getPackageBySlugAndType } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
@@ -10,7 +11,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const detail = await getPackageBySlugAndType(slug, "hajj");
-  if (!detail) return buildPageMetadata({ path: `/hajj/${slug}`, title: "Hajj Package | Masaar Holidays" });
+  if (!detail) notFound();
   return buildPageMetadata({
     path: `/hajj/${slug}`,
     title: detail.pkg.meta_title || `${detail.pkg.title} | Masaar Holidays`,
