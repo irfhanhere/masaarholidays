@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import type { PackageRow, FaqRow } from "@/lib/types/database";
+import Link from "next/link";
+import type { PackageRow, FaqRow, UmrahDepartureMonthRow } from "@/lib/types/database";
 import type { PublicAddonCatalogRow, PublicUmrahInventoryConfig } from "@/lib/data/public";
+import { formatDepartureMonthName } from "@/lib/date-utils";
 import { Breadcrumbs } from "./Breadcrumbs";
+import { Container } from "./Container";
+import { CalendarIcon } from "./icons";
 import { UmrahHero } from "./UmrahHero";
 import { UmrahTierCards } from "./UmrahTierCards";
 import { UmrahMakkahMadinahSection } from "./UmrahMakkahMadinahSection";
@@ -20,9 +24,17 @@ interface Props {
   faqs: FaqRow[];
   addons: PublicAddonCatalogRow[];
   defaultMonthSlug: string | null;
+  departureMonths?: UmrahDepartureMonthRow[];
 }
 
-export function UmrahLandingClient({ packages, inventoryConfigs, faqs, addons, defaultMonthSlug }: Props) {
+export function UmrahLandingClient({
+  packages,
+  inventoryConfigs,
+  faqs,
+  addons,
+  defaultMonthSlug,
+  departureMonths,
+}: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [enquiryPackage, setEnquiryPackage] = useState<PackageEnquiryInfo>({
     name: "Essential Umrah",
@@ -80,6 +92,38 @@ export function UmrahLandingClient({ packages, inventoryConfigs, faqs, addons, d
         inventoryConfigs={inventoryConfigs}
         onOpenEnquiry={openEnquiry}
       />
+
+      {/* 2b. Browse Umrah by Departure Month (Direct Internal Links) */}
+      {departureMonths && departureMonths.length > 0 && (
+        <section className="bg-warm-ivory/60 py-12 border-y border-black/5">
+          <Container>
+            <div className="mb-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-pure-gold">Planned Departures</p>
+              <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl sm:text-3xl font-bold text-masaar-black">
+                Browse Umrah by Departure Month
+              </h2>
+              <p className="mt-1.5 text-sm text-masaar-black/70">
+                Choose your intended travel month from the UAE for verified schedules, hotels, and package arrangements.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {departureMonths.map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/umrah/departures/${m.slug}`}
+                  className="group flex flex-col items-center justify-center rounded-xl border border-black/10 bg-white p-4 text-center transition-all hover:border-pure-gold hover:shadow-md"
+                >
+                  <CalendarIcon className="size-5 text-deep-gold mb-2 transition-transform group-hover:scale-110" />
+                  <span className="text-sm font-bold text-masaar-black group-hover:text-deep-gold">
+                    {formatDepartureMonthName(m.display_label)}
+                  </span>
+                  <span className="mt-1 text-[11px] text-masaar-black/50">View Packages →</span>
+                </Link>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
 
       {/* 3. Makkah + Madinah Combined Section */}
       <UmrahMakkahMadinahSection

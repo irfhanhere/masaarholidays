@@ -49,7 +49,7 @@ export function Umrah3CardGrid({ packages, inventoryConfigs }: Props) {
         const makkahHotelName = defaultConfig?.makkah_hotel?.name || pkg.makkah_hotel_name || "Makkah 4★ Hotel";
         const madinahHotelName = defaultConfig?.madinah_hotel?.name || pkg.madinah_hotel_name;
 
-        const detailHref = `/umrah/${pkg.slug}`;
+        const detailHref = `/umrah/${pkg.tier}`;
         const isFeatured = pkg.tier === "signature";
 
         return (

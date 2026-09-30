@@ -13,6 +13,7 @@ interface Props {
   packages: PackageRow[];
   inventoryConfigs: PublicUmrahInventoryConfig[];
   onOpenEnquiry?: (info: PackageEnquiryInfo) => void;
+  monthSlug?: string | null;
 }
 
 const TIER_ORDER: Array<PackageRow["tier"]> = ["essential", "signature", "exclusive"];
@@ -62,7 +63,7 @@ const TIER_METADATA: Record<
   },
 };
 
-export function UmrahTierCards({ packages, inventoryConfigs, onOpenEnquiry }: Props) {
+export function UmrahTierCards({ packages, inventoryConfigs, onOpenEnquiry, monthSlug }: Props) {
   // Map packages by tier
   const orderedPackages = TIER_ORDER.map((tier) => packages.find((p) => p.tier === tier)).filter(
     (p): p is PackageRow => Boolean(p)
@@ -94,6 +95,7 @@ export function UmrahTierCards({ packages, inventoryConfigs, onOpenEnquiry }: Pr
               pkg={pkg}
               configs={inventoryConfigs.filter((c) => c.package_id === pkg.id)}
               onOpenEnquiry={onOpenEnquiry}
+              monthSlug={monthSlug}
             />
           ))}
         </div>
@@ -106,10 +108,12 @@ function TierCard({
   pkg,
   configs,
   onOpenEnquiry,
+  monthSlug,
 }: {
   pkg: PackageRow;
   configs: PublicUmrahInventoryConfig[];
   onOpenEnquiry?: (info: PackageEnquiryInfo) => void;
+  monthSlug?: string | null;
 }) {
   const meta = TIER_METADATA[pkg.tier] || TIER_METADATA.essential;
   const isSignature = pkg.tier === "signature";
@@ -304,7 +308,11 @@ function TierCard({
         {/* Buttons Row */}
         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-black/10">
           <Link
-            href={`/umrah/${pkg.slug}`}
+            href={
+              monthSlug
+                ? `/umrah/departures/${monthSlug}/${pkg.tier}`
+                : `/umrah/${pkg.tier}`
+            }
             className="rounded-xl border border-black/20 bg-white px-5 py-3 text-center text-xs font-bold text-masaar-black hover:bg-warm-ivory transition-colors"
           >
             View Details →

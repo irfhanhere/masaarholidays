@@ -41,6 +41,7 @@ export default async function UmrahPage() {
       faqs={faqs}
       addons={addons}
       defaultMonthSlug={defaultMonthSlug}
+      departureMonths={activeMonths}
     />
   );
 }

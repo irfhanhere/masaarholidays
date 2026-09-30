@@ -86,7 +86,12 @@ export function UmrahMonthPageClient({ month, nextMonth, packages, inventoryConf
       </div>
 
       {/* ── Package Cards — same Essential/Signature/Exclusive cards as the main Umrah page ── */}
-      <UmrahTierCards packages={packages} inventoryConfigs={inventoryConfigs} onOpenEnquiry={openEnquiry} />
+      <UmrahTierCards
+        packages={packages}
+        inventoryConfigs={inventoryConfigs}
+        onOpenEnquiry={openEnquiry}
+        monthSlug={month.slug}
+      />
 
       {/* ── Another month? ── */}
       <section className="pb-16">

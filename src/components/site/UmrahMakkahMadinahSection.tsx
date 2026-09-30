@@ -266,9 +266,9 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
               {pkg && (
                 <Link
                   href={
-                    defaultMonthSlug && matchedConfig
-                      ? `/umrah/departures/${defaultMonthSlug}/${selectedTier}?duration=${matchedConfig.duration_nights}&occupancy=Double`
-                      : `/umrah/${pkg.slug}`
+                    defaultMonthSlug
+                      ? `/umrah/departures/${defaultMonthSlug}/${selectedTier}`
+                      : `/umrah/${selectedTier}`
                   }
                   className="rounded-xl border border-black/20 bg-white px-5 py-3 text-center text-xs font-bold text-masaar-black hover:bg-warm-ivory transition-colors"
                 >

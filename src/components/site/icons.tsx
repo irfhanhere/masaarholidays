@@ -33,6 +33,14 @@ export function PlaneIcon(props: IconProps) {
   );
 }
 
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+    </Svg>
+  );
+}
+
 export function CompassIcon(props: IconProps) {
   return (
     <Svg {...props}>

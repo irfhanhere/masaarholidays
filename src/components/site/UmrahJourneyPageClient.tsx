@@ -83,14 +83,7 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
   const currentPrice = priceForOccupancy(selectedOccupancy);
 
   const tierLinkHref = (tier: UmrahTierKey) => {
-    const params = new URLSearchParams();
-    const targetConfigs = journeyConfigsByTier[tier];
-    const matching = activeConfig
-      ? targetConfigs.find((c) => c.duration_nights === activeConfig.duration_nights)
-      : undefined;
-    if (matching) params.set("duration", String(matching.duration_nights));
-    params.set("occupancy", selectedOccupancy);
-    return `/umrah/departures/${month.slug}/${tier}?${params.toString()}`;
+    return `/umrah/departures/${month.slug}/${tier}`;
   };
 
   // No combined-journey data at all for this tier/month yet — informational error state, not a hard 404.

@@ -24,7 +24,7 @@ import {
   isRenderableImageUrl,
   splitTerrainNote,
 } from "@/lib/hotel-format";
-import { getHotelBySlug, getHotelRooms } from "@/lib/data/public";
+import { getActiveHotels, getHotelBySlug, getHotelRooms } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
 
 export async function generateMetadata({
@@ -35,13 +35,39 @@ export async function generateMetadata({
   const { slug } = await params;
   const hotel = await getHotelBySlug(slug);
   if (!hotel) notFound();
+
+  // Consistent pattern: "{Hotel} Makkah | Masaar Holidays" or "{Hotel} Madinah | Masaar Holidays", max 60 chars
+  let cleanName = hotel.name.trim();
+  let baseTitle = `${cleanName} ${hotel.city} | Masaar Holidays`;
+  if (baseTitle.length > 60) {
+    cleanName = cleanName
+      .replace(/Hotel & Residences?/gi, "Hotel")
+      .replace(/Hotel & Suites?/gi, "Hotel")
+      .replace(/Dar Al Tawhid/gi, "Dar Al Tawhid")
+      .replace(/Makkah/gi, "")
+      .replace(/Madinah/gi, "")
+      .trim();
+    baseTitle = `${cleanName} ${hotel.city} | Masaar Holidays`;
+    if (baseTitle.length > 60) {
+      baseTitle = baseTitle.slice(0, 57) + "...";
+    }
+  }
+
+  // Description: 120-155 characters with CTA
+  let desc = hotel.meta_description || hotel.description;
+  if (!desc || desc.length < 100 || desc.length > 155) {
+    const starStr = hotel.star_rating ? `${hotel.star_rating}-star ` : "";
+    const distStr = hotel.walk_time_minutes ? `${hotel.walk_time_minutes}-min walk to Haram` : `close to the Haram`;
+    desc = `Book ${cleanName} in ${hotel.city}. Premium ${starStr}accommodation, ${distStr}, family comfort, and full Umrah support with Masaar Holidays UAE.`;
+    if (desc.length > 155) {
+      desc = desc.slice(0, 152) + "...";
+    }
+  }
+
   return buildPageMetadata({
     path: `/hotels/${slug}`,
-    title: hotel.meta_title || `${hotel.name} | Masaar Holidays`,
-    description:
-      hotel.meta_description ||
-      hotel.description ||
-      `${hotel.name} in ${hotel.city} — room options and details, arranged through Masaar Holidays.`,
+    title: baseTitle,
+    description: desc,
     ogImageUrl: hotel.image_url,
   });
 }
@@ -67,7 +93,13 @@ export default async function HotelDetailPage({
   const hotel = await getHotelBySlug(slug);
   if (!hotel) notFound();
 
-  const rooms = await getHotelRooms(hotel.id);
+  const [rooms, allHotels] = await Promise.all([
+    getHotelRooms(hotel.id),
+    getActiveHotels(),
+  ]);
+  const relatedHotels = allHotels
+    .filter((h) => h.city === hotel.city && h.id !== hotel.id)
+    .slice(0, 3);
   const isMadinah = hotel.city === "Madinah";
   const mensWalk = formatMensGateWalkTime(hotel);
   const ladiesWalk = formatLadiesGateWalkTime(hotel);
@@ -123,7 +155,7 @@ export default async function HotelDetailPage({
         <Container className="grid gap-6 lg:grid-cols-3">
           <div className="rounded-lg border border-black/10 bg-white p-6 lg:col-span-2">
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-              Hotel Information
+              About {hotel.name}
             </h2>
             {hotel.description && <p className="mt-3 text-sm leading-relaxed text-masaar-black/70">{hotel.description}</p>}
 
@@ -424,6 +456,86 @@ export default async function HotelDetailPage({
               <LocationIcon className="size-4" /> View on Google Maps
             </a>
           </div>
+        </Container>
+      </section>
+
+      {/* Related Hotels in same city */}
+      {relatedHotels.length > 0 && (
+        <section className="bg-warm-ivory/50 py-12 border-t border-black/5">
+          <Container>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-pure-gold">Explore More Stays</p>
+                <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                  Other Hotels in {hotel.city}
+                </h2>
+              </div>
+              <Link href="/hotels" className="text-sm font-semibold text-deep-gold hover:underline">
+                View all {hotel.city} hotels →
+              </Link>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {relatedHotels.map((rel) => (
+                <Link
+                  key={rel.id}
+                  href={`/hotels/${rel.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white transition-all hover:border-pure-gold hover:shadow-md"
+                >
+                  <div className="relative h-44 w-full overflow-hidden bg-warm-ivory">
+                    {rel.image_url ? (
+                      <ExternalImage
+                        src={rel.image_url}
+                        alt={rel.name}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-masaar-black/40">
+                        Photo coming soon
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-deep-gold">{rel.city}</p>
+                      <h3 className="mt-1 font-bold text-masaar-black group-hover:text-deep-gold">{rel.name}</h3>
+                      <p className="mt-1 text-xs text-masaar-black/60 line-clamp-2">
+                        {rel.description ||
+                          (rel.zone ? `Located in ${rel.zone}, ${rel.city}.` : `Near the Haram in ${rel.city}.`)}
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-masaar-black">
+                        {rel.price_from_aed ? `From AED ${rel.price_from_aed}` : "Price on request"}
+                      </span>
+                      <span className="text-deep-gold font-semibold group-hover:underline">View Details →</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
+
+      {/* Internal Link to /umrah */}
+      <section className="bg-masaar-black py-12 text-white">
+        <Container className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-pure-gold">Complete Pilgrimage Arrangements</p>
+            <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold">
+              Planning Your Umrah Journey?
+            </h2>
+            <p className="mt-1 text-sm text-white/70 max-w-xl">
+              Stay at {hotel.name} as part of a fully supported Umrah package from the UAE, complete with Haram transfers, guided ziarat, and personalized care.
+            </p>
+          </div>
+          <Link
+            href="/umrah"
+            className="shrink-0 rounded-xl bg-pure-gold px-6 py-3.5 text-sm font-bold text-masaar-black transition-colors hover:bg-light-gold"
+          >
+            Explore Umrah Packages →
+          </Link>
         </Container>
       </section>
 

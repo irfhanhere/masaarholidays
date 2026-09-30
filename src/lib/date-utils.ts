@@ -33,3 +33,16 @@ export function formatDeterministicDate(value: string | null | undefined): strin
   if (Number.isNaN(d.getTime())) return value;
   return `${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
+
+/**
+ * Normalizes two-digit year departure month labels into clear 4-digit years.
+ * e.g. "January 27" -> "January 2027", "October 26" -> "October 2026".
+ * This prevents search engines and users from reading the year as a day-of-month.
+ */
+export function formatDepartureMonthName(label: string | null | undefined): string {
+  if (!label) return "";
+  return label.replace(
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{2})\b/gi,
+    (match, month, year) => `${month} 20${year}`
+  );
+}

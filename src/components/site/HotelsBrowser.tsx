@@ -70,8 +70,8 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
 
   const cityLabel = activeCity === "Makkah" ? "Makkah" : "Madinah";
 
-  const visibleHotels = useMemo(() => {
-    let result = hotels.filter((h) => h.city === activeCity);
+  const filterHotels = (city: City) => {
+    let result = hotels.filter((h) => h.city === city);
 
     if (walkFilter !== "all") {
       result = result.filter((h) => getWalkBucket(h) === walkFilter);
@@ -88,7 +88,6 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
 
     if (sortOrder !== "default") {
       result = [...result].sort((a, b) => {
-        // Hotels with no known price sort to the end regardless of direction.
         if (a.minPriceAed == null) return 1;
         if (b.minPriceAed == null) return -1;
         return sortOrder === "price-asc" ? a.minPriceAed - b.minPriceAed : b.minPriceAed - a.minPriceAed;
@@ -96,7 +95,16 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
     }
 
     return result;
-  }, [hotels, activeCity, walkFilter, categoryFilter, terrainFilter, refundableFilter, sortOrder]);
+  };
+
+  const makkahHotels = useMemo(
+    () => filterHotels("Makkah"),
+    [hotels, walkFilter, categoryFilter, terrainFilter, refundableFilter, sortOrder]
+  );
+  const madinahHotels = useMemo(
+    () => filterHotels("Madinah"),
+    [hotels, walkFilter, categoryFilter, terrainFilter, refundableFilter, sortOrder]
+  );
 
   return (
     <div>
@@ -174,44 +182,56 @@ export function HotelsBrowser({ hotels }: { hotels: HotelWithSummary[] }) {
         </div>
       </div>
 
-      <section className="scroll-mt-24">
-        <div>
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <SectionHeading eyebrow={cityLabel} title={`Hotels in ${cityLabel}`} align="left" />
-            <p className="text-sm text-masaar-black/50">{visibleHotels.length} hotels available</p>
-          </div>
-          <p className="mt-2 text-sm text-masaar-black/70">
-            From value stays to five-star comfort, each hotel is chosen for its proximity to the Haram and the quality of the stay — not simply the lowest rate.
-          </p>
-          {/* Category Tags */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {["Closest to Haram", "Easy Walking Access", "Value + Shuttle", "Premium"].map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-warm-ivory px-3 py-1 text-xs font-semibold text-deep-gold border border-black/5 shadow-2xs"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="mt-8">
-          {visibleHotels.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleHotels.map((hotel) => (
-                <HotelCard key={hotel.id} hotel={hotel} />
-              ))}
+      {CITY_TABS.map(({ city }) => {
+        const isCurrent = activeCity === city;
+        const currentList = city === "Makkah" ? makkahHotels : madinahHotels;
+
+        return (
+          <section
+            key={city}
+            id={`hotels-${city.toLowerCase()}`}
+            className={`scroll-mt-24 ${isCurrent ? "block" : "hidden"}`}
+            aria-hidden={!isCurrent}
+          >
+            <div>
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <SectionHeading eyebrow={city} title={`Hotels in ${city}`} align="left" />
+                <p className="text-sm text-masaar-black/50">{currentList.length} hotels available</p>
+              </div>
+              <p className="mt-2 text-sm text-masaar-black/70">
+                From value stays to five-star comfort, each hotel is chosen for its proximity to the Haram and the quality of the stay — not simply the lowest rate.
+              </p>
+              {/* Category Tags */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {["Closest to Haram", "Easy Walking Access", "Value + Shuttle", "Premium"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-warm-ivory px-3 py-1 text-xs font-semibold text-deep-gold border border-black/5 shadow-2xs"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
-          ) : hotels.some((h) => h.city === activeCity) ? (
-            <EmptyState
-              title={`No ${cityLabel} hotels match these filters`}
-              note="Try a different walking distance or cancellation policy."
-            />
-          ) : (
-            <EmptyState title={`No ${cityLabel} hotels published yet`} />
-          )}
-        </div>
-      </section>
+            <div className="mt-8">
+              {currentList.length > 0 ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {currentList.map((hotel) => (
+                    <HotelCard key={hotel.id} hotel={hotel} />
+                  ))}
+                </div>
+              ) : hotels.some((h) => h.city === city) ? (
+                <EmptyState
+                  title={`No ${city} hotels match these filters`}
+                  note="Try a different walking distance or cancellation policy."
+                />
+              ) : (
+                <EmptyState title={`No ${city} hotels published yet`} />
+              )}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
