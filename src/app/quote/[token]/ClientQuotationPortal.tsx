@@ -555,18 +555,30 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                     {packageItem?.description || `${durationLabel} Tailored ${isHajj ? "Hajj" : "Umrah"} Journey`}
                   </h3>
                   <p className="text-xs text-masaar-black/70 leading-relaxed font-sans">
-                    {packageItem?.details ||
-                      "A tailored, peaceful pilgrimage experience with 5★ luxury accommodation, private vehicle airport transfers, scheduled direct flights, and dedicated team support."}
+                    {packageItem?.details
+                      ? (flight
+                          ? packageItem.details
+                          : packageItem.details.replace(/,?\s*includes direct flights/i, "").replace(/,?\s*scheduled direct flights/i, ""))
+                      : `A tailored, peaceful pilgrimage experience with 5★ luxury accommodation, private vehicle airport transfers${
+                          flight ? ", scheduled direct flights" : ""
+                        }, and dedicated team support.`}
                   </p>
                 </div>
               </div>
 
               {/* Amenity Icons Row */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 border-t border-black/10 pt-4 text-center">
-                <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                  <span className="text-lg">✈️</span>
-                  <p className="text-[11px] font-bold mt-1 text-masaar-black">Direct Flights</p>
-                </div>
+                {flight ? (
+                  <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
+                    <span className="text-lg">✈️</span>
+                    <p className="text-[11px] font-bold mt-1 text-masaar-black">Direct Flights</p>
+                  </div>
+                ) : (
+                  <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
+                    <span className="text-lg">🚗</span>
+                    <p className="text-[11px] font-bold mt-1 text-masaar-black">Private Ground</p>
+                  </div>
+                )}
                 <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
                   <span className="text-lg">⛰️</span>
                   <p className="text-[11px] font-bold mt-1 text-masaar-black">Sacred Sites</p>
@@ -739,101 +751,115 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
             </div>
 
             {/* Module 3: Transportation */}
-            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 border-b border-black/10 pb-3">
-                <span className="text-xl">🚗</span>
-                <h2 className="font-serif text-lg font-bold text-masaar-black">
-                  Transportation
-                </h2>
-              </div>
+            {transport && (
+              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
+                <div className="flex items-center gap-2 border-b border-black/10 pb-3">
+                  <span className="text-xl">🚗</span>
+                  <h2 className="font-serif text-lg font-bold text-masaar-black">
+                    Transportation
+                  </h2>
+                </div>
 
-              <div className="grid gap-5 md:grid-cols-12 items-center">
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5 bg-neutral-100">
-                  <Image
-                    src={getTransportImage(transport?.description, transport?.details)}
-                    alt={transport?.description || "Private Transfer"}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="md:col-span-7 space-y-2">
-                  <h4 className="font-serif text-base font-bold text-masaar-black">
-                    {transport?.description || "Private Chauffeured Airport Transfers"}
-                  </h4>
-                  <p className="text-xs text-masaar-black/60 leading-relaxed font-sans">
-                    {transport?.details || "Dedicated private air-conditioned vehicle with professional chauffeur and meet & assist service."}
-                  </p>
-                  <ul className="text-xs space-y-1.5 pt-2 border-t border-black/5 font-sans">
-                    <li className="flex items-center gap-2">
-                      <span className="text-[#b37e28]">✓</span>
-                      <span>Dedicated air-conditioned private vehicle with professional driver</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-[#b37e28]">✓</span>
-                      <span>Airport meet &amp; greet assistance and seamless luggage handling</span>
-                    </li>
-                  </ul>
+                <div className="grid gap-5 md:grid-cols-12 items-center">
+                  <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5 bg-neutral-100">
+                    <Image
+                      src={getTransportImage(transport.description, transport.details)}
+                      alt={transport.description || "Private Transfer"}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="md:col-span-7 space-y-2">
+                    <h4 className="font-serif text-base font-bold text-masaar-black">
+                      {transport.description}
+                    </h4>
+                    {transport.details && (
+                      <p className="text-xs text-masaar-black/60 leading-relaxed font-sans">
+                        {transport.details}
+                      </p>
+                    )}
+                    <ul className="text-xs space-y-1.5 pt-2 border-t border-black/5 font-sans">
+                      <li className="flex items-center gap-2">
+                        <span className="text-[#b37e28]">✓</span>
+                        <span>Dedicated air-conditioned private vehicle with professional driver</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="text-[#b37e28]">✓</span>
+                        <span>Airport meet &amp; greet assistance and seamless luggage handling</span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Module 4: 2-Column Flights & Meals */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Flights Card */}
-              <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-3">
-                <div className="flex items-center gap-2 border-b border-black/10 pb-2">
-                  <span className="text-lg">✈️</span>
-                  <h4 className="font-serif font-bold text-sm text-masaar-black">
-                    Flights
-                  </h4>
-                </div>
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10">
-                  <Image
-                    src="/Assets/image-flight.jpg"
-                    alt="Flight"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div>
-                  <h5 className="font-serif font-bold text-sm text-masaar-black">
-                    {flight?.description || "Direct Scheduled Return Flights"}
-                  </h5>
-                  <p className="text-xs text-masaar-black/60 mt-1 whitespace-pre-line">
-                    {flight?.details || "Direct scheduled flights with luggage allowance included."}
-                  </p>
-                </div>
-              </div>
+            {/* Module 4: Flights & Meals (Dynamic: hides flight if removed in builder) */}
+            {(flight || meals) && (
+              <div className={`grid gap-4 ${flight && meals ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+                {/* Flights Card */}
+                {flight && (
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-3">
+                    <div className="flex items-center gap-2 border-b border-black/10 pb-2">
+                      <span className="text-lg">✈️</span>
+                      <h4 className="font-serif font-bold text-sm text-masaar-black">
+                        Flights
+                      </h4>
+                    </div>
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10">
+                      <Image
+                        src="/Assets/image-flight.jpg"
+                        alt="Flight"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    <div>
+                      <h5 className="font-serif font-bold text-sm text-masaar-black">
+                        {flight.description}
+                      </h5>
+                      {flight.details && (
+                        <p className="text-xs text-masaar-black/60 mt-1 whitespace-pre-line">
+                          {flight.details}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-              {/* Meals Card */}
-              <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-3">
-                <div className="flex items-center gap-2 border-b border-black/10 pb-2">
-                  <span className="text-lg">🍽️</span>
-                  <h4 className="font-serif font-bold text-sm text-masaar-black">
-                    Meals
-                  </h4>
-                </div>
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-neutral-100 flex items-center justify-center">
-                  <Image
-                    src="/Assets/image-meal.jpg"
-                    alt="Meals"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div>
-                  <h5 className="font-serif font-bold text-sm text-masaar-black">
-                    {meals?.description || "Luxury Buffet Breakfast Included"}
-                  </h5>
-                  <p className="text-xs text-masaar-black/60 mt-1">
-                    {meals?.details || "Daily international luxury buffet breakfast served fresh in the 5★ hotel dining hall."}
-                  </p>
-                </div>
+                {/* Meals Card */}
+                {meals && (
+                  <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-3">
+                    <div className="flex items-center gap-2 border-b border-black/10 pb-2">
+                      <span className="text-lg">🍽️</span>
+                      <h4 className="font-serif font-bold text-sm text-masaar-black">
+                        Meals
+                      </h4>
+                    </div>
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-neutral-100 flex items-center justify-center">
+                      <Image
+                        src="/Assets/image-meal.jpg"
+                        alt="Meals"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    <div>
+                      <h5 className="font-serif font-bold text-sm text-masaar-black">
+                        {meals.description}
+                      </h5>
+                      {meals.details && (
+                        <p className="text-xs text-masaar-black/60 mt-1">
+                          {meals.details}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Module 5: Itinerary Highlights Timeline (Dynamic) */}
             {!isItineraryExplicitlyRemoved && activeItinerary.length > 0 && (
@@ -877,39 +903,20 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
             )}
 
             {/* Module 6: Additional Services & Add-ons */}
-            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-black/10 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">✨</span>
-                  <h3 className="font-serif text-lg font-bold text-masaar-black">
-                    Additional Services &amp; Add-ons
-                  </h3>
+            {additional.length > 0 && (
+              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">✨</span>
+                    <h3 className="font-serif text-lg font-bold text-masaar-black">
+                      Additional Services &amp; Add-ons
+                    </h3>
+                  </div>
+                  <span className="text-xs font-semibold text-[#865d1d]">
+                    {additional.length} Inclusions Configured
+                  </span>
                 </div>
-                <span className="text-xs font-semibold text-[#865d1d]">
-                  {additional.length} Inclusions Configured
-                </span>
-              </div>
 
-              {additional.length === 0 ? (
-                <div className="space-y-2 text-xs text-masaar-black/70">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#b37e28]">✓</span>
-                    <span>Haramain High-Speed Train ticket (Makkah → Madinah)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#b37e28]">✓</span>
-                    <span>Guided Historical Ziyarat in Makkah Mukarramah &amp; Madinah Munawwarah</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#b37e28]">✓</span>
-                    <span>Saudi Electronic Tourist / Umrah Visa with mandatory KSA medical insurance</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#b37e28]">✓</span>
-                    <span>24/7 Dedicated On-Ground Concierge &amp; Pilgrimage Support</span>
-                  </div>
-                </div>
-              ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {additional.map((item) => (
                     <div
@@ -947,8 +954,8 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Sticky Quotation Summary & CTAs (4 Cols) */}
@@ -1011,15 +1018,15 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
 
                   <div className="flex justify-between text-masaar-black/70">
                     <span>Transport</span>
-                    <span className="font-semibold text-masaar-black text-right max-w-[180px] truncate">
-                      {transport?.description || "Private Airport Transfers"}
+                    <span className={`font-semibold text-right max-w-[180px] truncate ${transport ? "text-masaar-black" : "text-black/40"}`}>
+                      {transport ? transport.description : "Not Included"}
                     </span>
                   </div>
 
                   <div className="flex justify-between text-masaar-black/70">
                     <span>Flights</span>
-                    <span className="font-semibold text-masaar-black text-right max-w-[180px] truncate">
-                      {flight?.description || "Scheduled Direct Flights"}
+                    <span className={`font-semibold text-right max-w-[180px] truncate ${flight ? "text-masaar-black" : "text-black/40"}`}>
+                      {flight ? flight.description : "Not Included"}
                     </span>
                   </div>
 

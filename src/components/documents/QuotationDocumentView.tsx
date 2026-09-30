@@ -444,11 +444,19 @@ export function QuotationDocumentView({
                   </div>
 
                   <div className="mt-6 grid grid-cols-4 gap-3 text-center">
-                    <div className="rounded-lg bg-white p-3 border border-black/5 shadow-2xs">
-                      <span className="text-xl">✈️</span>
-                      <p className="mt-1 font-bold text-masaar-black">Direct Flights</p>
-                      <p className="text-[10px] text-black/50">Return baggage included</p>
-                    </div>
+                    {flightItems.length > 0 ? (
+                      <div className="rounded-lg bg-white p-3 border border-black/5 shadow-2xs">
+                        <span className="text-xl">✈️</span>
+                        <p className="mt-1 font-bold text-masaar-black">Direct Flights</p>
+                        <p className="text-[10px] text-black/50">Return baggage included</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg bg-white p-3 border border-black/5 shadow-2xs">
+                        <span className="text-xl">🕋</span>
+                        <p className="mt-1 font-bold text-masaar-black">Land Package</p>
+                        <p className="text-[10px] text-black/50">Ground services included</p>
+                      </div>
+                    )}
                     <div className="rounded-lg bg-white p-3 border border-black/5 shadow-2xs">
                       <span className="text-xl">⭐</span>
                       <p className="mt-1 font-bold text-masaar-black">5★ Hotels</p>
@@ -694,7 +702,11 @@ export function QuotationDocumentView({
                     <div className="flex items-center gap-2">✓ 5★ Accommodations in Makkah &amp; Madinah</div>
                     <div className="flex items-center gap-2">✓ Daily International Breakfast Buffets</div>
                     <div className="flex items-center gap-2">✓ Private GMC Yukon XL Transfers</div>
-                    <div className="flex items-center gap-2">✓ Direct Flight Return Tickets</div>
+                    {flightItems.length > 0 ? (
+                      <div className="flex items-center gap-2">✓ Direct Flight Return Tickets</div>
+                    ) : (
+                      <div className="flex items-center gap-2">✓ Comprehensive Ground Services</div>
+                    )}
                     <div className="flex items-center gap-2">✓ Guided Makkah Ziyarat Excursions</div>
                     <div className="flex items-center gap-2">✓ Guided Madinah Ziyarat Excursions</div>
                     <div className="flex items-center gap-2">✓ Rawdah Sharif Permit Assistance</div>
@@ -722,6 +734,9 @@ export function QuotationDocumentView({
                 <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
                   <h3 className="font-serif text-sm font-bold text-amber-900 mb-3">Items Not Included</h3>
                   <div className="space-y-2.5 text-amber-950">
+                    {flightItems.length === 0 && (
+                      <div className="flex items-center gap-2 font-semibold">✗ Airline flight tickets (land package only — airfare arranged separately)</div>
+                    )}
                     <div className="flex items-center gap-2">✗ Personal room service, telephone and laundry expenses</div>
                     <div className="flex items-center gap-2">✗ Lunch and dinners outside of the specified breakfast board</div>
                     <div className="flex items-center gap-2">✗ Excess baggage fees levied by airlines beyond 30 KG</div>

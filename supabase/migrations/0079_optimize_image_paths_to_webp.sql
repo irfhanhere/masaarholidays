@@ -4,17 +4,17 @@
 BEGIN;
 
 -- 1. Umrah Packages hero images
-UPDATE umrah_packages
+UPDATE packages
 SET hero_image_url = REPLACE(hero_image_url, '/brand/banners/umrah.png', '/brand/banners/umrah.webp')
 WHERE hero_image_url LIKE '%/brand/banners/umrah.png%';
 
 -- 2. Hajj Packages hero images
-UPDATE hajj_packages
+UPDATE packages
 SET hero_image_url = REPLACE(hero_image_url, '/brand/banners/hajj.png', '/brand/banners/hajj.webp')
 WHERE hero_image_url LIKE '%/brand/banners/hajj.png%';
 
 -- 3. Departure Months hero images
-UPDATE departure_months
+UPDATE umrah_departure_months
 SET hero_image_url = REPLACE(hero_image_url, '/brand/banners/umrah.png', '/brand/banners/umrah.webp')
 WHERE hero_image_url LIKE '%/brand/banners/umrah.png%';
 
