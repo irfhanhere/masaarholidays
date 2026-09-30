@@ -4,7 +4,12 @@ import { getLegalPage } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({ path: "/terms-conditions", title: "Terms & Conditions | Masaar Holidays" });
+  return buildPageMetadata({
+    path: "/terms-conditions",
+    title: "Terms & Conditions | Masaar Holidays",
+    description:
+      "Review the booking terms, payment policies, cancellation guidelines, and service agreements for Umrah and Hajj packages with Masaar Holidays UAE.",
+  });
 }
 
 export default async function TermsConditionsPage() {

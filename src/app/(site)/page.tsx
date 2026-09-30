@@ -36,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
     path: "/",
     fallbackTitle: "Umrah Travel Agency UAE | Masaar Holidays",
     fallbackDescription:
-      "Masaar Holidays plans private, family-paced Umrah journeys from the UAE — personalised support, curated accommodation, and one dedicated point of contact throughout.",
+      "Private, family-paced Umrah journeys from the UAE. Thoughtful planning, handpicked hotels, and personal support from start to finish. Plan your journey today.",
   });
 }
 

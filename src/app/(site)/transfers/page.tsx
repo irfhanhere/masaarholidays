@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     path: "/transfers",
     fallbackTitle: "Private Umrah Transfers | Masaar Holidays",
     fallbackDescription:
-      "Private transfers for your Umrah journey — Jeddah and Madinah airports, the Haramain train, and intercity routes, arranged as part of the care of the journey.",
+      "Private Umrah transfers between Jeddah, Makkah, and Madinah with clean vehicles, professional drivers, and punctual service. Book your transfer today.",
   });
 }
 

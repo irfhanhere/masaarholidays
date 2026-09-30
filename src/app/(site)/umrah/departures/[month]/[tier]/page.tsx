@@ -8,6 +8,7 @@ import {
 import { buildPageMetadata } from "@/lib/i18n";
 import { UmrahJourneyPageClient } from "@/components/site/UmrahJourneyPageClient";
 import { UMRAH_TIER_LABEL, UMRAH_TIER_SLUGS, isUmrahTierKey } from "@/lib/umrah-journey";
+import { formatDepartureMonthName } from "@/lib/date-utils";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 
 /**
@@ -42,11 +43,23 @@ export async function generateMetadata({
   if (!isUmrahTierKey(tier)) notFound();
   const month = await getActiveUmrahDepartureMonthBySlug(monthSlug);
   if (!month) notFound();
-  const title = `${UMRAH_TIER_LABEL[tier]} Umrah — Makkah + Madinah${month ? ` | ${month.display_label}` : ""} | Masaar Holidays`;
+
+  const formattedMonth = formatDepartureMonthName(month.display_label);
+  const tierLabel = UMRAH_TIER_LABEL[tier];
+
+  // Pattern: "{Month} {Tier} Umrah | Masaar Holidays" (max 60 chars)
+  const title = `${formattedMonth} ${tierLabel} Umrah | Masaar Holidays`;
+
+  const descriptions: Record<UmrahTierKey, string> = {
+    essential: `Affordable ${formattedMonth} Essential Umrah from UAE. 5-star VOCO Makkah with dedicated 24/7 Haram shuttle, guidance & care. Book with Masaar.`,
+    signature: `Comfortable ${formattedMonth} Signature Umrah from UAE. Makkah Clock Tower stay within steps of the Haram and curated Madinah hotels. Book with Masaar.`,
+    exclusive: `Luxury ${formattedMonth} Exclusive Umrah from UAE. Front-row Haram views at Dar Al Tawhid, VIP transfers & dedicated support. Reserve with Masaar.`,
+  };
+
   return buildPageMetadata({
     path: `/umrah/departures/${monthSlug}/${tier}`,
-    title,
-    description: `${UMRAH_TIER_LABEL[tier]} Umrah journey across Makkah and Madinah${month ? ` for ${month.display_label}` : ""}, arranged through Masaar Holidays.`,
+    title: title.length > 60 ? title.slice(0, 57) + "..." : title,
+    description: descriptions[tier],
   });
 }
 

@@ -7,6 +7,7 @@ import {
   getPublishedUmrahInventoryConfigurations,
 } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
+import { formatDepartureMonthName } from "@/lib/date-utils";
 import { UmrahMonthPageClient } from "@/components/site/UmrahMonthPageClient";
 
 export async function generateMetadata({
@@ -17,13 +18,15 @@ export async function generateMetadata({
   const { month: monthSlug } = await params;
   const month = await getActiveUmrahDepartureMonthBySlug(monthSlug);
   if (!month) notFound();
+
+  const formattedMonth = formatDepartureMonthName(month.display_label);
+  const title = `Umrah Packages ${formattedMonth} | Masaar Holidays`;
+  const description = `Plan your Umrah from the UAE for ${formattedMonth}. Curated hotel stays, direct transfers, and personal family guidance. Enquire with Masaar today.`;
+
   return buildPageMetadata({
     path: `/umrah/departures/${monthSlug}`,
-    title: month.meta_title || `Umrah Packages — ${month.display_label} | Masaar Holidays`,
-    description:
-      month.meta_description ||
-      month.hero_subtext ||
-      `Umrah packages for ${month.display_label} departures, arranged through Masaar Holidays.`,
+    title: title.length > 60 ? title.slice(0, 57) + "..." : title,
+    description,
     ogImageUrl: month.hero_image_url,
   });
 }

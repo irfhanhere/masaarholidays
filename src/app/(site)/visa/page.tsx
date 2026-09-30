@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     path: "/visa",
     fallbackTitle: "Visa & Document Assistance | Masaar Holidays",
     fallbackDescription:
-      "From pilgrimage visas to international travel documentation, Masaar Holidays helps you understand the requirements, prepare the necessary documents and navigate the application process with greater clarity.",
+      "Reliable visa and travel document assistance from the UAE. Clear guidance on Umrah, Saudi tourist, and global visas. Get in touch with our team today.",
   });
 }
 

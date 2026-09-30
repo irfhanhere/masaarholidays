@@ -12,12 +12,32 @@ export async function generateMetadata({
   const { slug } = await params;
   const detail = await getPackageBySlugAndType(slug, "hajj");
   if (!detail) notFound();
+
+  const tier = slug.includes("essential")
+    ? "Essential"
+    : slug.includes("signature")
+    ? "Signature"
+    : slug.includes("exclusive")
+    ? "Exclusive"
+    : "Verified";
+
+  const days = detail.pkg.duration_days;
+  const title = `${days}-Day ${tier} Hajj from UAE | Masaar Holidays`;
+
+  let description = detail.pkg.meta_description;
+  if (!description || description.length > 155 || description.length < 120) {
+    if (slug === "hajj-exclusive-10-days") {
+      description =
+        "Book our 10-Day Exclusive non-shifting Hajj package from UAE. Clock Tower stay, Category A Mina camps, direct flights & full support. Plan with Masaar.";
+    } else {
+      description = `Book our ${days}-Day ${tier} Hajj package from UAE. Category A Mina tents, curated hotels, direct flights, and full support. Plan with Masaar today.`;
+    }
+  }
+
   return buildPageMetadata({
     path: `/hajj/${slug}`,
-    title: detail.pkg.meta_title || `${detail.pkg.title} | Masaar Holidays`,
-    description:
-      detail.pkg.meta_description ||
-      `${detail.pkg.title} — ${detail.pkg.duration_label ?? `${detail.pkg.duration_days} days`}, arranged through Masaar Holidays.`,
+    title: title.length > 60 ? title.slice(0, 57) + "..." : title,
+    description,
     ogImageUrl: detail.pkg.hero_image_url,
   });
 }

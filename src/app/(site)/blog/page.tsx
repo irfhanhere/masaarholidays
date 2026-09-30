@@ -23,7 +23,17 @@ export default async function BlogPage() {
   return (
     <section className="py-16">
       <Container>
-        <SectionHeading eyebrow="Masaar Journal" title="Umrah & Hajj Travel Guides" />
+        <div className="mx-auto mb-10 max-w-2xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
+            Masaar Journal
+          </p>
+          <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-masaar-black sm:text-4xl">
+            Umrah &amp; Hajj Travel Guides
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-masaar-black/70 sm:text-base">
+            Practical advice, preparation checklists, spiritual insights, and authentic travel guides for your pilgrimage from the UAE to Makkah and Madinah.
+          </p>
+        </div>
         <div className="mt-10">
           {posts.length === 0 ? (
             <EmptyState

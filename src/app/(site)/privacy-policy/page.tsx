@@ -4,7 +4,12 @@ import { getLegalPage } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({ path: "/privacy-policy", title: "Privacy Policy | Masaar Holidays" });
+  return buildPageMetadata({
+    path: "/privacy-policy",
+    title: "Privacy Policy | Masaar Holidays",
+    description:
+      "Read the Masaar Holidays privacy policy covering how we collect, protect, and handle personal information for your Umrah, Hajj, and UAE travel bookings.",
+  });
 }
 
 export default async function PrivacyPolicyPage() {
