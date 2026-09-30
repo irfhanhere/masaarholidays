@@ -42,11 +42,28 @@ export async function generateMetadata({
   });
 }
 
+import { PackageSchema } from "@/components/site/PackageSchema";
+
 export default async function HajjPackageDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return <PackageDetail type="hajj" slug={slug} />;
+  const detail = await getPackageBySlugAndType(slug, "hajj");
+  if (!detail) notFound();
+
+  return (
+    <>
+      <PackageSchema
+        name={detail.pkg.title}
+        description={detail.pkg.short_description || detail.pkg.meta_description || `${detail.pkg.title} package`}
+        path={`/hajj/${slug}`}
+        priceAed={detail.pkg.starting_price_aed}
+        imageUrl={detail.pkg.hero_image_url}
+        durationDays={detail.pkg.duration_days}
+      />
+      <PackageDetail type="hajj" slug={slug} />
+    </>
+  );
 }

@@ -47,6 +47,8 @@ export async function generateMetadata({
   });
 }
 
+import { PackageSchema } from "@/components/site/PackageSchema";
+
 export default async function UmrahPackageDetailPage({
   params,
 }: {
@@ -67,12 +69,30 @@ export default async function UmrahPackageDetailPage({
   ]);
 
   const tierConfigs = allConfigs.filter((c) => c.package_id === detail.pkg.id);
+  const minPrice =
+    tierConfigs.length > 0
+      ? Math.min(
+          ...tierConfigs
+            .map((c) => c.min_price_aed || detail.pkg.starting_price_aed || 0)
+            .filter((p) => p > 0)
+        )
+      : detail.pkg.starting_price_aed;
 
   return (
-    <UmrahInventoryDetailClient
-      pkg={detail.pkg}
-      tierConfigs={tierConfigs}
-      ziyaratData={ziyaratData}
-    />
+    <>
+      <PackageSchema
+        name={detail.pkg.title}
+        description={detail.pkg.short_description || detail.pkg.meta_description || `${detail.pkg.title} package`}
+        path={`/umrah/${slug}`}
+        priceAed={minPrice && isFinite(minPrice) ? minPrice : detail.pkg.starting_price_aed}
+        imageUrl={detail.pkg.hero_image_url}
+        durationDays={detail.pkg.duration_days}
+      />
+      <UmrahInventoryDetailClient
+        pkg={detail.pkg}
+        tierConfigs={tierConfigs}
+        ziyaratData={ziyaratData}
+      />
+    </>
   );
 }

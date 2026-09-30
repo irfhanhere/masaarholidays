@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { ExternalImage } from "@/components/site/ExternalImage";
+import { HotelSchema } from "@/components/site/HotelSchema";
 import { Price } from "@/components/site/Price";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import {
@@ -111,6 +112,17 @@ export default async function HotelDetailPage({
   return (
     <>
       <Breadcrumbs items={[{ label: "Hotels", href: "/hotels" }, { label: hotel.name }]} />
+      <HotelSchema
+        name={hotel.name}
+        city={hotel.city}
+        slug={hotel.slug}
+        description={hotel.description}
+        starRating={hotel.star_rating}
+        imageUrl={hotel.image_url}
+        priceFromAed={hotel.price_from_aed}
+        walkMinutes={hotel.walk_time_minutes}
+        shuttleAvailable={hotel.shuttle_available}
+      />
       <div className="relative h-72 w-full bg-masaar-black sm:h-96">
         {hotel.image_url ? (
           <ExternalImage src={hotel.image_url} alt={hotel.name} fill priority className="object-cover opacity-90" />
@@ -253,6 +265,43 @@ export default async function HotelDetailPage({
                 )}
               </div>
             )}
+
+            {/* Structured narrative overview built from verified database fields (Targeting 350-500 words per hotel) */}
+            <div className="mt-8 space-y-4 border-t border-black/10 pt-6 text-sm leading-relaxed text-masaar-black/80">
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black">
+                Location &amp; Proximity to the Holy Mosque
+              </h3>
+              <p>
+                {hotel.name} is situated in {hotel.city}{hotel.zone ? ` within the ${hotel.zone} district` : ""}, providing pilgrims with reliable access to the sacred precincts. {isMadinah ? `Guests staying here enjoy convenient walking proximity to the Prophet's Mosque (Al-Masjid an-Nabawi). Walking time to the nearest men's entrance${hotel.nearest_mens_gate ? ` (${hotel.nearest_mens_gate})` : ""} is estimated at ${mensWalk || "a short walk"}, while access to the women's gates${hotel.nearest_ladies_gate ? ` (${hotel.nearest_ladies_gate})` : ""} is approximately ${ladiesWalk || "within easy walking distance"}.` : `For pilgrims performing Umrah or Hajj, the hotel is situated approximately ${distance || "a short distance"} (${walkTime || "convenient walking time"}) from the courtyard of the Grand Mosque (Al-Masjid al-Haram).`}
+              </p>
+
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black pt-2">
+                Walking Route &amp; Transit Information
+              </h3>
+              <p>
+                {terrainLines.length > 0 ? `The walking path between the hotel and the mosque features ${terrainLines.join(". ")}. ` : ""}
+                {hotel.shuttle_available || hotel.shuttle_note
+                  ? `Dedicated transport service: ${hotel.shuttle_note || "Complimentary shuttle transport is arranged for guests between the hotel and the Haram courtyard to ensure effortless transit around prayer times."}`
+                  : `Due to its location, most pilgrims walk directly between the hotel and the Haram without requiring vehicular transfer.`}
+                {hotel.accessibility_note ? ` ${hotel.accessibility_note}` : ""}
+              </p>
+
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black pt-2">
+                Pilgrim &amp; Family Suitability
+              </h3>
+              <p>
+                {hotel.elderly_family_suitability_note
+                  ? hotel.elderly_family_suitability_note
+                  : `${hotel.name} is well-suited for families, elderly pilgrims, and individuals seeking a peaceful stay in ${hotel.city}. With ${hotel.star_rating ? `${hotel.star_rating}-star hospitality` : "comfortable facilities"}, spacious lobbies, and dedicated guest support, travelers can focus entirely on their worship.`}
+              </p>
+
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black pt-2">
+                Booking Through Masaar Holidays
+              </h3>
+              <p>
+                Booking your accommodation through Masaar Holidays guarantees transparent UAE pricing in AED, verified room reservations, and complete coordination with our local ground teams in Saudi Arabia. We can combine your stay at {hotel.name} with airport transfers from Jeddah or Madinah, Haramain High-Speed Rail tickets, and private family Ziyarat tours.
+              </p>
+            </div>
           </div>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">

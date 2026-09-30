@@ -107,93 +107,114 @@ export function FaqPageClient({ allFaqs }: { allFaqs: FaqRow[] }) {
           })}
         </div>
 
-        {/* Active Category Section */}
-        <div className="mt-12 sm:mt-16">
-          {/* Section Header */}
-          <div className="grid gap-4 border-b border-black/15 pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="h-px w-6 bg-deep-gold" />
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
-                  {activeCategory.eyebrow}
-                </p>
+        {/* Category Sections (All rendered in HTML for crawler discovery, toggled with CSS) */}
+        {CATEGORIES.map((cat) => {
+          const isCurrentTab = activeTab === cat.key;
+          const catFaqs = allFaqs
+            .filter((f) => f.category === cat.key)
+            .sort((a, b) => a.display_order - b.display_order);
+
+          const col1 = catFaqs.filter((_, i) => i % 2 === 0);
+          const col2 = catFaqs.filter((_, i) => i % 2 !== 0);
+
+          return (
+            <div
+              key={cat.key}
+              id={`faq-category-${cat.key}`}
+              className={`mt-12 sm:mt-16 ${isCurrentTab ? "block" : "hidden"}`}
+              aria-hidden={!isCurrentTab}
+            >
+              {/* Section Header */}
+              <div className="grid gap-4 border-b border-black/15 pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-px w-6 bg-deep-gold" />
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
+                      {cat.eyebrow}
+                    </p>
+                  </div>
+                  <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
+                    {cat.heading}
+                  </h2>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 text-xs text-masaar-black/60 sm:text-sm">
+                  <p className="max-w-md text-left lg:text-right">{cat.description}</p>
+                  <span className="rounded-full bg-warm-ivory px-3.5 py-1.5 font-semibold text-deep-gold border border-black/5">
+                    {catFaqs.length.toString().padStart(2, "0")} QUESTIONS
+                  </span>
+                </div>
               </div>
-              <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
-                {activeCategory.heading}
-              </h2>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-masaar-black/60 sm:text-sm">
-              <p className="max-w-md text-left lg:text-right">{activeCategory.description}</p>
-              <span className="rounded-full bg-warm-ivory px-3.5 py-1.5 font-semibold text-deep-gold border border-black/5">
-                {activeFaqs.length.toString().padStart(2, "0")} QUESTIONS
-              </span>
-            </div>
-          </div>
-
-          {/* 2-Column Accordion Grid */}
-          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:gap-6 items-start">
-            {/* Column 1 */}
-            <div className="space-y-4">
-              {col1.map((faq) => {
-                const isOpen = openFaqIds.has(faq.id);
-                return (
-                  <div
-                    key={faq.id}
-                    className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs transition-all hover:border-deep-gold/40"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleFaq(faq.id)}
-                      className="flex w-full items-center justify-between gap-4 text-left font-semibold text-sm sm:text-base text-masaar-black focus:outline-none"
-                      aria-expanded={isOpen}
-                    >
-                      <span className="leading-snug">{faq.question}</span>
-                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-deep-gold font-bold text-lg bg-warm-ivory/60">
-                        {isOpen ? "−" : "+"}
-                      </span>
-                    </button>
-                    {isOpen && (
-                      <div className="mt-4 border-t border-black/5 pt-3.5 text-xs sm:text-sm leading-relaxed text-masaar-black/75 animate-in fade-in-50 duration-150">
-                        <p className="whitespace-pre-line">{faq.answer}</p>
+              {/* 2-Column Accordion Grid */}
+              <div className="mt-8 grid gap-4 md:grid-cols-2 lg:gap-6 items-start">
+                {/* Column 1 */}
+                <div className="space-y-4">
+                  {col1.map((faq) => {
+                    const isOpen = openFaqIds.has(faq.id);
+                    return (
+                      <div
+                        key={faq.id}
+                        className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs transition-all hover:border-deep-gold/40"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleFaq(faq.id)}
+                          className="flex w-full items-center justify-between gap-4 text-left font-semibold text-sm sm:text-base text-masaar-black focus:outline-none"
+                          aria-expanded={isOpen}
+                        >
+                          <span className="leading-snug">{faq.question}</span>
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-deep-gold font-bold text-lg bg-warm-ivory/60">
+                            {isOpen ? "−" : "+"}
+                          </span>
+                        </button>
+                        <div
+                          className={`mt-4 border-t border-black/5 pt-3.5 text-xs sm:text-sm leading-relaxed text-masaar-black/75 ${
+                            isOpen ? "block animate-in fade-in-50 duration-150" : "hidden"
+                          }`}
+                        >
+                          <p className="whitespace-pre-line">{faq.answer}</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
 
-            {/* Column 2 */}
-            <div className="space-y-4">
-              {col2.map((faq) => {
-                const isOpen = openFaqIds.has(faq.id);
-                return (
-                  <div
-                    key={faq.id}
-                    className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs transition-all hover:border-deep-gold/40"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleFaq(faq.id)}
-                      className="flex w-full items-center justify-between gap-4 text-left font-semibold text-sm sm:text-base text-masaar-black focus:outline-none"
-                      aria-expanded={isOpen}
-                    >
-                      <span className="leading-snug">{faq.question}</span>
-                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-deep-gold font-bold text-lg bg-warm-ivory/60">
-                        {isOpen ? "−" : "+"}
-                      </span>
-                    </button>
-                    {isOpen && (
-                      <div className="mt-4 border-t border-black/5 pt-3.5 text-xs sm:text-sm leading-relaxed text-masaar-black/75 animate-in fade-in-50 duration-150">
-                        <p className="whitespace-pre-line">{faq.answer}</p>
+                {/* Column 2 */}
+                <div className="space-y-4">
+                  {col2.map((faq) => {
+                    const isOpen = openFaqIds.has(faq.id);
+                    return (
+                      <div
+                        key={faq.id}
+                        className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs transition-all hover:border-deep-gold/40"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleFaq(faq.id)}
+                          className="flex w-full items-center justify-between gap-4 text-left font-semibold text-sm sm:text-base text-masaar-black focus:outline-none"
+                          aria-expanded={isOpen}
+                        >
+                          <span className="leading-snug">{faq.question}</span>
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-deep-gold font-bold text-lg bg-warm-ivory/60">
+                            {isOpen ? "−" : "+"}
+                          </span>
+                        </button>
+                        <div
+                          className={`mt-4 border-t border-black/5 pt-3.5 text-xs sm:text-sm leading-relaxed text-masaar-black/75 ${
+                            isOpen ? "block animate-in fade-in-50 duration-150" : "hidden"
+                          }`}
+                        >
+                          <p className="whitespace-pre-line">{faq.answer}</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })}
 
         {/* Closing WhatsApp CTA Band matching FAQ PAGE.png */}
         <div className="mt-24 overflow-hidden rounded-2xl bg-masaar-black text-white shadow-xl">

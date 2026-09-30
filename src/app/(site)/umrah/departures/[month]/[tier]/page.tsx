@@ -7,8 +7,9 @@ import {
 } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
 import { UmrahJourneyPageClient } from "@/components/site/UmrahJourneyPageClient";
-import { UMRAH_TIER_LABEL, UMRAH_TIER_SLUGS, isUmrahTierKey } from "@/lib/umrah-journey";
+import { UMRAH_TIER_LABEL, UMRAH_TIER_SLUGS, isUmrahTierKey, type UmrahTierKey } from "@/lib/umrah-journey";
 import { formatDepartureMonthName } from "@/lib/date-utils";
+import { PackageSchema } from "@/components/site/PackageSchema";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 
 /**
@@ -114,12 +115,32 @@ export default async function UmrahJourneyPage({
     ),
   };
 
+  const currentTierConfigs = journeyConfigsByTier[tier];
+  const minPrice =
+    currentTierConfigs.length > 0
+      ? Math.min(
+          ...currentTierConfigs
+            .map((c) => c.min_price_aed || activePkg.starting_price_aed || 0)
+            .filter((p) => p > 0)
+        )
+      : activePkg.starting_price_aed;
+
   return (
-    <UmrahJourneyPageClient
-      month={month}
-      activeTier={tier}
-      tierPackages={tierPackages}
-      journeyConfigsByTier={journeyConfigsByTier}
-    />
+    <>
+      <PackageSchema
+        name={`${formatDepartureMonthName(month.display_label)} ${UMRAH_TIER_LABEL[tier]} Umrah`}
+        description={`${UMRAH_TIER_LABEL[tier]} Umrah package for ${formatDepartureMonthName(month.display_label)} departures from the UAE across Makkah and Madinah.`}
+        path={`/umrah/departures/${monthSlug}/${tier}`}
+        priceAed={minPrice && isFinite(minPrice) ? minPrice : activePkg.starting_price_aed}
+        imageUrl={activePkg.hero_image_url}
+        durationDays={activePkg.duration_days}
+      />
+      <UmrahJourneyPageClient
+        month={month}
+        activeTier={tier}
+        tierPackages={tierPackages}
+        journeyConfigsByTier={journeyConfigsByTier}
+      />
+    </>
   );
 }
