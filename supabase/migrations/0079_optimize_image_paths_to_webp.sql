@@ -40,4 +40,14 @@ UPDATE private_trips
 SET card_image_url = REPLACE(card_image_url, '/trips/PRIVATE-TRIP-MADINAH-CARD.png', '/trips/private-trip-madinah-card.webp')
 WHERE card_image_url LIKE '%/trips/PRIVATE-TRIP-MADINAH-CARD.png%';
 
+-- 6. Blog Posts hero images
+UPDATE blog_posts
+SET hero_image_url = REPLACE(hero_image_url, '/brand/banners/umrah.png', '/brand/banners/umrah.webp')
+WHERE hero_image_url LIKE '%/brand/banners/umrah.png%';
+
+UPDATE blog_posts
+SET hero_image_url = REPLACE(hero_image_url, '/trips/DESTINATION IMAGE.png', '/trips/destination-image.webp')
+WHERE hero_image_url LIKE '%/trips/DESTINATION IMAGE.png%';
+
 COMMIT;
+

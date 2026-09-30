@@ -10,6 +10,7 @@ import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
 import { UmrahTierCards } from "./UmrahTierCards";
 import { UmrahEnquiryModal, type PackageEnquiryInfo } from "./UmrahEnquiryModal";
+import { formatDepartureMonthName } from "@/lib/date-utils";
 
 interface Props {
   month: UmrahDepartureMonthRow;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function UmrahMonthPageClient({ month, nextMonth, packages, inventoryConfigs }: Props) {
+  const formattedMonth = formatDepartureMonthName(month.display_label);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [enquiryPackage, setEnquiryPackage] = useState<PackageEnquiryInfo>({
     name: "Essential Umrah",
@@ -29,7 +31,7 @@ export function UmrahMonthPageClient({ month, nextMonth, packages, inventoryConf
     hotelRating: "5-Star accommodation",
     shuttleInfo: "24/7 dedicated Haram shuttle",
     imageUrl: "/brand/banners/umrah.webp",
-    shortDescription: `A simple and comfortable Umrah package for ${month.display_label}.`,
+    shortDescription: `A simple and comfortable Umrah package for ${formattedMonth}.`,
   });
 
   const openEnquiry = (info: PackageEnquiryInfo) => {
@@ -73,11 +75,11 @@ export function UmrahMonthPageClient({ month, nextMonth, packages, inventoryConf
           <div className="max-w-2xl">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#A87F12]">
               <span>—</span>
-              <span>Umrah Packages · {month.display_label}</span>
+              <span>Umrah Packages · {formattedMonth}</span>
               <span>—</span>
             </div>
             <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight text-masaar-black sm:text-5xl sm:leading-[1.15]">
-              {month.hero_headline || `Your ${month.display_label} Umrah Journey`}
+              {formatDepartureMonthName(month.hero_headline) || `Your ${formattedMonth} Umrah Journey`}
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-masaar-black/75 sm:text-lg">
               {month.hero_subtext ||
