@@ -104,13 +104,13 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Long Cache-Control for static asset folders: /brand, /trips, /hotels, /vehicles
+      // Cache-Control for unhashed static asset folders: /brand, /trips, /hotels, /vehicles
       {
         source: "/brand/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: "public, max-age=2592000, stale-while-revalidate=86400",
           },
         ],
       },
@@ -119,7 +119,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: "public, max-age=2592000, stale-while-revalidate=86400",
           },
         ],
       },
@@ -128,7 +128,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: "public, max-age=2592000, stale-while-revalidate=86400",
           },
         ],
       },
@@ -137,7 +137,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: "public, max-age=2592000, stale-while-revalidate=86400",
           },
         ],
       },
