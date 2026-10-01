@@ -24,15 +24,25 @@ const LEGACY_IMAGE_MAP: Record<string, string> = {
  * that's wired up) should keep using next/image normally — don't reach
  * for this for those.
  */
-export function ExternalImage(props: ImageProps) {
+export function ExternalImage({ unoptimized, ...props }: ImageProps) {
   let src = props.src;
-  if (typeof src === "string" && LEGACY_IMAGE_MAP[src]) {
-    src = LEGACY_IMAGE_MAP[src];
+  if (typeof src === "string") {
+    if (LEGACY_IMAGE_MAP[src]) {
+      src = LEGACY_IMAGE_MAP[src];
+    } else if (src.startsWith("/brand/umrah-packages/") && src.endsWith(".jpg")) {
+      src = src.replace(/\.jpg$/, ".webp");
+    } else if (src.startsWith("/brand/hajj-packages/") && src.endsWith(".jpg")) {
+      src = src.replace(/\.jpg$/, ".webp");
+    }
   }
+
+  // Optimize local images and https URLs through Next's optimizer by default
+  const shouldSkipOptimization =
+    unoptimized ?? (typeof src === "string" && !src.startsWith("/") && !src.startsWith("https://"));
 
   // alt is required by ImageProps (enforced at the call site by
   // TypeScript) — the lint rule just can't see through the spread.
   // eslint-disable-next-line jsx-a11y/alt-text
-  return <Image {...props} src={src} unoptimized />;
+  return <Image {...props} src={src} unoptimized={shouldSkipOptimization} />;
 }
 

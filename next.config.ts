@@ -30,6 +30,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "cdn.halalstatic.com",
+      },
+      {
+        protocol: "https",
         hostname: "**",
       },
     ],

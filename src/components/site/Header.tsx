@@ -58,10 +58,11 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
           <Link href={href("/")} className="flex items-center gap-2 shrink-0">
             {isHome ? (
               <Image
-                src="/brand/logo-home.png"
+                src="/brand/logo-home.webp"
                 alt="Masaar Holidays"
-                width={1774}
-                height={887}
+                width={224}
+                height={112}
+                sizes="(max-width: 1024px) 144px, 224px"
                 className="h-16 w-auto lg:h-24"
               />
             ) : (
@@ -70,6 +71,7 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
                 alt="Masaar Holidays"
                 width={240}
                 height={72}
+                sizes="(max-width: 1024px) 144px, 240px"
                 className="h-16 w-auto"
               />
             )}

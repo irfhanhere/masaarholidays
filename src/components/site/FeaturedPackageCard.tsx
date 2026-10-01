@@ -44,13 +44,17 @@ function StayEntry({
 }) {
   const walkTime = matchedHotel ? formatCardWalkTime(matchedHotel) : null;
   const terrain = matchedHotel ? getTerrainCategory(matchedHotel) : null;
-  const image = matchedHotel?.image_url;
+  const rawImage = matchedHotel?.image_url;
+  const image =
+    rawImage && typeof rawImage === "string"
+      ? rawImage.replace(/\/hero\.webp$/, "/thumb.webp")
+      : rawImage;
 
   return (
     <div className="flex items-center gap-3">
       <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-warm-ivory">
         {image ? (
-          <ExternalImage src={image} alt={hotelName} fill className="object-cover" />
+          <ExternalImage src={image} alt={hotelName} fill sizes="64px" className="object-cover" />
         ) : (
           <div className="flex size-full items-center justify-center text-deep-gold">
             <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
