@@ -24,6 +24,8 @@ export function UmrahHero({ onOpenEnquiry }: Props) {
             fill
             sizes="(max-width: 1024px) 100vw, 60vw"
             priority
+            fetchPriority="high"
+            quality={75}
             className="object-cover object-right"
           />
           {/* Subtle soft gradient fade into the cream background on the left */}

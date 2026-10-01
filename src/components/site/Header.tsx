@@ -63,7 +63,6 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
                 width={1774}
                 height={887}
                 className="h-16 w-auto lg:h-24"
-                priority
               />
             ) : (
               <Image
@@ -72,7 +71,6 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
                 width={240}
                 height={72}
                 className="h-16 w-auto"
-                priority
               />
             )}
           </Link>

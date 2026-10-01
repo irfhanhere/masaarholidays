@@ -19,6 +19,8 @@ export function HajjHero() {
             fill
             sizes="(max-width: 1024px) 100vw, 60vw"
             priority
+            fetchPriority="high"
+            quality={75}
             className="object-cover object-right"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[#FAF7F2] via-[#FAF7F2]/80 to-transparent lg:via-[#FAF7F2]/50" />
