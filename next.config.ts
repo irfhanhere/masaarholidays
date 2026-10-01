@@ -140,6 +140,7 @@ const nextConfig: NextConfig = {
     ];
   },
   experimental: {
+    inlineCss: true,
     serverActions: {
       allowedOrigins: [
         "www.masaarholidays.com",
