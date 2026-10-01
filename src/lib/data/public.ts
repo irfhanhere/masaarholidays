@@ -905,4 +905,57 @@ export async function getAddonsCatalogForPublic(): Promise<PublicAddonCatalogRow
   return (data ?? []) as unknown as PublicAddonCatalogRow[];
 }
 
+export interface PublicWhatsAppConfig {
+  templates: Record<string, string>;
+  phoneNumber: string;
+}
+
+export async function getCachedWhatsAppConfig(): Promise<PublicWhatsAppConfig> {
+  const { WHATSAPP_DEFAULT_PHONE } = await import("@/lib/whatsapp-templates");
+  if (!isSupabaseConfigured()) {
+    return { templates: {}, phoneNumber: WHATSAPP_DEFAULT_PHONE };
+  }
+  try {
+    const { createCachedPublicClient } = await import("@/lib/supabase/public-cached");
+    const supabase = createCachedPublicClient();
+    const [templatesRes, settingsRes] = await Promise.all([
+      supabase.from("whatsapp_templates").select("key, template_text"),
+      supabase.from("whatsapp_settings").select("phone_number").eq("id", 1).maybeSingle(),
+    ]);
+
+    const templates: Record<string, string> = {};
+    for (const row of templatesRes.data ?? []) {
+      templates[row.key] = row.template_text;
+    }
+
+    const phoneNumber = (!settingsRes.error && settingsRes.data?.phone_number)
+      ? settingsRes.data.phone_number
+      : WHATSAPP_DEFAULT_PHONE;
+
+    return { templates, phoneNumber };
+  } catch (err) {
+    console.error("getCachedWhatsAppConfig error:", err);
+    return { templates: {}, phoneNumber: WHATSAPP_DEFAULT_PHONE };
+  }
+}
+
+export async function getCachedCurrencyRates(): Promise<Record<string, number>> {
+  if (!isSupabaseConfigured()) return {};
+  try {
+    const { createCachedPublicClient } = await import("@/lib/supabase/public-cached");
+    const supabase = createCachedPublicClient();
+    const { data, error } = await supabase.from("currency_rates").select("currency_code, rate_to_aed");
+    if (error) throw error;
+    const map: Record<string, number> = {};
+    for (const row of data ?? []) {
+      map[row.currency_code] = row.rate_to_aed;
+    }
+    return map;
+  } catch (err) {
+    console.error("getCachedCurrencyRates error:", err);
+    return {};
+  }
+}
+
+
 

@@ -24,10 +24,16 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
  * anywhere), same "per-viewer convenience" pattern as the rest of the
  * site's client-only state.
  */
-export function CurrencyProvider({ children }: { children: ReactNode }) {
+export function CurrencyProvider({
+  children,
+  initialRates,
+}: {
+  children: ReactNode;
+  initialRates?: RateMap;
+}) {
   const [currency, setCurrencyState] = useState<CurrencyCode>("AED");
-  const [rates, setRates] = useState<RateMap>({});
-  const [ratesLoaded, setRatesLoaded] = useState(false);
+  const [rates, setRates] = useState<RateMap>(initialRates ?? {});
+  const [ratesLoaded, setRatesLoaded] = useState(Boolean(initialRates && Object.keys(initialRates).length > 0));
 
   useEffect(() => {
     // Deliberately post-mount, not a lazy useState initializer: reading
@@ -45,6 +51,9 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // If initial server rates are present, do not query Supabase in the browser
+    if (initialRates && Object.keys(initialRates).length > 0) return;
+
     let cancelled = false;
     (async () => {
       try {
@@ -66,7 +75,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialRates]);
 
   function setCurrency(next: CurrencyCode) {
     setCurrencyState(next);

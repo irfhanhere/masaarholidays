@@ -30,12 +30,23 @@ const WhatsAppTemplatesContext = createContext<WhatsAppTemplatesContextValue | n
  * resolved/failed — a visitor never sees a blank or crashed WhatsApp
  * link, worst case they get the last-known-good hardcoded copy.
  */
-export function WhatsAppTemplatesProvider({ children }: { children: ReactNode }) {
-  const [templates, setTemplates] = useState<Record<string, string>>({});
-  const [phoneNumber, setPhoneNumber] = useState<string>(WHATSAPP_DEFAULT_PHONE);
-  const [loaded, setLoaded] = useState(false);
+export function WhatsAppTemplatesProvider({
+  children,
+  initialTemplates,
+  initialPhoneNumber,
+}: {
+  children: ReactNode;
+  initialTemplates?: Record<string, string>;
+  initialPhoneNumber?: string;
+}) {
+  const [templates, setTemplates] = useState<Record<string, string>>(initialTemplates ?? {});
+  const [phoneNumber, setPhoneNumber] = useState<string>(initialPhoneNumber ?? WHATSAPP_DEFAULT_PHONE);
+  const [loaded, setLoaded] = useState(Boolean(initialTemplates && Object.keys(initialTemplates).length > 0));
 
   useEffect(() => {
+    // If initial server data is present, do not query Supabase in the browser
+    if (initialTemplates && Object.keys(initialTemplates).length > 0) return;
+
     let cancelled = false;
     (async () => {
       try {
@@ -65,7 +76,7 @@ export function WhatsAppTemplatesProvider({ children }: { children: ReactNode })
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialTemplates]);
 
   const getMessage = useCallback(
     (key: WhatsAppTemplateKey, params?: Record<string, string>): string => {
