@@ -74,6 +74,21 @@ const nextConfig: NextConfig = {
         destination: "/umrah/exclusive",
         permanent: true,
       },
+      {
+        source: "/umrah/umrah-essential",
+        destination: "/umrah/essential",
+        permanent: true,
+      },
+      {
+        source: "/umrah/umrah-signature",
+        destination: "/umrah/signature",
+        permanent: true,
+      },
+      {
+        source: "/umrah/umrah-exclusive",
+        destination: "/umrah/exclusive",
+        permanent: true,
+      },
     ];
   },
   async headers() {

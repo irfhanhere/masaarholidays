@@ -76,7 +76,7 @@ export async function getPackageBySlugAndType(
 ): Promise<PackageDetail | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
-  const { data: pkg, error } = await supabase
+  let { data: pkg, error } = await supabase
     .from("packages")
     .select("*")
     .eq("slug", slug)
@@ -84,7 +84,32 @@ export async function getPackageBySlugAndType(
     .eq("show_on_website", true)
     .eq("is_active", true)
     .maybeSingle();
-  if (error) {
+
+  if (!pkg && slug.endsWith("-placeholder")) {
+    const cleanSlug = slug.replace("-placeholder", "");
+    const { data: fallbackPkg } = await supabase
+      .from("packages")
+      .select("*")
+      .eq("slug", cleanSlug)
+      .eq("type", type)
+      .eq("show_on_website", true)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (fallbackPkg) pkg = fallbackPkg;
+  } else if (!pkg && !slug.endsWith("-placeholder")) {
+    const placeholderSlug = `${slug}-placeholder`;
+    const { data: fallbackPkg } = await supabase
+      .from("packages")
+      .select("*")
+      .eq("slug", placeholderSlug)
+      .eq("type", type)
+      .eq("show_on_website", true)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (fallbackPkg) pkg = fallbackPkg;
+  }
+
+  if (error && !pkg) {
     console.error("getPackageBySlugAndType", error.message);
     return null;
   }

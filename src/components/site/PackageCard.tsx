@@ -297,6 +297,7 @@ export function PackageCard({
           <div className="flex flex-wrap gap-2">
             <Link
               href={detailHref}
+              aria-label={`View details for ${pkg.title}`}
               className="rounded-md border border-black/15 px-4 py-2.5 text-center text-sm font-semibold text-masaar-black hover:bg-warm-ivory"
             >
               View Details

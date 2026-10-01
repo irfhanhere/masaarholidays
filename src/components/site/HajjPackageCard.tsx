@@ -129,6 +129,7 @@ export function HajjPackageCard({ pkg }: { pkg: PackageRow }) {
           <div className="mt-2 text-center">
             <Link
               href={detailHref}
+              aria-label={`View inclusions and details for ${pkg.title}`}
               className="text-xs font-semibold text-masaar-black/70 hover:text-deep-gold hover:underline"
             >
               View Inclusions & Details →

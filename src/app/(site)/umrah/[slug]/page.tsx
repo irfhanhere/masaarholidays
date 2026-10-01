@@ -11,16 +11,22 @@ import { buildPageMetadata } from "@/lib/i18n";
 const SLUG_ALIASES: Record<string, string> = {
   "essential": "umrah-essential-placeholder",
   "essential-umrah": "umrah-essential-placeholder",
+  "umrah-essential": "umrah-essential-placeholder",
   "signature": "umrah-signature-placeholder",
   "signature-umrah": "umrah-signature-placeholder",
+  "umrah-signature": "umrah-signature-placeholder",
   "exclusive": "umrah-exclusive-placeholder",
   "exclusive-umrah": "umrah-exclusive-placeholder",
+  "umrah-exclusive": "umrah-exclusive-placeholder",
 };
 
 const PLACEHOLDER_CLEAN_MAP: Record<string, string> = {
   "umrah-essential-placeholder": "/umrah/essential",
   "umrah-signature-placeholder": "/umrah/signature",
   "umrah-exclusive-placeholder": "/umrah/exclusive",
+  "umrah-essential": "/umrah/essential",
+  "umrah-signature": "/umrah/signature",
+  "umrah-exclusive": "/umrah/exclusive",
 };
 
 export async function generateMetadata({

@@ -100,7 +100,18 @@ export function FeaturedPackageCard({
   makkahHotel?: PublicHotelRow | null;
   madinahHotel?: PublicHotelRow | null;
 }) {
-  const detailHref = `/${pkg.type}/${pkg.slug}`;
+  const CLEAN_SLUG_MAP: Record<string, string> = {
+    "umrah-essential-placeholder": "/umrah/essential",
+    "umrah-signature-placeholder": "/umrah/signature",
+    "umrah-exclusive-placeholder": "/umrah/exclusive",
+    "umrah-essential": "/umrah/essential",
+    "umrah-signature": "/umrah/signature",
+    "umrah-exclusive": "/umrah/exclusive",
+  };
+  const detailHref =
+    pkg.type === "umrah" && CLEAN_SLUG_MAP[pkg.slug]
+      ? CLEAN_SLUG_MAP[pkg.slug]
+      : `/${pkg.type}/${pkg.slug}`;
 
   const minPrice =
     roomPrices && roomPrices.length > 0
@@ -123,6 +134,7 @@ export function FeaturedPackageCard({
       {/* ── Image panel ─────────────────────────────────────── */}
       <Link
         href={detailHref}
+        aria-label={`View details for ${pkg.title}`}
         className="relative h-52 w-full shrink-0 bg-warm-ivory lg:h-auto lg:w-72 lg:self-stretch"
       >
         {pkg.hero_image_url ? (
@@ -150,7 +162,7 @@ export function FeaturedPackageCard({
         </div>
 
         <div>
-          <Link href={detailHref}>
+          <Link href={detailHref} aria-label={`View details for ${pkg.title}`}>
             <h3 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black hover:text-deep-gold">
               {pkg.title}
             </h3>
@@ -246,6 +258,7 @@ export function FeaturedPackageCard({
         )}
         <Link
           href={detailHref}
+          aria-label={`View details for ${pkg.title}`}
           className="rounded-md border border-black/15 px-4 py-2.5 text-center text-sm font-semibold text-masaar-black hover:bg-warm-ivory"
         >
           View Details →
