@@ -86,6 +86,14 @@ export function OrganizationSchema() {
     image: `${SITE_ORIGIN}/brand/logo.png`,
     telephone: `+${CONTACT.whatsappPhoneIntl}`,
     email: CONTACT.emailGeneral,
+    priceRange: "$$$",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: CONTACT.officeAddressLines.slice(0, 3).join(", "),
+      addressLocality: "Sharjah",
+      addressRegion: "Sharjah",
+      addressCountry: "AE",
+    },
     sameAs: [CONTACT.instagramUrl, CONTACT.facebookUrl, CONTACT.linkedinUrl],
     areaServed: [
       { "@type": "Country", name: "United Arab Emirates" },
