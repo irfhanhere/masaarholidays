@@ -146,7 +146,7 @@ export default async function AboutPage() {
             />
           </div>
           <div className="flex flex-col justify-center p-8 sm:p-10">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">Our Founding Story</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-text">Our Founding Story</p>
             <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
               {about?.founding_story_heading || "A Promise Kept"}
             </h2>
@@ -220,7 +220,7 @@ export default async function AboutPage() {
             />
           </div>
           <div className="flex flex-col justify-center bg-warm-ivory p-8 sm:p-10">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">Giving Back</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-text">Giving Back</p>
             <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
               Sadaqah Jariyah, A <span className="text-deep-gold">Lasting Impact</span>
             </h2>
@@ -255,7 +255,7 @@ export default async function AboutPage() {
       <section className="bg-warm-ivory py-16">
         <Container className="grid gap-10 lg:grid-cols-[1fr_1.4fr]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">Who We Serve</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-text">Who We Serve</p>
             <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
               Families, Individuals and Small Groups
             </h2>
@@ -266,7 +266,7 @@ export default async function AboutPage() {
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">What Makes Masaar Different</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-text">What Makes Masaar Different</p>
             <div className="mt-4 grid gap-6 sm:grid-cols-2">
               {differentiators.map((item, i) => (
                 <div key={i} className="flex flex-col items-start gap-2">

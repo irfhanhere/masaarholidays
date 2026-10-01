@@ -237,11 +237,11 @@ export function FeaturedPackageCard({
       <div className="flex shrink-0 flex-col justify-center gap-3 border-t border-black/10 p-6 lg:w-56 lg:border-l lg:border-t-0">
         {minPrice != null && (
           <div>
-            <p className="text-xs text-masaar-black/50">From</p>
+            <p className="text-xs text-masaar-black/70">From</p>
             <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-deep-gold">
               <Price amountAed={minPrice} />
             </p>
-            <p className="text-xs text-masaar-black/50">/ person</p>
+            <p className="text-xs text-masaar-black/70">/ person</p>
           </div>
         )}
         <Link

@@ -11,6 +11,7 @@
   --color-warm-ivory: #f7f4ed;
   --color-light-gold: #e6c65c;
   --color-deep-gold: #a87f12;
+  --color-gold-text: #8f6407; /* Darker gold for accessible small text/eyebrows (4.85:1 contrast on #f7f4ed warm-ivory) */
 
   /*
     Admin Portal accents — sampled directly from the approved admin screens
@@ -38,6 +39,7 @@
   --color-warm-ivory: var(--color-warm-ivory);
   --color-light-gold: var(--color-light-gold);
   --color-deep-gold: var(--color-deep-gold);
+  --color-gold-text: var(--color-gold-text);
 
   --color-admin-ink: var(--color-admin-ink);
   --color-admin-ink-active: var(--color-admin-ink-active);

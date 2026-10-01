@@ -287,7 +287,7 @@ export function PackageCard({
         <div className="mt-auto flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
           {minPrice != null && (
             <div>
-              <p className="text-xs text-masaar-black/50">From</p>
+              <p className="text-xs text-masaar-black/70">From</p>
               <p className="text-xl font-semibold text-masaar-black">
                 <Price amountAed={minPrice} />
               </p>

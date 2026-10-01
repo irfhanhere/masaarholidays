@@ -136,7 +136,7 @@ export default async function HomePage() {
                 <p className="text-sm font-medium text-masaar-black transition-colors group-hover:text-deep-gold">
                   {label}
                 </p>
-                <p className="text-xs text-masaar-black/50">{note}</p>
+                <p className="text-xs text-masaar-black/70">{note}</p>
               </Link>
             ))}
           </div>

@@ -25,7 +25,7 @@ export async function FaqSection({
           {/* Eyebrow with gold flanking lines matching FAQ SECTION.png */}
           <div className="flex items-center justify-center gap-3">
             <span className="h-px w-10 bg-deep-gold/60" />
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-deep-gold">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-text">
               Frequently Asked Questions
             </p>
             <span className="h-px w-10 bg-deep-gold/60" />
@@ -65,7 +65,7 @@ export async function FaqSection({
             </svg>
             <span className="h-px w-12 bg-deep-gold/40" />
           </div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-deep-gold/80">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gold-text">
             A More Meaningful Journey
           </p>
         </div>
