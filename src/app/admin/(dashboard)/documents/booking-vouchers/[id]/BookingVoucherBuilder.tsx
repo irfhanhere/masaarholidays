@@ -101,7 +101,10 @@ export function BookingVoucherBuilder({
     checkOutDate: document.return_date || "2026-10-20",
     roomType: firstHotel?.details || "Twin Sharing",
     noOfGuests: `${document.adults ?? 2} Adults${document.children ? `, ${document.children} Children` : ""}`,
-    confirmationNo: "HOT-" + Math.floor(100000 + Math.random() * 900000),
+    confirmationNo: "",
+    madinahHotel: "",
+    madinahConfirmationNo: "",
+    mealPlan: "Breakfast Included",
     hotelImageUrl: "/hotels/swissotel-makkah/swissotel-makkah.webp",
     specialRequests: document.special_requirements || "High floor room preferred. Early check-in subject to availability.",
     voucherNotes: "Please present this voucher at the hotel reception. For any assistance, contact Masaar Holidays.",
@@ -661,14 +664,48 @@ export function BookingVoucherBuilder({
                           onChange={(e) => setHotelVoucher({ ...hotelVoucher, noOfGuests: e.target.value })}
                         />
                       </Field>
-                      <Field label="Confirmation No.">
+                      <Field label="Confirmation No. (Makkah Hotel)">
                         <input
                           className={inputClass}
                           value={hotelVoucher.confirmationNo}
                           onChange={(e) => setHotelVoucher({ ...hotelVoucher, confirmationNo: e.target.value })}
+                          placeholder="e.g. HOT-123456"
                         />
                       </Field>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Madinah Hotel Name">
+                        <input
+                          className={inputClass}
+                          value={hotelVoucher.madinahHotel || ""}
+                          onChange={(e) => setHotelVoucher({ ...hotelVoucher, madinahHotel: e.target.value })}
+                          placeholder="e.g. Anwar Al Madinah Mövenpick"
+                        />
+                      </Field>
+                      <Field label="Confirmation No. (Madinah Hotel)">
+                        <input
+                          className={inputClass}
+                          value={hotelVoucher.madinahConfirmationNo || ""}
+                          onChange={(e) => setHotelVoucher({ ...hotelVoucher, madinahConfirmationNo: e.target.value })}
+                          placeholder="e.g. HOT-789012"
+                        />
+                      </Field>
+                    </div>
+
+                    <Field label="Meal Plan">
+                      <select
+                        className={inputClass}
+                        value={hotelVoucher.mealPlan || "Breakfast Included"}
+                        onChange={(e) => setHotelVoucher({ ...hotelVoucher, mealPlan: e.target.value })}
+                      >
+                        <option value="Breakfast Included">Breakfast Included</option>
+                        <option value="Half Board (Breakfast & Dinner)">Half Board (Breakfast &amp; Dinner)</option>
+                        <option value="Full Board (All Meals)">Full Board (All Meals)</option>
+                        <option value="Room Only">Room Only</option>
+                        <option value="All Inclusive">All Inclusive</option>
+                      </select>
+                    </Field>
 
                     <Field label="Special Requests (Optional)">
                       <textarea
@@ -719,7 +756,7 @@ export function BookingVoucherBuilder({
                           <option value="Hyundai Staria">Hyundai Staria (7 Seats)</option>
                           <option value="Toyota HiAce">Toyota HiAce (10-12 Seats)</option>
                           <option value="Toyota Coaster">Toyota Coaster (18-22 Seats)</option>
-                          <option value="Luxury Sedan">Luxury Sedan (Camry / Lexus)</option>
+                          <option value="Luxury Sedan">Sedan (Camry / Lexus)</option>
                         </select>
                       </Field>
                       <Field label="Confirmation No.">

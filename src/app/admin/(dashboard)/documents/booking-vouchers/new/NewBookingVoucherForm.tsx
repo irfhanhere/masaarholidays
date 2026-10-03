@@ -384,7 +384,7 @@ export function NewBookingVoucherForm({
                   <option value="Hyundai Staria">Hyundai Staria (7 Seats)</option>
                   <option value="Toyota HiAce">Toyota HiAce (10-12 Seats)</option>
                   <option value="Toyota Coaster">Toyota Coaster (18-22 Seats)</option>
-                  <option value="Luxury Sedan">Luxury Sedan (Camry / Lexus)</option>
+                  <option value="Luxury Sedan">Sedan (Camry / Lexus)</option>
                   <option value="High-Speed Haramain Train">High-Speed Haramain Train (Business Class)</option>
                 </select>
               </Field>

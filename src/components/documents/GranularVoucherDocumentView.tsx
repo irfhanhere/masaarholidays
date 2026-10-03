@@ -10,6 +10,9 @@ export interface HotelVoucherData {
   roomType: string;
   noOfGuests: string;
   confirmationNo: string;
+  madinahHotel?: string;
+  madinahConfirmationNo?: string;
+  mealPlan?: string;
   hotelImageUrl?: string;
   specialRequests?: string;
   voucherNotes?: string;
@@ -140,9 +143,27 @@ export function GranularVoucherDocumentView({
                         <td className="px-4 py-2.5 text-masaar-black">: {hotelData.noOfGuests}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-2.5 font-medium text-masaar-black/60">Confirmation No.</td>
+                        <td className="px-4 py-2.5 font-medium text-masaar-black/60">Confirmation No. ({hotelData.city})</td>
                         <td className="px-4 py-2.5 font-mono font-bold text-deep-gold">: {hotelData.confirmationNo}</td>
                       </tr>
+                      {hotelData.madinahHotel && (
+                        <tr>
+                          <td className="px-4 py-2.5 font-medium text-masaar-black/60">Madinah Hotel</td>
+                          <td className="px-4 py-2.5 font-bold text-masaar-black">: {hotelData.madinahHotel}</td>
+                        </tr>
+                      )}
+                      {hotelData.madinahConfirmationNo && (
+                        <tr>
+                          <td className="px-4 py-2.5 font-medium text-masaar-black/60">Confirmation No. (Madinah)</td>
+                          <td className="px-4 py-2.5 font-mono font-bold text-deep-gold">: {hotelData.madinahConfirmationNo}</td>
+                        </tr>
+                      )}
+                      {hotelData.mealPlan && (
+                        <tr>
+                          <td className="px-4 py-2.5 font-medium text-masaar-black/60">Meal Plan</td>
+                          <td className="px-4 py-2.5 text-masaar-black">: {hotelData.mealPlan}</td>
+                        </tr>
+                      )}
                     </>
                   )}
 
@@ -210,7 +231,7 @@ export function GranularVoucherDocumentView({
                   {isHotel ? hotelData?.hotel : transferData?.vehicleType}
                 </p>
                 <p className="text-[10px] text-masaar-black/60">
-                  {isHotel ? `${hotelData?.city}, Saudi Arabia` : "Masaar Luxury Fleet"}
+                  {isHotel ? `${hotelData?.city}, Saudi Arabia` : "Masaar Transport Fleet"}
                 </p>
               </div>
             </div>

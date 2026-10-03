@@ -1766,7 +1766,6 @@ export function QuotationBuilder({
                 { id: "additional", label: "Additional Services", icon: "➕", action: () => openAddSectionWithPreset("service", "Ziyarat & Historical Tour", "Guided private tour of holy sites in Makkah & Madinah", 600) },
                 { id: "itinerary", label: "Itinerary", icon: "📋", action: () => setIsEditingItinerary(true) },
                 { id: "visa", label: "Visa Services", icon: "🛂", action: () => openAddSectionWithPreset("service", "Saudi Electronic Tourist / Umrah Visa", "Full processing with health insurance included", 750) },
-                { id: "insurance", label: "Travel Insurance", icon: "🛡️", action: () => openAddSectionWithPreset("service", "Comprehensive Pilgrimage Travel Insurance", "Medical coverage, trip cancellation and luggage protection", 350) },
                 { id: "terms", label: "Terms & Conditions", icon: "📜", action: () => {
                   setTerms(terms || "Standard payment schedule: 50% upon confirmation, balance 14 days prior to departure. Free cancellation up to 30 days prior.");
                   alert("Terms & Conditions added to quotation notes.");
@@ -2885,7 +2884,6 @@ export function QuotationBuilder({
                     { title: "Saudi Electronic Tourist / Umrah Visa", price: 550, desc: "1-year multiple entry visa with medical insurance coverage across KSA." },
                     { title: "Haramain High-Speed Train (Business)", price: 320, desc: "Direct business-class transit between Makkah & Madinah." },
                     { title: "Guided Historical Makkah & Madinah Ziyarat", price: 600, desc: "Private historical tour to Cave Hira, Mount Thawr, Uhud, and Quba with licensed guide." },
-                    { title: "Comprehensive Pilgrimage Travel Insurance", price: 250, desc: "Medical emergencies, baggage loss, and trip cancellation coverage." },
                   ].map((p, idx) => (
                     <button
                       key={idx}
