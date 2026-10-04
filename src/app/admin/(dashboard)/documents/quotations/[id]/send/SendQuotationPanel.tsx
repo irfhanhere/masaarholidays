@@ -63,8 +63,6 @@ Your customised Masaar Holidays quotation (${document.document_number}) is ready
 Please review your travel plan, hotels and inclusions here:
 ${secureLink}
 
-Total: AED ${Number(document.total_aed ?? 0).toLocaleString()}
-
 Let us know if you would like any revisions or wish to proceed with your booking.`;
 
   const clientPhoneDigits = (document.client_phone ?? "").replace(/\D/g, "");

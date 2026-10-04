@@ -51,8 +51,6 @@ Your Masaar Holidays invoice (${document.document_number}) is ready.
 Please review your invoice details here:
 ${publicUrl}
 
-Total Amount: AED ${Number(document.total_aed ?? 0).toLocaleString()}
-
 Warm regards,
 Masaar Holidays`
       : docType === "receipt"
@@ -83,8 +81,6 @@ Your personalised Masaar Holidays quotation (${document.document_number}) is rea
 
 Please review your travel plan, hotel accommodations, and inclusions here:
 ${publicUrl}
-
-Total: AED ${Number(document.total_aed ?? 0).toLocaleString()}
 
 If you would like any revisions or wish to proceed with your booking, feel free to let us know.
 
