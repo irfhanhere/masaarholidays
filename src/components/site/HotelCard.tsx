@@ -27,6 +27,14 @@ export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
     ? `${hotel.distance_from_haram_meters}m from Haram`
     : null;
 
+  const hasProximityData = Boolean(
+    (isMadinah ? (mensWalk || ladiesWalk) : distanceDisplay) ||
+    hotel.route_type ||
+    hotel.accessibility_note ||
+    terrainLines.length > 0 ||
+    hotel.elderly_family_suitability_note
+  );
+
   return (
     <div className="overflow-hidden rounded-xl border border-black/10 bg-white shadow-2xs hover:shadow-md transition-all flex flex-col justify-between">
       <div>
@@ -78,73 +86,85 @@ export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
           </div>
 
           {/* Structured Walk & Terrain Proximity Fields (Developer Instruction Item 11) */}
-          <div className="rounded-lg border border-black/5 bg-warm-ivory/50 p-2.5 space-y-1.5 text-xs">
-            {isMadinah ? (
-              <>
-                {mensWalk && (
-                  <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                    <span className="font-semibold text-masaar-black">Men&apos;s Gate:</span>
-                    <span className="text-masaar-black/75">
-                      {mensWalk}
-                      {hotel.nearest_mens_gate && ` — ${hotel.nearest_mens_gate}`}
-                    </span>
-                  </div>
-                )}
-                {ladiesWalk && (
-                  <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                    <span className="font-semibold text-masaar-black">Ladies&apos; Gate:</span>
-                    <span className="text-masaar-black/75">
-                      {ladiesWalk}
-                      {hotel.nearest_ladies_gate && ` — ${hotel.nearest_ladies_gate}`}
-                    </span>
-                  </div>
-                )}
-              </>
-            ) : (
-              distanceDisplay && (
-                <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                  <span className="font-semibold text-masaar-black">Distance:</span>
-                  <span className="text-masaar-black/75">{distanceDisplay}</span>
-                </div>
-              )
-            )}
-            {hotel.route_type && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Route:</span>
-                <span className="text-masaar-black/75">{hotel.route_type}</span>
-              </div>
-            )}
-            {hotel.accessibility_note && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Access:</span>
-                <span className="text-masaar-black/75">{hotel.accessibility_note}</span>
-              </div>
-            )}
-            {terrainLines.length > 0 && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Path &amp; Terrain:</span>
-                <div className="text-masaar-black/75">
-                  {terrainLines.length > 1 ? (
-                    <ul className="space-y-0.5">
-                      {terrainLines.map((line, i) => (
-                        <li key={i}>{line}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    terrainLines[0]
+          {hasProximityData ? (
+            <div className="rounded-lg border border-black/5 bg-warm-ivory/50 p-2.5 space-y-1.5 text-xs">
+              {isMadinah ? (
+                <>
+                  {mensWalk && (
+                    <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                      <span className="font-semibold text-masaar-black">Men&apos;s Gate:</span>
+                      <span className="text-masaar-black/75">
+                        {mensWalk}
+                        {hotel.nearest_mens_gate && ` — ${hotel.nearest_mens_gate}`}
+                      </span>
+                    </div>
                   )}
+                  {ladiesWalk && (
+                    <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                      <span className="font-semibold text-masaar-black">Ladies&apos; Gate:</span>
+                      <span className="text-masaar-black/75">
+                        {ladiesWalk}
+                        {hotel.nearest_ladies_gate && ` — ${hotel.nearest_ladies_gate}`}
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                distanceDisplay && (
+                  <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                    <span className="font-semibold text-masaar-black">Distance:</span>
+                    <span className="text-masaar-black/75">{distanceDisplay}</span>
+                  </div>
+                )
+              )}
+              {hotel.route_type && (
+                <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                  <span className="font-semibold text-masaar-black">Route:</span>
+                  <span className="text-masaar-black/75">{hotel.route_type}</span>
                 </div>
-              </div>
-            )}
-            {hotel.elderly_family_suitability_note && (
-              <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
-                <span className="font-semibold text-masaar-black">Best for:</span>
-                <span className="text-masaar-black/75 font-medium text-deep-gold">
-                  {hotel.elderly_family_suitability_note}
-                </span>
-              </div>
-            )}
-          </div>
+              )}
+              {hotel.accessibility_note && (
+                <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                  <span className="font-semibold text-masaar-black">Access:</span>
+                  <span className="text-masaar-black/75">{hotel.accessibility_note}</span>
+                </div>
+              )}
+              {terrainLines.length > 0 && (
+                <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                  <span className="font-semibold text-masaar-black">Path &amp; Terrain:</span>
+                  <div className="text-masaar-black/75">
+                    {terrainLines.length > 1 ? (
+                      <ul className="space-y-0.5">
+                        {terrainLines.map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      terrainLines[0]
+                    )}
+                  </div>
+                </div>
+              )}
+              {hotel.elderly_family_suitability_note && (
+                <div className="grid grid-cols-[100px_1fr] gap-1.5 leading-snug">
+                  <span className="font-semibold text-masaar-black">Best for:</span>
+                  <span className="text-masaar-black/75 font-medium text-deep-gold">
+                    {hotel.elderly_family_suitability_note}
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-black/5 bg-warm-ivory/40 p-2.5 text-xs flex items-center justify-between text-masaar-black/60">
+              <span className="flex items-center gap-1.5 font-medium text-masaar-black/70">
+                <LocationIcon className="size-3.5 text-deep-gold shrink-0" />
+                <span>Walking &amp; distance survey</span>
+              </span>
+              <span className="text-[11px] font-medium text-masaar-black/50 bg-white/80 px-2 py-0.5 rounded border border-black/5">
+                Pending survey
+              </span>
+            </div>
+          )}
 
           {/* Pricing with required Disclaimer */}
           {hotel.minPriceAed != null && (

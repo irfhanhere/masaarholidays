@@ -50,4 +50,6 @@ next-env.d.ts
 supabase/.temp/
 scripts/hotel-rates/*.pdf
 scripts/hotel-rates/*.txt
+__pycache__/
+*.pyc
 
