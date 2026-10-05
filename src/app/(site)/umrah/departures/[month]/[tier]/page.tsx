@@ -4,36 +4,14 @@ import {
   getActiveUmrahDepartureMonthBySlug,
   getPackageBySlugAndType,
   getPublishedUmrahInventoryConfigurations,
+  getZiyaratPricingForPublic,
 } from "@/lib/data/public";
 import { buildPageMetadata } from "@/lib/i18n";
-import { UmrahJourneyPageClient } from "@/components/site/UmrahJourneyPageClient";
+import { UmrahInventoryDetailClient } from "@/components/site/UmrahInventoryDetailClient";
 import { UMRAH_TIER_LABEL, UMRAH_TIER_SLUGS, isUmrahTierKey, type UmrahTierKey } from "@/lib/umrah-journey";
 import { formatDepartureMonthName } from "@/lib/date-utils";
 import { PackageSchema } from "@/components/site/PackageSchema";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
-
-/**
- * A tier can have both a generic (month_id null) config and a
- * month-specific one for the same duration_nights (e.g. a one-off
- * "November 26" promo alongside the standard combined-package grid) — this
- * page is scoped to one month, so it must show exactly one option per
- * duration, preferring the month-specific config over the generic one
- * rather than listing both as if they were different durations.
- */
-function selectConfigsForMonth(
-  configs: PublicUmrahInventoryConfig[],
-  monthId: string
-): PublicUmrahInventoryConfig[] {
-  const relevant = configs.filter((c) => c.month_id === monthId || c.month_id === null);
-  const byDuration = new Map<number, PublicUmrahInventoryConfig>();
-  for (const config of relevant) {
-    const existing = byDuration.get(config.duration_nights);
-    if (!existing || (existing.month_id === null && config.month_id === monthId)) {
-      byDuration.set(config.duration_nights, config);
-    }
-  }
-  return [...byDuration.values()].sort((a, b) => a.duration_nights - b.duration_nights);
-}
 
 export async function generateMetadata({
   params,
@@ -65,11 +43,9 @@ export async function generateMetadata({
 }
 
 /**
- * The reusable Makkah+Madinah "journey" detail page for one tier in one
- * departure month — a single component drives all three tiers (Essential/
- * Signature/Exclusive) and every future month; nothing here is duplicated
- * per tier. Switching tiers is a Link to a sibling route (soft navigation,
- * no full reload); switching duration/occupancy is local client state.
+ * Departure month tier detail page — renders the full, comprehensive
+ * package layout (UmrahInventoryDetailClient) matching the main /umrah/[tier] pages,
+ * with day-by-day itineraries, hotels, amenities, and add-on tours.
  */
 export default async function UmrahJourneyPage({
   params,
@@ -82,48 +58,38 @@ export default async function UmrahJourneyPage({
   const month = await getActiveUmrahDepartureMonthBySlug(monthSlug);
   if (!month) notFound();
 
-  const [essentialDetail, signatureDetail, exclusiveDetail, allConfigs] = await Promise.all([
-    getPackageBySlugAndType(UMRAH_TIER_SLUGS.essential, "umrah"),
-    getPackageBySlugAndType(UMRAH_TIER_SLUGS.signature, "umrah"),
-    getPackageBySlugAndType(UMRAH_TIER_SLUGS.exclusive, "umrah"),
+  const targetSlug = UMRAH_TIER_SLUGS[tier];
+  const [detail, allConfigs, ziyaratData] = await Promise.all([
+    getPackageBySlugAndType(targetSlug, "umrah"),
     getPublishedUmrahInventoryConfigurations(),
+    getZiyaratPricingForPublic(),
   ]);
 
-  const tierPackages = {
-    essential: essentialDetail?.pkg ?? null,
-    signature: signatureDetail?.pkg ?? null,
-    exclusive: exclusiveDetail?.pkg ?? null,
-  };
+  if (!detail) notFound();
 
-  const activePkg = tierPackages[tier];
-  if (!activePkg) notFound();
+  // Deduplicate and filter configs for this package & month:
+  // Month-specific configs take precedence over generic (month_id === null) configs for the same duration & journey type.
+  const packageConfigs = allConfigs.filter((c) => c.package_id === detail.pkg.id);
+  const relevantConfigs = packageConfigs.filter((c) => c.month_id === month.id || c.month_id === null);
 
-  const combinedConfigs = allConfigs.filter((c) => c.journey_type === "makkah_madinah");
+  const byKey = new Map<string, PublicUmrahInventoryConfig>();
+  for (const config of relevantConfigs) {
+    const key = `${config.journey_type}-${config.duration_nights}`;
+    const existing = byKey.get(key);
+    if (!existing || (existing.month_id === null && config.month_id === month.id)) {
+      byKey.set(key, config);
+    }
+  }
+  const tierConfigs = [...byKey.values()].sort((a, b) => a.duration_nights - b.duration_nights);
 
-  const journeyConfigsByTier = {
-    essential: selectConfigsForMonth(
-      combinedConfigs.filter((c) => c.package_id === tierPackages.essential?.id),
-      month.id
-    ),
-    signature: selectConfigsForMonth(
-      combinedConfigs.filter((c) => c.package_id === tierPackages.signature?.id),
-      month.id
-    ),
-    exclusive: selectConfigsForMonth(
-      combinedConfigs.filter((c) => c.package_id === tierPackages.exclusive?.id),
-      month.id
-    ),
-  };
-
-  const currentTierConfigs = journeyConfigsByTier[tier];
   const minPrice =
-    currentTierConfigs.length > 0
+    tierConfigs.length > 0
       ? Math.min(
-          ...currentTierConfigs
-            .map((c) => c.min_price_aed || activePkg.starting_price_aed || 0)
+          ...tierConfigs
+            .map((c) => c.min_price_aed || detail.pkg.starting_price_aed || 0)
             .filter((p) => p > 0)
         )
-      : activePkg.starting_price_aed;
+      : detail.pkg.starting_price_aed;
 
   return (
     <>
@@ -131,15 +97,15 @@ export default async function UmrahJourneyPage({
         name={`${formatDepartureMonthName(month.display_label)} ${UMRAH_TIER_LABEL[tier]} Umrah`}
         description={`${UMRAH_TIER_LABEL[tier]} Umrah package for ${formatDepartureMonthName(month.display_label)} departures from the UAE across Makkah and Madinah.`}
         path={`/umrah/departures/${monthSlug}/${tier}`}
-        priceAed={minPrice && isFinite(minPrice) ? minPrice : activePkg.starting_price_aed}
-        imageUrl={activePkg.hero_image_url}
-        durationDays={activePkg.duration_days}
+        priceAed={minPrice && isFinite(minPrice) ? minPrice : detail.pkg.starting_price_aed}
+        imageUrl={detail.pkg.hero_image_url}
+        durationDays={detail.pkg.duration_days}
       />
-      <UmrahJourneyPageClient
-        month={month}
-        activeTier={tier}
-        tierPackages={tierPackages}
-        journeyConfigsByTier={journeyConfigsByTier}
+      <UmrahInventoryDetailClient
+        pkg={detail.pkg}
+        tierConfigs={tierConfigs}
+        ziyaratData={ziyaratData}
+        departureMonth={month}
       />
     </>
   );

@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import type { PackageRow, PublicHotelRow, ZiyaratPricingRow, ZiyaratVehicleTypeRow } from "@/lib/types/database";
+import { useSearchParams } from "next/navigation";
+import type { PackageRow, PublicHotelRow, UmrahDepartureMonthRow, ZiyaratPricingRow, ZiyaratVehicleTypeRow } from "@/lib/types/database";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 import { splitTerrainNote } from "@/lib/hotel-format";
 import { convertFromAed, formatCurrency } from "@/lib/currency";
+import { resolveUmrahItinerary } from "@/lib/umrah-itineraries";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Container } from "./Container";
 import { useCurrency } from "./CurrencyProvider";
@@ -232,9 +234,12 @@ interface Props {
     pricing: ZiyaratPricingRow[];
     relatedTrips: { name: string; slug: string; destination: string }[];
   };
+  departureMonth?: UmrahDepartureMonthRow | null;
 }
 
-export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Props) {
+export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData, departureMonth }: Props) {
+  const searchParams = useSearchParams();
+  const durationParam = searchParams.get("duration");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { currency, rates } = useCurrency();
 
@@ -259,18 +264,36 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
   const makkahOnlyConfigs = tierConfigs.filter((c) => c.journey_type === "makkah_only");
   const makkahMadinahConfigs = tierConfigs.filter((c) => c.journey_type === "makkah_madinah");
 
+  // Check if a duration param was passed in URL (e.g. ?duration=5)
+  const queryMatchedMM = durationParam
+    ? makkahMadinahConfigs.find((c) => String(c.duration_nights) === durationParam || c.duration_label.includes(durationParam))
+    : null;
+  const queryMatchedMO = durationParam
+    ? makkahOnlyConfigs.find((c) => String(c.duration_nights) === durationParam || c.duration_label.includes(durationParam))
+    : null;
+
   // Pick lowest price config as default for Makkah Only
-  const defaultMakkahOnlyConfig = [...makkahOnlyConfigs].sort((a, b) => (a.min_price_aed ?? Infinity) - (b.min_price_aed ?? Infinity))[0] ?? tierConfigs[0];
+  const defaultMakkahOnlyConfig = queryMatchedMO ?? (
+    [...makkahOnlyConfigs].sort((a, b) => (a.min_price_aed ?? Infinity) - (b.min_price_aed ?? Infinity))[0] ?? tierConfigs[0]
+  );
 
   // Pick lowest price config as default for Makkah + Madinah
-  const defaultMakkahMadinahConfig = [...makkahMadinahConfigs].sort((a, b) => (a.min_price_aed ?? Infinity) - (b.min_price_aed ?? Infinity))[0];
+  const defaultMakkahMadinahConfig = queryMatchedMM ?? (
+    [...makkahMadinahConfigs].sort((a, b) => (a.min_price_aed ?? Infinity) - (b.min_price_aed ?? Infinity))[0]
+  );
 
   const [selectedMakkahOnlyId, setSelectedMakkahOnlyId] = useState<string>(defaultMakkahOnlyConfig?.id ?? "");
   const [selectedMakkahMadinahId, setSelectedMakkahMadinahId] = useState<string>(defaultMakkahMadinahConfig?.id ?? "");
 
   // Which product option's pricing is showing — only one at a time, toggled by the pills above the pricing block.
   const [selectedJourneyType, setSelectedJourneyType] = useState<"makkah_only" | "makkah_madinah">(
-    makkahOnlyConfigs.length > 0 ? "makkah_only" : "makkah_madinah"
+    queryMatchedMM
+      ? "makkah_madinah"
+      : queryMatchedMO
+      ? "makkah_only"
+      : makkahOnlyConfigs.length > 0
+      ? "makkah_only"
+      : "makkah_madinah"
   );
 
   const activeMakkahOnlyConfig = tierConfigs.find((c) => c.id === selectedMakkahOnlyId) ?? defaultMakkahOnlyConfig;
@@ -310,7 +333,17 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
 
   return (
     <>
-      <Breadcrumbs items={[{ label: "Umrah", href: "/umrah" }, { label: pkg.title }]} />
+      <Breadcrumbs
+        items={
+          departureMonth
+            ? [
+                { label: "Umrah", href: "/umrah" },
+                { label: departureMonth.display_label, href: `/umrah/departures/${departureMonth.slug}` },
+                { label: pkg.title },
+              ]
+            : [{ label: "Umrah", href: "/umrah" }, { label: pkg.title }]
+        }
+      />
 
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <div className="relative min-h-[320px] w-full bg-masaar-black sm:min-h-[400px]">
@@ -325,6 +358,14 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
             <Link href="/umrah" className="hover:underline">
               Umrah
             </Link>
+            {departureMonth && (
+              <>
+                <span>/</span>
+                <Link href={`/umrah/departures/${departureMonth.slug}`} className="hover:underline">
+                  {departureMonth.display_label}
+                </Link>
+              </>
+            )}
             <span>/</span>
             <span className="font-semibold text-white">{TIER_LABEL[pkg.tier]}</span>
           </div>
@@ -450,37 +491,37 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                   </div>
 
                   {/* Itinerary for the selected duration — updates whenever the duration above changes */}
-                  {activeMakkahOnlyConfig.itinerary && activeMakkahOnlyConfig.itinerary.length > 0 ? (
-                    <div className="space-y-3 border-t border-black/10 pt-4">
-                      <h4 className="text-sm font-bold text-masaar-black">Day-by-Day Itinerary</h4>
-                      <div className="space-y-3 border-l-2 border-deep-gold/40 pl-4">
-                        {activeMakkahOnlyConfig.itinerary.map((dayItem, idx) => (
-                          <div key={idx} className="relative space-y-1">
-                            <div className="absolute -left-[19px] top-1 h-2.5 w-2.5 rounded-full bg-deep-gold ring-4 ring-white" />
-                            <h5 className="text-xs font-bold text-masaar-black">
-                              Day {dayItem.day} {dayItem.title ? `— ${dayItem.title}` : ""}
-                            </h5>
-                            {dayItem.items && dayItem.items.length > 0 && (
-                              <ul className="space-y-1 pt-0.5 text-xs text-masaar-black/75">
-                                {dayItem.items.map((item, i) => (
-                                  <li key={i} className="flex items-start gap-1.5">
-                                    <span className="mt-0.5 text-deep-gold">•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        ))}
+                  {(() => {
+                    const itinerary = resolveUmrahItinerary(
+                      activeMakkahOnlyConfig.duration_label,
+                      activeMakkahOnlyConfig.itinerary
+                    );
+                    return itinerary && itinerary.length > 0 ? (
+                      <div className="space-y-3 border-t border-black/10 pt-4">
+                        <h4 className="text-sm font-bold text-masaar-black">Day-by-Day Itinerary</h4>
+                        <div className="space-y-3 border-l-2 border-deep-gold/40 pl-4">
+                          {itinerary.map((dayItem, idx) => (
+                            <div key={idx} className="relative space-y-1">
+                              <div className="absolute -left-[19px] top-1 h-2.5 w-2.5 rounded-full bg-deep-gold ring-4 ring-white" />
+                              <h5 className="text-xs font-bold text-masaar-black">
+                                Day {dayItem.day} {dayItem.title ? `— ${dayItem.title}` : ""}
+                              </h5>
+                              {dayItem.items && dayItem.items.length > 0 && (
+                                <ul className="space-y-1 pt-0.5 text-xs text-masaar-black/75">
+                                  {dayItem.items.map((item, i) => (
+                                    <li key={i} className="flex items-start gap-1.5">
+                                      <span className="mt-0.5 text-deep-gold">•</span>
+                                      <span>{item}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="border-t border-black/10 pt-4">
-                      <p className="text-xs italic text-masaar-black/50">
-                        Day-by-day itinerary for this duration is being finalized — ask our team on WhatsApp for full details.
-                      </p>
-                    </div>
-                  )}
+                    ) : null;
+                  })()}
 
                   {/* Pricing Grid — shown under the itinerary */}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -532,37 +573,37 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData }: Pr
                   </div>
 
                   {/* Itinerary for the selected Makkah + Madinah duration — updates whenever the duration above changes */}
-                  {activeMakkahMadinahConfig.itinerary && activeMakkahMadinahConfig.itinerary.length > 0 ? (
-                    <div className="space-y-3 border-t border-black/10 pt-4">
-                      <h4 className="text-sm font-bold text-masaar-black">Day-by-Day Itinerary</h4>
-                      <div className="space-y-3 border-l-2 border-deep-gold/40 pl-4">
-                        {activeMakkahMadinahConfig.itinerary.map((dayItem, idx) => (
-                          <div key={idx} className="relative space-y-1">
-                            <div className="absolute -left-[19px] top-1 h-2.5 w-2.5 rounded-full bg-deep-gold ring-4 ring-white" />
-                            <h5 className="text-xs font-bold text-masaar-black">
-                              Day {dayItem.day} {dayItem.title ? `— ${dayItem.title}` : ""}
-                            </h5>
-                            {dayItem.items && dayItem.items.length > 0 && (
-                              <ul className="space-y-1 pt-0.5 text-xs text-masaar-black/75">
-                                {dayItem.items.map((item, i) => (
-                                  <li key={i} className="flex items-start gap-1.5">
-                                    <span className="mt-0.5 text-deep-gold">•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        ))}
+                  {(() => {
+                    const itinerary = resolveUmrahItinerary(
+                      activeMakkahMadinahConfig.duration_label,
+                      activeMakkahMadinahConfig.itinerary
+                    );
+                    return itinerary && itinerary.length > 0 ? (
+                      <div className="space-y-3 border-t border-black/10 pt-4">
+                        <h4 className="text-sm font-bold text-masaar-black">Day-by-Day Itinerary</h4>
+                        <div className="space-y-3 border-l-2 border-deep-gold/40 pl-4">
+                          {itinerary.map((dayItem, idx) => (
+                            <div key={idx} className="relative space-y-1">
+                              <div className="absolute -left-[19px] top-1 h-2.5 w-2.5 rounded-full bg-deep-gold ring-4 ring-white" />
+                              <h5 className="text-xs font-bold text-masaar-black">
+                                Day {dayItem.day} {dayItem.title ? `— ${dayItem.title}` : ""}
+                              </h5>
+                              {dayItem.items && dayItem.items.length > 0 && (
+                                <ul className="space-y-1 pt-0.5 text-xs text-masaar-black/75">
+                                  {dayItem.items.map((item, i) => (
+                                    <li key={i} className="flex items-start gap-1.5">
+                                      <span className="mt-0.5 text-deep-gold">•</span>
+                                      <span>{item}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="border-t border-black/10 pt-4">
-                      <p className="text-xs italic text-masaar-black/50">
-                        Day-by-day itinerary for this duration is being finalized — ask our team on WhatsApp for full details.
-                      </p>
-                    </div>
-                  )}
+                    ) : null;
+                  })()}
 
                   {/* Pricing Grid */}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

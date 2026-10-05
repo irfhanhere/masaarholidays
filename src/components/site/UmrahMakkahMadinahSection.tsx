@@ -8,6 +8,7 @@ import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
 import type { PackageEnquiryInfo } from "./UmrahEnquiryModal";
+import { resolveUmrahItinerary } from "@/lib/umrah-itineraries";
 
 interface Props {
   packages: PackageRow[];
@@ -65,6 +66,12 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
   const makkahHotel = matchedConfig?.makkah_hotel?.name || tierDefaults.makkahHotel;
   const madinahHotel = matchedConfig?.madinah_hotel?.name || tierDefaults.madinahHotel;
   const price = matchedConfig?.min_price_aed || tierDefaults.basePrice;
+
+  // Resolve day-by-day itinerary dynamically based on selected duration
+  const activeItinerary = resolveUmrahItinerary(
+    currentDurationInfo.label,
+    matchedConfig?.itinerary
+  );
 
   const handleEnquiry = () => {
     if (onOpenEnquiry && pkg) {
@@ -222,6 +229,41 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
                     <p className="text-[10px] text-masaar-black/50">From</p>
                     <p className="text-xl font-bold text-[#A87F12]">AED {price.toLocaleString()}</p>
                     <p className="text-[10px] text-masaar-black/60">/ person</p>
+                  </div>
+                </div>
+
+                {/* Day-by-Day Itinerary timeline for selected duration */}
+                <div className="space-y-3 border-t border-black/10 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-masaar-black">Day-by-Day Itinerary</h4>
+                      <p className="text-[11px] text-masaar-black/55">
+                        Planned timeline for {currentDurationInfo.label} ({currentDurationInfo.nights}N Makkah + Madinah)
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#A87F12] bg-[#A87F12]/10 px-2.5 py-1 rounded-full">
+                      {activeItinerary.length} Days Schedule
+                    </span>
+                  </div>
+                  <div className="space-y-3.5 border-l-2 border-[#A87F12]/40 pl-4 py-1 max-h-[300px] overflow-y-auto pr-2">
+                    {activeItinerary.map((dayItem, idx) => (
+                      <div key={idx} className="relative space-y-1">
+                        <div className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#A87F12] ring-4 ring-white" />
+                        <h5 className="text-xs font-bold text-masaar-black">
+                          Day {dayItem.day} {dayItem.title ? `— ${dayItem.title}` : ""}
+                        </h5>
+                        {dayItem.items && dayItem.items.length > 0 && (
+                          <ul className="space-y-1 pt-0.5 text-xs text-masaar-black/75">
+                            {dayItem.items.map((item, i) => (
+                              <li key={i} className="flex items-start gap-1.5 leading-relaxed">
+                                <span className="mt-0.5 text-[#A87F12] font-bold shrink-0">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
