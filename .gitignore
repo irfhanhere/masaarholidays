@@ -48,4 +48,6 @@ next-env.d.ts
 /inspirations/
 # /public/Assets/ — removed: images MUST be in git for Hostinger deployment
 supabase/.temp/
+scripts/hotel-rates/*.pdf
+scripts/hotel-rates/*.txt
 
