@@ -54,8 +54,33 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/hajj/hajj-essential-17-days",
+        destination: "/hajj/hajj-essential-15-days",
+        permanent: true,
+      },
+      {
+        source: "/hajj/hajj-essential-25-days",
+        destination: "/hajj/hajj-essential-15-days",
+        permanent: true,
+      },
+      {
         source: "/hajj/hajj-signature-10-days",
         destination: "/hajj/hajj-signature-9-days",
+        permanent: true,
+      },
+      {
+        source: "/hajj/hajj-exclusive-17-days",
+        destination: "/hajj/hajj-exclusive-13-days",
+        permanent: true,
+      },
+      {
+        source: "/hajj/hajj-exclusive-25-days",
+        destination: "/hajj/hajj-exclusive-13-days",
+        permanent: true,
+      },
+      {
+        source: "/visa/emirates-id",
+        destination: "/visa/uae",
         permanent: true,
       },
       // 3. Umrah placeholder slugs -> clean tier URLs

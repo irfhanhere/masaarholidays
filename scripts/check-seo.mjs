@@ -221,8 +221,8 @@ async function runAudit() {
         }
       }
 
-      // 7. Check Hreflang (Only enabled locales: en-AE / x-default; no untranslated ar/ur/hi)
-      const nonEnabledHreflangs = parsed.hreflangs.filter(h => !['en', 'en-ae', 'x-default'].includes(h.lang.toLowerCase()));
+      // 7. Check Hreflang (Supported locales: en-AE, ar-AE, ur-AE, hi-AE, x-default)
+      const nonEnabledHreflangs = parsed.hreflangs.filter(h => !['en', 'en-ae', 'ar', 'ar-ae', 'ur', 'ur-ae', 'hi', 'hi-ae', 'x-default'].includes(h.lang.toLowerCase()));
       if (nonEnabledHreflangs.length > 0) {
         urlIssues.push(`Found non-enabled hreflang: ${nonEnabledHreflangs.map(h => h.lang).join(', ')}`);
       }

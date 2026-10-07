@@ -1,6 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { resolveLocaleFromPath } from "@/lib/locale-constants";
+import { localizedPath, resolveLocaleFromPath } from "@/lib/locale-constants";
+
+/**
+ * 301 redirects for retired/renamed package and visa slugs.
+ * Handled here so that localized prefixes (/ar/*, /ur/*, /hi/*) as well as
+ * default English paths are cleanly redirected to active counterparts without 404s.
+ */
+const RETIRED_SLUG_REDIRECTS: Record<string, string> = {
+  "/hajj/hajj-essential-10-days": "/hajj/hajj-essential-9-days",
+  "/hajj/hajj-essential-17-days": "/hajj/hajj-essential-15-days",
+  "/hajj/hajj-essential-25-days": "/hajj/hajj-essential-15-days",
+  "/hajj/hajj-signature-10-days": "/hajj/hajj-signature-9-days",
+  "/hajj/hajj-exclusive-17-days": "/hajj/hajj-exclusive-13-days",
+  "/hajj/hajj-exclusive-25-days": "/hajj/hajj-exclusive-13-days",
+  "/visa/emirates-id": "/visa/uae",
+  "/umrah/umrah-essential-placeholder": "/umrah/essential",
+  "/umrah/umrah-signature-placeholder": "/umrah/signature",
+  "/umrah/umrah-exclusive-placeholder": "/umrah/exclusive",
+  "/umrah/umrah-essential": "/umrah/essential",
+  "/umrah/umrah-signature": "/umrah/signature",
+  "/umrah/umrah-exclusive": "/umrah/exclusive",
+};
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -9,6 +30,15 @@ export async function middleware(request: NextRequest) {
   // supported locale's prefix ("/ar/admin", "/ur/admin", "/hi/admin", …)
   // without listing them one by one.
   const { locale, internalPath } = resolveLocaleFromPath(pathname);
+
+  // 301 permanent redirect for retired/renamed slugs across all languages
+  const targetInternal = RETIRED_SLUG_REDIRECTS[internalPath];
+  if (targetInternal) {
+    const destination = localizedPath(locale, targetInternal);
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = destination;
+    return NextResponse.redirect(redirectUrl, 301);
+  }
 
   // Stamped on every request (admin included) so the root layout — which
   // renders both the public site and /admin/** through the same <body>,
