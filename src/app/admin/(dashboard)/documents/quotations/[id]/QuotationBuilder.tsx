@@ -1,23 +1,15 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Card, Field, inputClass, Badge } from "@/components/admin/ui";
 import {
-  Card,
-  Field,
-  inputClass,
-  Badge,
-} from "@/components/admin/ui";
-import {
-  addLineItem,
-  deleteDocument,
-  deleteLineItem,
-  duplicateDocument,
-  saveDocumentVersion,
+  saveQuotationPricing,
   updateDocumentBasics,
   updateDocumentStatus,
+  saveDocumentVersion,
   createDocumentFromSource,
 } from "../../actions";
 import type {
@@ -27,21 +19,45 @@ import type {
   DocumentTemplateRow,
   DocumentVersionRow,
   DocumentItemType,
+  DocumentJourneyType,
 } from "@/lib/types/database";
-import { CustomPackageBuilderModal } from "./CustomPackageBuilderModal";
+import {
+  calculateDateRangeMetrics,
+  formatDisplayDate,
+  reconcileItineraryDays,
+  calculateQuotationTotals,
+  resolveServiceImage,
+  type ItineraryDayItem,
+  type LineItemPricingInput,
+} from "@/lib/documents/calculations";
 import { ShareQuotationModal } from "@/components/documents/ShareQuotationModal";
-import { getHotelImage, getTransportImage } from "@/lib/documents/images";
-import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
+import { ClientQuotationPortal } from "@/app/quote/[token]/ClientQuotationPortal";
 
-const STATUS_OPTS = [
-  { id: "draft", label: "Draft", tone: "blue" },
-  { id: "sent", label: "Awaiting Client", tone: "gold" },
-  { id: "viewed", label: "Viewed by Client", tone: "gold" },
-  { id: "revision_requested", label: "Revision Requested", tone: "amber" },
-  { id: "accepted", label: "Accepted", tone: "green" },
-  { id: "rejected", label: "Declined", tone: "gray" },
-  { id: "expired", label: "Expired", tone: "gray" },
-] as const;
+const JOURNEY_TYPES: Array<{
+  id: DocumentJourneyType;
+  label: string;
+  icon: string;
+}> = [
+  { id: "umrah", label: "Umrah", icon: "🕋" },
+  { id: "hajj", label: "Hajj", icon: "⛰️" },
+  { id: "hotel", label: "Hotel", icon: "🏨" },
+  { id: "transfer", label: "Transfer", icon: "🚗" },
+  { id: "private_trip", label: "Private Trip", icon: "📍" },
+  { id: "custom", label: "Custom Journey", icon: "💼" },
+];
+
+const UNIT_OPTIONS = [
+  "person",
+  "room",
+  "night",
+  "vehicle",
+  "transfer",
+  "trip",
+  "ticket",
+  "item",
+  "package",
+  "custom",
+];
 
 export function QuotationBuilder({
   document,
@@ -62,253 +78,141 @@ export function QuotationBuilder({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  // Editable basics
-  const [docNumber, setDocNumber] = useState(document.document_number);
-  const [clientName, setClientName] = useState(document.client_name);
-  const [clientPhone, setClientPhone] = useState(document.client_phone ?? "");
-  const [clientEmail, setClientEmail] = useState(document.client_email ?? "");
-  const [clientCountry, setClientCountry] = useState(document.client_country ?? "Dubai, UAE");
-  const [journeyType, setJourneyType] = useState(document.journey_type ?? "umrah");
-  const [travelDate, setTravelDate] = useState(document.travel_date ?? "");
-  const [returnDate, setReturnDate] = useState(document.return_date ?? "");
-  const [adults, setAdults] = useState<number>(document.adults ?? 2);
-  const [children, setChildren] = useState<number>(document.children ?? 0);
-  const [infants, setInfants] = useState<number>(document.infants ?? 0);
-  const [origin, setOrigin] = useState(document.origin ?? "Dubai (DXB)");
-  const [destination, setDestination] = useState(document.destination ?? "Jeddah (JED)");
-  const [validUntil, setValidUntil] = useState(document.valid_until ?? "");
-  const [status, setStatus] = useState(document.status ?? "draft");
-  const [notes, setNotes] = useState(document.notes ?? "");
-  const [terms, setTerms] = useState(document.terms ?? "");
+  // 1. Client & Travel Details State (Q01)
+  const [clientName, setClientName] = useState(document.client_name || "");
+  const [clientPhone, setClientPhone] = useState(document.client_phone || "");
+  const [clientEmail, setClientEmail] = useState(document.client_email || "");
+  const [clientCountry, setClientCountry] = useState(document.client_country || "Dubai, UAE");
+  const [journeyType, setJourneyType] = useState<DocumentJourneyType>(document.journey_type || "umrah");
+  const [travelDate, setTravelDate] = useState(document.travel_date || "2026-10-12");
+  const [returnDate, setReturnDate] = useState(document.return_date || "2026-10-15");
+  const [adults, setAdults] = useState<number>(document.adults || 2);
+  const [children, setChildren] = useState<number>(document.children || 0);
+  const [infants, setInfants] = useState<number>(document.infants || 0);
+  const [origin, setOrigin] = useState(document.origin || "Dubai (DXB)");
+  const [destination, setDestination] = useState(document.destination || "Jeddah (JED)");
+  const [customerRequirement, setCustomerRequirement] = useState(document.special_requirements && !document.special_requirements.startsWith("[") ? document.special_requirements : "");
+  const [notes, setNotes] = useState(document.notes || "");
 
-  // Parsed Package Scope, Duration, Room Type, and Customer Requirements
   const parsedScope = (() => {
     if (document.notes?.includes("Makkah only") || document.notes?.includes("Makkah Only")) return "makkah_only";
     if (document.notes?.includes("Madinah only") || document.notes?.includes("Madinah Only")) return "madinah_only";
     return "both";
   })();
-
-  const parsedDuration = (() => {
-    const match = document.notes?.match(/Duration:\s*([^\n\r]+)/i);
-    if (match) return match[1].trim();
-    const pkg = items.find((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
-    const pkgMatch = pkg?.description.match(/\(([^)]+)\)/);
-    if (pkgMatch) return pkgMatch[1].trim();
-    return "10D9N";
-  })();
-
-  const parsedRoomType = (() => {
-    const match = document.notes?.match(/Room Type:\s*([^\n\r]+)/i);
-    if (match) return match[1].trim();
-    if (document.notes?.includes("QUAD")) return "QUAD";
-    if (document.notes?.includes("TRIPLE")) return "TRIPLE";
-    return "TWIN/DOUBLE";
-  })();
-
-  const parsedReq = (() => {
-    const match = document.notes?.match(/Customer Requirement:\s*([^\n\r]+)/i);
-    if (match) return match[1].trim();
-    return document.special_requirements && !document.special_requirements.startsWith("[") ? document.special_requirements : "";
-  })();
-
-  const [duration, setDuration] = useState(parsedDuration);
   const [packageScope, setPackageScope] = useState<"both" | "makkah_only" | "madinah_only">(parsedScope);
-  const [roomType, setRoomType] = useState(parsedRoomType);
-  const [customerRequirement, setCustomerRequirement] = useState(parsedReq);
+  const [roomType, setRoomType] = useState<"TWIN/DOUBLE" | "TRIPLE" | "QUAD">("TWIN/DOUBLE");
 
-  // Available CMS inventories
-  const availableHotels: Array<{ id: string; name: string; city: string; star_rating?: number | null; price_from_aed?: number | null }> =
-    products?.hotels ?? [];
-  const availableTransfers: Array<{ id: string; route_name: string; vehicle_type?: string | null; price_from_aed?: number | null }> =
-    products?.transfers ?? [];
+  // Date and duration calculations (single source of truth)
+  const dateMetrics = calculateDateRangeMetrics(travelDate, returnDate, 4);
 
-  // Dedicated Section Modals State
-  // 1. Accommodation Modal
-  const [isEditingHotelModalOpen, setIsEditingHotelModalOpen] = useState(false);
-  const [editingHotelId, setEditingHotelId] = useState<string | null>(null);
-  const [hotelCity, setHotelCity] = useState<"Makkah" | "Madinah" | null>("Makkah");
-  const [hotelName, setHotelName] = useState("");
-  const [hotelRoomType, setHotelRoomType] = useState("TWIN/DOUBLE");
-  const [hotelNights, setHotelNights] = useState(5);
-  const [hotelPricePerNight, setHotelPricePerNight] = useState(840);
-  const [hotelDetails, setHotelDetails] = useState("");
-
-  // 2. Transfer Modal
-  const [isEditingTransferModalOpen, setIsEditingTransferModalOpen] = useState(false);
-  const [editingTransferId, setEditingTransferId] = useState<string | null>(null);
-  const [transferVehicleType, setTransferVehicleType] = useState<"sedan" | "suv" | "staria" | "custom">("sedan");
-  const [transferRouteName, setTransferRouteName] = useState("");
-  const [transferDetails, setTransferDetails] = useState("");
-  const [transferQty, setTransferQty] = useState(1);
-  const [transferPrice, setTransferPrice] = useState(950);
-  const initialItemsSum = items.reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-  const initialDocSub = Number(document.subtotal_aed || 0);
-  const initialSubtotal = initialItemsSum > 0 && initialDocSub < initialItemsSum ? initialItemsSum : (initialDocSub || initialItemsSum || 8800);
-  const initialHasVat = Number(document.tax_aed) > 0;
-  const initialTax = initialHasVat ? Number(document.tax_aed) : 0;
-  const initialDocTot = Number(document.total_aed || 0);
-  const initialTotal = initialDocTot > 0 && initialDocTot >= initialSubtotal ? initialDocTot : (initialSubtotal + initialTax);
-
-  const [itemsList, setItemsList] = useState<DocumentItemRow[]>(items);
-  const [applyVat, setApplyVat] = useState<boolean>(initialHasVat);
-  const [manualSubtotal, setManualSubtotal] = useState<number>(initialSubtotal);
-  const [manualTax, setManualTax] = useState<number>(initialTax);
-  const [manualTotal, setManualTotal] = useState<number>(initialTotal);
-  const [isEditingPricing, setIsEditingPricing] = useState(false);
-  const [isSavingPricing, setIsSavingPricing] = useState(false);
-  const [isPackageDismissed, setIsPackageDismissed] = useState(false);
-
-  // Sync props if items change from server
-  useEffect(() => {
-    setItemsList(items);
-    const sum = items.reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-    const docSub = Number(document.subtotal_aed || 0);
-    const sub = sum > 0 && docSub < sum ? sum : (docSub || sum || 8800);
-    setManualSubtotal(sub);
-    const hasV = Number(document.tax_aed) > 0;
-    setApplyVat(hasV);
-    const tx = hasV ? Number(document.tax_aed) : 0;
-    setManualTax(tx);
-    const tot = Number(document.total_aed || 0);
-    setManualTotal(tot > 0 && tot >= sub ? tot : (sub + tx));
-  }, [items, document.subtotal_aed, document.tax_aed, document.total_aed]);
-
-  // 3. Flight Modal
-  const [isEditingFlightModalOpen, setIsEditingFlightModalOpen] = useState(false);
-  const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
-  const [flightAirline, setFlightAirline] = useState("");
-  const [flightDetails, setFlightDetails] = useState("");
-  const [flightQty, setFlightQty] = useState(adults);
-  const [flightPrice, setFlightPrice] = useState(4500);
-
-  // 4. Meals Modal
-  const [isEditingMealsModalOpen, setIsEditingMealsModalOpen] = useState(false);
-  const [editingMealId, setEditingMealId] = useState<string | null>(null);
-  const [mealTitle, setMealTitle] = useState("");
-  const [mealDetails, setMealDetails] = useState("");
-  const [mealQty, setMealQty] = useState(adults);
-  const [mealPrice, setMealPrice] = useState(450);
-
-  // 5. Add-on Modal
-  const [isEditingAddonModalOpen, setIsEditingAddonModalOpen] = useState(false);
-  const [editingAddonId, setEditingAddonId] = useState<string | null>(null);
-  const [addonTitle, setAddonTitle] = useState("");
-  const [addonDetails, setAddonDetails] = useState("");
-  const [addonQty, setAddonQty] = useState(1);
-  const [addonPrice, setAddonPrice] = useState(550);
-
-  // Add Item / Custom Section Modal
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItemType, setNewItemType] = useState<DocumentItemType>("custom");
-  const [newDesc, setNewDesc] = useState("");
-  const [newDetails, setNewDetails] = useState("");
-  const [newQty, setNewQty] = useState(1);
-  const [newPrice, setNewPrice] = useState(0);
-
-  // Client Details Modal
-  const [isEditingClient, setIsEditingClient] = useState(false);
-
-  // Share Quotation Modal
-  const [showShareModal, setShowShareModal] = useState(false);
-
-  // Share Token & Public URL
-  const shareToken = activeShareToken || shares[0]?.share_token || document.id;
-  const publicShareUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/quote/${shareToken}`
-    : `https://masaarholidays.com/quote/${shareToken}`;
-
-  // Calculate duration days dynamically
-  const calculatedDays = travelDate && returnDate
-    ? Math.max(1, Math.round((new Date(returnDate).getTime() - new Date(travelDate).getTime()) / (1000 * 3600 * 24)) + 1)
-    : 10;
-  const durationDays = calculatedDays;
-  const durationLabel = `${durationDays} Days / ${Math.max(1, durationDays - 1)} Nights`;
-
-  // Itinerary state
-  const initialItinerary = (() => {
+  // 2. Itinerary State (Q02)
+  const initialItinerary = useMemo(() => {
     if (document.special_requirements) {
       try {
         const parsed = JSON.parse(document.special_requirements);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch {}
     }
-    return generateItineraryForDays(durationDays, journeyType === "hajj");
-  })();
+    return reconcileItineraryDays([], dateMetrics.calendarDays, dateMetrics.startDate, journeyType === "hajj");
+  }, [document.special_requirements, dateMetrics.calendarDays, dateMetrics.startDate, journeyType]);
 
-  const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>(initialItinerary);
-  const [isEditingItinerary, setIsEditingItinerary] = useState(false);
-  const [newDayTitle, setNewDayTitle] = useState("");
-  const [newDayDesc, setNewDayDesc] = useState("");
+  const [itineraryDays, setItineraryDays] = useState<ItineraryDayItem[]>(initialItinerary);
 
-  function handleSaveItinerary(newDays: typeof itineraryDays) {
-    setItineraryDays(newDays);
-    setIsEditingItinerary(false);
-    run(async () => {
-      await fetch(`/api/admin/documents/${document.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          special_requirements: JSON.stringify(newDays),
-        }),
-      });
-      router.refresh();
+  // Sync itinerary when dates change if user clicks sync
+  function handleSyncItineraryWithDates() {
+    const synced = reconcileItineraryDays(itineraryDays, dateMetrics.calendarDays, dateMetrics.startDate, journeyType === "hajj");
+    setItineraryDays(synced);
+    handlePersistItinerary(synced);
+  }
+
+  // 3. Line Items & Pricing State (Q03)
+  const [lineItems, setLineItems] = useState<LineItemPricingInput[]>(() => {
+    return items.map((it) => ({
+      id: it.id,
+      item_type: it.item_type,
+      description: it.description,
+      details: it.details,
+      quantity: it.quantity,
+      unit: "item",
+      unit_price_aed: it.unit_price_aed,
+      catalog_unit_price_aed: it.unit_price_aed,
+      is_overridden: it.details?.includes("[price_overridden]") || false,
+      discount_aed: it.discount_aed,
+      tax_rate: 0,
+      is_price_on_request: it.details?.includes("[price_on_request]") || false,
+      is_included: it.unit_price_aed === 0,
+      display_order: it.display_order,
+    }));
+  });
+
+  const [applyVat, setApplyVat] = useState(document.tax_aed != null ? Number(document.tax_aed) > 0 : false);
+  const [vatRate, setVatRate] = useState(0.05);
+  const [documentDiscount, setDocumentDiscount] = useState<number>(Number(document.discount_aed) || 0);
+  const [manualAdjustment, setManualAdjustment] = useState<number>(0);
+  const [manualAdjustmentReason, setManualAdjustmentReason] = useState("");
+  const [agreedTotalOverride, setAgreedTotalOverride] = useState<number | null>(
+    Number(document.total_aed) > 0 ? Number(document.total_aed) : null
+  );
+
+  // Authoritative Pricing Calculation
+  const pricingSummary = useMemo(() => {
+    return calculateQuotationTotals(lineItems, {
+      applyVat,
+      vatRate,
+      documentDiscountAed: documentDiscount,
+      manualAdjustmentAed: manualAdjustment,
+      manualAdjustmentReason,
+      agreedTotalOverride,
     });
-  }
+  }, [lineItems, applyVat, vatRate, documentDiscount, manualAdjustment, manualAdjustmentReason, agreedTotalOverride]);
 
-  function handleAddItineraryDay() {
-    if (!newDayTitle.trim()) return;
-    const nextDayNum = itineraryDays.length + 1;
-    const updated = [
-      ...itineraryDays,
-      { day: nextDayNum, title: newDayTitle.trim(), desc: newDayDesc.trim() || "Activities as per confirmed schedule." }
-    ];
-    setNewDayTitle("");
-    setNewDayDesc("");
-    handleSaveItinerary(updated);
-  }
+  // Share Token & Public URL
+  const shareToken = activeShareToken || shares[0]?.share_token || document.id;
+  const publicShareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/quote/${shareToken}`
+      : `https://masaarholidays.com/quote/${shareToken}`;
 
-  function handleRemoveItineraryDay(idx: number) {
-    const updated = itineraryDays.filter((_, i) => i !== idx).map((d: any, i: number) => ({ ...d, day: i + 1 }));
-    handleSaveItinerary(updated);
-  }
+  const [showShareModal, setShowShareModal] = useState(false);
 
-  function run(fn: () => Promise<void>) {
+  // Service Adding Dialog State (Q02)
+  const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState<string>("hotel");
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceDetails, setNewServiceDetails] = useState("");
+  const [newServiceQty, setNewServiceQty] = useState(1);
+  const [newServiceUnit, setNewServiceUnit] = useState("item");
+  const [newServicePrice, setNewServicePrice] = useState(0);
+
+  // Flash message timeout
+  useEffect(() => {
+    if (saveSuccessMsg) {
+      const t = setTimeout(() => setSaveSuccessMsg(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [saveSuccessMsg]);
+
+  // Save Step 1 (Basics)
+  function handleSaveBasics(nextStep?: 1 | 2 | 3 | 4 | 5) {
     startTransition(async () => {
       try {
-        await fn();
-      } catch (err: any) {
-        if (err && typeof err === "object" && "digest" in err && typeof err.digest === "string" && err.digest.startsWith("NEXT_REDIRECT")) {
-          throw err;
-        }
-        alert(err instanceof Error ? err.message : "Something went wrong.");
-      }
-    });
-  }
+        const notesArr = [
+          customerRequirement ? `Customer Requirement: ${customerRequirement}` : "",
+          `Package Scope: ${packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"}`,
+          `Duration: ${dateMetrics.durationLabel}`,
+          `Room Type: ${roomType}`,
+          notes ? `Notes: ${notes}` : "",
+        ].filter(Boolean);
 
-  function handleSaveBasics() {
-    run(async () => {
-      const notesParts = [
-        customerRequirement ? `Customer Requirement: ${customerRequirement}` : "",
-        `Package Scope: ${packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"}`,
-        `Duration: ${duration}`,
-        `Room Type: ${roomType}`,
-        notes ? `Notes: ${notes}` : "",
-      ].filter(Boolean);
-
-      const res = await fetch(`/api/admin/documents/${document.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          document_number: docNumber.trim(),
+        const res = await updateDocumentBasics(document.id, "quotation", {
           client_name: clientName.trim(),
-          client_phone: clientPhone || null,
-          client_email: clientEmail || null,
-          client_country: clientCountry || null,
-          journey_type: journeyType as any,
+          client_phone: clientPhone.trim() || null,
+          client_email: clientEmail.trim() || null,
+          client_country: clientCountry.trim() || null,
+          journey_type: journeyType,
           travel_date: travelDate || null,
           return_date: returnDate || null,
           adults,
@@ -316,2820 +220,1403 @@ export function QuotationBuilder({
           infants,
           origin,
           destination,
-          valid_until: validUntil || null,
-          status,
-          notes: notesParts.join("\n") || null,
-          terms: terms || null,
-          // NOTE: special_requirements holds the itinerary JSON — do NOT overwrite it here.
-          // Customer requirement text is already embedded in notes above.
-        }),
-      }).then((r) => r.json());
+          notes: notesArr.join("\n"),
+          special_requirements: JSON.stringify(itineraryDays),
+        });
 
-      if (!res.success) {
-        alert(res.error || "Failed to update quotation basics.");
-        return;
+        if (res.success) {
+          setSaveSuccessMsg("Client and travel details saved successfully.");
+          if (nextStep) setActiveStep(nextStep);
+          router.refresh();
+        } else {
+          alert(res.error || "Failed to save client details.");
+        }
+      } catch (err: any) {
+        alert(err.message || "Failed to save.");
       }
-
-      setIsEditingClient(false);
-      setSavedMessage("Saved successfully.");
-      router.refresh();
-      setTimeout(() => setSavedMessage(null), 3500);
     });
   }
 
-  async function handleSaveManualPricing(subtotal: number, tax: number, total: number) {
-    setIsSavingPricing(true);
-    try {
-      const res = await fetch(`/api/admin/documents/${document.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subtotal_aed: subtotal,
-          tax_aed: tax,
-          total_aed: total,
-        }),
-      }).then((r) => r.json());
-
-      if (!res.success) {
-        alert(res.error || "Failed to update pricing.");
-        return;
+  // Save Step 2 (Itinerary)
+  function handlePersistItinerary(updatedDays: ItineraryDayItem[]) {
+    startTransition(async () => {
+      try {
+        await updateDocumentBasics(document.id, "quotation", {
+          special_requirements: JSON.stringify(updatedDays),
+        });
+        setSaveSuccessMsg("Itinerary updated successfully.");
+        router.refresh();
+      } catch (e: any) {
+        console.error("Itinerary save error:", e);
       }
-      setIsEditingPricing(false);
-      setSavedMessage("Quotation pricing updated successfully.");
-      router.refresh();
-      setTimeout(() => setSavedMessage(null), 3500);
-    } catch (e: any) {
-      alert(e?.message || "Failed to save pricing.");
-    } finally {
-      setIsSavingPricing(false);
-    }
-  }
-
-  function handleStatusChange(nextStatus: string) {
-    setStatus(nextStatus);
-    run(async () => {
-      await fetch(`/api/admin/documents/${document.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      router.refresh();
     });
   }
 
-  async function handleAddItem(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newDesc.trim()) return;
-
-    try {
-      const res = await fetch("/api/admin/documents/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentId: document.id,
-          documentType: "quotation",
-          item: {
-            item_type: newItemType,
-            description: newDesc.trim(),
-            details: newDetails.trim() || null,
-            quantity: newQty,
-            unit_price_aed: newPrice,
-          },
+  // Save Step 3 (Pricing)
+  function handleSavePricing(nextStep?: 1 | 2 | 3 | 4 | 5) {
+    startTransition(async () => {
+      try {
+        const res = await saveQuotationPricing(document.id, {
+          items: lineItems.map((li) => ({
+            id: li.id,
+            item_type: li.item_type as DocumentItemType,
+            description: li.description,
+            details: li.details,
+            quantity: li.quantity,
+            unit: li.unit,
+            unit_price_aed: li.unit_price_aed,
+            catalog_unit_price_aed: li.catalog_unit_price_aed,
+            is_overridden: li.is_overridden,
+            discount_aed: li.discount_aed,
+            is_price_on_request: li.is_price_on_request,
+            is_included: li.is_included,
+            display_order: li.display_order,
+          })),
           applyVat,
-        }),
-      }).then((r) => r.json());
-
-      if (!res.success) {
-        alert(res.error || "Failed to add item.");
-        return;
-      }
-      if (res.item) {
-        setItemsList((prev) => [...prev, res.item]);
-      }
-      if (res.totals) {
-        setManualSubtotal(res.totals.subtotal);
-        setManualTax(res.totals.tax);
-        setManualTotal(res.totals.total);
-      }
-
-      setIsAddingItem(false);
-      setNewDesc("");
-      setNewDetails("");
-      setNewQty(1);
-      setNewPrice(0);
-      router.refresh();
-    } catch (e: any) {
-      alert(e?.message || "Failed to add item.");
-    }
-  }
-
-  async function handleDeleteItem(itemId: string) {
-    if (!confirm("Remove this section/item from the quotation?")) return;
-    setItemsList((prev) => prev.filter((i) => i.id !== itemId));
-    try {
-      const res = await fetch(
-        `/api/admin/documents/items?itemId=${encodeURIComponent(itemId)}&documentId=${encodeURIComponent(document.id)}&applyVat=${applyVat}`,
-        { method: "DELETE" }
-      );
-      const data = await res.json();
-      if (!data.success) {
-        alert(data.error || "Failed to remove item.");
-      }
-      if (data.totals) {
-        setManualSubtotal(data.totals.subtotal);
-        setManualTax(data.totals.tax);
-        setManualTotal(data.totals.total);
-      }
-      router.refresh();
-    } catch (e: any) {
-      alert(e?.message || "Failed to delete item.");
-    }
-  }
-
-  // Generic Line Item Saver (handles create or update)
-  async function saveLineItemPayload(itemId: string | null, payload: any) {
-    try {
-      if (itemId) {
-        const res = await fetch("/api/admin/documents/items", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            documentId: document.id,
-            itemId,
-            patch: payload,
-            applyVat,
-          }),
+          vatRate,
+          documentDiscountAed: documentDiscount,
+          manualAdjustmentAed: manualAdjustment,
+          manualAdjustmentReason,
+          agreedTotalOverride,
         });
-        const data = await res.json();
-        if (data.success && data.item) {
-          setItemsList((prev) => prev.map((it) => (it.id === itemId ? data.item : it)));
+
+        if (res.success) {
+          setSaveSuccessMsg("Quotation pricing saved successfully.");
+          await saveDocumentVersion(document.id, "quotation");
+          if (nextStep) setActiveStep(nextStep);
+          router.refresh();
+        } else {
+          alert(res.error || "Failed to save pricing.");
         }
-        if (data.totals) {
-          setManualSubtotal(data.totals.subtotal);
-          setManualTax(data.totals.tax);
-          setManualTotal(data.totals.total);
-        }
-      } else {
-        const res = await fetch("/api/admin/documents/items", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            documentId: document.id,
-            documentType: "quotation",
-            item: payload,
-            applyVat,
-          }),
-        });
-        const data = await res.json();
-        if (data.success && data.item) {
-          setItemsList((prev) => [...prev, data.item]);
-        }
-        if (data.totals) {
-          setManualSubtotal(data.totals.subtotal);
-          setManualTax(data.totals.tax);
-          setManualTotal(data.totals.total);
-        }
+      } catch (e: any) {
+        alert(e.message || "Error saving pricing.");
       }
-      router.refresh();
-    } catch (err: any) {
-      alert(err?.message || "Failed to save item.");
-    }
+    });
   }
 
-  // 1. Hotel modal open & submit
-  function openHotelModal(item?: DocumentItemRow | null) {
-    if (item) {
-      setEditingHotelId(item.id);
-      setHotelName(item.description);
-      setHotelDetails(item.details || "");
-      setHotelNights(item.quantity || 5);
-      setHotelPricePerNight(item.unit_price_aed || 0);
-      const isMakkah = item.description.toLowerCase().includes("makkah") || item.details?.toLowerCase().includes("makkah");
-      const isMadinah = item.description.toLowerCase().includes("madinah") || item.details?.toLowerCase().includes("madinah");
-      setHotelCity(isMakkah ? "Makkah" : isMadinah ? "Madinah" : null);
-      if (item.details?.includes("QUAD")) setHotelRoomType("QUAD");
-      else if (item.details?.includes("TRIPLE")) setHotelRoomType("TRIPLE");
-      else setHotelRoomType("TWIN/DOUBLE");
-    } else {
-      setEditingHotelId(null);
-      setHotelCity("Makkah");
-      setHotelName("Swissôtel Makkah");
-      setHotelDetails("5 Nights • Near Haram Courtyard • 5★ Luxury Buffet Breakfast Included");
-      setHotelRoomType("TWIN/DOUBLE");
-      setHotelNights(5);
-      setHotelPricePerNight(840);
-    }
-    setIsEditingHotelModalOpen(true);
+  // Itinerary Controls
+  function handleMoveDay(index: number, direction: "up" | "down") {
+    if ((direction === "up" && index === 0) || (direction === "down" && index === itineraryDays.length - 1)) return;
+    const target = direction === "up" ? index - 1 : index + 1;
+    const copy = [...itineraryDays];
+    const temp = copy[index];
+    copy[index] = copy[target];
+    copy[target] = temp;
+    // Re-index days
+    const reindexed = copy.map((d, i) => ({
+      ...d,
+      day: i + 1,
+      date: dateMetrics.dates[i] || d.date,
+    }));
+    setItineraryDays(reindexed);
+    handlePersistItinerary(reindexed);
   }
 
-  async function handleSaveHotelSubmit(e: React.FormEvent) {
+  function handleEditDayTitle(index: number, title: string) {
+    const copy = [...itineraryDays];
+    copy[index] = { ...copy[index], title };
+    setItineraryDays(copy);
+  }
+
+  function handleEditDayDesc(index: number, desc: string) {
+    const copy = [...itineraryDays];
+    copy[index] = { ...copy[index], desc };
+    setItineraryDays(copy);
+  }
+
+  function handleRemoveDay(index: number) {
+    if (!confirm(`Are you sure you want to remove Day ${index + 1}?`)) return;
+    const filtered = itineraryDays.filter((_, i) => i !== index).map((d, i) => ({
+      ...d,
+      day: i + 1,
+      date: dateMetrics.dates[i] || d.date,
+    }));
+    setItineraryDays(filtered);
+    handlePersistItinerary(filtered);
+  }
+
+  function handleAddDay() {
+    const nextNum = itineraryDays.length + 1;
+    const nextDate = dateMetrics.dates[itineraryDays.length] || dateMetrics.endDate;
+    const updated = [
+      ...itineraryDays,
+      {
+        day: nextNum,
+        date: nextDate,
+        title: `Day ${nextNum}: Devotions & Personal Reflection`,
+        desc: "Congregational prayers, Quran recitation, and spiritual immersion.",
+        icon: "🕋",
+        activities: ["Congregational Prayers", "Personal Supplication"],
+      },
+    ];
+    setItineraryDays(updated);
+    handlePersistItinerary(updated);
+  }
+
+  // Line Item Pricing Controls
+  function handleUpdateLineItem(index: number, patch: Partial<LineItemPricingInput>) {
+    setLineItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...patch };
+      return copy;
+    });
+  }
+
+  function handleDeleteLineItem(index: number) {
+    if (!confirm("Remove this service item from the quotation?")) return;
+    setLineItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleAddServiceSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!hotelName.trim()) return;
+    if (!newServiceName.trim()) return;
 
-    const cityTag = hotelCity ? `${hotelCity}` : "";
-    const cleanHotel = hotelName.trim();
-    const fullDesc = cleanHotel.toLowerCase().includes("hotel") || cleanHotel.toLowerCase().includes("makkah") || cleanHotel.toLowerCase().includes("madinah")
-      ? cleanHotel
-      : `${cityTag ? `${cityTag} Hotel — ` : ""}${cleanHotel}`;
-    const fullDetails = `${hotelNights} Nights • ${hotelRoomType} Room Sharing${hotelDetails ? ` • ${hotelDetails.trim()}` : ""}`;
+    const newItem: LineItemPricingInput = {
+      item_type: selectedServiceCategory,
+      description: newServiceName.trim(),
+      details: newServiceDetails.trim() || null,
+      quantity: newServiceQty,
+      unit: newServiceUnit,
+      unit_price_aed: newServicePrice,
+      catalog_unit_price_aed: newServicePrice,
+      is_overridden: false,
+      discount_aed: 0,
+      is_price_on_request: false,
+      is_included: newServicePrice === 0,
+      display_order: lineItems.length,
+    };
 
-    await saveLineItemPayload(editingHotelId, {
-      item_type: "hotel",
-      description: fullDesc,
-      details: fullDetails,
-      quantity: hotelNights,
-      unit_price_aed: hotelPricePerNight,
-    });
-    setIsEditingHotelModalOpen(false);
+    setLineItems((prev) => [...prev, newItem]);
+    setIsAddServiceModalOpen(false);
+    setNewServiceName("");
+    setNewServiceDetails("");
+    setNewServiceQty(1);
+    setNewServicePrice(0);
+    setSaveSuccessMsg("Service added to quotation items.");
   }
-
-  // 2. Transfer modal open & submit
-  function openTransferModal(item?: DocumentItemRow | null) {
-    if (item) {
-      setEditingTransferId(item.id);
-      setTransferRouteName(item.description);
-      setTransferDetails(item.details || "");
-      setTransferQty(item.quantity || 1);
-      setTransferPrice(item.unit_price_aed || 0);
-      const text = `${item.description} ${item.details || ""}`.toLowerCase();
-      if (text.includes("sedan") || text.includes("camry") || text.includes("lexus")) {
-        setTransferVehicleType("sedan");
-      } else if (text.includes("gmc") || text.includes("yukon") || text.includes("suv") || text.includes("suburban")) {
-        setTransferVehicleType("suv");
-      } else if (text.includes("staria") || text.includes("van") || text.includes("hiace")) {
-        setTransferVehicleType("staria");
-      } else {
-        setTransferVehicleType("custom");
-      }
-    } else {
-      setEditingTransferId(null);
-      setTransferVehicleType("sedan");
-      setTransferRouteName("Private Sedan Airport Transfers (Roundtrip)");
-      setTransferDetails("Jeddah Airport (JED) ⇄ Makkah Hotel roundtrip with dedicated chauffeur & luggage assistance");
-      setTransferQty(1);
-      setTransferPrice(1000);
-    }
-    setIsEditingTransferModalOpen(true);
-  }
-
-  async function handleSaveTransferSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!transferRouteName.trim()) return;
-
-    await saveLineItemPayload(editingTransferId, {
-      item_type: "transfer",
-      description: transferRouteName.trim(),
-      details: transferDetails.trim() || null,
-      quantity: transferQty,
-      unit_price_aed: transferPrice,
-    });
-    setIsEditingTransferModalOpen(false);
-  }
-
-  // 3. Flight modal open & submit
-  function openFlightModal(item?: DocumentItemRow | null) {
-    if (item) {
-      setEditingFlightId(item.id);
-      setFlightAirline(item.description);
-      setFlightDetails(item.details || "");
-      setFlightQty(item.quantity || adults);
-      setFlightPrice(item.unit_price_aed || 0);
-    } else {
-      setEditingFlightId(null);
-      setFlightAirline("Emirates – Business Class");
-      setFlightDetails("Dubai (DXB) ⇄ Jeddah (JED) • 25kg checked baggage included");
-      setFlightQty(adults);
-      setFlightPrice(4500);
-    }
-    setIsEditingFlightModalOpen(true);
-  }
-
-  async function handleSaveFlightSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!flightAirline.trim()) return;
-
-    await saveLineItemPayload(editingFlightId, {
-      item_type: "flight",
-      description: flightAirline.trim(),
-      details: flightDetails.trim() || null,
-      quantity: flightQty,
-      unit_price_aed: flightPrice,
-    });
-    setIsEditingFlightModalOpen(false);
-  }
-
-  // 4. Meals modal open & submit
-  function openMealsModal(item?: DocumentItemRow | null) {
-    if (item) {
-      setEditingMealId(item.id);
-      setMealTitle(item.description);
-      setMealDetails(item.details || "");
-      setMealQty(item.quantity || adults);
-      setMealPrice(item.unit_price_aed || 0);
-    } else {
-      setEditingMealId(null);
-      setMealTitle("Daily 3-Course Gourmet Meals");
-      setMealDetails("Daily breakfast, lunch and dinner included in 5-star hotel dining rooms.");
-      setMealQty(adults);
-      setMealPrice(450);
-    }
-    setIsEditingMealsModalOpen(true);
-  }
-
-  async function handleSaveMealsSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!mealTitle.trim()) return;
-
-    await saveLineItemPayload(editingMealId, {
-      item_type: "custom",
-      description: mealTitle.trim(),
-      details: mealDetails.trim() || null,
-      quantity: mealQty,
-      unit_price_aed: mealPrice,
-    });
-    setIsEditingMealsModalOpen(false);
-  }
-
-  // 5. Addon modal open & submit
-  function openAddonModal(item?: DocumentItemRow | null) {
-    if (item) {
-      setEditingAddonId(item.id);
-      setAddonTitle(item.description);
-      setAddonDetails(item.details || "");
-      setAddonQty(item.quantity || 1);
-      setAddonPrice(item.unit_price_aed || 0);
-    } else {
-      setEditingAddonId(null);
-      setAddonTitle("Saudi Electronic Tourist / Umrah Visa");
-      setAddonDetails("1-year multiple entry visa with medical insurance coverage across KSA.");
-      setAddonQty(adults);
-      setAddonPrice(550);
-    }
-    setIsEditingAddonModalOpen(true);
-  }
-
-  async function handleSaveAddonSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!addonTitle.trim()) return;
-
-    await saveLineItemPayload(editingAddonId, {
-      item_type: "service",
-      description: addonTitle.trim(),
-      details: addonDetails.trim() || null,
-      quantity: addonQty,
-      unit_price_aed: addonPrice,
-    });
-    setIsEditingAddonModalOpen(false);
-  }
-
-  function handleConvertToInvoice() {
-    if (!confirm("Convert this quotation into an official Invoice? All passenger details and priced items will be copied.")) return;
-    run(async () => {
-      const res = await createDocumentFromSource(document.id, "invoice");
-      if (res.success && res.id) {
-        router.push(`/admin/documents/invoices/${res.id}`);
-      } else {
-        alert(res.error || "Failed to convert to invoice.");
-      }
-    });
-  }
-
-  function handleConvertToVoucher() {
-    if (!confirm("Generate a confirmed Booking Voucher from this quotation?")) return;
-    run(async () => {
-      const res = await createDocumentFromSource(document.id, "booking_voucher");
-      if (res.success && res.id) {
-        router.push(`/admin/documents/booking-vouchers/${res.id}`);
-      } else {
-        alert(res.error || "Failed to generate booking voucher.");
-      }
-    });
-  }
-
-  async function handleSavePackageFromModal(config: {
-    tier: string;
-    tierPrice: number;
-    makkahHotel: string;
-    makkahPrice: number;
-    madinahHotel: string;
-    madinahPrice: number;
-    roomType: string;
-    roomAdjustment: number;
-    vehicle: string;
-    vehiclePrice: number;
-    flightClass: string;
-    flightPrice: number;
-    extraServices: Array<{ name: string; price: number }>;
-    totalAmount: number;
-  }) {
-    run(async () => {
-      // Remove any existing package items first so we don't pile up duplicates
-      for (const p of packageItems) {
-        await fetch(
-          `/api/admin/documents/items?itemId=${encodeURIComponent(p.id)}&documentId=${encodeURIComponent(document.id)}`,
-          { method: "DELETE" }
-        );
-      }
-
-      if (config.tier !== "CUSTOM" && config.tierPrice > 0) {
-        await addLineItem(document.id, "quotation", {
-          item_type: journeyType === "hajj" ? "hajj_package" : "umrah_package",
-          description: `${journeyType === "hajj" ? "Hajj 2027" : "Umrah 2026"} – ${config.tier} Package (${duration})`,
-          details: `${config.tier} Tier • ${config.roomType} Room Sharing • Includes direct flights & 5★ luxury hospitality`,
-          quantity: adults,
-          unit_price_aed: config.tierPrice,
-        });
-      }
-
-      if (config.makkahHotel) {
-        await addLineItem(document.id, "quotation", {
-          item_type: "hotel",
-          description: `Makkah Hotel — ${config.makkahHotel}`,
-          details: `5 Nights • Near Haram Courtyard • ${config.roomType} Sharing • 5★ Luxury Buffet Breakfast Included`,
-          quantity: 5,
-          unit_price_aed: Math.round(config.makkahPrice / 5),
-        });
-      }
-
-      if (config.madinahHotel) {
-        await addLineItem(document.id, "quotation", {
-          item_type: "hotel",
-          description: `Madinah Hotel — ${config.madinahHotel}`,
-          details: `5 Nights • Steps from Prophet's Mosque • ${config.roomType} Sharing • 5★ Luxury Buffet Breakfast Included`,
-          quantity: 5,
-          unit_price_aed: Math.round(config.madinahPrice / 5),
-        });
-      }
-
-      if (config.vehicle) {
-        await addLineItem(document.id, "quotation", {
-          item_type: "transfer",
-          description: `Private ${config.vehicle}`,
-          details: `Jeddah Airport → Makkah Hotel • Makkah → Madinah Hotel • Madinah → Airport`,
-          quantity: 1,
-          unit_price_aed: config.vehiclePrice,
-        });
-      }
-
-      if (config.flightPrice > 0) {
-        await addLineItem(document.id, "quotation", {
-          item_type: "flight",
-          description: `Emirates – Business Class Upgrade`,
-          details: `Dubai (DXB) ⇄ Jeddah/Madinah scheduled luxury cabin`,
-          quantity: adults,
-          unit_price_aed: config.flightPrice,
-        });
-      }
-
-      for (const s of config.extraServices) {
-        await addLineItem(document.id, "quotation", {
-          item_type: "service",
-          description: s.name,
-          details: "Pilgrim additional inclusion",
-          quantity: 1,
-          unit_price_aed: s.price,
-        });
-      }
-
-      router.refresh();
-    });
-  }
-
-  function handleDuplicate() {
-    run(async () => {
-      const res = await duplicateDocument(document.id, "quotation");
-      if (res.success && res.id) {
-        router.push(`/admin/documents/quotations/${res.id}`);
-      } else {
-        alert(res.error || "Failed to duplicate quotation.");
-      }
-    });
-  }
-
-  function handleDeleteDoc() {
-    if (!confirm(`Delete quotation ${document.document_number}? This action cannot be undone.`)) return;
-    run(async () => {
-      const res = await deleteDocument(document.id, "quotation");
-      if (res.success) {
-        router.push("/admin/documents/quotations");
-      } else {
-        alert(res.error || "Failed to delete quotation.");
-      }
-    });
-  }
-
-  function handleCopyShareLink() {
-    if (!publicShareUrl) return;
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(publicShareUrl);
-      } else if (typeof window !== "undefined") {
-        const textarea = window.document.createElement("textarea");
-        textarea.value = publicShareUrl;
-        window.document.body.appendChild(textarea);
-        textarea.select();
-        window.document.execCommand("copy");
-        window.document.body.removeChild(textarea);
-      }
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 3500);
-    } catch (err) {
-      console.error("Copy failed:", err);
-    }
-  }
-
-  // Pre-configured Section Presets
-  function openAddSectionWithPreset(presetType: DocumentItemType, defaultDesc: string, defaultDetails?: string, defaultPrice?: number) {
-    setNewItemType(presetType);
-    setNewDesc(defaultDesc);
-    setNewDetails(defaultDetails || "");
-    setNewQty(1);
-    setNewPrice(defaultPrice || 0);
-    setIsAddingItem(true);
-  }
-
-  // Group line items from dynamic itemsList
-  const packageItems = itemsList.filter((i) => ["umrah_package", "hajj_package"].includes(i.item_type));
-  const hotelItems = itemsList.filter((i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation");
-  const transferItems = itemsList.filter((i) => i.item_type === "transfer");
-  const flightItems = itemsList.filter((i) => i.item_type === "flight");
-  const mealItems = itemsList.filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"));
-  const otherItems = itemsList.filter(
-    (i) =>
-      !packageItems.includes(i) &&
-      !hotelItems.includes(i) &&
-      !transferItems.includes(i) &&
-      !flightItems.includes(i) &&
-      !mealItems.includes(i)
-  );
 
   return (
     <div className="space-y-6">
-      {/* Top Header Bar matching QUOTATION BUILDER.png */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* 1. Breadcrumbs & Quotation Status Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/10 pb-4">
         <div>
-          <nav className="text-xs text-masaar-black/50">
-            <Link href="/admin/documents" className="hover:text-masaar-black">
-              Documents &amp; Bookings
-            </Link>
-            <span className="mx-2">&gt;</span>
-            <Link href="/admin/documents/quotations" className="hover:text-masaar-black">
-              Quotations
-            </Link>
-            <span className="mx-2">&gt;</span>
-            <span className="font-semibold text-masaar-black">{docNumber}</span>
+          <nav className="text-xs text-black/50 flex items-center gap-1.5">
+            <Link href="/admin/documents" className="hover:text-black">Documents</Link>
+            <span>&gt;</span>
+            <Link href="/admin/documents/quotations" className="hover:text-black">Quotations</Link>
+            <span>&gt;</span>
+            <span className="font-semibold text-black">{document.document_number}</span>
           </nav>
-          <h1 className="mt-1 font-serif text-2xl font-bold text-masaar-black sm:text-3xl">
-            Quotation Builder
-          </h1>
-          <p className="mt-0.5 text-xs text-masaar-black/60">
-            Add, edit and arrange sections to create a personalised quotation for your client.
+          <div className="flex items-center gap-3 mt-1.5">
+            <h1 className="font-serif text-2xl font-bold text-black sm:text-3xl">
+              Quotation Builder
+            </h1>
+            <span className="rounded-full bg-[#FAF8F5] border border-[#c9983e]/40 px-3 py-0.5 text-xs font-mono font-semibold text-[#865d1d]">
+              {document.document_number}
+            </span>
+          </div>
+          <p className="text-xs text-black/60 mt-0.5">
+            Client: <strong>{clientName}</strong> • {dateMetrics.durationLabel} • Created {formatDisplayDate(document.created_at)}
           </p>
         </div>
 
-        {/* Top Header Action Buttons */}
+        {/* Global Action Bar */}
         <div className="flex flex-wrap items-center gap-2">
-          {shareToken && (
-            <>
-              <Link
-                href={`/quote/${shareToken}`}
-                target="_blank"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.03]"
-              >
-                <span>👁️</span> Preview
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => setShowShareModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#b37e28] bg-light-gold/20 px-3.5 py-2 text-xs font-bold text-[#b37e28] shadow-xs hover:bg-light-gold/40 cursor-pointer"
-              >
-                <span>🔗</span> Share Link
-              </button>
-            </>
+          {saveSuccessMsg && (
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg animate-in fade-in">
+              ✓ {saveSuccessMsg}
+            </span>
           )}
+
+          <Link
+            href={`/quote/${shareToken}`}
+            target="_blank"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-xs font-semibold text-black hover:bg-black/5 shadow-2xs"
+          >
+            <span>👁️</span> Client Portal ↗
+          </Link>
 
           <button
             type="button"
-            onClick={handleSaveBasics}
-            disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.03] disabled:opacity-60"
+            onClick={() => setShowShareModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#b37e28] text-white px-3.5 py-2 text-xs font-bold hover:bg-[#916d28] shadow-2xs cursor-pointer"
           >
-            <span>💾</span> Save as Draft
+            <span>🔗</span> Share Quotation
           </button>
-
-          <Link
-            href={`/admin/documents/quotations/${document.id}/pdf`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#b37e28] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#96671e]"
-          >
-            <span>📄</span> Generate PDF ▾
-          </Link>
-
-          <div className="relative inline-block text-left">
-            <select
-              aria-label="More quotation options"
-              value=""
-              onChange={(e) => {
-                const action = e.target.value;
-                if (action === "invoice") handleConvertToInvoice();
-                if (action === "voucher") handleConvertToVoucher();
-                if (action === "duplicate") handleDuplicate();
-                if (action === "send") router.push(`/admin/documents/quotations/${document.id}/send`);
-                if (action === "versions") router.push(`/admin/documents/quotations/${document.id}/versions`);
-                if (action === "delete") handleDeleteDoc();
-              }}
-              className="rounded-lg border border-black/15 bg-white px-3 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.03]"
-            >
-              <option value="" disabled>⚙️ Options…</option>
-              <option value="send">✉️ Send to Client (Email / WhatsApp)</option>
-              <option value="versions">📜 Version History ({versions.length || 1})</option>
-              <option value="invoice">💳 Convert to Invoice</option>
-              <option value="voucher">🎫 Generate Booking Voucher</option>
-              <option value="duplicate">📑 Duplicate Quotation</option>
-              <option value="delete">🗑️ Delete Quotation</option>
-            </select>
-          </div>
         </div>
       </div>
 
-      {savedMessage && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
-          ✓ {savedMessage}
+      {/* 2. FIVE CONNECTED SCREENS STEPPER TABS (Exact match reference flow) */}
+      <div className="flex items-center border border-black/10 rounded-2xl bg-white shadow-xs p-1.5 overflow-x-auto text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setActiveStep(1)}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeStep === 1
+              ? "bg-[#1A1816] text-white shadow-xs"
+              : "text-black/70 hover:bg-black/5"
+          }`}
+        >
+          <span className={`size-5 rounded-full flex items-center justify-center text-[10px] font-bold ${activeStep === 1 ? "bg-[#c9983e] text-white" : "bg-black/10 text-black"}`}>
+            1
+          </span>
+          <span>Client &amp; Trip Details</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveStep(2)}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeStep === 2
+              ? "bg-[#1A1816] text-white shadow-xs"
+              : "text-black/70 hover:bg-black/5"
+          }`}
+        >
+          <span className={`size-5 rounded-full flex items-center justify-center text-[10px] font-bold ${activeStep === 2 ? "bg-[#c9983e] text-white" : "bg-black/10 text-black"}`}>
+            2
+          </span>
+          <span>Build the Journey</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveStep(3)}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeStep === 3
+              ? "bg-[#1A1816] text-white shadow-xs"
+              : "text-black/70 hover:bg-black/5"
+          }`}
+        >
+          <span className={`size-5 rounded-full flex items-center justify-center text-[10px] font-bold ${activeStep === 3 ? "bg-[#c9983e] text-white" : "bg-black/10 text-black"}`}>
+            3
+          </span>
+          <span>Flexible Pricing</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveStep(4)}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeStep === 4
+              ? "bg-[#1A1816] text-white shadow-xs"
+              : "text-black/70 hover:bg-black/5"
+          }`}
+        >
+          <span className={`size-5 rounded-full flex items-center justify-center text-[10px] font-bold ${activeStep === 4 ? "bg-[#c9983e] text-white" : "bg-black/10 text-black"}`}>
+            4
+          </span>
+          <span>Customer Viewer</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveStep(5)}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeStep === 5
+              ? "bg-[#1A1816] text-white shadow-xs"
+              : "text-black/70 hover:bg-black/5"
+          }`}
+        >
+          <span className={`size-5 rounded-full flex items-center justify-center text-[10px] font-bold ${activeStep === 5 ? "bg-[#c9983e] text-white" : "bg-black/10 text-black"}`}>
+            5
+          </span>
+          <span>Share with Client</span>
+        </button>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* STEP 1: CLIENT & TRIP DETAILS (Q01) */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {activeStep === 1 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Client Card */}
+            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
+              <h3 className="font-serif text-lg font-bold text-black border-b border-black/10 pb-3 flex items-center gap-2">
+                <span>👤</span> Client Information
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Client Name *</label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">WhatsApp / Phone</label>
+                  <input
+                    type="tel"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Email Address</label>
+                  <input
+                    type="email"
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Origin Country / City</label>
+                  <input
+                    type="text"
+                    value={clientCountry}
+                    onChange={(e) => setClientCountry(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Journey Type */}
+            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
+              <h3 className="font-serif text-lg font-bold text-black border-b border-black/10 pb-3 flex items-center gap-2">
+                <span>📍</span> Journey Type
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {JOURNEY_TYPES.map((jt) => (
+                  <button
+                    key={jt.id}
+                    type="button"
+                    onClick={() => setJourneyType(jt.id)}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      journeyType === jt.id
+                        ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28]/20"
+                        : "border-black/10 hover:bg-black/[0.02]"
+                    }`}
+                  >
+                    <span className="text-xl block">{jt.icon}</span>
+                    <span className="font-bold text-xs text-black block mt-1">{jt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Travel Details & Dynamic Duration */}
+            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                <h3 className="font-serif text-lg font-bold text-black flex items-center gap-2">
+                  <span>🗓️</span> Travel Dates &amp; Scope
+                </h3>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1 text-xs font-bold font-mono">
+                  {dateMetrics.durationLabel}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Start Date</label>
+                  <input
+                    type="date"
+                    value={travelDate}
+                    onChange={(e) => setTravelDate(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Return Date</label>
+                  <input
+                    type="date"
+                    value={returnDate}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Origin City / Airport</label>
+                  <input
+                    type="text"
+                    value={origin}
+                    onChange={(e) => setOrigin(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Destination</label>
+                  <input
+                    type="text"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                  />
+                </div>
+              </div>
+
+              {/* Travellers */}
+              <div className="pt-2 border-t border-black/10">
+                <label className="font-semibold block mb-2 text-xs text-black/70">Number of Travellers</label>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div className="rounded-xl border border-black/10 p-3 bg-neutral-50 flex items-center justify-between">
+                    <span>Adults</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={adults}
+                      onChange={(e) => setAdults(Number(e.target.value) || 1)}
+                      className="w-16 rounded border border-black/15 p-1 text-center font-bold"
+                    />
+                  </div>
+                  <div className="rounded-xl border border-black/10 p-3 bg-neutral-50 flex items-center justify-between">
+                    <span>Children</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={children}
+                      onChange={(e) => setChildren(Number(e.target.value) || 0)}
+                      className="w-16 rounded border border-black/15 p-1 text-center font-bold"
+                    />
+                  </div>
+                  <div className="rounded-xl border border-black/10 p-3 bg-neutral-50 flex items-center justify-between">
+                    <span>Infants</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={infants}
+                      onChange={(e) => setInfants(Number(e.target.value) || 0)}
+                      className="w-16 rounded border border-black/15 p-1 text-center font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Room type & Scope */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs">
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Destination Scope</label>
+                  <select
+                    value={packageScope}
+                    onChange={(e: any) => setPackageScope(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black bg-white"
+                  >
+                    <option value="both">Makkah &amp; Madinah</option>
+                    <option value="makkah_only">Makkah Only</option>
+                    <option value="madinah_only">Madinah Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Room Sharing Basis</label>
+                  <select
+                    value={roomType}
+                    onChange={(e: any) => setRoomType(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black bg-white"
+                  >
+                    <option value="TWIN/DOUBLE">Twin / Double Sharing</option>
+                    <option value="TRIPLE">Triple Sharing</option>
+                    <option value="QUAD">Quad Sharing</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Customer Notes */}
+              <div className="text-xs pt-2">
+                <label className="font-semibold block mb-1 text-black/70">Special Requests / Requirements</label>
+                <textarea
+                  rows={2}
+                  value={customerRequirement}
+                  onChange={(e) => setCustomerRequirement(e.target.value)}
+                  placeholder="e.g. Kaaba view requested, elderly assistance needed"
+                  className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Live Summary */}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4 sticky top-24">
+              <h3 className="font-serif text-base font-bold text-black border-b border-black/10 pb-3 flex items-center gap-2">
+                <span>📋</span> Live Journey Summary
+              </h3>
+
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-black/60">Client:</span>
+                  <span className="font-bold text-black">{clientName || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-black/60">Journey:</span>
+                  <span className="font-bold capitalize text-black">{journeyType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-black/60">Duration:</span>
+                  <span className="font-bold text-[#865d1d]">{dateMetrics.durationLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-black/60">Travel Dates:</span>
+                  <span className="font-semibold text-black">{formatDisplayDate(travelDate)} – {formatDisplayDate(returnDate)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-black/60">Travellers:</span>
+                  <span className="font-semibold text-black">{adults} Adults{children ? `, ${children} Ch` : ""}{infants ? `, ${infants} Inf` : ""}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-black/60">Scope:</span>
+                  <span className="font-semibold text-black">{packageScope === "both" ? "Makkah & Madinah" : packageScope === "makkah_only" ? "Makkah Only" : "Madinah Only"}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-black/10 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveBasics(2)}
+                  disabled={isPending}
+                  className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] py-3 text-xs font-bold text-white shadow-xs hover:from-[#9c6d1f] hover:to-[#7d5c1f] transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isPending ? "Saving…" : "Save & Continue to Journey →"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveBasics()}
+                  disabled={isPending}
+                  className="w-full rounded-xl border border-black/15 bg-white py-2.5 text-xs font-semibold text-black hover:bg-black/5 cursor-pointer"
+                >
+                  Save as Draft
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Main 3-Column Grid matching QUOTATION BUILDER.png */}
-      <div className="grid gap-6 xl:grid-cols-12">
-        {/* Left Column: Sections Stack (6 Cols) */}
-        <div className="space-y-4 xl:col-span-6">
-          {/* Quotation Details Header Strip Card */}
-          <Card className="!p-4">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 text-xs">
-              <div>
-                <span className="uppercase text-masaar-black/40 font-medium">Quotation No</span>
-                <input
-                  value={docNumber}
-                  onChange={(e) => setDocNumber(e.target.value)}
-                  className="mt-1 block w-full rounded border border-black/15 bg-white px-2 py-1 font-semibold text-masaar-black"
-                />
-              </div>
-
-              <div>
-                <span className="uppercase text-masaar-black/40 font-medium">Version</span>
-                <div className="mt-1 flex items-center gap-1 font-semibold text-masaar-black">
-                  <span>v{versions[0]?.version_number ?? 1}</span>
-                  <Link
-                    href={`/admin/documents/quotations/${document.id}/versions`}
-                    className="ml-1 text-[10px] text-admin-primary underline"
-                  >
-                    History
-                  </Link>
-                </div>
-              </div>
-
-              <div>
-                <span className="uppercase text-masaar-black/40 font-medium">Date</span>
-                <span className="mt-1 block font-medium text-masaar-black">
-                  {new Date(document.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                </span>
-              </div>
-
-              <div>
-                <span className="uppercase text-masaar-black/40 font-medium">Valid Until</span>
-                <input
-                  type="date"
-                  value={validUntil}
-                  onChange={(e) => setValidUntil(e.target.value)}
-                  className="mt-1 block w-full rounded border border-black/15 bg-white px-2 py-1 text-xs text-masaar-black"
-                />
-              </div>
-
-              <div>
-                <span className="uppercase text-masaar-black/40 font-medium">Status</span>
-                <select
-                  value={status}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  className="mt-1 block w-full rounded border border-black/15 bg-white px-2 py-1 font-medium text-masaar-black"
-                >
-                  {STATUS_OPTS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </Card>
-
-          {/* 1. Client Details Section */}
-          <Card className="!p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  👤
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                      Client Details
-                    </span>
-                  </div>
-                  <h3 className="font-semibold text-masaar-black text-sm">{clientName}</h3>
-                  <p className="text-xs text-masaar-black/60">
-                    {clientCountry} {clientPhone ? `| ${clientPhone}` : ""} {clientEmail ? `| ${clientEmail}` : ""}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs text-masaar-black/60">
-                  {adults} Adults{children ? `, ${children} Children` : ""} • <span className="font-semibold text-admin-primary">{duration}</span> • <span className="font-semibold text-admin-primary">{packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingClient(!isEditingClient)}
-                  className="rounded-md border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  {isEditingClient ? "Done" : "Edit"}
-                </button>
-              </div>
-            </div>
-
-            {isEditingClient && (
-              <div className="mt-4 border-t border-black/10 pt-4 grid gap-3 sm:grid-cols-2 text-xs">
-                <Field label="Client Name">
-                  <input
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Country / City">
-                  <input
-                    value={clientCountry}
-                    onChange={(e) => setClientCountry(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Phone">
-                  <input
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Email">
-                  <input
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Duration (e.g. 3D2N, 7D6N, 10D9N)">
-                  <input
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="e.g. 3D2N"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Package Scope">
-                  <select
-                    value={packageScope}
-                    onChange={(e) => setPackageScope(e.target.value as any)}
-                    className={inputClass}
-                  >
-                    <option value="both">Makkah &amp; Madinah</option>
-                    <option value="makkah_only">Makkah only</option>
-                    <option value="madinah_only">Madinah only</option>
-                  </select>
-                </Field>
-                <Field label="Room Type">
-                  <select
-                    value={roomType}
-                    onChange={(e) => setRoomType(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="TWIN/DOUBLE">TWIN/DOUBLE</option>
-                    <option value="TRIPLE">TRIPLE</option>
-                    <option value="QUAD">QUAD</option>
-                  </select>
-                </Field>
-                <Field label="Customer Requirements / Special Requests">
-                  <input
-                    value={customerRequirement}
-                    onChange={(e) => setCustomerRequirement(e.target.value)}
-                    placeholder="e.g. Elderly wheelchair support, high floor Haram view..."
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-            )}
-          </Card>
-
-          {/* 2. Package Details Section */}
-          {!isPackageDismissed && (
-            <Card className="!p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="text-black/30 font-bold mt-2">⋮⋮</span>
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                    📦
-                  </div>
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-lg border border-black/10">
-                    <Image
-                      src="/trips/banner-image.webp"
-                      alt="Package"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                      Package
-                    </span>
-                    <h3 className="font-semibold text-masaar-black text-sm">
-                      {packageItems[0]?.description || `${document.journey_type === "hajj" ? "Hajj 2027" : "Custom Umrah"} — Signature Tier`}
-                    </h3>
-                    <p className="text-xs text-masaar-black/60">
-                      {packageItems[0]?.details || `${duration} | ${packageScope === "makkah_only" ? "Makkah only" : packageScope === "madinah_only" ? "Madinah only" : "Makkah & Madinah"} Luxury Experience with complete inclusions.`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0 space-y-1">
-                  <p className="font-bold text-masaar-black text-sm">
-                    {packageItems[0] ? `AED ${Number(packageItems[0].amount_aed).toLocaleString()}` : "Included"}
-                  </p>
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setIsPackageModalOpen(true)}
-                      className="rounded-md border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (packageItems[0]) {
-                          handleDeleteItem(packageItems[0].id);
-                        } else {
-                          setIsPackageDismissed(true);
-                        }
-                      }}
-                      className="rounded-md border border-red-200 bg-red-50/80 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-100"
-                      title="Remove package"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* 3. Itinerary Section */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  📋
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Itinerary
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    Complete Day-by-Day Journey Schedule
-                  </h3>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-light-gold/20 px-2 py-0.5 text-[10px] font-bold text-deep-gold">
-                  {itineraryDays.length} Milestones
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsEditingItinerary(true)}
-                  className="rounded border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold text-admin-primary hover:bg-light-gold/10"
-                >
-                  ✎ Edit Itinerary
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 divide-y divide-black/5 text-xs">
-              {itineraryDays.map((item: any, idx: number) => (
-                <div key={idx} className="py-2.5 flex items-start gap-3 group">
-                  <span className="flex size-5 items-center justify-center rounded-full bg-admin-primary text-[10px] font-bold text-white shrink-0 mt-0.5">
-                    {item.day || idx + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-masaar-black">{item.title}</p>
-                    <p className="text-masaar-black/60 text-[11px] mt-0.5">{item.desc}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItineraryDay(idx)}
-                    className="opacity-0 group-hover:opacity-100 text-[11px] text-red-500 hover:underline shrink-0"
-                    title="Remove day"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsEditingItinerary(true)}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-admin-primary/40 py-2 text-xs font-semibold text-admin-primary hover:bg-light-gold/10"
-            >
-              <span>+</span> Add Milestone or Custom Day
-            </button>
-          </Card>
-
-          {/* 4. Accommodation Section */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  🏨
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Accommodation
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    Hotels &amp; Room Configuration
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openHotelModal(null)}
-                className="text-xs text-admin-primary font-semibold hover:underline"
-              >
-                + Add Hotel
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {hotelItems.length === 0 ? (
-                <p className="text-xs text-masaar-black/50 italic py-2">
-                  No hotel configured yet. Click &quot;+ Add Hotel&quot; to select from inventory or enter manually.
-                </p>
-              ) : (
-                hotelItems.map((h) => {
-                  const img = getHotelImage(h.description);
-                  return (
-                    <div key={h.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
-                          <Image src={img} alt="Hotel" fill className="object-cover" unoptimized />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-masaar-black text-xs">{h.description}</p>
-                          <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{h.details || `${h.quantity} Nights • 5★ Hotel`}</p>
-                          <p className="text-[11px] text-admin-primary font-semibold mt-1">
-                            {h.quantity} Nights @ AED {Number(h.unit_price_aed).toLocaleString()}/night
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 space-y-1">
-                        <p className="font-bold text-masaar-black text-xs">
-                          AED {Number(h.amount_aed ?? (h.quantity * h.unit_price_aed)).toLocaleString()}
-                        </p>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openHotelModal(h)}
-                            className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
-                          >
-                            ✎ Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItem(h.id)}
-                            className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
-                            title="Remove hotel"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </Card>
-
-          {/* 5. Transportation Section */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  🚗
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Transportation
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    Private Vehicles &amp; Chauffeur Transfers
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openTransferModal(null)}
-                className="text-xs text-admin-primary font-semibold hover:underline"
-              >
-                + Add Transfer
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {transferItems.length === 0 ? (
-                <div className="flex items-center justify-between text-xs text-masaar-black/50 py-2">
-                  <span>No specific transfer line item added yet.</span>
-                  <button
-                    type="button"
-                    onClick={() => openTransferModal(null)}
-                    className="text-admin-primary font-semibold hover:underline"
-                  >
-                    ✎ Edit Transfer
-                  </button>
-                </div>
-              ) : (
-                transferItems.map((t) => (
-                  <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
-                        <Image src={getTransportImage(t.description, t.details)} alt="Transfer" fill className="object-cover" unoptimized />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-masaar-black text-xs">{t.description}</p>
-                        <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{t.details || "Private intercity & airport transfers"}</p>
-                        <p className="text-[11px] text-admin-primary font-semibold mt-1">
-                          Qty: {t.quantity} • AED {Number(t.unit_price_aed).toLocaleString()} ea
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 space-y-1">
-                      <p className="font-bold text-masaar-black text-xs">
-                        AED {Number(t.amount_aed ?? (t.quantity * t.unit_price_aed)).toLocaleString()}
-                      </p>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openTransferModal(t)}
-                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
-                        >
-                          ✎ Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(t.id)}
-                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
-                          title="Remove transfer"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* 6. Flights Section */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  ✈️
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Flights
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    Airline Tickets &amp; Cabin Class
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openFlightModal(null)}
-                className="text-xs text-admin-primary font-semibold hover:underline"
-              >
-                + Add Flight
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {flightItems.length === 0 ? (
-                <div className="flex items-center justify-between text-xs text-masaar-black/50 py-2">
-                  <span>No flight line item configured yet.</span>
-                  <button
-                    type="button"
-                    onClick={() => openFlightModal(null)}
-                    className="text-admin-primary font-semibold hover:underline"
-                  >
-                    ✎ Edit Flight
-                  </button>
-                </div>
-              ) : (
-                flightItems.map((f) => (
-                  <div key={f.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
-                        <Image src="/Assets/IMAGE 6 FLIGHT.jpg" alt="Flight" fill className="object-cover" unoptimized />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-masaar-black text-xs">{f.description}</p>
-                        <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{f.details || "Scheduled return flights"}</p>
-                        <p className="text-[11px] text-admin-primary font-semibold mt-1">
-                          Seats: {f.quantity} • AED {Number(f.unit_price_aed).toLocaleString()} ea
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 space-y-1">
-                      <p className="font-bold text-masaar-black text-xs">
-                        AED {Number(f.amount_aed ?? (f.quantity * f.unit_price_aed)).toLocaleString()}
-                      </p>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openFlightModal(f)}
-                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
-                        >
-                          ✎ Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(f.id)}
-                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
-                          title="Remove flight"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* 7. Meals Section */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  🍽️
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Meals
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    Dining &amp; Catering Inclusions
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openMealsModal(null)}
-                className="text-xs text-admin-primary font-semibold hover:underline"
-              >
-                + Add Meals
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {mealItems.length === 0 ? (
-                <div className="flex items-center justify-between text-xs text-masaar-black/50 py-2">
-                  <span>Buffet breakfast included with 5★ hotels or customize dining.</span>
-                  <button
-                    type="button"
-                    onClick={() => openMealsModal(null)}
-                    className="text-admin-primary font-semibold hover:underline"
-                  >
-                    ✎ Edit Meals
-                  </button>
-                </div>
-              ) : (
-                mealItems.map((m) => (
-                  <div key={m.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-black/10">
-                        <Image src="/Assets/IMAGE 4.jpg" alt="Meals" fill className="object-cover" unoptimized />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-masaar-black text-xs">{m.description}</p>
-                        <p className="text-[11px] text-masaar-black/60 mt-0.5 line-clamp-2">{m.details || "Daily hotel buffet & dining inclusions"}</p>
-                        <p className="text-[11px] text-admin-primary font-semibold mt-1">
-                          Guests: {m.quantity} • AED {Number(m.unit_price_aed).toLocaleString()} ea
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 space-y-1">
-                      <p className="font-bold text-masaar-black text-xs">
-                        AED {Number(m.amount_aed ?? (m.quantity * m.unit_price_aed)).toLocaleString()}
-                      </p>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openMealsModal(m)}
-                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
-                        >
-                          ✎ Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(m.id)}
-                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
-                          title="Remove meals"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* 8. Additional Services & Add-ons */}
-          <Card className="!p-4">
-            <div className="flex items-start justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-black/30 font-bold">⋮⋮</span>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-light-gold/20 text-base">
-                  ✨
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                    Additional Services &amp; Add-ons
-                  </span>
-                  <h3 className="font-semibold text-masaar-black text-sm">
-                    Train, Ziyarat, Visa &amp; Custom Add-ons
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openAddonModal(null)}
-                className="text-xs text-admin-primary font-semibold hover:underline"
-              >
-                + Add Add-on
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {otherItems.length === 0 ? (
-                <p className="text-xs text-masaar-black/50 italic py-2">
-                  No additional services or add-ons added yet. Click &quot;+ Add Add-on&quot; to include Visa, Train, Ziyarat, etc.
-                </p>
-              ) : (
-                otherItems.map((item) => (
-                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-black/10 p-3 bg-white">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-admin-primary">
-                        {item.item_type.replace(/_/g, " ")}
-                      </span>
-                      <p className="font-bold text-masaar-black text-xs mt-0.5">{item.description}</p>
-                      {item.details && <p className="text-[11px] text-masaar-black/60 mt-0.5">{item.details}</p>}
-                      <p className="text-[11px] text-admin-primary font-semibold mt-1">
-                        Qty: {item.quantity} • AED {Number(item.unit_price_aed).toLocaleString()} ea
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0 space-y-1">
-                      <p className="font-bold text-masaar-black text-xs">
-                        AED {Number(item.amount_aed ?? (item.quantity * item.unit_price_aed)).toLocaleString()}
-                      </p>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openAddonModal(item)}
-                          className="rounded border border-black/15 bg-white px-2 py-0.5 text-[11px] font-semibold text-admin-primary hover:bg-black/[0.02]"
-                        >
-                          ✎ Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-100"
-                          title="Remove item"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* 8. Itinerary Schedule Card */}
-          <Card className="!p-4">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📋</span>
-                <div>
-                  <h3 className="font-serif text-sm font-bold text-masaar-black">
-                    Itinerary Highlights
-                  </h3>
-                  <p className="text-[11px] text-masaar-black/60">
-                    {itineraryDays.length > 0
-                      ? `${itineraryDays.length} Days Configured (${durationLabel})`
-                      : "Itinerary removed / hidden"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {itineraryDays.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm("Are you sure you want to remove the itinerary from this quotation?")) {
-                        handleSaveItinerary([]);
-                      }
-                    }}
-                    className="rounded border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100 cursor-pointer"
-                  >
-                    ✕ Remove Itinerary
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsEditingItinerary(true)}
-                  className="rounded border border-[#b37e28]/30 bg-[#FAF8F5] px-2.5 py-1 text-[11px] font-semibold text-[#865d1d] hover:bg-light-gold/20 cursor-pointer"
-                >
-                  ✎ {itineraryDays.length > 0 ? "Edit Itinerary" : "+ Add / Configure Itinerary"}
-                </button>
-              </div>
-            </div>
-
-            {itineraryDays.length > 0 ? (
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                {itineraryDays.slice(0, 4).map((d: any, i: number) => (
-                  <div key={i} className="rounded-lg border border-black/10 bg-[#FAF9F7] p-2">
-                    <p className="font-bold text-[11px] text-[#865d1d]">{d.title || `Day ${d.day || i + 1}`}</p>
-                    <p className="text-[10px] text-masaar-black/60 line-clamp-1 mt-0.5">{d.desc}</p>
-                  </div>
-                ))}
-                {itineraryDays.length > 4 && (
-                  <div className="sm:col-span-2 text-center py-1 text-[11px] text-masaar-black/50">
-                    + {itineraryDays.length - 4} more days configured
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="mt-3 p-3 rounded-lg bg-black/[0.02] text-xs text-masaar-black/50 italic text-center">
-                No itinerary schedule. This section will be hidden on client portal and PDF.
-              </div>
-            )}
-          </Card>
-
-          {/* 10. Thank You & Blessing Section */}
-          <div className="rounded-xl border-2 border-pure-gold/30 bg-warm-ivory/50 p-5 text-center">
-            <span className="text-2xl">🤲</span>
-            <h4 className="mt-1 font-serif text-lg font-bold text-masaar-black">
-              Thank You for Choosing Masaar Holidays
-            </h4>
-            <p className="font-serif italic text-xs text-masaar-black/70">
-              “Faith guides the way. We take care of the rest.”
-            </p>
-            <p className="text-[11px] text-masaar-black/60 mt-1 max-w-md mx-auto">
-              This official closing card and blessing note will appear at the conclusion of the quotation and PDF.
-            </p>
-          </div>
-
-          {/* Add Custom Item Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setNewItemType("custom");
-              setNewDesc("");
-              setNewDetails("");
-              setNewQty(1);
-              setNewPrice(0);
-              setIsAddingItem(true);
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-light-gold/50 bg-light-gold/5 p-4 text-xs font-bold text-admin-primary transition-all hover:border-light-gold hover:bg-light-gold/10"
-          >
-            <span>+</span> Add Custom Section or Custom Line Item
-          </button>
-        </div>
-
-        {/* Center Column: Add Section Palette (3 Cols) matching QUOTATION BUILDER.png */}
-        <div className="space-y-4 xl:col-span-3">
-          <Card className="!p-4 sticky top-6">
-            <div className="border-b border-black/10 pb-3">
-              <h3 className="font-serif text-base font-bold text-masaar-black">
-                Add Section
-              </h3>
-              <p className="text-xs text-masaar-black/60 mt-0.5">
-                Click or drag to add a section to your quotation.
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* STEP 2: BUILD THE JOURNEY (Q02) */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {activeStep === 2 && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Top Duration Match Banner */}
+          <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="font-serif font-bold text-sm text-black">
+                {clientName} • {journeyType.toUpperCase()}
+              </span>
+              <p className="text-xs text-black/60">
+                {formatDisplayDate(travelDate)} – {formatDisplayDate(returnDate)} ({dateMetrics.durationLabel})
               </p>
             </div>
 
-            <div className="mt-3 space-y-2 text-xs">
-              {[
-                { id: "client", label: "Client Details", icon: "👤", action: () => setIsEditingClient(true) },
-                { id: "package", label: "Package", icon: "📦", action: () => setIsPackageModalOpen(true) },
-                { id: "accommodation", label: "Accommodation", icon: "🏨", action: () => openAddSectionWithPreset("hotel", "Swissôtel Makkah — 5 Nights", "Near Haram, buffet breakfast included", 4200) },
-                { id: "transportation", label: "Transportation", icon: "🚗", action: () => openAddSectionWithPreset("transfer", "Private GMC Yukon XL", "Airport & intercity transfers", 950) },
-                { id: "flights", label: "Flights", icon: "✈️", action: () => openAddSectionWithPreset("flight", "Emirates – Business Class", "Direct scheduled return flights", 4500) },
-                { id: "meals", label: "Meals", icon: "🍽️", action: () => openAddSectionWithPreset("custom", "3 Course Meals", "Daily buffet breakfast, lunch and dinner", 1200) },
-                { id: "additional", label: "Additional Services", icon: "➕", action: () => openAddSectionWithPreset("service", "Ziyarat & Historical Tour", "Guided private tour of holy sites in Makkah & Madinah", 600) },
-                { id: "itinerary", label: "Itinerary", icon: "📋", action: () => setIsEditingItinerary(true) },
-                { id: "visa", label: "Visa Services", icon: "🛂", action: () => openAddSectionWithPreset("service", "Saudi Electronic Tourist / Umrah Visa", "Full processing with health insurance included", 750) },
-                { id: "terms", label: "Terms & Conditions", icon: "📜", action: () => {
-                  setTerms(terms || "Standard payment schedule: 50% upon confirmation, balance 14 days prior to departure. Free cancellation up to 30 days prior.");
-                  alert("Terms & Conditions added to quotation notes.");
-                }},
-                { id: "custom", label: "Custom Section", icon: "🧩", action: () => openAddSectionWithPreset("custom", "Custom Service / Inclusions", "Tailored pilgrim service as discussed", 500) },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={item.action}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 bg-white p-3 text-left font-semibold text-masaar-black shadow-xs hover:border-[#b37e28] hover:bg-[#FAF8F5] transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base">{item.icon}</span>
-                    <span className="text-xs group-hover:text-[#916d28] transition-colors">{item.label}</span>
-                  </div>
-                  <span className="text-black/30 font-bold group-hover:text-[#916d28]">⋮⋮</span>
-                </button>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Column: Preview & Summary (3 Cols) matching QUOTATION BUILDER.png */}
-        <div className="space-y-4 xl:col-span-3">
-          {/* Mini Quotation Preview Card */}
-          <div className="overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-b from-[#201D1A] to-[#12100E] text-white p-4 shadow-md relative">
-            <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
-              <span className="text-[10px] font-bold tracking-widest uppercase text-[#D4AF37]">
-                Quotation Preview
-              </span>
-              {shareToken && (
-                <Link
-                  href={`/quote/${shareToken}`}
-                  target="_blank"
-                  className="text-white/60 hover:text-white text-xs font-semibold"
-                >
-                  Preview ↗
-                </Link>
+            <div className="flex items-center gap-2">
+              {itineraryDays.length === dateMetrics.calendarDays ? (
+                <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3.5 py-1 text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  <span>✓</span> Itinerary Matches Duration ({dateMetrics.calendarDays} Days)
+                </span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1 text-xs font-bold text-amber-800">
+                    ⚠️ Mismatch: {itineraryDays.length} days listed vs {dateMetrics.calendarDays} trip days
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSyncItineraryWithDates}
+                    className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 text-xs font-bold cursor-pointer"
+                  >
+                    Sync with Dates
+                  </button>
+                </div>
               )}
-            </div>
-            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-white/10 my-3">
-              <Image
-                src="/trips/banner-image.webp"
-                alt="Preview"
-                fill
-                className="object-cover"
-                unoptimized
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-4 text-center">
-                <p className="font-serif italic text-xs text-[#D4AF37]">
-                  Tailored Journeys for a Higher Purpose
-                </p>
-                <h4 className="font-serif text-sm font-bold text-white mt-1 uppercase">
-                  {journeyType === "hajj" ? "HAJJ 2027 EXCLUSIVE PACKAGE" : "UMRAH 2026 EXCLUSIVE PACKAGE"}
-                </h4>
-                <p className="text-[9px] tracking-widest text-white/70 uppercase mt-1">
-                  FAITH • CLARITY • CARE • PEACE
-                </p>
-              </div>
             </div>
           </div>
 
-          {/* Quotation Summary Card with Manual Pricing Box */}
-          <Card className="sticky top-6">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-base font-bold text-masaar-black">
-                  Summary &amp; Pricing
-                </h3>
-                <p className="text-[10px] text-masaar-black/50">Manual pricing control</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Day-by-Day Itinerary Builder (2 Cols) */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-black">
+                    Day-by-Day Itinerary
+                  </h3>
+                  <p className="text-xs text-black/60">
+                    Add, edit, reorder and personalize every day of the client&apos;s journey.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddDay}
+                  className="rounded-xl border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold hover:bg-black/5 cursor-pointer flex items-center gap-1"
+                >
+                  <span>+</span> Add Day
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingPricing(!isEditingPricing)}
-                className="rounded-md border border-[#b37e28]/40 bg-[#FAF8F5] px-2 py-1 text-[11px] font-bold text-[#865d1d] hover:bg-[#F5ECE0]"
-              >
-                {isEditingPricing ? "Close" : "✎ Edit Price"}
-              </button>
+
+              <div className="space-y-3">
+                {itineraryDays.map((dItem, idx) => (
+                  <div
+                    key={dItem.day}
+                    className="rounded-2xl border border-black/10 bg-white p-4 shadow-xs space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-[#FAF8F5] text-xs font-bold text-[#865d1d] border border-[#c9983e]/30">
+                          {dItem.day}
+                        </span>
+                        <div>
+                          <span className="font-mono text-[10px] text-black/50 block">
+                            {formatDisplayDate(dItem.date, true)}
+                          </span>
+                          <input
+                            type="text"
+                            value={dItem.title}
+                            onChange={(e) => handleEditDayTitle(idx, e.target.value)}
+                            className="font-serif font-bold text-sm text-black border-b border-transparent hover:border-black/20 focus:border-[#b37e28] focus:outline-hidden w-full max-w-md bg-transparent"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Day Action Buttons */}
+                      <div className="flex items-center gap-1 text-xs text-black/60">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveDay(idx, "up")}
+                          disabled={idx === 0}
+                          className="p-1 hover:bg-black/5 rounded disabled:opacity-30 cursor-pointer"
+                          title="Move Day Up"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveDay(idx, "down")}
+                          disabled={idx === itineraryDays.length - 1}
+                          className="p-1 hover:bg-black/5 rounded disabled:opacity-30 cursor-pointer"
+                          title="Move Day Down"
+                        >
+                          ▼
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDay(idx)}
+                          className="p-1 hover:bg-red-50 text-red-600 rounded cursor-pointer ml-1"
+                          title="Remove Day"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    <textarea
+                      rows={2}
+                      value={dItem.desc}
+                      onChange={(e) => handleEditDayDesc(idx, e.target.value)}
+                      placeholder="Day activities and spiritual description..."
+                      className="w-full rounded-xl border border-black/10 p-2.5 text-xs text-black/80 bg-[#FAF9F6] focus:bg-white focus:border-[#b37e28] focus:outline-hidden"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Manual Pricing Editor Form */}
-            {isEditingPricing ? (
-              <div className="mt-3 space-y-2.5 rounded-xl border border-[#b37e28]/30 bg-light-gold/10 p-3 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold text-masaar-black mb-1">
-                    Package Base Price / Subtotal (AED)
-                  </label>
-                  <input
-                    type="number"
-                    value={manualSubtotal}
-                    onChange={(e) => {
-                      const sub = Number(e.target.value) || 0;
-                      setManualSubtotal(sub);
-                      if (applyVat) {
-                        const tx = Math.round(sub * 0.05 * 100) / 100;
-                        setManualTax(tx);
-                        setManualTotal(sub + tx);
-                      } else {
-                        setManualTax(0);
-                        setManualTotal(sub);
-                      }
-                    }}
-                    className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs font-bold text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
-                  />
-                </div>
-
-                {/* VAT 5% Tick Box */}
-                <div className="flex items-center justify-between rounded-lg border border-[#b37e28]/30 bg-white px-3 py-2">
-                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-masaar-black">
-                    <input
-                      type="checkbox"
-                      checked={applyVat}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setApplyVat(checked);
-                        if (checked) {
-                          const tx = Math.round(manualSubtotal * 0.05 * 100) / 100;
-                          setManualTax(tx);
-                          setManualTotal(manualSubtotal + tx);
-                        } else {
-                          setManualTax(0);
-                          setManualTotal(manualSubtotal);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-black/20 text-[#b37e28] focus:ring-[#b37e28] cursor-pointer"
-                    />
-                    <span>Apply 5% VAT</span>
-                  </label>
-                  <span className="text-xs font-bold text-[#865d1d]">
-                    AED {applyVat ? manualTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-masaar-black/70 mb-1">
-                      VAT Amount (AED)
-                    </label>
-                    <input
-                      type="number"
-                      value={manualTax}
-                      onChange={(e) => {
-                        const tx = Number(e.target.value) || 0;
-                        setManualTax(tx);
-                        setManualTotal(manualSubtotal + tx);
-                        setApplyVat(tx > 0);
-                      }}
-                      className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs font-bold text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-masaar-black/70 mb-1">
-                      Final Total (AED)
-                    </label>
-                    <input
-                      type="number"
-                      value={manualTotal}
-                      onChange={(e) => setManualTotal(Number(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-[#b37e28] bg-white px-2.5 py-1.5 text-xs font-bold text-[#865d1d] focus:outline-hidden"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-1">
+            {/* Service Catalog & Add Section (1 Col) */}
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                  <h3 className="font-serif text-base font-bold text-black flex items-center gap-2">
+                    <span>🧳</span> Service Catalogue
+                  </h3>
                   <button
                     type="button"
-                    disabled={isSavingPricing}
-                    onClick={() => handleSaveManualPricing(manualSubtotal, manualTax, manualTotal)}
-                    className="flex-1 rounded-lg bg-[#b37e28] py-2 text-xs font-bold text-white shadow-xs hover:bg-[#96671e] disabled:opacity-60 cursor-pointer"
+                    onClick={() => setIsAddServiceModalOpen(true)}
+                    className="rounded-lg bg-[#b37e28] text-white px-2.5 py-1 text-xs font-bold hover:bg-[#916d28] cursor-pointer"
                   >
-                    {isSavingPricing ? "Saving..." : "Save Pricing"}
+                    + Add Service
                   </button>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <span className="text-[10px] uppercase font-bold text-black/50 block">Added Services ({lineItems.length}):</span>
+                  {lineItems.map((li, idx) => {
+                    const imgRes = resolveServiceImage(li.item_type, li.description, li.details);
+                    return (
+                      <div
+                        key={idx}
+                        className="rounded-xl border border-black/10 p-3 bg-neutral-50 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="relative size-10 rounded-lg overflow-hidden shrink-0 bg-neutral-200">
+                            <Image
+                              src={imgRes.imageUrl}
+                              alt={imgRes.altText}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <h5 className="font-bold text-black truncate">{li.description}</h5>
+                            <span className="text-[10px] text-black/50 block">
+                              {li.quantity} {li.unit || "unit"} • AED {Number(li.unit_price_aed || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLineItem(idx)}
+                          className="text-red-500 hover:text-red-700 text-xs p-1 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bottom Step 2 Navigation */}
+                <div className="pt-3 border-t border-black/10 space-y-2">
                   <button
                     type="button"
                     onClick={() => {
-                      const itemsSubtotal = itemsList.reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-                      setManualSubtotal(itemsSubtotal);
-                      if (applyVat) {
-                        const tx = Math.round(itemsSubtotal * 0.05 * 100) / 100;
-                        setManualTax(tx);
-                        setManualTotal(itemsSubtotal + tx);
-                      } else {
-                        setManualTax(0);
-                        setManualTotal(itemsSubtotal);
-                      }
+                      handlePersistItinerary(itineraryDays);
+                      setActiveStep(3);
                     }}
-                    className="rounded-lg border border-black/15 bg-white px-2.5 py-2 text-[10px] font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
-                    title="Calculate from line items"
+                    className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] py-3 text-xs font-bold text-white shadow-xs hover:from-[#9c6d1f] hover:to-[#7d5c1f] transition-all cursor-pointer"
                   >
-                    Sum Items
+                    Save &amp; Continue to Pricing →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveStep(1)}
+                    className="w-full rounded-xl border border-black/15 bg-white py-2 text-xs font-semibold text-black hover:bg-black/5 cursor-pointer"
+                  >
+                    ← Back to Client Details
                   </button>
                 </div>
               </div>
-            ) : null}
-
-            {/* Price Breakdown Display */}
-            <div className="mt-3 space-y-2 text-xs font-sans">
-              <div className="flex justify-between text-masaar-black font-semibold">
-                <span>Total Package Price</span>
-                <span className="font-bold text-masaar-black">
-                  AED {Number(document.subtotal_aed || manualSubtotal).toLocaleString()}
-                </span>
-              </div>
-
-              {/* Sub-breakdown items */}
-              <div className="space-y-1 text-[11px] text-masaar-black/70 pl-2.5 border-l-2 border-[#b37e28]/40">
-                {itemsList.filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type)).length > 0 && (
-                  <div className="flex justify-between">
-                    <span>Hotel &amp; Transport</span>
-                    <span className="font-semibold text-masaar-black">
-                      AED {Number(
-                        itemsList
-                          .filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type))
-                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                {itemsList.filter((i) => i.item_type === "flight").length > 0 && (
-                  <div className="flex justify-between">
-                    <span>Flights ({flightItems.length > 0 ? flightItems[0].quantity : adults} Pax)</span>
-                    <span className="font-semibold text-masaar-black">
-                      AED {Number(
-                        itemsList
-                          .filter((i) => i.item_type === "flight")
-                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                {itemsList.filter((i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal")).length > 0 && (
-                  <div className="flex justify-between">
-                    <span>Add-ons &amp; Services ({itemsList.filter((i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal")).length} Inclusions)</span>
-                    <span className="font-semibold text-masaar-black">
-                      AED {Number(
-                        itemsList
-                          .filter((i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal"))
-                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                {itemsList.filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal")).length > 0 && (
-                  <div className="flex justify-between">
-                    <span>Dining &amp; Meals ({itemsList.find((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"))?.quantity || adults} Pax)</span>
-                    <span className="font-semibold text-masaar-black">
-                      AED {Number(
-                        itemsList
-                          .filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"))
-                          .reduce((s, i) => s + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0)
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-between border-t border-black/10 pt-2 font-bold text-masaar-black">
-                <span>{applyVat ? "VAT (5%)" : "VAT (0% / Inclusive)"}</span>
-                <span>AED {Number(manualTax).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-
-              <div className="flex justify-between items-center border-t-2 border-[#b37e28] pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#865d1d]">
-                  Final Total
-                </span>
-                <span className="font-serif text-lg font-bold text-masaar-black">
-                  AED {Number(document.total_aed || manualTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-masaar-black/60 pt-1 text-[11px]">
-                <span>Paid</span>
-                <span>AED {Number(document.amount_paid_aed ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-
-              <div className="flex justify-between text-masaar-black/80 font-semibold text-[11px] border-t border-black/5 pt-1">
-                <span>Balance Due</span>
-                <span>AED {Number((document.total_aed || manualTotal) - (document.amount_paid_aed ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-
-            {/* Action Buttons matching QUOTATION BUILDER.png */}
-            <div className="mt-4 space-y-2">
-              {shareToken && (
-                <Link
-                  href={`/quote/${shareToken}`}
-                  target="_blank"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#b37e28] to-[#96671e] py-3 text-xs font-bold text-white shadow-sm hover:from-[#9c6d1f] hover:to-[#845a17] transition-all"
-                >
-                  <span>👁️</span> View Full Preview
-                </Link>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <Link
-                  href={`/admin/documents/quotations/${document.id}/pdf`}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-black/15 bg-white py-2 text-[11px] font-semibold text-masaar-black shadow-xs hover:bg-black/[0.02]"
-                >
-                  <span>📄</span> Download PDF
-                </Link>
-
-                <Link
-                  href={`/admin/documents/quotations/${document.id}/send`}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-black/15 bg-white py-2 text-[11px] font-semibold text-masaar-black shadow-xs hover:bg-black/[0.02]"
-                >
-                  <span>✉️</span> Send via Email
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowShareModal(true)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-black/15 bg-white py-2 text-[11px] font-semibold text-masaar-black shadow-xs hover:bg-black/[0.02] cursor-pointer"
-                >
-                  <span>💬</span> WhatsApp
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowShareModal(true)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-[#b37e28] bg-light-gold/20 py-2 text-[11px] font-bold text-[#b37e28] shadow-xs hover:bg-light-gold/30 cursor-pointer"
-                >
-                  <span>🔗</span> Share Link
-                </button>
-              </div>
-            </div>
-
-            {/* Auto-save indicator */}
-            <div className="mt-4 rounded-xl bg-green-50 p-2.5 text-center text-[11px] font-medium text-green-800 border border-green-200/50">
-              <p>✓ Quotation is saved automatically</p>
-              <p className="text-[10px] text-green-700/70 mt-0.5">Last updated: Just now</p>
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Add Item Modal */}
-      {isAddingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="font-serif text-lg font-bold text-masaar-black">
-              Add Section / Line Item
-            </h3>
-            <p className="mt-1 text-xs text-masaar-black/60">
-              Specify item details, quantity, and unit price in AED.
-            </p>
-
-            <form onSubmit={handleAddItem} className="mt-4 space-y-3 text-xs">
-              <Field label="Section Type">
-                <select
-                  value={newItemType}
-                  onChange={(e) => setNewItemType(e.target.value as any)}
-                  className={inputClass}
-                >
-                  <option value="umrah_package">Umrah Package</option>
-                  <option value="hajj_package">Hajj Package</option>
-                  <option value="hotel">Accommodation (Hotel)</option>
-                  <option value="transfer">Transportation &amp; Transfer</option>
-                  <option value="flight">Flight</option>
-                  <option value="service">Additional Service / Visa</option>
-                  <option value="private_trip">Private Trip &amp; Ziyarat</option>
-                  <option value="custom">Custom Line Item</option>
-                </select>
-              </Field>
-
-              <Field label="Title / Description" required>
-                <input
-                  required
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="e.g. Swissôtel Makkah — 5 Nights"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Details / Inclusions">
-                <textarea
-                  rows={3}
-                  value={newDetails}
-                  onChange={(e) => setNewDetails(e.target.value)}
-                  placeholder="e.g. Twin room sharing, breakfast included, near Haram"
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Quantity">
-                  <input
-                    type="number"
-                    min="1"
-                    value={newQty}
-                    onChange={(e) => setNewQty(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Unit Price (AED)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2 border-t border-black/10 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingItem(false)}
-                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
-                >
-                  Add to Quotation
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Itinerary Modal */}
-      {isEditingItinerary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  Manage Journey Itinerary
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Customise milestone titles, descriptions, and add new days.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingItinerary(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {itineraryDays.map((d: any, idx: number) => (
-                <div key={idx} className="rounded-lg border border-black/10 p-3 bg-neutral-50/50 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-admin-primary">
-                      Milestone #{idx + 1} (Day {d.day || idx + 1})
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItineraryDay(idx)}
-                      className="text-[11px] text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  <input
-                    value={d.title}
-                    onChange={(e) => {
-                      const updated = [...itineraryDays];
-                      updated[idx] = { ...updated[idx], title: e.target.value };
-                      setItineraryDays(updated);
-                    }}
-                    placeholder="e.g. Day 1: Arrival & Umrah Performance"
-                    className={inputClass}
-                  />
-                  <textarea
-                    rows={2}
-                    value={d.desc}
-                    onChange={(e) => {
-                      const updated = [...itineraryDays];
-                      updated[idx] = { ...updated[idx], desc: e.target.value };
-                      setItineraryDays(updated);
-                    }}
-                    placeholder="Activities, transfer details, ziyarat..."
-                    className={inputClass}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Add New Day Form */}
-            <div className="mt-4 rounded-xl border border-dashed border-admin-primary/40 bg-light-gold/5 p-3.5 space-y-2">
-              <span className="text-xs font-bold text-admin-primary">+ Add New Day / Milestone</span>
-              <input
-                value={newDayTitle}
-                onChange={(e) => setNewDayTitle(e.target.value)}
-                placeholder="Day title (e.g. Day 11: Extra Ziyarat in Taif)"
-                className={inputClass}
-              />
-              <textarea
-                rows={2}
-                value={newDayDesc}
-                onChange={(e) => setNewDayDesc(e.target.value)}
-                placeholder="Day details and activities..."
-                className={inputClass}
-              />
-              <button
-                type="button"
-                onClick={handleAddItineraryDay}
-                disabled={!newDayTitle.trim()}
-                className="rounded-lg bg-light-gold px-3 py-1.5 text-xs font-bold text-masaar-black disabled:opacity-50"
-              >
-                + Add Day to Schedule
-              </button>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2 border-t border-black/10 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsEditingItinerary(false)}
-                className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveItinerary(itineraryDays)}
-                className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
-              >
-                Save Itinerary Changes
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 1. Accommodation (Hotel) Modal */}
-      {isEditingHotelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  {editingHotelId ? "Edit Accommodation" : "Add Hotel Accommodation"}
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Select city, pick from inventory or type hotel details manually.
-                </p>
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* STEP 3: FLEXIBLE PRICING & SUMMARY (Q03 — Exact match reference) */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {activeStep === 3 && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Header alert */}
+          <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-serif text-lg font-bold text-black">
+                Flexible Pricing &amp; Commercial Summary
+              </h3>
+              <p className="text-xs text-black/60">
+                Catalogue prices are defaults. Staff can enter agreed client prices or mark items as &ldquo;Price on request&rdquo;.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAddServiceModalOpen(true)}
+              className="rounded-xl bg-[#b37e28] text-white px-4 py-2 text-xs font-bold hover:bg-[#916d28] shadow-2xs cursor-pointer"
+            >
+              + Add Line Item
+            </button>
+          </div>
+
+          {/* Pricing Table (Matches FLEXIBLE PRICING & SUMMARY.png) */}
+          <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white shadow-xs">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-black/10 bg-neutral-50 uppercase text-[10px] tracking-wider text-black/60 font-bold">
+                  <th className="py-3 px-4">Service Description</th>
+                  <th className="py-3 px-3 w-20">Qty</th>
+                  <th className="py-3 px-3 w-28">Unit</th>
+                  <th className="py-3 px-3 w-32">Unit Price (AED)</th>
+                  <th className="py-3 px-3 w-28">Discount</th>
+                  <th className="py-3 px-3 w-28">Line Total</th>
+                  <th className="py-3 px-3 w-36">Status</th>
+                  <th className="py-3 px-3 text-right w-16">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5">
+                {pricingSummary.items.map((it, idx) => (
+                  <tr key={it.id || idx} className="hover:bg-black/[0.01]">
+                    <td className="py-3 px-4">
+                      <div className="font-bold text-black">{it.description}</div>
+                      {it.details && (
+                        <div className="text-[11px] text-black/60 mt-0.5">
+                          {it.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                        </div>
+                      )}
+                      {it.is_overridden && (
+                        <span className="inline-block mt-1 text-[9px] uppercase font-bold bg-[#FAF8F5] text-[#865d1d] border border-[#c9983e]/30 px-2 py-0.5 rounded">
+                          Overridden Price
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min={1}
+                        value={it.quantity}
+                        onChange={(e) => handleUpdateLineItem(idx, { quantity: Number(e.target.value) || 1 })}
+                        className="w-16 rounded border border-black/15 p-1 font-bold text-center"
+                      />
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <select
+                        value={it.unit}
+                        onChange={(e) => handleUpdateLineItem(idx, { unit: e.target.value })}
+                        className="w-full rounded border border-black/15 p-1 capitalize bg-white"
+                      >
+                        {UNIT_OPTIONS.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        disabled={it.status === "price_on_request"}
+                        value={it.unit_price_aed}
+                        onChange={(e) =>
+                          handleUpdateLineItem(idx, {
+                            unit_price_aed: Number(e.target.value) || 0,
+                            is_overridden: true,
+                          })
+                        }
+                        className="w-full rounded border border-black/15 p-1 font-mono font-bold disabled:opacity-40"
+                      />
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        disabled={it.status === "price_on_request"}
+                        value={it.discount_aed}
+                        onChange={(e) => handleUpdateLineItem(idx, { discount_aed: Number(e.target.value) || 0 })}
+                        className="w-full rounded border border-black/15 p-1 font-mono disabled:opacity-40"
+                      />
+                    </td>
+
+                    <td className="py-3 px-3 font-mono font-bold text-black">
+                      {it.status === "price_on_request"
+                        ? "—"
+                        : it.status === "included"
+                        ? "Included"
+                        : `AED ${it.amount_aed.toLocaleString()}`}
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-1.5">
+                        {it.status === "price_on_request" ? (
+                          <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                            Price on Req
+                          </span>
+                        ) : it.status === "included" ? (
+                          <span className="rounded-full bg-neutral-100 text-neutral-700 px-2 py-0.5 text-[10px] font-bold">
+                            Included
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                            Priced
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUpdateLineItem(idx, {
+                              is_price_on_request: !it.is_price_on_request,
+                            })
+                          }
+                          className="text-[10px] text-blue-600 hover:underline"
+                          title="Toggle Price on Request"
+                        >
+                          {it.is_price_on_request ? "Set Price" : "Unprice"}
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLineItem(idx)}
+                        className="text-red-500 hover:text-red-700 p-1 cursor-pointer font-bold"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pricing Adjustments & Summary Box */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Category breakdown (1 col) */}
+            <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs text-xs space-y-3">
+              <h4 className="font-serif font-bold text-black border-b border-black/10 pb-2">
+                Category Breakdown
+              </h4>
+              <div className="space-y-2">
+                <div className="flex justify-between text-black/70">
+                  <span>Hotels / Accommodation:</span>
+                  <span className="font-semibold text-black">AED {pricingSummary.categories.accommodationAed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-black/70">
+                  <span>Transfers &amp; Cabs:</span>
+                  <span className="font-semibold text-black">AED {pricingSummary.categories.transfersAed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-black/70">
+                  <span>Flights:</span>
+                  <span className="font-semibold text-black">AED {pricingSummary.categories.flightsAed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-black/70">
+                  <span>Packages:</span>
+                  <span className="font-semibold text-black">AED {pricingSummary.categories.packagesAed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-black/70">
+                  <span>Other Services &amp; Ziyarat:</span>
+                  <span className="font-semibold text-black">AED {pricingSummary.categories.otherServicesAed.toLocaleString()}</span>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingHotelModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >
-                ✕
-              </button>
+
+              {/* Staff margin inspector (CONFIDENTIAL) */}
+              <div className="rounded-xl bg-[#FAF8F5] border border-[#c9983e]/30 p-3 mt-4 text-[11px] text-[#865d1d] space-y-1">
+                <span className="font-bold block">🔒 Staff Cost Inspector (Private):</span>
+                <p>Selling Price: AED {pricingSummary.totalAed.toLocaleString()}</p>
+                <p className="text-black/50 text-[10px]">Cost and margins remain strictly internal and never appear on customer portal.</p>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveHotelSubmit} className="mt-4 space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-masaar-black">City</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setHotelCity(hotelCity === "Makkah" ? null : "Makkah")}
-                    className={`flex-1 rounded-lg border py-2 text-xs font-bold transition-all ${
-                      hotelCity === "Makkah"
-                        ? "border-[#b37e28] bg-light-gold/20 text-[#865d1d]"
-                        : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/[0.02]"
-                    }`}
-                  >
-                    🕋 Makkah {hotelCity === "Makkah" && "✓"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHotelCity(hotelCity === "Madinah" ? null : "Madinah")}
-                    className={`flex-1 rounded-lg border py-2 text-xs font-bold transition-all ${
-                      hotelCity === "Madinah"
-                        ? "border-[#b37e28] bg-light-gold/20 text-[#865d1d]"
-                        : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/[0.02]"
-                    }`}
-                  >
-                    🕌 Madinah {hotelCity === "Madinah" && "✓"}
-                  </button>
-                  {hotelCity && (
-                    <button
-                      type="button"
-                      onClick={() => setHotelCity(null)}
-                      className="px-2.5 py-2 text-xs text-masaar-black/50 hover:text-masaar-black underline"
-                    >
-                      Clear City
-                    </button>
-                  )}
-                </div>
-              </div>
+            {/* Adjustments & Taxes (1 col) */}
+            <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs text-xs space-y-3">
+              <h4 className="font-serif font-bold text-black border-b border-black/10 pb-2">
+                Taxes &amp; Manual Adjustments
+              </h4>
 
-              {availableHotels.length > 0 && (
-                <Field label="Choose from Hotel Inventory (Optional quick fill)">
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const h = availableHotels.find((x) => x.id === e.target.value);
-                      if (h) {
-                        setHotelName(h.name);
-                        if (h.city?.toLowerCase().includes("makkah")) setHotelCity("Makkah");
-                        else if (h.city?.toLowerCase().includes("madinah")) setHotelCity("Madinah");
-                        if (h.price_from_aed) setHotelPricePerNight(h.price_from_aed);
-                      }
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="">-- Or select an inventory hotel --</option>
-                    {availableHotels
-                      .filter((h) => !hotelCity || h.city?.toLowerCase() === hotelCity.toLowerCase())
-                      .map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.name} ({h.city} • {h.star_rating ? `${h.star_rating}★` : "5★"}{h.price_from_aed ? ` • AED ${h.price_from_aed}/nt` : ""})
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-              )}
-
-              <Field label="Hotel Name (manual or selected)" required>
-                <input
-                  required
-                  value={hotelName}
-                  onChange={(e) => setHotelName(e.target.value)}
-                  placeholder="e.g. Swissôtel Makkah"
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-[#FAF9F7] p-2.5">
-                <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-lg border border-black/10 bg-white">
-                  <Image
-                    src={getHotelImage(hotelName, hotelCity || undefined)}
-                    alt="Hotel Preview"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="text-[11px] text-masaar-black/70">
-                  <p className="font-bold text-masaar-black">
-                    {hotelName || "Hotel Photo Preview"}
-                  </p>
-                  <p className="text-[10px] text-masaar-black/50">
-                    Verified luxury hotel photo (hotel architecture/interior, never Ziyarat).
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Room Sharing Type">
-                  <select
-                    value={hotelRoomType}
-                    onChange={(e) => setHotelRoomType(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="TWIN/DOUBLE">TWIN/DOUBLE</option>
-                    <option value="TRIPLE">TRIPLE</option>
-                    <option value="QUAD">QUAD</option>
-                  </select>
-                </Field>
-
-                <Field label="Number of Nights">
-                  <input
-                    type="number"
-                    min="1"
-                    value={hotelNights}
-                    onChange={(e) => setHotelNights(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <Field label="Rate per Night (AED)">
+              <div>
+                <label className="font-semibold block mb-1 text-black/70">Document Discount (AED)</label>
                 <input
                   type="number"
-                  min="0"
-                  step="0.01"
-                  value={hotelPricePerNight}
-                  onChange={(e) => setHotelPricePerNight(Number(e.target.value))}
-                  className={inputClass}
+                  min={0}
+                  value={documentDiscount}
+                  onChange={(e) => setDocumentDiscount(Number(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-black/15 p-2 font-mono text-xs"
                 />
-              </Field>
+              </div>
 
-              <Field label="Hotel Inclusions &amp; Room Details">
-                <textarea
-                  rows={2}
-                  value={hotelDetails}
-                  onChange={(e) => setHotelDetails(e.target.value)}
-                  placeholder="e.g. Near Haram courtyard • 5★ luxury buffet breakfast included • High floor city view"
-                  className={inputClass}
+              <div className="pt-2 flex items-center justify-between">
+                <div>
+                  <span className="font-semibold block text-black">Apply VAT ({Math.round(vatRate * 100)}%)</span>
+                  <span className="text-[10px] text-black/50">Toggle tax inclusion</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={applyVat}
+                  onChange={(e) => setApplyVat(e.target.checked)}
+                  className="rounded border-black/20 text-[#b37e28] size-4 cursor-pointer"
                 />
-              </Field>
+              </div>
 
-              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
-                <span>Calculated Total:</span>
-                <span className="font-bold text-admin-primary">
-                  AED {Number(hotelNights * hotelPricePerNight).toLocaleString()}
+              <div className="pt-2">
+                <label className="font-semibold block mb-1 text-black/70">Manual Agreed Total Override (AED)</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Leave empty to use calculated total"
+                  value={agreedTotalOverride != null ? agreedTotalOverride : ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAgreedTotalOverride(val === "" ? null : Number(val));
+                  }}
+                  className="w-full rounded-lg border border-black/15 p-2 font-mono font-bold text-xs"
+                />
+                <span className="text-[10px] text-black/50 mt-1 block">
+                  Allows entering client-agreed lump sum without altering line items.
                 </span>
               </div>
-
-              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingHotelModalOpen(false)}
-                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
-                >
-                  Save Hotel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Transportation Modal */}
-      {isEditingTransferModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  {editingTransferId ? "Edit Transportation" : "Add Transportation"}
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Pick vehicle/transfer from inventory or manually write route, quantity, and price.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingTransferModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >
-                ✕
-              </button>
             </div>
 
-            <form onSubmit={handleSaveTransferSubmit} className="mt-4 space-y-3 text-xs">
-              <Field label="Select Vehicle Type">
-                <select
-                  value={transferVehicleType}
-                  onChange={(e) => {
-                    const v = e.target.value as "sedan" | "suv" | "staria" | "custom";
-                    setTransferVehicleType(v);
-                    if (v === "sedan") {
-                      setTransferRouteName("Private Sedan Airport Transfers (Roundtrip)");
-                      setTransferDetails("Private air-conditioned Sedan (Toyota Camry / Lexus) with dedicated professional chauffeur & luggage assistance");
-                      setTransferPrice(1000);
-                    } else if (v === "suv") {
-                      setTransferRouteName("Private GMC Yukon XL Airport Transfers (Roundtrip)");
-                      setTransferDetails("Private luxury SUV (GMC Yukon XL / Chevrolet Suburban) with dedicated professional chauffeur & meet & assist");
-                      setTransferPrice(1600);
-                    } else if (v === "staria") {
-                      setTransferRouteName("Private Family Van Airport Transfers (Roundtrip)");
-                      setTransferDetails("Spacious 7-seater Hyundai Staria / Toyota HiAce with dedicated chauffeur & ample luggage space");
-                      setTransferPrice(1300);
-                    }
-                  }}
-                  className={inputClass}
-                >
-                  <option value="sedan">🚗 Private Sedan (Toyota Camry / Lexus / Saloon Car)</option>
-                  <option value="suv">🚙 Luxury SUV (GMC Yukon XL / Suburban)</option>
-                  <option value="staria">🚐 Family Van (Hyundai Staria / Toyota HiAce)</option>
-                  <option value="custom">⚙️ Custom Route / Vehicle</option>
-                </select>
-              </Field>
+            {/* Grand Total & Next Steps (1 col) */}
+            <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs text-xs space-y-4">
+              <h4 className="font-serif font-bold text-black border-b border-black/10 pb-2">
+                Commercial Summary
+              </h4>
 
-              <div className="flex items-center gap-3 rounded-xl border border-black/10 bg-[#FAF9F7] p-2.5">
-                <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-lg border border-black/10 bg-white">
-                  <Image
-                    src={getTransportImage(transferRouteName, transferDetails)}
-                    alt="Vehicle Preview"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+              <div className="space-y-2 border-b border-black/10 pb-3">
+                <div className="flex justify-between text-black/70">
+                  <span>Subtotal:</span>
+                  <span className="font-mono font-bold text-black">AED {pricingSummary.subtotalAed.toLocaleString()}</span>
                 </div>
-                <div className="text-[11px] text-masaar-black/70">
-                  <p className="font-bold text-masaar-black">
-                    {transferVehicleType === "sedan"
-                      ? "Sedan Vehicle Photo (Toyota Camry / Lexus)"
-                      : transferVehicleType === "suv"
-                      ? "Luxury SUV Photo (GMC Yukon XL)"
-                      : transferVehicleType === "staria"
-                      ? "Family Van Photo (Hyundai Staria)"
-                      : "Vehicle Photo"}
-                  </p>
-                  <p className="text-[10px] text-masaar-black/50">
-                    This vehicle photo will appear on the client quotation and PDF.
-                  </p>
+                {pricingSummary.discountAed > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Discount:</span>
+                    <span className="font-mono font-bold">- AED {pricingSummary.discountAed.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-black/70">
+                  <span>VAT ({pricingSummary.taxRatePercent}%):</span>
+                  <span className="font-mono font-bold text-black">AED {pricingSummary.taxAed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-baseline pt-2 border-t border-black/10">
+                  <span className="font-bold text-sm text-[#865d1d]">Grand Total:</span>
+                  <span className="font-serif text-2xl font-bold text-black">
+                    AED {pricingSummary.totalAed.toLocaleString()}
+                  </span>
                 </div>
               </div>
-              {availableTransfers.length > 0 && (
-                <Field label="Choose from Transfer Inventory (Optional quick fill)">
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const t = availableTransfers.find((x) => x.id === e.target.value);
-                      if (t) {
-                        setTransferRouteName(t.route_name);
-                        if (t.price_from_aed) setTransferPrice(t.price_from_aed);
-                        if (t.vehicle_type) setTransferDetails(`Vehicle: ${t.vehicle_type} with dedicated chauffeur`);
-                      }
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="">-- Or select an inventory transfer --</option>
-                    {availableTransfers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.route_name} ({t.vehicle_type || "Private Vehicle"}{t.price_from_aed ? ` • AED ${t.price_from_aed}` : ""})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+
+              {pricingSummary.hasPriceOnRequest && (
+                <div className="rounded-lg bg-amber-50 border border-amber-300 p-2.5 text-[11px] text-amber-900">
+                  ⚠️ Note: {pricingSummary.unpricedCount} service(s) marked &ldquo;Price on request&rdquo;.
+                </div>
               )}
 
-              <Field label="Transfer / Route Title" required>
-                <input
-                  required
-                  value={transferRouteName}
-                  onChange={(e) => setTransferRouteName(e.target.value)}
-                  placeholder="e.g. Private GMC Yukon XL Transfers"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Route Details &amp; Inclusions">
-                <textarea
-                  rows={2}
-                  value={transferDetails}
-                  onChange={(e) => setTransferDetails(e.target.value)}
-                  placeholder="e.g. Jeddah Airport → Makkah Hotel • Makkah → Madinah • Madinah → Airport"
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Quantity / Vehicles">
-                  <input
-                    type="number"
-                    min="1"
-                    value={transferQty}
-                    onChange={(e) => setTransferQty(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Unit Price (AED)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={transferPrice}
-                    onChange={(e) => setTransferPrice(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
-                <span>Total Transfer Amount:</span>
-                <span className="font-bold text-admin-primary">
-                  AED {Number(transferQty * transferPrice).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
+              <div className="pt-2 space-y-2">
                 <button
                   type="button"
-                  onClick={() => setIsEditingTransferModalOpen(false)}
-                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
+                  onClick={() => handleSavePricing(4)}
+                  disabled={isPending}
+                  className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] py-3 text-xs font-bold text-white shadow-xs hover:from-[#9c6d1f] hover:to-[#7d5c1f] transition-all cursor-pointer disabled:opacity-50"
                 >
-                  Cancel
+                  {isPending ? "Saving…" : "Save & Preview Customer Quote →"}
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => handleSavePricing()}
                   disabled={isPending}
-                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
+                  className="w-full rounded-xl border border-black/15 bg-white py-2 text-xs font-semibold text-black hover:bg-black/5 cursor-pointer"
                 >
-                  Save Transfer
+                  Save Pricing as Draft
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* 3. Flight Modal */}
-      {isEditingFlightModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  {editingFlightId ? "Edit Flight" : "Add Flight Line Item"}
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Write down airline, route details, quantity of seats, and ticket price.
-                </p>
-              </div>
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* STEP 4: CUSTOMER QUOTATION VIEWER (Q04) */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {activeStep === 4 && (
+        <div className="space-y-4 animate-in fade-in">
+          <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="font-serif text-lg font-bold text-black">
+                Customer Quotation Viewer
+              </h3>
+              <p className="text-xs text-black/60">
+                Live preview of the refined Masaar Holidays digital brochure proposal.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/quote/${shareToken}`}
+                target="_blank"
+                className="rounded-xl bg-[#b37e28] text-white px-4 py-2 text-xs font-bold hover:bg-[#916d28] shadow-2xs"
+              >
+                Open in Full Tab ↗
+              </Link>
               <button
                 type="button"
-                onClick={() => setIsEditingFlightModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+                onClick={() => setActiveStep(5)}
+                className="rounded-xl border border-black/15 bg-white px-4 py-2 text-xs font-semibold hover:bg-black/5"
               >
-                ✕
+                Continue to Share →
               </button>
             </div>
+          </div>
 
-            <form onSubmit={handleSaveFlightSubmit} className="mt-4 space-y-3 text-xs">
-              <Field label="Airline &amp; Class" required>
-                <input
-                  required
-                  value={flightAirline}
-                  onChange={(e) => setFlightAirline(e.target.value)}
-                  placeholder="e.g. Emirates – Business Class"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Flight Details &amp; Route">
-                <textarea
-                  rows={2}
-                  value={flightDetails}
-                  onChange={(e) => setFlightDetails(e.target.value)}
-                  placeholder="e.g. Dubai (DXB) ⇄ Jeddah (JED) • 25kg luggage included"
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Seats / Passengers">
-                  <input
-                    type="number"
-                    min="1"
-                    value={flightQty}
-                    onChange={(e) => setFlightQty(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Price per Seat (AED)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={flightPrice}
-                    onChange={(e) => setFlightPrice(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
-                <span>Total Flight Amount:</span>
-                <span className="font-bold text-admin-primary">
-                  AED {Number(flightQty * flightPrice).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingFlightModalOpen(false)}
-                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
-                >
-                  Save Flight
-                </button>
-              </div>
-            </form>
+          {/* Embedded Customer Quotation Portal */}
+          <div className="rounded-3xl border border-black/15 overflow-hidden shadow-xl bg-[#FDFBF7]">
+            <ClientQuotationPortal
+              token={shareToken}
+              document={{
+                ...document,
+                client_name: clientName,
+                client_phone: clientPhone,
+                client_email: clientEmail,
+                journey_type: journeyType,
+                travel_date: travelDate,
+                return_date: returnDate,
+                adults,
+                children,
+                infants,
+                subtotal_aed: pricingSummary.subtotalAed,
+                discount_aed: pricingSummary.discountAed,
+                tax_aed: pricingSummary.taxAed,
+                total_aed: pricingSummary.totalAed,
+                special_requirements: JSON.stringify(itineraryDays),
+              }}
+              items={pricingSummary.items as any}
+              template={template}
+              whatsappPhone="971552276299"
+              hotelsCatalog={products?.hotels || []}
+            />
           </div>
         </div>
       )}
 
-      {/* 4. Meals Modal */}
-      {isEditingMealsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  {editingMealId ? "Edit Meals" : "Add Dining & Meals"}
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Write down meal plan, catering inclusions, quantity, and price.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingMealsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >
-                ✕
-              </button>
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* STEP 5: SHARE QUOTATION WITH CLIENT (Q05) */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {activeStep === 5 && (
+        <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in">
+          <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-md space-y-6">
+            <div className="border-b border-black/10 pb-4">
+              <h3 className="font-serif text-xl font-bold text-black flex items-center gap-2">
+                <span>🔗</span> Share Quotation with {clientName}
+              </h3>
+              <p className="text-xs text-black/60 mt-1">
+                Quotation: <strong>{document.document_number}</strong> • Total: AED {pricingSummary.totalAed.toLocaleString()}
+              </p>
             </div>
 
-            <form onSubmit={handleSaveMealsSubmit} className="mt-4 space-y-3 text-xs">
-              <Field label="Meal Plan Title" required>
+            {/* Direct Link Section */}
+            <div className="space-y-1.5 text-xs">
+              <label className="font-bold text-black/70 uppercase text-[10px] tracking-wider">
+                Direct Customer Quotation Link
+              </label>
+              <div className="flex items-center gap-2">
                 <input
-                  required
-                  value={mealTitle}
-                  onChange={(e) => setMealTitle(e.target.value)}
-                  placeholder="e.g. Daily 3-Course Gourmet Meals"
-                  className={inputClass}
+                  type="text"
+                  readOnly
+                  value={publicShareUrl}
+                  className="flex-1 rounded-lg border border-black/15 bg-neutral-50 p-2.5 font-mono text-xs select-all"
                 />
-              </Field>
-
-              <Field label="Dining Inclusions">
-                <textarea
-                  rows={2}
-                  value={mealDetails}
-                  onChange={(e) => setMealDetails(e.target.value)}
-                  placeholder="e.g. Daily breakfast, lunch, and dinner buffet at 5-star hotel restaurant."
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Pax / Portions">
-                  <input
-                    type="number"
-                    min="1"
-                    value={mealQty}
-                    onChange={(e) => setMealQty(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Price per Pax (AED)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={mealPrice}
-                    onChange={(e) => setMealPrice(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
-                <span>Total Meals Amount:</span>
-                <span className="font-bold text-admin-primary">
-                  AED {Number(mealQty * mealPrice).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingMealsModalOpen(false)}
-                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
-                >
-                  Save Meals
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Add-ons Modal */}
-      {isEditingAddonModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  {editingAddonId ? "Edit Add-on" : "Add Service / Add-on"}
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Add Visa, Train, Ziyarat tours, or custom pilgrim add-ons.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingAddonModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveAddonSubmit} className="mt-4 space-y-3 text-xs">
-              <Field label="Quick Add-on Presets">
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { title: "Saudi Electronic Tourist / Umrah Visa", price: 550, desc: "1-year multiple entry visa with medical insurance coverage across KSA." },
-                    { title: "Haramain High-Speed Train (Business)", price: 320, desc: "Direct business-class transit between Makkah & Madinah." },
-                    { title: "Guided Historical Makkah & Madinah Ziyarat", price: 600, desc: "Private historical tour to Cave Hira, Mount Thawr, Uhud, and Quba with licensed guide." },
-                  ].map((p, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setAddonTitle(p.title);
-                        setAddonPrice(p.price);
-                        setAddonDetails(p.desc);
-                      }}
-                      className="rounded border border-black/10 bg-black/[0.03] px-2 py-1 text-[11px] font-medium text-masaar-black/80 hover:bg-light-gold/20 hover:border-[#b37e28]"
-                    >
-                      {p.title.split("(")[0].split("/")[0].trim()}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-
-              <Field label="Add-on Title" required>
-                <input
-                  required
-                  value={addonTitle}
-                  onChange={(e) => setAddonTitle(e.target.value)}
-                  placeholder="e.g. Haramain High Speed Train"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Add-on Details">
-                <textarea
-                  rows={2}
-                  value={addonDetails}
-                  onChange={(e) => setAddonDetails(e.target.value)}
-                  placeholder="e.g. Business class seats with seat reservations"
-                  className={inputClass}
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Quantity">
-                  <input
-                    type="number"
-                    min="1"
-                    value={addonQty}
-                    onChange={(e) => setAddonQty(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Unit Price (AED)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={addonPrice}
-                    onChange={(e) => setAddonPrice(Number(e.target.value))}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-
-              <div className="rounded-lg bg-light-gold/10 p-2.5 text-xs text-masaar-black/80 flex justify-between items-center">
-                <span>Total Add-on Amount:</span>
-                <span className="font-bold text-admin-primary">
-                  AED {Number(addonQty * addonPrice).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingAddonModalOpen(false)}
-                  className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark"
-                >
-                  Save Add-on
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Itinerary Editor Modal */}
-      {isEditingItinerary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-black/10 pb-3">
-              <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
-                  Edit Itinerary Highlights ({itineraryDays.length} Days)
-                </h3>
-                <p className="text-xs text-masaar-black/60 mt-0.5">
-                  Configure daily highlights and milestones. Shows on quotation viewer and PDF.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingItinerary(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-black/5 bg-[#FAF9F7] px-3 rounded-lg my-3">
-              <span className="text-xs text-masaar-black/70">
-                Duration: <strong>{durationLabel}</strong>
-              </span>
-              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    const generated = generateItineraryForDays(durationDays, journeyType === "hajj");
-                    setItineraryDays(generated);
+                    navigator.clipboard.writeText(publicShareUrl);
+                    setSaveSuccessMsg("Link copied to clipboard!");
                   }}
-                  className="rounded border border-[#b37e28]/30 bg-white px-2.5 py-1 text-xs font-semibold text-[#865d1d] hover:bg-light-gold/20 cursor-pointer"
+                  className="rounded-lg bg-[#b37e28] text-white px-4 py-2.5 font-bold hover:bg-[#916d28] cursor-pointer"
                 >
-                  🔄 Auto-Generate for {durationDays} Days
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setItineraryDays([])}
-                  className="rounded border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 cursor-pointer"
-                >
-                  ✕ Clear All (Hide Itinerary)
+                  Copy Link
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
-              {itineraryDays.length === 0 ? (
-                <div className="p-8 text-center text-masaar-black/50 italic bg-black/[0.02] rounded-xl">
-                  Itinerary is currently cleared. Saving will hide the Itinerary section on the quotation viewer and PDF.
-                </div>
-              ) : (
-                itineraryDays.map((d: any, idx: number) => (
-                  <div key={idx} className="rounded-xl border border-black/10 bg-[#FAF9F7] p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#865d1d]">
-                        Day {idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItineraryDay(idx)}
-                        className="text-red-500 hover:text-red-700 text-xs font-semibold cursor-pointer"
-                      >
-                        ✕ Remove
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={d.title || ""}
-                      onChange={(e) => {
-                        const updated = [...itineraryDays];
-                        updated[idx] = { ...updated[idx], title: e.target.value };
-                        setItineraryDays(updated);
-                      }}
-                      placeholder={`Day ${idx + 1} Title`}
-                      className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs font-medium text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
-                    />
-                    <textarea
-                      rows={2}
-                      value={d.desc || ""}
-                      onChange={(e) => {
-                        const updated = [...itineraryDays];
-                        updated[idx] = { ...updated[idx], desc: e.target.value };
-                        setItineraryDays(updated);
-                      }}
-                      placeholder="Description of activities..."
-                      className="w-full rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
-                    />
-                  </div>
-                ))
-              )}
+            {/* WhatsApp Section */}
+            <div className="border-t border-black/10 pt-4 space-y-3 text-xs">
+              <label className="font-bold text-black/70 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                <span className="text-[#25D366]">💬</span> Dispatch via WhatsApp
+              </label>
 
-              {/* Add day button */}
-              <div className="pt-2 border-t border-black/10 flex gap-2">
+              <div>
+                <span className="text-black/60 block mb-1">Customer Phone Number:</span>
                 <input
-                  type="text"
-                  placeholder="New Day Title..."
-                  value={newDayTitle}
-                  onChange={(e) => setNewDayTitle(e.target.value)}
-                  className="flex-1 rounded-lg border border-black/20 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-[#b37e28] focus:outline-hidden"
+                  type="tel"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  placeholder="+971 55 227 6299"
+                  className="w-full rounded-lg border border-black/15 p-2.5 text-xs"
                 />
-                <button
-                  type="button"
-                  onClick={handleAddItineraryDay}
-                  className="rounded-lg bg-black/5 hover:bg-black/10 px-3 py-1.5 text-xs font-bold text-masaar-black cursor-pointer"
-                >
-                  + Add Day
-                </button>
               </div>
+
+              <div>
+                <span className="text-black/60 block mb-1">Formatted WhatsApp Message Preview:</span>
+                <textarea
+                  rows={8}
+                  readOnly
+                  value={`Assalamu Alaikum ${clientName || "Valued Guest"},
+
+Please find your personalised Masaar Holidays quotation.
+
+Quotation: ${document.document_number}
+Journey: ${journeyType.toUpperCase()}
+Travel dates: ${formatDisplayDate(travelDate)} – ${formatDisplayDate(returnDate)}
+Travellers: ${adults} Adults${children ? `, ${children} Children` : ""}
+Total: AED ${pricingSummary.totalAed.toLocaleString()}
+
+You can review your quotation and respond here:
+${publicShareUrl}
+
+For any changes or questions, please reply to this message.
+
+JazakAllahu Khairan,
+Masaar Holidays`}
+                  className="w-full rounded-xl border border-black/15 p-3 text-xs font-mono bg-[#FAF9F6] text-black leading-relaxed"
+                />
+              </div>
+
+              <a
+                href={`https://wa.me/${clientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Assalamu Alaikum ${clientName || "Valued Guest"},
+
+Please find your personalised Masaar Holidays quotation.
+
+Quotation: ${document.document_number}
+Journey: ${journeyType.toUpperCase()}
+Travel dates: ${formatDisplayDate(travelDate)} – ${formatDisplayDate(returnDate)}
+Travellers: ${adults} Adults${children ? `, ${children} Children` : ""}
+Total: AED ${pricingSummary.totalAed.toLocaleString()}
+
+You can review your quotation and respond here:
+${publicShareUrl}
+
+For any changes or questions, please reply to this message.
+
+JazakAllahu Khairan,
+Masaar Holidays`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full rounded-xl bg-[#25D366] hover:bg-[#20ba59] py-3 text-xs font-bold text-white flex items-center justify-center gap-2 shadow-sm transition-colors"
+              >
+                <span>💬</span> Open in WhatsApp
+              </a>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2 border-t border-black/10 pt-4">
-              <button
-                type="button"
-                onClick={() => setIsEditingItinerary(false)}
-                className="rounded-lg border border-black/15 px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/[0.02] cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => handleSaveItinerary(itineraryDays)}
-                className="rounded-lg bg-admin-primary px-4 py-2 text-xs font-bold text-white hover:bg-admin-primary-dark cursor-pointer"
-              >
-                Save Itinerary
-              </button>
+            {/* Version History */}
+            <div className="border-t border-black/10 pt-4 space-y-2 text-xs">
+              <span className="font-bold text-black/70 block">Quotation Version History:</span>
+              <div className="space-y-1.5">
+                {versions.length === 0 ? (
+                  <p className="text-black/40 text-[11px]">Version 1 (Initial Draft)</p>
+                ) : (
+                  versions.map((v) => (
+                    <div key={v.id} className="flex justify-between items-center bg-neutral-50 p-2 rounded-lg border border-black/5 text-[11px]">
+                      <span>Version {v.version_number} • Status: <strong className="capitalize">{v.status_at_version}</strong></span>
+                      <span className="text-black/40">{formatDisplayDate(v.created_at)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <CustomPackageBuilderModal
-        isOpen={isPackageModalOpen}
-        onClose={() => setIsPackageModalOpen(false)}
-        journeyType={journeyType}
-        adults={adults}
-        children={children}
-        travelDate={travelDate}
-        returnDate={returnDate}
-        onSavePackage={handleSavePackageFromModal}
-      />
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* ADD SERVICE MODAL (Q02) */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {isAddServiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <h3 className="font-serif text-lg font-bold text-black">
+                Add Service to Journey
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddServiceModalOpen(false)}
+                className="text-black/40 hover:text-black font-bold"
+              >
+                ✕
+              </button>
+            </div>
 
-      {/* Share with Passenger Modal */}
+            <form onSubmit={handleAddServiceSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-semibold block mb-1 text-black/70">Category</label>
+                <select
+                  value={selectedServiceCategory}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    setSelectedServiceCategory(cat);
+                    if (cat === "hotel") setNewServiceUnit("night");
+                    else if (cat === "flight") setNewServiceUnit("ticket");
+                    else if (cat === "transfer") setNewServiceUnit("transfer");
+                    else setNewServiceUnit("item");
+                  }}
+                  className="w-full rounded-lg border border-black/15 p-2.5 text-xs bg-white text-black"
+                >
+                  <option value="hotel">Accommodation / Hotel</option>
+                  <option value="flight">Flight</option>
+                  <option value="train">Haramain High Speed Train</option>
+                  <option value="transfer">Private Transfer / Chauffeur</option>
+                  <option value="private_trip">Private Trip / Ziyarat</option>
+                  <option value="visa">Visa Service</option>
+                  <option value="esim">eSIM &amp; Connectivity</option>
+                  <option value="meals">Meals &amp; Catering</option>
+                  <option value="service">Guide &amp; Dedicated Assistance</option>
+                  <option value="custom">Custom Service</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold block mb-1 text-black/70">Service Name / Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Swissôtel Makkah / GMC Yukon Airport Transfer"
+                  value={newServiceName}
+                  onChange={(e) => setNewServiceName(e.target.value)}
+                  className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold block mb-1 text-black/70">Details / Specifications</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 5★ Luxury Kaaba view • Breakfast Included"
+                  value={newServiceDetails}
+                  onChange={(e) => setNewServiceDetails(e.target.value)}
+                  className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Quantity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={newServiceQty}
+                    onChange={(e) => setNewServiceQty(Number(e.target.value) || 1)}
+                    className="w-full rounded-lg border border-black/15 p-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Unit</label>
+                  <input
+                    type="text"
+                    value={newServiceUnit}
+                    onChange={(e) => setNewServiceUnit(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Unit Price (AED)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newServicePrice}
+                    onChange={(e) => setNewServicePrice(Number(e.target.value) || 0)}
+                    className="w-full rounded-lg border border-black/15 p-2 text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-black/10">
+                <button
+                  type="button"
+                  onClick={() => setIsAddServiceModalOpen(false)}
+                  className="rounded-xl border border-black/15 px-4 py-2 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-[#b37e28] text-white px-5 py-2 font-bold hover:bg-[#916d28]"
+                >
+                  Add Service
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Share Quotation Modal Component */}
       <ShareQuotationModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        document={{
-          ...document,
-          total_aed: document.total_aed,
-          client_name: clientName,
-          client_phone: clientPhone,
-          client_email: clientEmail,
-          journey_type: journeyType,
-          document_number: docNumber,
-        }}
-        shareToken={shareToken || document.id}
+        document={document}
+        shareToken={shareToken}
       />
     </div>
   );

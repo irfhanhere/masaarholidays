@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   DocumentItemRow,
+  DocumentItemType,
   DocumentRow,
   DocumentType,
 } from "@/lib/types/database";
@@ -20,6 +21,8 @@ export async function getDocumentDbClient() {
 
   return createClient();
 }
+
+import { calculateQuotationTotals } from "@/lib/documents/calculations";
 
 export interface CreateManualQuotationInput {
   client_name: string;
@@ -41,6 +44,10 @@ export interface CreateManualQuotationInput {
   future_crm_enquiry_id?: string;
   template_id?: string;
   valid_until?: string;
+  apply_tax?: boolean;
+  tax_rate?: number;
+  discount_aed?: number;
+  total_aed?: number;
   items?: Array<{
     item_type: any;
     description: string;
@@ -49,6 +56,8 @@ export interface CreateManualQuotationInput {
     unit_price_aed: number;
     discount_aed?: number;
     display_order?: number;
+    is_price_on_request?: boolean;
+    is_included?: boolean;
   }>;
 }
 
@@ -124,33 +133,60 @@ export async function createManualQuotationCore(input: CreateManualQuotationInpu
 
     // Insert items if provided
     if (input.items && input.items.length > 0) {
-      let subtotal = 0;
-      let discount = 0;
-      const itemsToInsert = input.items.map((item, idx) => {
-        const itemAmount = (item.quantity * item.unit_price_aed) - (item.discount_aed ?? 0);
-        subtotal += item.quantity * item.unit_price_aed;
-        discount += item.discount_aed ?? 0;
-        return {
-          document_id: inserted.id,
-          item_type: item.item_type || "custom",
-          description: item.description,
-          details: item.details || null,
-          quantity: item.quantity,
-          unit_price_aed: item.unit_price_aed,
-          discount_aed: item.discount_aed ?? 0,
-          tax_aed: 0,
-          amount_aed: itemAmount,
-          display_order: item.display_order ?? idx,
-        };
-      });
+      const pricingSummary = calculateQuotationTotals(
+        input.items.map((it) => ({
+          item_type: it.item_type,
+          description: it.description,
+          details: it.details,
+          quantity: it.quantity,
+          unit_price_aed: it.unit_price_aed,
+          discount_aed: it.discount_aed,
+          is_price_on_request: Boolean(it.is_price_on_request),
+          is_included: Boolean(it.is_included || it.unit_price_aed === 0),
+        })),
+        {
+          applyVat: Boolean(input.apply_tax),
+          vatRate: input.tax_rate ?? 0.05,
+          documentDiscountAed: input.discount_aed,
+          agreedTotalOverride: input.total_aed,
+        }
+      );
+
+      const normalizeItemType = (type?: string): DocumentItemType => {
+        const t = (type || "").toLowerCase();
+        if (t === "hotel" || t === "accommodation") return "hotel";
+        if (t === "flight") return "flight";
+        if (t === "transfer" || t.includes("transport") || t.includes("cab") || t === "train") return "transfer";
+        if (t === "private_trip" || t.includes("ziyarat")) return "private_trip";
+        if (t.includes("umrah")) return "umrah_package";
+        if (t.includes("hajj")) return "hajj_package";
+        if (t === "service" || t === "visa" || t === "esim" || t === "meal") return "service";
+        return "custom";
+      };
+
+      const itemsToInsert = pricingSummary.items.map((item, idx) => ({
+        document_id: inserted.id,
+        item_type: normalizeItemType(item.item_type),
+        description: item.description,
+        details: item.details || null,
+        quantity: item.quantity,
+        unit_price_aed: item.unit_price_aed,
+        discount_aed: item.discount_aed,
+        tax_aed: 0,
+        amount_aed: item.amount_aed,
+        display_order: item.display_order ?? idx,
+      }));
 
       await supabase.from("document_items").insert(itemsToInsert);
 
-      const tax = Math.round((subtotal - discount) * 0.05 * 100) / 100;
-      const total = Math.round((subtotal - discount + tax) * 100) / 100;
       await supabase
         .from("documents")
-        .update({ subtotal_aed: subtotal, discount_aed: discount, tax_aed: tax, total_aed: total })
+        .update({
+          subtotal_aed: pricingSummary.subtotalAed,
+          discount_aed: pricingSummary.discountAed,
+          tax_aed: pricingSummary.taxAed,
+          total_aed: pricingSummary.totalAed,
+        })
         .eq("id", inserted.id);
     }
 

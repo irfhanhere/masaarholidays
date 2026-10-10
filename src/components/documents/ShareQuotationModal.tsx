@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useTransition } from "react";
 import type { DocumentRow } from "@/lib/types/database";
+import {
+  calculateDateRangeMetrics,
+  formatDisplayDate,
+} from "@/lib/documents/calculations";
 
 export function ShareQuotationModal({
   isOpen,
@@ -17,24 +20,18 @@ export function ShareQuotationModal({
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
-  const [customPhone, setCustomPhone] = useState(document.client_phone || "");
+  const [clientPhone, setClientPhone] = useState(document.client_phone || "");
+  const [isPending, startTransition] = useTransition();
+
   const [useProductionUrl, setUseProductionUrl] = useState(() => {
     if (typeof window !== "undefined") {
-      return !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
+      return (
+        !window.location.hostname.includes("localhost") &&
+        !window.location.hostname.includes("127.0.0.1")
+      );
     }
     return true;
   });
-
-  // All computations must run before any early return (Rules of Hooks)
-  const docType = document.document_type || "quotation";
-  const docTypeLabel =
-    docType === "invoice"
-      ? "Invoice"
-      : docType === "receipt"
-      ? "Receipt"
-      : docType === "booking_voucher"
-      ? "Booking Voucher"
-      : "Quotation";
 
   const effectiveToken = shareToken || document.id;
   const prodOrigin = "https://masaarholidays.com";
@@ -42,53 +39,59 @@ export function ShareQuotationModal({
   const activeOrigin = useProductionUrl ? prodOrigin : localOrigin;
   const publicUrl = `${activeOrigin}/quote/${effectiveToken}`;
 
-  const defaultWhatsappMessage =
-    docType === "invoice"
-      ? `Assalamu Alaikum ${document.client_name},
+  // Date and duration calculations from saved data
+  const dateMetrics = calculateDateRangeMetrics(
+    document.travel_date,
+    document.return_date,
+    4
+  );
 
-Your Masaar Holidays invoice (${document.document_number}) is ready.
+  const travelDatesFormatted =
+    document.travel_date && document.return_date
+      ? `${formatDisplayDate(dateMetrics.startDate)} – ${formatDisplayDate(dateMetrics.endDate)}`
+      : "To be confirmed";
 
-Please review your invoice details here:
+  const travellerParts: string[] = [];
+  if (document.adults) travellerParts.push(`${document.adults} Adults`);
+  if (document.children) travellerParts.push(`${document.children} Children`);
+  if (document.infants) travellerParts.push(`${document.infants} Infants`);
+  const travellerSummary = travellerParts.length > 0 ? travellerParts.join(", ") : "2 Adults";
+
+  const journeyLabel =
+    document.journey_type === "hajj"
+      ? "Hajj Pilgrimage"
+      : document.journey_type === "hotel"
+      ? "Hotel Booking"
+      : document.journey_type === "transfer"
+      ? "Private Transfer"
+      : document.journey_type === "private_trip"
+      ? "Private Trip / Ziyarat"
+      : "Umrah Pilgrimage";
+
+  // Check if unpriced
+  const totalAmount = Number(document.total_aed || 0);
+  const totalString = totalAmount > 0 ? `AED ${totalAmount.toLocaleString()}` : "Awaiting Supplier Confirmation";
+
+  // Default WhatsApp message according to exact Q05 specification
+  const defaultWhatsappMessage = `Assalamu Alaikum ${document.client_name || "Valued Guest"},
+
+Please find your personalised Masaar Holidays quotation.
+
+Quotation: ${document.document_number}
+Journey: ${journeyLabel}
+Travel dates: ${travelDatesFormatted}
+Travellers: ${travellerSummary}
+Total: ${totalString}
+
+You can review your quotation and respond here:
 ${publicUrl}
 
-Warm regards,
-Masaar Holidays`
-      : docType === "receipt"
-      ? `Assalamu Alaikum ${document.client_name},
+For any changes or questions, please reply to this message.
 
-Thank you for your payment. Your Masaar Holidays receipt (${document.document_number}) is ready.
-
-View your official receipt here:
-${publicUrl}
-
-Amount Paid: AED ${Number(document.amount_paid_aed ?? document.total_aed ?? 0).toLocaleString()}
-
-Warm regards,
-Masaar Holidays`
-      : docType === "booking_voucher"
-      ? `Assalamu Alaikum ${document.client_name},
-
-Your Masaar Holidays booking confirmation voucher (${document.document_number}) is confirmed.
-
-Access your voucher here:
-${publicUrl}
-
-Warm regards,
-Masaar Holidays`
-      : `Assalamu Alaikum ${document.client_name},
-
-Your personalised Masaar Holidays quotation (${document.document_number}) is ready!
-
-Please review your travel plan, hotel accommodations, and inclusions here:
-${publicUrl}
-
-If you would like any revisions or wish to proceed with your booking, feel free to let us know.
-
-Warm regards,
+JazakAllahu Khairan,
 Masaar Holidays`;
 
-  // whatsappText MUST be called here — before any early return — to satisfy React Rules of Hooks.
-  const [whatsappText, setWhatsappText] = useState(defaultWhatsappMessage);
+  const [editableMessage, setEditableMessage] = useState(defaultWhatsappMessage);
 
   if (!isOpen) return null;
 
@@ -97,18 +100,18 @@ Masaar Holidays`;
       if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(publicUrl);
       } else {
-        throw new Error("fallback");
+        const textarea = window.document.createElement("textarea");
+        textarea.value = publicUrl;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        window.document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        window.document.execCommand("copy");
+        window.document.body.removeChild(textarea);
       }
     } catch {
-      const textarea = window.document.createElement("textarea");
-      textarea.value = publicUrl;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      window.document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      window.document.execCommand("copy");
-      window.document.body.removeChild(textarea);
+      // fallback
     }
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
@@ -117,133 +120,131 @@ Masaar Holidays`;
   async function handleCopyMessage() {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(whatsappText);
+        await navigator.clipboard.writeText(editableMessage);
       } else {
-        throw new Error("fallback");
+        const textarea = window.document.createElement("textarea");
+        textarea.value = editableMessage;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        window.document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        window.document.execCommand("copy");
+        window.document.body.removeChild(textarea);
       }
     } catch {
-      const textarea = window.document.createElement("textarea");
-      textarea.value = whatsappText;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      window.document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      window.document.execCommand("copy");
-      window.document.body.removeChild(textarea);
+      // fallback
     }
     setCopiedMessage(true);
     setTimeout(() => setCopiedMessage(false), 3000);
   }
 
-  let cleanDigits = customPhone.replace(/\D/g, "");
+  let cleanDigits = clientPhone.replace(/\D/g, "");
   if (cleanDigits.startsWith("05") && cleanDigits.length === 10) {
     cleanDigits = "971" + cleanDigits.slice(1);
   }
   const whatsappHref = cleanDigits
-    ? `https://wa.me/${cleanDigits}?text=${encodeURIComponent(whatsappText)}`
-    : `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+    ? `https://wa.me/${cleanDigits}?text=${encodeURIComponent(editableMessage)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(editableMessage)}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
       <div
-        className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-black/10"
+        className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl border border-black/10 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between border-b border-black/10 pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-light-gold/30 text-admin-primary text-sm font-bold">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#FAF8F5] border border-[#c9983e]/30 text-sm font-bold text-[#865d1d]">
                 🔗
               </span>
-              <h3 className="font-serif text-lg font-bold text-masaar-black">
-                Share {docTypeLabel} with Client
+              <h3 className="font-serif text-lg font-bold text-[#1A1816]">
+                Share Quotation with Client
               </h3>
             </div>
-            <p className="mt-1 text-xs text-masaar-black/60">
-              Send this document directly to {document.client_name} ({document.document_number}).
+            <p className="mt-1 text-xs text-[#1A1816]/60">
+              Send personalised quotation {document.document_number} directly to {document.client_name}.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-masaar-black/40 hover:bg-black/5 hover:text-masaar-black transition-colors"
+            className="rounded-lg p-1 text-black/40 hover:bg-black/5 hover:text-black transition-colors"
           >
             ✕
           </button>
         </div>
 
-        {/* Client summary strip */}
-        <div className="mt-4 rounded-xl bg-warm-ivory/80 border border-light-gold/40 p-3 text-xs flex items-center justify-between">
+        {/* Client details summary strip */}
+        <div className="rounded-xl bg-[#FAF8F5] border border-[#c9983e]/30 p-3.5 text-xs grid grid-cols-3 gap-2">
           <div>
-            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Client</span>
-            <p className="font-semibold text-masaar-black">{document.client_name}</p>
+            <span className="text-[10px] uppercase font-bold text-black/50 block">Client</span>
+            <p className="font-semibold text-black truncate">{document.client_name}</p>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Document</span>
-            <p className="font-semibold text-masaar-black">{document.document_number}</p>
+            <span className="text-[10px] uppercase font-bold text-black/50 block">Duration</span>
+            <p className="font-semibold text-[#865d1d]">{dateMetrics.durationLabel}</p>
           </div>
           <div className="text-right">
-            <span className="text-[10px] uppercase font-bold text-masaar-black/50">Total Amount</span>
-            <p className="font-bold text-admin-primary">AED {Number(document.total_aed ?? 0).toLocaleString()}</p>
+            <span className="text-[10px] uppercase font-bold text-black/50 block">Agreed Total</span>
+            <p className="font-bold text-[#1A1816]">
+              {totalAmount > 0 ? `AED ${totalAmount.toLocaleString()}` : "Price on Request"}
+            </p>
           </div>
         </div>
 
-        {/* Domain Toggle for local vs production link */}
-        <div className="mt-3 flex items-center justify-between text-[11px] bg-neutral-50 px-3 py-1.5 rounded-lg border border-black/5">
-          <span className="text-black/60">Link Destination:</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setUseProductionUrl(true);
-                setWhatsappText((prev) => prev.replace(localOrigin, prodOrigin));
-              }}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                useProductionUrl
-                  ? "bg-[#b37e28] text-white shadow-2xs"
-                  : "bg-white text-black/70 border border-black/10 hover:bg-black/5"
-              }`}
-            >
-              Production (masaarholidays.com)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setUseProductionUrl(false);
-                setWhatsappText((prev) => prev.replace(prodOrigin, localOrigin));
-              }}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                !useProductionUrl
-                  ? "bg-[#b37e28] text-white shadow-2xs"
-                  : "bg-white text-black/70 border border-black/10 hover:bg-black/5"
-              }`}
-            >
-              Current ({localOrigin.replace(/^https?:\/\//, "")})
-            </button>
+        {/* SECTION 1: Client Quotation Link */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-wider text-black/60">
+              Client Quotation Link
+            </label>
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="text-black/40">URL:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUseProductionUrl(true);
+                  setEditableMessage((prev) => prev.replace(localOrigin, prodOrigin));
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  useProductionUrl ? "bg-[#b37e28] text-white" : "bg-black/5 text-black/60"
+                }`}
+              >
+                Production
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUseProductionUrl(false);
+                  setEditableMessage((prev) => prev.replace(prodOrigin, localOrigin));
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  !useProductionUrl ? "bg-[#b37e28] text-white" : "bg-black/5 text-black/60"
+                }`}
+              >
+                Current
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Section 1: Copy Link */}
-        <div className="mt-4 space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-masaar-black/60">
-            Secure Client Link
-          </label>
           <div className="flex items-center gap-2">
             <input
               type="text"
               readOnly
               value={publicUrl}
-              className="flex-1 rounded-lg border border-black/15 bg-neutral-50 px-3 py-2 text-xs font-mono text-masaar-black select-all"
+              className="flex-1 rounded-lg border border-black/15 bg-neutral-50 px-3 py-2 text-xs font-mono text-[#1A1816] select-all"
             />
             <button
               type="button"
               onClick={handleCopyLink}
               className={`rounded-lg px-4 py-2 text-xs font-bold transition-all whitespace-nowrap shadow-xs cursor-pointer ${
-                copiedLink
-                  ? "bg-green-600 text-white"
-                  : "bg-[#b37e28] text-white hover:bg-[#96681f]"
+                copiedLink ? "bg-emerald-600 text-white" : "bg-[#b37e28] text-white hover:bg-[#916d28]"
               }`}
             >
               {copiedLink ? "✓ Copied!" : "📋 Copy Link"}
@@ -252,41 +253,50 @@ Masaar Holidays`;
               href={publicUrl}
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg border border-black/15 bg-white px-3 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-black/[0.02] transition-colors"
-              title="Open Client Portal in New Tab"
+              className="rounded-lg border border-black/15 bg-white px-3 py-2 text-xs font-semibold text-black hover:bg-black/5 transition-colors"
+              title="Open customer quote in new tab"
             >
               ↗
             </a>
           </div>
         </div>
 
-        {/* Section 2: WhatsApp to Passenger */}
-        <div className="mt-5 border-t border-black/10 pt-4 space-y-3">
+        {/* SECTION 2: WhatsApp Dispatch */}
+        <div className="border-t border-black/10 pt-4 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold uppercase tracking-wider text-masaar-black/60 flex items-center gap-1.5">
-              <span className="text-green-600">💬</span> Send via WhatsApp
+            <label className="text-xs font-semibold uppercase tracking-wider text-black/60 flex items-center gap-1.5">
+              <span className="text-[#25D366]">💬</span> Send via WhatsApp
             </label>
-            <span className="text-[11px] text-masaar-black/50">Instant dispatch to client</span>
+            <span className="text-[11px] text-black/40">Instant customer dispatch</span>
           </div>
 
           <div>
-            <span className="text-[11px] text-masaar-black/60">Client Phone / WhatsApp:</span>
+            <span className="text-[11px] text-black/60 font-medium">Client Phone / WhatsApp:</span>
             <input
               type="tel"
-              value={customPhone}
-              onChange={(e) => setCustomPhone(e.target.value)}
+              value={clientPhone}
+              onChange={(e) => setClientPhone(e.target.value)}
               placeholder="e.g. +971 55 227 6299"
-              className="mt-1 w-full rounded-lg border border-black/15 px-3 py-2 text-xs text-masaar-black"
+              className="mt-1 w-full rounded-lg border border-black/15 px-3 py-2 text-xs text-[#1A1816] focus:border-[#b37e28] focus:outline-hidden"
             />
           </div>
 
           <div>
-            <span className="text-[11px] text-masaar-black/60">Personalised Message:</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-black/60 font-medium">Personalised Message Preview:</span>
+              <button
+                type="button"
+                onClick={() => setEditableMessage(defaultWhatsappMessage)}
+                className="text-[10px] text-[#865d1d] hover:underline"
+              >
+                Reset to Default
+              </button>
+            </div>
             <textarea
-              rows={4}
-              value={whatsappText}
-              onChange={(e) => setWhatsappText(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-black/15 p-2.5 text-xs text-masaar-black font-sans leading-relaxed"
+              rows={8}
+              value={editableMessage}
+              onChange={(e) => setEditableMessage(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-black/15 p-3 text-xs text-[#1A1816] font-mono leading-relaxed bg-[#FAF9F6] focus:bg-white focus:border-[#b37e28] focus:outline-hidden"
             />
           </div>
 
@@ -295,17 +305,18 @@ Masaar Holidays`;
               href={whatsappHref}
               target="_blank"
               rel="noreferrer"
-              className="flex-1 rounded-lg bg-[#25D366] px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs hover:bg-[#20ba59] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="flex-1 rounded-xl bg-[#25D366] hover:bg-[#20ba59] px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>💬</span> Send via WhatsApp
+              <span>💬</span>
+              <span>Open in WhatsApp</span>
             </a>
             <button
               type="button"
               onClick={handleCopyMessage}
-              className={`rounded-lg border px-4 py-2.5 text-xs font-semibold shadow-xs transition-colors cursor-pointer ${
+              className={`rounded-xl border px-4 py-2.5 text-xs font-semibold shadow-xs transition-colors cursor-pointer ${
                 copiedMessage
-                  ? "border-green-600 bg-green-50 text-green-700 font-bold"
-                  : "border-black/15 bg-white text-masaar-black hover:bg-black/[0.02]"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-700 font-bold"
+                  : "border-black/15 bg-white text-black hover:bg-black/5"
               }`}
             >
               {copiedMessage ? "✓ Copied Message!" : "📋 Copy Message"}
@@ -313,12 +324,13 @@ Masaar Holidays`;
           </div>
         </div>
 
-        {/* Section 3: Extra actions */}
-        <div className="mt-5 border-t border-black/10 pt-4 flex items-center justify-end">
+        {/* Footer */}
+        <div className="border-t border-black/10 pt-3 flex items-center justify-between text-xs text-black/50">
+          <span>Quote Status: <strong className="text-black capitalize">{document.status}</strong></span>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-black/15 bg-neutral-100 px-4 py-1.5 text-xs font-semibold text-masaar-black hover:bg-neutral-200 transition-colors cursor-pointer"
+            className="rounded-lg border border-black/15 px-4 py-1.5 font-medium hover:bg-black/5 text-black"
           >
             Close
           </button>

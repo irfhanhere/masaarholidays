@@ -1,78 +1,40 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { respondToQuotation } from "./actions";
-import { formatDeterministicDate } from "@/lib/date-utils";
 import type {
   DocumentItemRow,
   DocumentRow,
   DocumentTemplateRow,
 } from "@/lib/types/database";
-import { getHotelImage, getTransportImage } from "@/lib/documents/images";
-import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
+import {
+  calculateDateRangeMetrics,
+  formatDisplayDate,
+  reconcileItineraryDays,
+  calculateQuotationTotals,
+  resolveServiceImage,
+  type ItineraryDayItem,
+} from "@/lib/documents/calculations";
 import {
   formatCardWalkTime,
   formatLadiesGateWalkTime,
   formatMensGateWalkTime,
   formatDistance,
-  splitTerrainNote,
 } from "@/lib/hotel-format";
 
 const CHANGE_OPTIONS = [
-  "Hotel",
-  "Room type",
-  "Vehicle",
-  "Flight",
-  "Number of nights",
-  "Add service",
-  "Remove service",
-  "Other",
+  "Hotel Accommodation",
+  "Room Type / Sharing",
+  "Private Vehicle / Class",
+  "Flight Schedule / Class",
+  "Number of Nights / Dates",
+  "Add Service (e.g. Train, Visa)",
+  "Remove Service",
+  "Budget Adjustment",
+  "Other Requirements",
 ];
-
-function findMatchingHotel(itemDescription: string, catalog: any[]) {
-  if (!catalog || catalog.length === 0 || !itemDescription) return null;
-  const desc = itemDescription.toLowerCase().replace(/^(makkah hotel|madinah hotel)\s*[-—:]\s*/i, "").trim();
-
-  // Try exact match on name
-  let matched = catalog.find((h) => h.name.toLowerCase() === desc);
-  if (matched) return matched;
-
-  // Try contains
-  matched = catalog.find((h) => {
-    const name = h.name.toLowerCase();
-    return desc.includes(name) || name.includes(desc);
-  });
-  if (matched) return matched;
-
-  // Try keyword matching (e.g. "swissotel" & "maqam", "muna" & "kareem")
-  const keywords = desc.split(/[\s—\-–]+/).filter((w) => w.length > 3);
-  matched = catalog.find((h) => {
-    const name = h.name.toLowerCase();
-    return keywords.length > 0 && keywords.every((k) => name.includes(k));
-  });
-  if (matched) return matched;
-
-  // Partial major keywords
-  matched = catalog.find((h) => {
-    const name = h.name.toLowerCase();
-    return (
-      (desc.includes("maqam") && name.includes("maqam")) ||
-      (desc.includes("kareem") && name.includes("kareem")) ||
-      (desc.includes("muna") && name.includes("muna")) ||
-      (desc.includes("movenpick") && name.includes("movenpick")) ||
-      (desc.includes("hilton") && name.includes("hilton")) ||
-      (desc.includes("fairmont") && name.includes("fairmont")) ||
-      (desc.includes("conrad") && name.includes("conrad")) ||
-      (desc.includes("oberoi") && name.includes("oberoi")) ||
-      (desc.includes("dar al iman") && name.includes("dar al iman")) ||
-      (desc.includes("dar al taqwa") && name.includes("dar al taqwa"))
-    );
-  });
-
-  return matched || null;
-}
 
 export function ClientQuotationPortal({
   token,
@@ -94,29 +56,114 @@ export function ClientQuotationPortal({
   const [currentStatus, setCurrentStatus] = useState(document.status);
   const [isPending, startTransition] = useTransition();
 
-  // Change Request Modal State (Exact match EDITING QUOTATION.png Step 3)
+  // Modals
+  const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
+
+  // Modal form states
   const [selectedChanges, setSelectedChanges] = useState<Set<string>>(new Set());
   const [changeMessage, setChangeMessage] = useState("");
-  const [requestSent, setRequestSent] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
   const [acceptedNotice, setAcceptedNotice] = useState(currentStatus === "accepted");
-  const [showAcceptCelebration, setShowAcceptCelebration] = useState(false);
+  const [declinedNotice, setDeclinedNotice] = useState(currentStatus === "rejected");
 
   const cleanPhone = (whatsappPhone || "971552276299").replace(/\D/g, "");
+  const isHajj = document.journey_type === "hajj";
+  const journeyTitle = isHajj
+    ? `Your Hajj Journey Proposal`
+    : `Your Personalised Umrah Journey Proposal`;
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("print") === "true" || isPrintMode) {
-        const timer = setTimeout(() => {
-          window.print();
-        }, 800);
-        return () => clearTimeout(timer);
-      }
+  // 1. Authoritative date and duration metrics (single source of truth)
+  const dateMetrics = calculateDateRangeMetrics(
+    document.travel_date,
+    document.return_date,
+    4
+  );
+
+  // 2. Authoritative pricing calculation
+  const pricing = calculateQuotationTotals(
+    items.map((it) => ({
+      id: it.id,
+      item_type: it.item_type,
+      description: it.description,
+      details: it.details,
+      quantity: it.quantity,
+      unit_price_aed: it.unit_price_aed,
+      discount_aed: it.discount_aed,
+      is_price_on_request: it.details?.includes("[price_on_request]") || false,
+      is_included: it.unit_price_aed === 0,
+    })),
+    {
+      applyVat: document.tax_aed != null ? Number(document.tax_aed) > 0 : false,
+      vatRate: 0.05,
+      documentDiscountAed: Number(document.discount_aed) || 0,
+      agreedTotalOverride: Number(document.total_aed) || null,
     }
-  }, [isPrintMode]);
+  );
 
-  function handleAccept() {
+  // 3. Authoritative itinerary reconciliation (exact calendar days match)
+  let savedItinerary: ItineraryDayItem[] = [];
+  if (document.special_requirements) {
+    try {
+      const parsed = JSON.parse(document.special_requirements);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        savedItinerary = parsed;
+      }
+    } catch {}
+  }
+  const displayItinerary = reconcileItineraryDays(
+    savedItinerary,
+    dateMetrics.calendarDays,
+    dateMetrics.startDate,
+    isHajj
+  );
+
+  // 4. Categorized services
+  const hotels = items.filter(
+    (i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation"
+  );
+  const flights = items.filter((i) => i.item_type === "flight");
+  const trains = items.filter(
+    (i) =>
+      (i.item_type as any) === "train" ||
+      i.description.toLowerCase().includes("train") ||
+      i.description.toLowerCase().includes("haramain")
+  );
+  const transfers = items.filter(
+    (i) =>
+      i.item_type === "transfer" &&
+      !i.description.toLowerCase().includes("train") &&
+      !i.description.toLowerCase().includes("haramain")
+  );
+  const otherServices = items.filter(
+    (i) =>
+      !["hotel", "accommodation", "flight", "transfer", "umrah_package", "hajj_package"].includes(
+        i.item_type
+      ) &&
+      !i.description.toLowerCase().includes("train") &&
+      !i.description.toLowerCase().includes("haramain")
+  );
+
+  const publicUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/quote/${token}`
+      : `https://masaarholidays.com/quote/${token}`;
+
+  // WhatsApp contact URLs
+  const generalWaText = `Assalamu Alaikum Masaar Holidays, I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${pricing.totalAed.toLocaleString()}) and would like to speak with a travel advisor.\n\nLink: ${publicUrl}`;
+  const generalWaUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(generalWaText)}`;
+
+  const acceptWaText = `Assalamu Alaikum Masaar Holidays,
+I am pleased to confirm that I have accepted Quotation ${document.document_number} for ${document.client_name} (Total: AED ${pricing.totalAed.toLocaleString()}).
+
+Please proceed with booking confirmation, official invoice, and payment schedule.
+Quotation link: ${publicUrl}
+
+JazakAllahu Khairan!`;
+  const acceptWaUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(acceptWaText)}`;
+
+  function handleAcceptConfirm() {
     startTransition(async () => {
       try {
         const next = await respondToQuotation(token, "accept");
@@ -124,19 +171,23 @@ export function ClientQuotationPortal({
       } catch (err) {
         console.error("Accept quotation error:", err);
       }
+      setIsAcceptModalOpen(false);
       setAcceptedNotice(true);
-      setShowAcceptCelebration(true);
     });
   }
 
-  const acceptWaText = `Assalamu Alaikum Masaar Holidays,
-I am pleased to confirm that I have accepted Quotation ${document.document_number} for ${document.client_name} (Total: AED ${Number(document.total_aed || 9240).toLocaleString()}).
-
-Please proceed with booking confirmation, official invoice, and payment schedule.
-Quotation link: ${typeof window !== "undefined" ? window.location.origin : "https://masaarholidays.com"}/quote/${token}
-
-JazakAllahu Khairan!`;
-  const acceptWaUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(acceptWaText)}`;
+  function handleDeclineConfirm() {
+    startTransition(async () => {
+      try {
+        const next = await respondToQuotation(token, "decline", { declineReason });
+        setCurrentStatus(next);
+      } catch (err) {
+        console.error("Decline quotation error:", err);
+      }
+      setIsDeclineModalOpen(false);
+      setDeclinedNotice(true);
+    });
+  }
 
   function toggleChangeOption(opt: string) {
     setSelectedChanges((prev) => {
@@ -158,11 +209,11 @@ JazakAllahu Khairan!`;
     const catsText = categoriesArray.length > 0 ? categoriesArray.join(", ") : "General adjustments";
 
     const waText = `Assalamu Alaikum Masaar Holidays,
-I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${Number(document.total_aed || 9240).toLocaleString()}).
+I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${pricing.totalAed.toLocaleString()}).
 
-I would like to request changes to my itinerary:
+I would like to request changes to my journey:
 • Categories: ${catsText}
-${changeMessage.trim() ? `• Specific Details: ${changeMessage.trim()}\n` : ""}• View Quotation: ${typeof window !== "undefined" ? window.location.origin : "https://masaarholidays.com"}/quote/${token}
+${changeMessage.trim() ? `• Specific Details: ${changeMessage.trim()}\n` : ""}• View Quotation: ${publicUrl}
 
 Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
 
@@ -179,179 +230,31 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
         console.error("Failed to submit change request:", err);
       }
       setIsRequestModalOpen(false);
-      setRequestSent(true);
 
-      // Immediately launch WhatsApp with the structured message
       if (typeof window !== "undefined") {
         window.open(waUrl, "_blank");
       }
     });
   }
 
-  // Calculate days/nights dynamically
-  const durationFromNotes = document.notes?.match(/Duration:\s*([^\n\r]+)/i)?.[1]?.trim();
-  const calculatedDays =
-    document.travel_date && document.return_date
-      ? Math.max(
-          1,
-          Math.round(
-            (new Date(document.return_date).getTime() - new Date(document.travel_date).getTime()) /
-              (1000 * 3600 * 24)
-          ) + 1
-        )
-      : 4;
-
-  const durationDays = calculatedDays;
-  const durationLabel = durationFromNotes || `${durationDays} Days / ${Math.max(1, durationDays - 1)} Nights`;
-
-  const travelDatesFormatted =
-    document.travel_date && document.return_date
-      ? `${formatDeterministicDate(document.travel_date)} – ${formatDeterministicDate(document.return_date)} (${durationLabel})`
-      : "Travel dates to be confirmed";
-
-  const isHajj = document.journey_type === "hajj";
-  const journeyTitle = isHajj ? "Your Hajj 2027 Journey" : "Your Umrah 2026 Journey";
-  const packageBadge = isHajj ? "HAJJ 2027" : "UMRAH 2026";
-
-  // Parse items dynamically
-  const packageItem = items.find((i) =>
-    ["umrah_package", "hajj_package"].includes(i.item_type)
-  );
-  const hotels = items.filter((i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation");
-  const transport = items.find((i) => i.item_type === "transfer");
-  const flight = items.find((i) => i.item_type === "flight");
-  const meals = items.find((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"));
-  const additional = items.filter(
-    (i) => !["umrah_package", "hajj_package", "hotel", "accommodation", "transfer", "flight"].includes(i.item_type) && !i.description.toLowerCase().includes("meal")
-  );
-
-  const hotelAndTransportTotal = items
-    .filter((i) => ["hotel", "accommodation", "transfer"].includes(i.item_type))
-    .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-
-  const flightTotal = items
-    .filter((i) => i.item_type === "flight")
-    .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-
-  const additionalTotal = additional.reduce(
-    (sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed),
-    0
-  );
-
-  const mealsTotal = items
-    .filter((i) => (i.item_type as any) === "meals" || i.description.toLowerCase().includes("meal"))
-    .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-
-  const packageItemsTotal = items
-    .filter((i) => ["umrah_package", "hajj_package"].includes(i.item_type))
-    .reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-
-  const allItemsSum = items.reduce((sum, i) => sum + Number(i.amount_aed ?? i.quantity * i.unit_price_aed), 0);
-
-  // Ensure subtotal reflects all items (Hotel, Transport, Flights, Add-ons, Meals)
-  const packageSubtotal = allItemsSum > 0 ? Math.max(allItemsSum, Number(document.subtotal_aed || 0)) : Number(document.subtotal_aed || 8800);
-
-  // VAT: Respect document.tax_aed. If tax_aed is 0, no VAT is added.
-  const hasVat = document.tax_aed !== null && document.tax_aed !== undefined
-    ? Number(document.tax_aed) > 0
-    : false;
-  const vatAmount = hasVat ? Number(document.tax_aed || Math.round(packageSubtotal * 0.05)) : 0;
-  const discountAmount = Number(document.discount_aed || 0);
-  const finalPrice = Math.round((packageSubtotal + vatAmount - discountAmount) * 100) / 100;
-
-  let activeItinerary: ItineraryDay[] = [];
-  let isItineraryExplicitlyRemoved = false;
-
-  if (document.special_requirements) {
-    try {
-      const parsed = JSON.parse(document.special_requirements);
-      if (Array.isArray(parsed)) {
-        if (parsed.length > 0 && parsed[0]?.title !== undefined) {
-          activeItinerary = parsed;
-        } else if (parsed.length === 0) {
-          isItineraryExplicitlyRemoved = true;
-        }
-      }
-    } catch {}
-  }
-
-  // If not explicitly removed, auto-generate matching the exact duration
-  if (!isItineraryExplicitlyRemoved && activeItinerary.length === 0) {
-    activeItinerary = generateItineraryForDays(durationDays, isHajj);
-  }
-
-  const whatsappMessage = `Assalamu Alaikum Masaar Holidays, I am reviewing Quotation ${document.document_number} for ${document.client_name} (AED ${Number(finalPrice).toLocaleString()}) and would like to speak with a travel advisor.`;
-  const whatsappHref = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMessage)}`;
-  const pdfDownloadUrl = `/quote/${token}/pdf`;
-
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-masaar-black font-sans selection:bg-[#c9983e]/20 selection:text-masaar-black">
-      {/* Print and Screen Stylesheet */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @media print {
-            @page {
-              size: A4 portrait;
-              margin: 10mm 12mm;
-            }
-            html, body {
-              background: #ffffff !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              color: #1A1816 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              color-adjust: exact !important;
-            }
-            .print\\:hidden, .no-print {
-              display: none !important;
-            }
-            header {
-              position: static !important;
-              box-shadow: none !important;
-              border-bottom: 1px solid rgba(0,0,0,0.15) !important;
-              padding-top: 6px !important;
-              padding-bottom: 6px !important;
-            }
-            main {
-              padding-top: 10px !important;
-              padding-bottom: 10px !important;
-            }
-            .break-inside-avoid, [data-pdf-card] {
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-            .shadow-xs, .shadow-sm, .shadow-md, .shadow-xl {
-              box-shadow: none !important;
-            }
-            .border-black\\/10, .border-black\\/15, .border-black\\/20 {
-              border-color: #e5e7eb !important;
-            }
-          }
-        `,
-      }} />
-
-      {/* 1. Luxury Navbar matching CLIENT QUOTATION PAGE.png */}
-      <header className="border-b border-black/10 bg-white/95 backdrop-blur-md sticky top-0 z-30 print:static print:bg-white print:border-b print:py-2">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6">
+    <div className="min-h-screen bg-[#FDFBF7] text-[#1A1816] font-sans selection:bg-[#c9983e]/20 selection:text-[#1A1816]">
+      {/* 1. Header with approved Masaar Logo & Contact */}
+      <header className="border-b border-black/10 bg-white/95 backdrop-blur-md sticky top-0 z-30">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="relative h-10 w-36">
+            <Link href="/" className="relative block h-9 w-32 sm:h-10 sm:w-36">
               <Image
-                src="/Assets/logo-main.png"
+                src="/brand/logo.png"
                 alt="Masaar Holidays"
                 fill
                 priority
                 className="object-contain object-left"
               />
-            </div>
+            </Link>
           </div>
 
-          <div className="hidden md:flex items-center gap-6 font-serif text-[11px] font-bold uppercase tracking-[0.25em] text-[#865d1d]">
+          <div className="hidden lg:flex items-center gap-6 font-serif text-[11px] font-bold uppercase tracking-[0.25em] text-[#865d1d]">
             <span>FAITH</span>
             <span>•</span>
             <span>CLARITY</span>
@@ -361,874 +264,692 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
             <span>PEACE</span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs print:hidden">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded-full border border-[#b37e28]/40 bg-light-gold/20 px-3.5 py-1.5 font-bold text-[#865d1d] hover:bg-light-gold/40 transition-colors cursor-pointer"
-            >
-              <span>📥</span>
-              <span>Download PDF</span>
-            </button>
+          <div className="flex items-center gap-3 text-xs">
+            <div className="rounded-full bg-[#FAF8F5] border border-[#c9983e]/30 px-3 py-1 font-mono text-[11px] font-semibold text-[#865d1d]">
+              Ref: {document.document_number}
+            </div>
 
             <a
-              href={whatsappHref}
+              href={generalWaUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 rounded-full border border-black/10 bg-[#FAF9F6] px-3.5 py-1.5 font-semibold text-masaar-black hover:bg-black/5 transition-colors"
+              className="flex items-center gap-1.5 rounded-full border border-[#25D366]/40 bg-[#25D366]/10 px-3.5 py-1.5 font-bold text-[#1b7e3e] hover:bg-[#25D366]/20 transition-colors"
             >
-              <span className="text-[#25D366] text-sm">💬</span>
-              <span className="hidden sm:inline text-masaar-black/60">Need Help?</span>
-              <span className="font-bold">+971 55 227 6299</span>
+              <span className="text-sm">💬</span>
+              <span className="hidden sm:inline">Concierge WhatsApp</span>
             </a>
           </div>
         </div>
       </header>
 
-      {/* 2. Hero Section with Kaaba sunset banner matching CLIENT QUOTATION PAGE.png */}
-      <section className="relative overflow-hidden bg-masaar-black text-white">
-        <div className="absolute inset-0 opacity-40 mix-blend-luminosity">
+      {/* 2. Hero Digital Brochure Banner (Matching Mr. Obaid Shaikh reference) */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#181614] to-[#25221E] text-white">
+        <div className="absolute inset-0 opacity-25 mix-blend-luminosity">
           <Image
-            src="/trips/banner-image.webp"
-            alt="Makkah Clock Tower & Masjid Al Haram"
+            src="/trips/destination-image.webp"
+            alt="Makkah & Madinah Holy Sanctuaries"
             fill
             priority
             className="object-cover object-center"
             unoptimized
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-masaar-black via-masaar-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#181614] via-[#181614]/70 to-transparent" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 text-center">
-          <p className="font-serif text-xs font-bold tracking-[0.3em] uppercase text-[#D4AF37]">
-            — YOUR JOURNEY AWAITS
-          </p>
-          <h1 className="mt-3 font-serif text-3xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            {journeyTitle}
-          </h1>
-          <p className="mt-3 text-sm text-white/80 max-w-xl mx-auto font-sans leading-relaxed">
-            A sacred journey, thoughtfully curated for you.
-          </p>
-
-          {/* 4 Pillars */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs">
-                🕋
-              </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-white/90">FAITH</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs">
-                👥
-              </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-white/90">CLARITY</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs">
-                ✈️
-              </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-white/90">CARE</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-xs">
-                🕊️
-              </span>
-              <span className="text-xs font-bold uppercase tracking-widest text-white/90">PEACE</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Client & Trip Info Strip */}
-      <section className="border-b border-black/10 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 items-center">
-            {/* Prepared for */}
-            <div className="flex items-center gap-3 border-b sm:border-b-0 sm:border-r border-black/10 pb-3 sm:pb-0 sm:pr-4">
-              <span className="text-xl">👤</span>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-masaar-black/50">Prepared for</span>
-                <p className="font-bold text-sm text-masaar-black">{document.client_name}</p>
-                <p className="text-[11px] text-masaar-black/60">{document.client_country || "Dubai, UAE"}</p>
+        <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#c9983e]/20 border border-[#c9983e]/40 px-3.5 py-1 text-xs font-serif font-bold uppercase tracking-[0.2em] text-[#E0C070]">
+                <span>🕋</span>
+                <span>MASAAR BESPOKE PILGRIMAGE PROPOSAL</span>
               </div>
-            </div>
-
-            {/* Travel Dates */}
-            <div className="flex items-center gap-3 border-b sm:border-b-0 sm:border-r border-black/10 pb-3 sm:pb-0 sm:pr-4">
-              <span className="text-xl">📅</span>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-masaar-black/50">Travel Dates</span>
-                <p className="font-bold text-sm text-masaar-black">{travelDatesFormatted}</p>
-              </div>
-            </div>
-
-            {/* Travellers */}
-            <div className="flex items-center gap-3 border-b sm:border-b-0 sm:border-r border-black/10 pb-3 sm:pb-0 sm:pr-4">
-              <span className="text-xl">👥</span>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-masaar-black/50">Travellers</span>
-                <p className="font-bold text-sm text-masaar-black">
-                  {document.adults} Adults, {document.children || 0} Children
-                </p>
-              </div>
-            </div>
-
-            {/* Blessing Card */}
-            <div className="text-right sm:pl-4">
-              <p className="font-serif italic text-xs text-[#865d1d]">
-                &ldquo;May your journey be accepted and filled with ease.&rdquo;
+              <h1 className="mt-4 font-serif text-3xl font-bold tracking-tight text-white sm:text-5xl">
+                {journeyTitle}
+              </h1>
+              <p className="mt-2 text-base text-white/80 font-sans leading-relaxed">
+                Prepared exclusively for <strong className="text-white font-semibold">{document.client_name}</strong>
               </p>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Acceptance / Revision alerts */}
-      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
-        {acceptedNotice && (
-          <div className="rounded-2xl border border-green-300 bg-green-50 p-4 text-green-900 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">✓</span>
-              <div>
-                <p className="font-bold text-sm">Quotation Accepted! JazakAllahu Khairan.</p>
-                <p className="text-xs text-green-800">
-                  Our dedicated concierge team is now preparing your booking confirmation, official invoice, and travel documents.
-                </p>
-              </div>
+            {/* Status indicator */}
+            <div className="shrink-0 flex flex-col items-start md:items-end gap-2">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-white/50">Quotation Status</span>
+              {currentStatus === "accepted" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-4 py-1.5 text-xs font-bold text-emerald-300">
+                  <span>✓</span> Accepted &amp; Confirmed
+                </span>
+              ) : currentStatus === "rejected" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 border border-red-400/40 px-4 py-1.5 text-xs font-bold text-red-300">
+                  <span>✕</span> Declined
+                </span>
+              ) : currentStatus === "revision_requested" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-4 py-1.5 text-xs font-bold text-amber-300">
+                  <span>✏️</span> Revision Requested
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#c9983e]/20 border border-[#c9983e]/40 px-4 py-1.5 text-xs font-bold text-[#E0C070]">
+                  <span>⏳</span> Awaiting Client Review
+                </span>
+              )}
             </div>
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg bg-green-700 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-green-800"
-            >
-              Chat on WhatsApp →
-            </a>
           </div>
-        )}
 
-        {requestSent && (
-          <div className="rounded-2xl border border-[#b37e28]/40 bg-[#fbf6ec] p-4 text-[#845c19] shadow-sm flex items-center gap-3">
-            <span className="text-2xl">✉️</span>
+          {/* Quick Metrics Strip */}
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 rounded-2xl bg-white/5 border border-white/10 p-4 backdrop-blur-xs text-xs">
             <div>
-              <p className="font-bold text-sm">Your change request has been submitted!</p>
-              <p className="text-xs text-[#845c19]/80">
-                Our advisors will review your selected options and prepare a revised quotation for you shortly.
-              </p>
+              <span className="text-white/50 block text-[10px] uppercase font-bold tracking-wider">Travel Dates</span>
+              <span className="font-semibold text-white mt-0.5 block">
+                {formatDisplayDate(dateMetrics.startDate)} – {formatDisplayDate(dateMetrics.endDate)}
+              </span>
+            </div>
+            <div>
+              <span className="text-white/50 block text-[10px] uppercase font-bold tracking-wider">Duration</span>
+              <span className="font-semibold text-[#E0C070] mt-0.5 block">
+                {dateMetrics.durationLabel}
+              </span>
+            </div>
+            <div>
+              <span className="text-white/50 block text-[10px] uppercase font-bold tracking-wider">Travellers</span>
+              <span className="font-semibold text-white mt-0.5 block">
+                {document.adults || 2} Adults
+                {document.children ? `, ${document.children} Children` : ""}
+                {document.infants ? `, ${document.infants} Infants` : ""}
+              </span>
+            </div>
+            <div>
+              <span className="text-white/50 block text-[10px] uppercase font-bold tracking-wider">Route</span>
+              <span className="font-semibold text-white mt-0.5 block truncate">
+                {document.origin || "Dubai"} → {document.destination || "Jeddah / Madinah"}
+              </span>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      </section>
 
-      {/* 4. Main Two-Column Layout (Left Modules | Right Sticky Summary) */}
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="grid gap-8 lg:grid-cols-12">
-          {/* Left Column: Modules (8 Cols) */}
-          <div className="space-y-6 lg:col-span-8 [&>div]:break-inside-avoid">
-            {/* Module 1: Package Overview */}
-            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-black/10 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">📦</span>
-                  <h2 className="font-serif text-lg font-bold text-masaar-black">
-                    Package Overview
-                  </h2>
+      {/* 3. Main Content: Proposal Details + Pricing Sidebar */}
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
+          {/* LEFT 2 COLUMNS: Itinerary, Accommodation, Transport, Services */}
+          <div className="space-y-12 lg:col-span-2">
+
+            {/* Status alerts */}
+            {acceptedNotice && (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50 p-5 text-emerald-950 flex items-start gap-3">
+                <span className="text-2xl">🎉</span>
+                <div className="text-xs">
+                  <h4 className="font-bold text-sm text-emerald-900">Alhamdulillah! Quotation Accepted</h4>
+                  <p className="mt-1 text-emerald-800 leading-relaxed">
+                    Thank you, {document.client_name}. Your quotation has been accepted. Our concierge desk will contact you to finalize bookings and payment.
+                  </p>
+                  <a
+                    href={acceptWaUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3.5 py-1.5 font-bold text-white text-xs hover:bg-[#20ba59] transition-colors"
+                  >
+                    <span>💬</span> Message Concierge on WhatsApp
+                  </a>
                 </div>
-                <span className="rounded-full bg-[#fbf6ec] border border-[#b37e28]/30 px-3 py-1 text-xs font-bold text-[#865d1d]">
-                  {packageBadge}
+              </div>
+            )}
+
+            {declinedNotice && (
+              <div className="rounded-2xl border border-neutral-300 bg-neutral-100 p-5 text-neutral-800 flex items-start gap-3">
+                <span className="text-2xl">ℹ️</span>
+                <div className="text-xs">
+                  <h4 className="font-bold text-sm text-neutral-900">Quotation Declined</h4>
+                  <p className="mt-1 text-neutral-700 leading-relaxed">
+                    This quotation has been marked as declined. If you would like to explore alternative dates, hotels, or packages, feel free to contact us anytime.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* SECTION A: ACCOMMODATION (When included) */}
+            {hotels.length > 0 && (
+              <section className="space-y-4">
+                <div className="border-b border-black/10 pb-3 flex items-center justify-between">
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
+                      Hotel Accommodations
+                    </h2>
+                    <p className="text-xs text-[#1A1816]/60 mt-0.5">
+                      Hand-picked luxury hotels located steps from the Holy Harams.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#FAF8F5] border border-[#c9983e]/30 px-3 py-1 font-serif text-[11px] font-bold text-[#865d1d]">
+                    5★ Verified Luxury
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {hotels.map((hotel, idx) => {
+                    const imgRes = resolveServiceImage("hotel", hotel.description, hotel.details);
+                    return (
+                      <div
+                        key={hotel.id || idx}
+                        className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xs hover:shadow-md transition-shadow flex flex-col"
+                      >
+                        <div className="relative h-48 w-full bg-neutral-100">
+                          <Image
+                            src={imgRes.imageUrl}
+                            alt={imgRes.altText}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                          <div className="absolute top-3 left-3 rounded-full bg-black/60 backdrop-blur-xs px-3 py-1 text-[10px] font-bold text-white uppercase tracking-wider">
+                            {hotel.description.toLowerCase().includes("madinah") ? "Madinah Al-Munawwarah" : "Holy Makkah"}
+                          </div>
+                        </div>
+
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                          <div>
+                            <div className="flex items-center gap-1 text-[#c9983e] text-xs">
+                              ★★★★★ <span className="text-[10px] text-[#1A1816]/50 font-sans ml-1">5-Star Luxury</span>
+                            </div>
+                            <h3 className="font-serif text-lg font-bold text-[#1A1816] mt-1">
+                              {hotel.description}
+                            </h3>
+                            {hotel.details && (
+                              <p className="text-xs text-[#1A1816]/70 mt-1 leading-relaxed">
+                                {hotel.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="rounded-xl bg-[#FAF8F5] border border-black/5 p-3 text-xs space-y-1">
+                            <div className="flex justify-between text-[#1A1816]/70">
+                              <span>Stay Duration:</span>
+                              <span className="font-semibold text-[#1A1816]">{hotel.quantity} Nights</span>
+                            </div>
+                            <div className="flex justify-between text-[#1A1816]/70">
+                              <span>Meal Plan:</span>
+                              <span className="font-semibold text-[#1A1816]">Daily Gourmet Buffet</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION B: DAY-BY-DAY ITINERARY (Exact duration match) */}
+            <section className="space-y-4">
+              <div className="border-b border-black/10 pb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
+                    Your Day-by-Day Journey
+                  </h2>
+                  <p className="text-xs text-[#1A1816]/60 mt-0.5">
+                    Carefully sequenced schedule tailored exactly to your {dateMetrics.calendarDays}-day duration.
+                  </p>
+                </div>
+                <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1 text-[11px] font-bold text-emerald-800">
+                  ✓ {dateMetrics.calendarDays} Days Sequenced
                 </span>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-12 items-center">
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5">
-                  <Image
-                    src="/trips/hajj-banner.webp"
-                    alt="Package"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="md:col-span-7 space-y-2">
-                  <h3 className="font-serif text-xl font-bold text-masaar-black">
-                    {packageItem?.description || `${durationLabel} Tailored ${isHajj ? "Hajj" : "Umrah"} Journey`}
-                  </h3>
-                  <p className="text-xs text-masaar-black/70 leading-relaxed font-sans">
-                    {packageItem?.details
-                      ? (flight
-                          ? packageItem.details
-                          : packageItem.details.replace(/,?\s*includes direct flights/i, "").replace(/,?\s*scheduled direct flights/i, ""))
-                      : `A tailored, peaceful pilgrimage experience with 5★ luxury accommodation, private vehicle airport transfers${
-                          flight ? ", scheduled direct flights" : ""
-                        }, and dedicated team support.`}
-                  </p>
-                </div>
-              </div>
-
-              {/* Amenity Icons Row */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 border-t border-black/10 pt-4 text-center">
-                {flight ? (
-                  <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                    <span className="text-lg">✈️</span>
-                    <p className="text-[11px] font-bold mt-1 text-masaar-black">Direct Flights</p>
-                  </div>
-                ) : (
-                  <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                    <span className="text-lg">🚗</span>
-                    <p className="text-[11px] font-bold mt-1 text-masaar-black">Private Ground</p>
-                  </div>
-                )}
-                <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                  <span className="text-lg">⛰️</span>
-                  <p className="text-[11px] font-bold mt-1 text-masaar-black">Sacred Sites</p>
-                </div>
-                <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                  <span className="text-lg">🏢</span>
-                  <p className="text-[11px] font-bold mt-1 text-masaar-black">Haram Proximity</p>
-                </div>
-                <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                  <span className="text-lg">⛺</span>
-                  <p className="text-[11px] font-bold mt-1 text-masaar-black">5★ Hospitality</p>
-                </div>
-                <div className="p-2 rounded-lg bg-neutral-50 border border-black/5">
-                  <span className="text-lg">👥</span>
-                  <p className="text-[11px] font-bold mt-1 text-masaar-black">Dedicated Team</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Module 2: Accommodation (Dynamic based on selected hotels) */}
-            <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 border-b border-black/10 pb-3">
-                <span className="text-xl">🏨</span>
-                <h2 className="font-serif text-lg font-bold text-masaar-black">
-                  Accommodation
-                </h2>
-              </div>
-
-              {hotels.length > 0 ? (
-                <div className={`grid gap-4 ${hotels.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"}`}>
-                  {hotels.map((h, idx) => {
-                    const matchedHotel = findMatchingHotel(h.description, hotelsCatalog);
-                    const isMakkah = matchedHotel?.city === "Makkah" || h.description.toLowerCase().includes("makkah");
-                    const isMadinah = matchedHotel?.city === "Madinah" || h.description.toLowerCase().includes("madinah");
-                    const tag = isMakkah ? "Holy Makkah" : isMadinah ? "Madinah Al Munawwarah" : "Hotel Accommodation";
-                    
-                    const mensWalk = matchedHotel ? formatMensGateWalkTime(matchedHotel) : null;
-                    const ladiesWalk = matchedHotel ? formatLadiesGateWalkTime(matchedHotel) : null;
-                    const cardWalk = matchedHotel ? formatCardWalkTime(matchedHotel) : null;
-                    const distStr = matchedHotel ? formatDistance(matchedHotel) : null;
-                    const distanceDisplay = cardWalk
-                      ? `${cardWalk}${matchedHotel?.distance_from_haram_meters ? ` (${matchedHotel.distance_from_haram_meters}m)` : ""}`
-                      : distStr;
-                    const walkBadge = isMadinah ? (mensWalk || ladiesWalk) : cardWalk;
-                    const terrainLines = splitTerrainNote(matchedHotel?.terrain_note);
-
-                    const img = (matchedHotel?.image_url && !matchedHotel.image_url.includes("Program Files") && !matchedHotel.image_url.includes("hotel-hero.jpg"))
-                      ? matchedHotel.image_url
-                      : getHotelImage(h.description, isMakkah ? "Makkah" : isMadinah ? "Madinah" : undefined);
-
-                    return (
-                      <div key={h.id || idx} className="overflow-hidden rounded-xl border border-black/10 bg-[#FAF9F7] flex flex-col justify-between">
-                        <div>
-                          <div className="relative aspect-video w-full overflow-hidden">
-                            <Image
-                              src={img}
-                              alt={h.description}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                            <div className="absolute top-2 left-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-bold text-white">
-                              {tag}
-                            </div>
-                            {walkBadge && (
-                              <div className="absolute top-2 right-2 rounded-md bg-black/80 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
-                                🚶 {walkBadge}
-                              </div>
-                            )}
-                          </div>
-                          <div className="p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-serif font-bold text-sm text-masaar-black">
-                                {h.description}
-                              </h4>
-                              <span className="text-xs text-[#D4AF37]">
-                                {matchedHotel?.star_rating ? "★".repeat(matchedHotel.star_rating) : "★★★★★"}
+              <div className="space-y-4">
+                {displayItinerary.map((dayItem) => {
+                  return (
+                    <div
+                      key={dayItem.day}
+                      className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs transition-shadow hover:shadow-md"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex items-start gap-3.5">
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#FAF8F5] border border-[#c9983e]/30 text-lg">
+                            {dayItem.icon || "🕋"}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-serif text-xs font-bold uppercase tracking-wider text-[#865d1d]">
+                                Day {dayItem.day}
+                              </span>
+                              <span className="text-[#1A1816]/30">•</span>
+                              <span className="text-xs font-medium text-[#1A1816]/60">
+                                {formatDisplayDate(dayItem.date, true)}
                               </span>
                             </div>
-                            <p className="text-xs text-masaar-black/60 flex items-center gap-1.5">
-                              <span>📍 {isMadinah ? "Markaziyah / Haram Central Area" : isMakkah ? "Ibrahim Al Khalil / Clock Tower" : "Prime Location"}</span>
-                              <span>•</span>
-                              <span>{h.quantity} Nights</span>
-                            </p>
-                            <p className="text-[11px] text-masaar-black/70 pt-1 border-t border-black/5 leading-relaxed">
-                              {h.details || "Luxury room with daily buffet breakfast included."}
-                            </p>
-
-                            {/* Structured Walk, Distance, Path & Terrain Proximity Box (matching website HotelCard) */}
-                            {(distanceDisplay || mensWalk || ladiesWalk || matchedHotel?.route_type || matchedHotel?.accessibility_note || terrainLines.length > 0 || matchedHotel?.elderly_family_suitability_note) && (
-                              <div className="mt-2.5 rounded-lg border border-black/10 bg-warm-ivory/60 p-2.5 space-y-1.5 text-xs font-sans">
-                                {isMadinah ? (
-                                  <>
-                                    {mensWalk && (
-                                      <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                        <span className="font-semibold text-masaar-black">Men&apos;s Gate:</span>
-                                        <span className="text-masaar-black/80">
-                                          {mensWalk}
-                                          {matchedHotel.nearest_mens_gate && ` — Gate ${matchedHotel.nearest_mens_gate}`}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {ladiesWalk && (
-                                      <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                        <span className="font-semibold text-masaar-black">Ladies&apos; Gate:</span>
-                                        <span className="text-masaar-black/80">
-                                          {ladiesWalk}
-                                          {matchedHotel.nearest_ladies_gate && ` — Gate ${matchedHotel.nearest_ladies_gate}`}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  distanceDisplay && (
-                                    <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                      <span className="font-semibold text-masaar-black">Distance:</span>
-                                      <span className="text-masaar-black/80">{distanceDisplay}</span>
-                                    </div>
-                                  )
-                                )}
-                                {matchedHotel?.route_type && (
-                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                    <span className="font-semibold text-masaar-black">Route:</span>
-                                    <span className="text-masaar-black/80">{matchedHotel.route_type}</span>
-                                  </div>
-                                )}
-                                {matchedHotel?.accessibility_note && (
-                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                    <span className="font-semibold text-masaar-black">Access:</span>
-                                    <span className="text-masaar-black/80">{matchedHotel.accessibility_note}</span>
-                                  </div>
-                                )}
-                                {terrainLines.length > 0 && (
-                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                    <span className="font-semibold text-masaar-black">Path &amp; Terrain:</span>
-                                    <div className="text-masaar-black/80">
-                                      {terrainLines.length > 1 ? (
-                                        <ul className="space-y-0.5 list-disc list-inside">
-                                          {terrainLines.map((line, i) => (
-                                            <li key={i}>{line}</li>
-                                          ))}
-                                        </ul>
-                                      ) : (
-                                        terrainLines[0]
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                                {matchedHotel?.elderly_family_suitability_note && (
-                                  <div className="grid grid-cols-[85px_1fr] gap-1.5 leading-snug">
-                                    <span className="font-semibold text-masaar-black">Best for:</span>
-                                    <span className="text-[#865d1d] font-medium">
-                                      {matchedHotel.elderly_family_suitability_note}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            <h3 className="font-serif text-base font-bold text-[#1A1816] mt-0.5">
+                              {dayItem.title}
+                            </h3>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-black/10 bg-[#FAF9F7] p-4 text-xs text-masaar-black/60 italic">
-                  Hotel accommodation to be selected.
-                </div>
-              )}
-            </div>
 
-            {/* Module 3: Transportation */}
-            {transport && (
-              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center gap-2 border-b border-black/10 pb-3">
-                  <span className="text-xl">🚗</span>
-                  <h2 className="font-serif text-lg font-bold text-masaar-black">
-                    Transportation
-                  </h2>
-                </div>
-
-                <div className="grid gap-5 md:grid-cols-12 items-center">
-                  <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 md:col-span-5 bg-neutral-100">
-                    <Image
-                      src={getTransportImage(transport.description, transport.details)}
-                      alt={transport.description || "Private Transfer"}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                  <div className="md:col-span-7 space-y-2">
-                    <h4 className="font-serif text-base font-bold text-masaar-black">
-                      {transport.description}
-                    </h4>
-                    {transport.details && (
-                      <p className="text-xs text-masaar-black/60 leading-relaxed font-sans">
-                        {transport.details}
+                      <p className="mt-3 text-xs text-[#1A1816]/80 leading-relaxed font-sans pl-0 sm:pl-[54px]">
+                        {dayItem.desc}
                       </p>
-                    )}
-                    <ul className="text-xs space-y-1.5 pt-2 border-t border-black/5 font-sans">
-                      <li className="flex items-center gap-2">
-                        <span className="text-[#b37e28]">✓</span>
-                        <span>Dedicated air-conditioned private vehicle with professional driver</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="text-[#b37e28]">✓</span>
-                        <span>Airport meet &amp; greet assistance and seamless luggage handling</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Module 4: Flights & Meals (Dynamic: hides flight if removed in builder) */}
-            {(flight || meals) && (
-              <div className={`grid gap-4 ${flight && meals ? "sm:grid-cols-2" : "grid-cols-1"}`}>
-                {/* Flights Card */}
-                {flight && (
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-3">
-                    <div className="flex items-center gap-2 border-b border-black/10 pb-2">
-                      <span className="text-lg">✈️</span>
-                      <h4 className="font-serif font-bold text-sm text-masaar-black">
-                        Flights
-                      </h4>
-                    </div>
-                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10">
-                      <Image
-                        src="/Assets/image-flight.jpg"
-                        alt="Flight"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <div>
-                      <h5 className="font-serif font-bold text-sm text-masaar-black">
-                        {flight.description}
-                      </h5>
-                      {flight.details && (
-                        <p className="text-xs text-masaar-black/60 mt-1 whitespace-pre-line">
-                          {flight.details}
-                        </p>
+                      {dayItem.activities && dayItem.activities.length > 0 && (
+                        <div className="mt-3.5 flex flex-wrap gap-1.5 pl-0 sm:pl-[54px]">
+                          {dayItem.activities.map((act, aIdx) => (
+                            <span
+                              key={aIdx}
+                              className="rounded-lg bg-[#FAF8F5] border border-black/5 px-2.5 py-1 text-[11px] font-medium text-[#1A1816]/80"
+                            >
+                              ✓ {act}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
-
-                {/* Meals Card */}
-                {meals && (
-                  <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs space-y-3">
-                    <div className="flex items-center gap-2 border-b border-black/10 pb-2">
-                      <span className="text-lg">🍽️</span>
-                      <h4 className="font-serif font-bold text-sm text-masaar-black">
-                        Meals
-                      </h4>
-                    </div>
-                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-black/10 bg-neutral-100 flex items-center justify-center">
-                      <Image
-                        src="/Assets/image-meal.jpg"
-                        alt="Meals"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <div>
-                      <h5 className="font-serif font-bold text-sm text-masaar-black">
-                        {meals.description}
-                      </h5>
-                      {meals.details && (
-                        <p className="text-xs text-masaar-black/60 mt-1">
-                          {meals.details}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            )}
+            </section>
 
-            {/* Module 5: Itinerary Highlights Timeline (Dynamic) */}
-            {!isItineraryExplicitlyRemoved && activeItinerary.length > 0 && (
-              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-5">
-                <div className="flex items-center justify-between border-b border-black/10 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">📋</span>
-                    <h3 className="font-serif text-lg font-bold text-masaar-black">
-                      Itinerary Highlights
-                    </h3>
-                  </div>
-                  <span className="text-xs font-semibold text-[#865d1d]">
-                    {activeItinerary.length} Days Itinerary ({durationLabel})
-                  </span>
+            {/* SECTION C: TRANSPORTATION & TRAVEL SERVICES */}
+            {(transfers.length > 0 || trains.length > 0 || flights.length > 0) && (
+              <section className="space-y-4">
+                <div className="border-b border-black/10 pb-3">
+                  <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
+                    Transportation &amp; Travel Services
+                  </h2>
+                  <p className="text-xs text-[#1A1816]/60 mt-0.5">
+                    Seamless transit with private chauffeurs, flights, and high-speed rail.
+                  </p>
                 </div>
 
-                {/* Visual timeline dynamically rendered across all days */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-center">
-                  {activeItinerary.map((m, idx) => {
-                    const defaultIcon =
-                      idx === 0
-                        ? "✈️"
-                        : idx === activeItinerary.length - 1
-                        ? "✈️"
-                        : m.title.toLowerCase().includes("train")
-                        ? "🚄"
-                        : m.title.toLowerCase().includes("madinah") || m.title.toLowerCase().includes("rawdah")
-                        ? "🕌"
-                        : "🕋";
-                    const icon = m.icon || defaultIcon;
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Flights */}
+                  {flights.map((f, idx) => {
+                    const imgRes = resolveServiceImage("flight", f.description, f.details);
                     return (
-                      <div key={idx} className="rounded-xl border border-black/10 bg-[#FAF9F7] p-3 space-y-1.5 flex flex-col justify-start">
-                        <span className="text-xl">{icon}</span>
-                        <p className="font-bold text-xs text-masaar-black line-clamp-1">{m.title || `Day ${m.day || idx + 1}`}</p>
-                        <p className="text-[11px] text-masaar-black/60 line-clamp-2 leading-snug">{m.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Module 6: Additional Services & Add-ons */}
-            {additional.length > 0 && (
-              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-black/10 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">✨</span>
-                    <h3 className="font-serif text-lg font-bold text-masaar-black">
-                      Additional Services &amp; Add-ons
-                    </h3>
-                  </div>
-                  <span className="text-xs font-semibold text-[#865d1d]">
-                    {additional.length} Inclusions Configured
-                  </span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {additional.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl border border-black/10 bg-[#FAF9F7] p-3.5 flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#865d1d]">
-                            {item.item_type.replace(/_/g, " ")}
+                      <div
+                        key={f.id || idx}
+                        className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4"
+                      >
+                        <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                          <Image
+                            src={imgRes.imageUrl}
+                            alt={imgRes.altText}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="text-xs flex-1">
+                          <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                            Flight Booking
                           </span>
-                          {item.amount_aed ? (
-                            <span className="text-xs font-bold text-masaar-black">
-                              AED {Number(item.amount_aed).toLocaleString()}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-green-700 bg-green-100/80 px-2 py-0.5 rounded">
-                              INCLUDED
-                            </span>
+                          <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
+                            {f.description}
+                          </h4>
+                          {f.details && (
+                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                              {f.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
                           )}
                         </div>
-                        <h4 className="font-bold text-xs text-masaar-black mt-1">
-                          {item.description}
-                        </h4>
-                        {item.details && (
-                          <p className="text-[11px] text-masaar-black/60 mt-1 line-clamp-2">
-                            {item.details}
-                          </p>
-                        )}
                       </div>
-                      <div className="mt-2.5 pt-2 border-t border-black/5 flex items-center justify-between text-[11px] text-masaar-black/50">
-                        <span>Quantity: {item.quantity || 1}</span>
-                        <span className="text-green-700 font-semibold">✓ Confirmed Inclusion</span>
+                    );
+                  })}
+
+                  {/* Haramain High-Speed Train */}
+                  {trains.map((tr, idx) => {
+                    const imgRes = resolveServiceImage("train", tr.description, tr.details);
+                    return (
+                      <div
+                        key={tr.id || idx}
+                        className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4"
+                      >
+                        <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                          <Image
+                            src={imgRes.imageUrl}
+                            alt={imgRes.altText}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="text-xs flex-1">
+                          <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                            High-Speed Rail
+                          </span>
+                          <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
+                            {tr.description}
+                          </h4>
+                          {tr.details && (
+                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                              {tr.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+
+                  {/* Private Transfers & Chauffeur */}
+                  {transfers.map((tr, idx) => {
+                    const imgRes = resolveServiceImage("transfer", tr.description, tr.details);
+                    return (
+                      <div
+                        key={tr.id || idx}
+                        className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4"
+                      >
+                        <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                          <Image
+                            src={imgRes.imageUrl}
+                            alt={imgRes.altText}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="text-xs flex-1">
+                          <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                            Private Chauffeur
+                          </span>
+                          <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
+                            {tr.description}
+                          </h4>
+                          {tr.details && (
+                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                              {tr.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION D: ADDITIONAL INCLUDED SERVICES & ADD-ONS */}
+            {otherServices.length > 0 && (
+              <section className="space-y-4">
+                <div className="border-b border-black/10 pb-3">
+                  <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
+                    Included Amenities &amp; Highlights
+                  </h2>
+                  <p className="text-xs text-[#1A1816]/60 mt-0.5">
+                    Additional arrangements configured for your comfort and spiritual enrichment.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {otherServices.map((srv, idx) => {
+                    const imgRes = resolveServiceImage(srv.item_type, srv.description, srv.details);
+                    return (
+                      <div
+                        key={srv.id || idx}
+                        className="rounded-xl border border-black/10 bg-white p-4 text-xs flex items-center gap-3"
+                      >
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#FAF8F5] text-base">
+                          {srv.description.toLowerCase().includes("visa")
+                            ? "🛂"
+                            : srv.description.toLowerCase().includes("meal")
+                            ? "🍽️"
+                            : srv.description.toLowerCase().includes("ziyarat")
+                            ? "📍"
+                            : srv.description.toLowerCase().includes("esim")
+                            ? "📶"
+                            : "✨"}
+                        </span>
+                        <div>
+                          <h4 className="font-bold text-[#1A1816]">{srv.description}</h4>
+                          {srv.details && (
+                            <p className="text-[#1A1816]/60 text-[11px] mt-0.5">
+                              {srv.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION E: MASAAR PROMISE */}
+            <div className="rounded-2xl border border-[#c9983e]/30 bg-gradient-to-r from-[#FAF8F5] via-white to-[#F6F1E8] p-6 text-xs text-[#1A1816]">
+              <div className="flex items-center gap-2 font-serif text-xs font-bold uppercase tracking-[0.2em] text-[#865d1d]">
+                <span>🕊️</span>
+                <span>THE MASAAR HOLIDAYS COMMITMENT</span>
+              </div>
+              <p className="mt-2 text-sm font-serif italic text-[#1A1816]/90 leading-relaxed">
+                &ldquo;We treat your sacred pilgrimage not as a transaction, but as a sacred trust. From your first greeting in Jeddah to your farewell Tawaf, our team remains by your side.&rdquo;
+              </p>
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center border-t border-black/10 pt-4">
+                <div>
+                  <span className="block font-bold text-[#865d1d]">FAITH</span>
+                  <span className="text-[10px] text-[#1A1816]/60">Spiritual guidance</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-[#865d1d]">CLARITY</span>
+                  <span className="text-[10px] text-[#1A1816]/60">Transparent pricing</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-[#865d1d]">CARE</span>
+                  <span className="text-[10px] text-[#1A1816]/60">24/7 Concierge</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-[#865d1d]">PEACE</span>
+                  <span className="text-[10px] text-[#1A1816]/60">Complete serenity</span>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Right Column: Sticky Quotation Summary & CTAs (4 Cols) */}
-          <div className="lg:col-span-4">
-            <div className="sticky top-20 space-y-4">
-              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-md space-y-5">
-                {/* Header */}
-                <div className="flex items-center gap-2 border-b border-black/10 pb-3">
-                  <span className="text-lg">📄</span>
-                  <h3 className="font-serif text-lg font-bold text-masaar-black">
-                    Quotation Summary
-                  </h3>
+          {/* RIGHT COLUMN: STICKY PRICING & ACTIONS CARD */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-24 space-y-6">
+              {/* Pricing Card */}
+              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-lg">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#865d1d]">
+                  Package Investment
+                </span>
+                <div className="mt-2 flex items-baseline justify-between border-b border-black/10 pb-4">
+                  <div>
+                    <span className="text-xs text-[#1A1816]/60">Total Package Price</span>
+                    <div className="font-serif text-3xl font-bold text-[#1A1816]">
+                      AED {pricing.totalAed.toLocaleString()}
+                    </div>
+                  </div>
+                  {pricing.hasPriceOnRequest && (
+                    <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                      Partial Quote
+                    </span>
+                  )}
                 </div>
 
-                {/* Breakdown List */}
-                <div className="space-y-3 text-xs font-sans">
-                  <div className="flex justify-between text-masaar-black/70">
-                    <span>Package</span>
-                    <span className="font-semibold text-masaar-black">
-                      {packageItem?.description || (isHajj ? "Hajj 2027 – Platinum" : "Umrah 2026 – Platinum")}
+                {/* Price Breakdown */}
+                <div className="space-y-2 py-4 text-xs border-b border-black/10">
+                  <div className="flex justify-between text-[#1A1816]/70">
+                    <span>Services Subtotal:</span>
+                    <span className="font-semibold text-[#1A1816]">AED {pricing.subtotalAed.toLocaleString()}</span>
+                  </div>
+
+                  {pricing.discountAed > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-medium">
+                      <span>Discount / Special Offer:</span>
+                      <span>- AED {pricing.discountAed.toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-[#1A1816]/70">
+                    <span>VAT ({pricing.taxRatePercent}%):</span>
+                    <span className="font-semibold text-[#1A1816]">
+                      {pricing.taxAed > 0 ? `AED ${pricing.taxAed.toLocaleString()}` : "Included / 0%"}
                     </span>
                   </div>
 
-                  <div className="flex justify-between text-masaar-black/70">
-                    <span>Travel Dates</span>
-                    <span className="font-semibold text-masaar-black">{travelDatesFormatted}</span>
-                  </div>
+                  {pricing.hasPriceOnRequest && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-900 mt-2">
+                      ⚠️ Note: Some custom services are marked <strong>Price on request</strong> and will be confirmed prior to final invoice.
+                    </div>
+                  )}
+                </div>
 
-                  <div className="flex justify-between text-masaar-black/70">
-                    <span>Travellers</span>
-                    <span className="font-semibold text-masaar-black">
-                      {document.adults} Adults{document.children ? `, ${document.children} Children` : ""}
-                    </span>
-                  </div>
+                {/* 3 REQUIRED ACTIONS (Accept, Request Changes, Decline) — NO PDF DOWNLOAD! */}
+                <div className="pt-4 space-y-3">
+                  {currentStatus !== "accepted" && currentStatus !== "rejected" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsAcceptModalOpen(true)}
+                        disabled={isPending}
+                        className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] hover:from-[#9c6d1f] hover:to-[#7d5c1f] py-3.5 text-xs font-bold text-white shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <span>✓</span>
+                        <span>Accept Quotation</span>
+                      </button>
 
-                  {hotels.length > 0 ? (
-                    hotels.map((h, i) => (
-                      <div key={h.id || i} className="flex justify-between text-masaar-black/70">
-                        <span>{hotels.length > 1 ? `Hotel #${i + 1}` : "Hotel"}</span>
-                        <span className="font-semibold text-masaar-black text-right max-w-[180px] truncate">{h.description}</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsRequestModalOpen(true)}
+                        disabled={isPending}
+                        className="w-full rounded-xl border border-black/15 bg-white hover:bg-black/[0.02] py-2.5 text-xs font-semibold text-[#1A1816] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>💬</span>
+                        <span>Request Changes via WhatsApp</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsDeclineModalOpen(true)}
+                        disabled={isPending}
+                        className="w-full text-center text-xs text-[#1A1816]/50 hover:text-red-600 transition-colors py-1 cursor-pointer"
+                      >
+                        Decline this proposal
+                      </button>
+                    </>
+                  ) : currentStatus === "accepted" ? (
+                    <div className="space-y-2 text-center">
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-300 py-3 text-xs font-bold text-emerald-800">
+                        ✓ Quotation Accepted by You
                       </div>
-                    ))
+                      <a
+                        href={acceptWaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block w-full rounded-xl bg-[#25D366] hover:bg-[#20ba59] py-3 text-xs font-bold text-white transition-colors"
+                      >
+                        💬 Confirm Details on WhatsApp
+                      </a>
+                    </div>
                   ) : (
-                    <div className="flex justify-between text-masaar-black/70">
-                      <span>Hotel</span>
-                      <span className="font-semibold text-masaar-black">To be confirmed</span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between text-masaar-black/70">
-                    <span>Room Type</span>
-                    <span className="font-semibold text-masaar-black">
-                      {document.notes?.includes("QUAD")
-                        ? "QUAD"
-                        : document.notes?.includes("TRIPLE")
-                        ? "TRIPLE"
-                        : "TWIN/DOUBLE"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-masaar-black/70">
-                    <span>Transport</span>
-                    <span className={`font-semibold text-right max-w-[180px] truncate ${transport ? "text-masaar-black" : "text-black/40"}`}>
-                      {transport ? transport.description : "Not Included"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-masaar-black/70">
-                    <span>Flights</span>
-                    <span className={`font-semibold text-right max-w-[180px] truncate ${flight ? "text-masaar-black" : "text-black/40"}`}>
-                      {flight ? flight.description : "Not Included"}
-                    </span>
-                  </div>
-
-                  {additional.length > 0 && (
-                    <div className="border-t border-black/5 pt-2 space-y-1.5">
-                      <div className="flex justify-between text-masaar-black/70">
-                        <span className="font-medium">Add-ons &amp; Services</span>
-                        <span className="font-bold text-[#865d1d]">{additional.length} {additional.length === 1 ? "Inclusion" : "Inclusions"}</span>
+                    <div className="space-y-2 text-center">
+                      <div className="rounded-xl bg-neutral-100 border border-neutral-300 py-3 text-xs font-semibold text-neutral-700">
+                        Quotation Declined
                       </div>
-                      <div className="space-y-1 pl-2 border-l-2 border-[#b37e28]/30">
-                        {additional.map((item, idx) => {
-                          const itemPrice = Number(item.amount_aed ?? (item.quantity * item.unit_price_aed));
-                          return (
-                            <div key={item.id || idx} className="flex justify-between items-start text-[11px] text-masaar-black/80">
-                              <span className="leading-snug pr-2">
-                                • {item.description}
-                                {item.quantity && item.quantity > 1 ? ` (${item.quantity} Pax)` : ""}
-                              </span>
-                              {itemPrice > 0 && (
-                                <span className="font-semibold text-masaar-black shrink-0">
-                                  AED {itemPrice.toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <a
+                        href={generalWaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block w-full rounded-xl border border-black/15 bg-white py-2.5 text-xs font-semibold text-[#1A1816]"
+                      >
+                        💬 Speak with Concierge
+                      </a>
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* Total Box matching user's exact specification */}
-                <div className="rounded-xl border border-[#b37e28]/40 bg-gradient-to-br from-[#FAF6EE] to-[#F5ECE0] p-4 space-y-2.5 text-xs shadow-xs">
-                  <div className="flex justify-between items-center text-masaar-black font-semibold border-b border-black/10 pb-2">
-                    <span className="text-xs uppercase tracking-wider font-bold text-masaar-black/80">Total Package Price</span>
-                    <span className="font-bold text-base text-masaar-black">AED {Number(packageSubtotal).toLocaleString()}</span>
-                  </div>
-
-                  {/* Component items sub-breakdown */}
-                  <div className="space-y-1.5 text-[11px] text-masaar-black/75 pb-1">
-                    {hotelAndTransportTotal > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[#b37e28]">✓</span> Hotel &amp; Transport
-                        </span>
-                        <span className="font-semibold text-masaar-black">AED {Number(hotelAndTransportTotal).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {flightTotal > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[#b37e28]">✓</span> Flights ({flight?.quantity || document.adults} Pax)
-                        </span>
-                        <span className="font-semibold text-masaar-black">AED {Number(flightTotal).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {additional.length > 0 && (
-                      <div className="space-y-1">
-                        {additional.map((item, idx) => {
-                          const itemPrice = Number(item.amount_aed ?? (item.quantity * item.unit_price_aed));
-                          return (
-                            <div key={item.id || idx} className="flex justify-between items-center text-[11px] text-masaar-black/75">
-                              <span className="flex items-center gap-1.5 truncate max-w-[210px]" title={item.description}>
-                                <span className="text-[#b37e28]">✓</span> {item.description}
-                              </span>
-                              <span className="font-semibold text-masaar-black">
-                                AED {itemPrice.toLocaleString()}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {mealsTotal > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[#b37e28]">✓</span> Dining &amp; Meals ({meals?.quantity || document.adults} Pax)
-                        </span>
-                        <span className="font-semibold text-masaar-black">AED {Number(mealsTotal).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {packageItemsTotal > 0 && hotelAndTransportTotal === 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[#b37e28]">✓</span> Package Inclusions
-                        </span>
-                        <span className="font-semibold text-masaar-black">AED {Number(packageItemsTotal).toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex justify-between items-center border-t border-black/10 pt-2 font-bold text-masaar-black text-xs">
-                    <span>{hasVat ? "VAT (5%)" : "VAT (0% / Tax Inclusive)"}</span>
-                    <span>AED {Number(vatAmount).toLocaleString()}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center border-t-2 border-[#b37e28] pt-2.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#865d1d]">
-                      Final Price
-                    </span>
-                    <span className="font-serif text-2xl font-bold text-masaar-black">
-                      AED {Number(finalPrice).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Primary CTAs */}
-                <div className="space-y-2.5 pt-2 print:hidden">
-                  <button
-                    type="button"
-                    onClick={handleAccept}
-                    disabled={isPending || currentStatus === "accepted"}
-                    className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#96671e] py-3.5 text-xs font-bold text-white shadow-sm hover:from-[#9c6d1f] hover:to-[#845a17] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    <span>✓</span>
-                    <span>{currentStatus === "accepted" ? "Quotation Accepted" : "Accept Quotation →"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsRequestModalOpen(true)}
-                    className="w-full rounded-xl border border-black/20 bg-white py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/[0.02] transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>✏️</span>
-                    <span>Request Changes (via WhatsApp)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="w-full rounded-xl border border-black/10 bg-[#FAF9F7] py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>📥</span>
-                    <span>Download PDF / Print</span>
-                  </button>
-
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full rounded-xl border border-[#25D366]/40 bg-[#25D366]/10 py-2.5 text-xs font-bold text-[#1b7e3e] hover:bg-[#25D366]/20 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <span>💬</span>
-                    <span>Ask Questions on WhatsApp</span>
-                  </a>
-                </div>
-
-                {/* Security Badge */}
-                <div className="rounded-lg bg-neutral-50 p-2.5 text-center text-[10px] text-masaar-black/50 flex items-center justify-center gap-1.5 border border-black/5 print:hidden">
-                  <span>🔒</span>
-                  <span>This is a secure link shared by Masaar Holidays. Your information is safe with us.</span>
-                </div>
-
-                {/* Spiritual Brand Card */}
-                <div className="rounded-2xl border border-[#b37e28]/20 bg-gradient-to-b from-[#fbf8f2] to-white p-5 text-center space-y-1 break-inside-avoid">
-                  <span className="text-2xl">🤲</span>
-                  <p className="font-serif italic text-xs font-bold text-masaar-black">
-                    &ldquo;Not just a journey. A higher purpose.&rdquo;
-                  </p>
-                  <p className="text-[10px] uppercase tracking-widest text-[#865d1d] font-bold">
-                    Masaar Holidays
-                  </p>
-                </div>
+              {/* Concierge Assistance Card */}
+              <div className="rounded-2xl border border-black/5 bg-[#FAF8F5] p-5 text-xs space-y-2 text-center">
+                <span className="text-xl">🛎️</span>
+                <h4 className="font-serif font-bold text-[#1A1816]">Have Questions Before Deciding?</h4>
+                <p className="text-[#1A1816]/60 text-[11px] leading-relaxed">
+                  Our private travel team is here to assist with visa guidance, room selection, and customized itineraries.
+                </p>
+                <a
+                  href={generalWaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#865d1d] hover:underline"
+                >
+                  <span>Chat with Masaar Advisor ↗</span>
+                </a>
               </div>
             </div>
           </div>
         </div>
       </main>
 
-      {/* 5. Interactive Request Changes Modal (Exact match EDITING QUOTATION.png Step 3) */}
+      {/* MODAL 1: ACCEPT CONFIRMATION MODAL */}
+      {isAcceptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <h3 className="font-serif text-lg font-bold text-[#1A1816]">
+                Confirm Acceptance
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAcceptModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-[#1A1816]/80 leading-relaxed">
+              Are you sure you want to accept Quotation <strong>{document.document_number}</strong> for <strong>{document.client_name}</strong> (Total: AED {pricing.totalAed.toLocaleString()})?
+            </p>
+
+            <div className="rounded-xl bg-[#FAF8F5] border border-[#c9983e]/30 p-3 text-xs text-[#865d1d] space-y-1">
+              <p className="font-bold">Next Steps:</p>
+              <p className="text-[11px]">
+                Upon acceptance, your proposal will be locked and sent to our reservations desk. Our concierge will follow up to finalize traveller documents and booking confirmation.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-black/10">
+              <button
+                type="button"
+                onClick={() => setIsAcceptModalOpen(false)}
+                className="rounded-xl border border-black/15 px-4 py-2 text-xs font-semibold text-[#1A1816]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAcceptConfirm}
+                disabled={isPending}
+                className="rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] px-5 py-2 text-xs font-bold text-white shadow-sm disabled:opacity-50"
+              >
+                {isPending ? "Confirming…" : "Yes, Accept Quotation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: REQUEST CHANGES MODAL */}
       {isRequestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs no-print">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in">
             <div className="flex items-center justify-between border-b border-black/10 pb-3">
               <div>
-                <h3 className="font-serif text-lg font-bold text-masaar-black">
+                <h3 className="font-serif text-lg font-bold text-[#1A1816]">
                   Request Changes
                 </h3>
-                <p className="text-xs text-masaar-black/50 mt-0.5">
+                <p className="text-xs text-[#1A1816]/50 mt-0.5">
                   Quotation {document.document_number} • Direct WhatsApp Assistance
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsRequestModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 font-bold"
               >
                 ✕
               </button>
             </div>
 
-            <div className="rounded-xl bg-[#fbf6ec] border border-[#b37e28]/30 p-3 text-xs text-[#845c19] flex items-start gap-2">
-              <span>ℹ️</span>
-              <span>Select what you would like changed. Your request will be recorded and sent directly to our travel concierge on WhatsApp for prompt revision.</span>
-            </div>
-
             <form onSubmit={handleSubmitChangeRequest} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-masaar-black mb-2">
-                  What would you like to change?
+                <label className="block font-bold text-[#1A1816] mb-2">
+                  What would you like adjusted?
                 </label>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   {CHANGE_OPTIONS.map((opt) => (
                     <label
                       key={opt}
@@ -1238,45 +959,42 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                         type="checkbox"
                         checked={selectedChanges.has(opt)}
                         onChange={() => toggleChangeOption(opt)}
-                        className="rounded border-black/20 text-[#b37e28] focus:ring-[#b37e28] cursor-pointer"
+                        className="rounded border-black/20 text-[#b37e28] focus:ring-[#b37e28]"
                       />
-                      <span className="font-medium text-masaar-black">{opt}</span>
+                      <span className="font-medium text-[#1A1816]">{opt}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-masaar-black mb-1">
-                  Additional message / notes (optional)
+                <label className="block font-bold text-[#1A1816] mb-1">
+                  Specific Requests or Notes (optional)
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={changeMessage}
                   onChange={(e) => setChangeMessage(e.target.value)}
-                  placeholder="e.g. I would prefer a hotel closer to Haram. Also, please check if a room with Kaaba view is available."
+                  placeholder="e.g. Please provide options for Fairmont Makkah and a business class flight quote."
                   className="w-full rounded-xl border border-black/15 p-3 text-xs focus:border-[#b37e28] focus:outline-hidden focus:ring-1 focus:ring-[#b37e28]"
                 />
-                <div className="text-right text-[10px] text-masaar-black/40 mt-1">
-                  {changeMessage.length}/500
-                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-black/10">
                 <button
                   type="button"
                   onClick={() => setIsRequestModalOpen(false)}
-                  className="rounded-xl border border-black/15 px-4 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/[0.02] cursor-pointer"
+                  className="rounded-xl border border-black/15 px-4 py-2 text-xs font-semibold text-[#1A1816]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="rounded-xl bg-gradient-to-r from-[#b37e28] to-[#96671e] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:from-[#9c6d1f] hover:to-[#845a17] transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  className="rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] px-5 py-2 text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <span>💬</span>
-                  <span>{isPending ? "Submitting…" : "Submit & Send via WhatsApp"}</span>
+                  <span>{isPending ? "Submitting…" : "Send to WhatsApp Concierge"}</span>
                 </button>
               </div>
             </form>
@@ -1284,97 +1002,77 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
         </div>
       )}
 
-      {/* Accept Quotation Celebration Modal */}
-      {showAcceptCelebration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs no-print">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">
-              🎉
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#b37e28]">
-                ALHAMDULILLAH • QUOTATION ACCEPTED
-              </span>
-              <h3 className="font-serif text-xl font-bold text-masaar-black mt-1">
-                JazakAllahu Khairan!
+      {/* MODAL 3: DECLINE QUOTATION MODAL */}
+      {isDeclineModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-black/10 pb-3">
+              <h3 className="font-serif text-lg font-bold text-[#1A1816]">
+                Decline Quotation
               </h3>
-              <p className="text-xs text-masaar-black/70 mt-1 leading-relaxed">
-                Thank you, <strong>{document.client_name}</strong>. Your acceptance of Quotation <strong>{document.document_number}</strong> (AED {Number(document.total_aed || 9240).toLocaleString()}) has been confirmed.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-[#b37e28]/30 bg-[#fbf6ec] p-3 text-xs text-[#845c19] text-left space-y-1">
-              <p className="font-bold flex items-center gap-1.5">
-                <span>🛎️</span> Next Steps with Concierge:
-              </p>
-              <p className="text-[11px] text-[#845c19]/90">
-                Our reservations desk has locked in your package. Send a confirmation message to our travel team on WhatsApp to finalize traveler passports, payment schedule, and official vouchers.
-              </p>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <a
-                href={acceptWaUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full rounded-xl bg-[#25D366] hover:bg-[#20ba5a] py-3 text-xs font-bold text-white shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <span className="text-sm">💬</span>
-                <span>Confirm on WhatsApp Now</span>
-              </a>
-
               <button
                 type="button"
-                onClick={() => setShowAcceptCelebration(false)}
-                className="w-full rounded-xl border border-black/15 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
+                onClick={() => setIsDeclineModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold"
               >
-                Close &amp; View Itinerary
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-[#1A1816]/80 leading-relaxed">
+              Are you sure you wish to decline Quotation <strong>{document.document_number}</strong>? We would appreciate any feedback so we can better serve you.
+            </p>
+
+            <div>
+              <label className="block font-bold text-[#1A1816] text-xs mb-1">
+                Reason for declining (optional):
+              </label>
+              <textarea
+                rows={3}
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                placeholder="e.g. Trip postponed / Found alternative dates"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs focus:border-[#b37e28] focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-black/10">
+              <button
+                type="button"
+                onClick={() => setIsDeclineModalOpen(false)}
+                className="rounded-xl border border-black/15 px-4 py-2 text-xs font-semibold text-[#1A1816]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeclineConfirm}
+                disabled={isPending}
+                className="rounded-xl bg-red-600 hover:bg-red-700 px-5 py-2 text-xs font-bold text-white shadow-sm disabled:opacity-50"
+              >
+                {isPending ? "Declining…" : "Confirm Decline"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Print-only Luxury Footer */}
-      <div className="hidden print:block text-center py-6 text-xs text-masaar-black/70 border-t border-black/15 mt-8 break-inside-avoid">
-        <p className="font-serif text-sm font-bold text-masaar-black">Masaar Holidays LLC</p>
-        <p className="text-[11px] mt-1 text-masaar-black/60">
-          Dubai, United Arab Emirates • Contact: +971 55 227 6299 • care@masaarholidays.com • www.masaarholidays.com
-        </p>
-        <p className="font-serif italic text-[11px] text-[#865d1d] mt-2">
-          &ldquo;Not just a journey. A higher purpose. Faith • Clarity • Care • Peace.&rdquo;
-        </p>
-      </div>
-
-      {/* 6. Branded Footer (Web only) */}
-      <footer className="border-t border-black/10 bg-[#161412] text-white py-12 mt-16 print:hidden">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/10">
-            <div className="relative h-10 w-36">
-              <Image
-                src="/Assets/logo-reverse.png"
-                alt="Masaar Holidays"
-                fill
-                className="object-contain object-left"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-white/70">
-              <Link href="/umrah" className="hover:text-white">Umrah</Link>
-              <Link href="/hajj" className="hover:text-white">Hajj</Link>
-              <Link href="/hotels" className="hover:text-white">Hotels</Link>
-              <Link href="/transfers" className="hover:text-white">Transfers</Link>
-              <Link href="/visa" className="hover:text-white">Visa</Link>
-            </div>
-
-            <div className="text-xs text-white/60 space-y-1 text-center md:text-right">
-              <p>📞 +971 55 227 6299</p>
-              <p>✉️ care@masaarholidays.com</p>
-            </div>
+      {/* Footer */}
+      <footer className="border-t border-black/10 bg-[#161412] text-white py-10 mt-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/60">
+          <div className="relative h-8 w-28">
+            <Image
+              src="/brand/logo.png"
+              alt="Masaar Holidays"
+              fill
+              className="object-contain object-left invert"
+            />
           </div>
-
-          <div className="pt-6 text-center text-xs text-white/40 font-serif italic">
-            © 2026 Masaar Holidays. All rights reserved. Faith • Clarity • Care • Peace.
+          <div className="font-serif italic text-white/70">
+            &ldquo;Faith • Clarity • Care • Peace&rdquo;
+          </div>
+          <div>
+            © 2026 Masaar Holidays LLC. All rights reserved.
           </div>
         </div>
       </footer>

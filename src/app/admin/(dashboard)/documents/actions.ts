@@ -71,36 +71,148 @@ function moduleSlug(documentType: DocumentType): string {
   }[documentType];
 }
 
-/** Recomputes subtotal/discount/VAT/total on the parent document from its current line items. Respects whether VAT is disabled (tax_aed = 0). */
+import { calculateQuotationTotals } from "@/lib/documents/calculations";
+
+/** Recomputes subtotal/discount/VAT/total on the parent document from its current line items using the single authoritative engine. */
 async function recalcDocumentTotals(supabase: Awaited<ReturnType<typeof getClient>>, documentId: string, applyVat?: boolean) {
   const { data: items } = await supabase
     .from("document_items")
-    .select("quantity, unit_price_aed, discount_aed")
-    .eq("document_id", documentId);
+    .select("id, item_type, description, details, quantity, unit_price_aed, discount_aed, amount_aed, display_order")
+    .eq("document_id", documentId)
+    .order("display_order", { ascending: true });
 
   const { data: doc } = await supabase
     .from("documents")
-    .select("tax_aed")
+    .select("tax_aed, discount_aed, total_aed")
     .eq("id", documentId)
     .single();
 
-  const subtotal = (items ?? []).reduce((sum, i) => sum + Number(i.quantity) * Number(i.unit_price_aed), 0);
-  const discount = (items ?? []).reduce((sum, i) => sum + Number(i.discount_aed ?? 0), 0);
-
-  let hasVat = true;
+  let hasVat = false;
   if (applyVat !== undefined) {
     hasVat = applyVat;
   } else if (doc && doc.tax_aed !== null && doc.tax_aed !== undefined) {
     hasVat = Number(doc.tax_aed) > 0;
   }
 
-  const tax = hasVat ? Math.round((subtotal - discount) * VAT_RATE * 100) / 100 : 0;
-  const total = Math.round((subtotal - discount + tax) * 100) / 100;
+  const pricing = calculateQuotationTotals(
+    (items ?? []).map((it) => ({
+      id: it.id,
+      item_type: it.item_type,
+      description: it.description,
+      details: it.details,
+      quantity: it.quantity,
+      unit_price_aed: it.unit_price_aed,
+      discount_aed: it.discount_aed,
+      is_price_on_request: it.details?.includes("[price_on_request]") ?? false,
+      is_included: it.unit_price_aed === 0,
+    })),
+    {
+      applyVat: hasVat,
+      vatRate: 0.05,
+      documentDiscountAed: Number(doc?.discount_aed) || 0,
+    }
+  );
 
   await supabase
     .from("documents")
-    .update({ subtotal_aed: subtotal, discount_aed: discount, tax_aed: tax, total_aed: total })
+    .update({
+      subtotal_aed: pricing.subtotalAed,
+      discount_aed: pricing.discountAed,
+      tax_aed: pricing.taxAed,
+      total_aed: pricing.totalAed,
+    })
     .eq("id", documentId);
+}
+
+/** Authoritative save action for Q03 Flexible Pricing */
+export async function saveQuotationPricing(
+  documentId: string,
+  payload: {
+    items: Array<{
+      id?: string;
+      item_type: DocumentItemType;
+      description: string;
+      details?: string | null;
+      quantity: number;
+      unit?: string;
+      unit_price_aed: number;
+      catalog_unit_price_aed?: number | null;
+      is_overridden?: boolean;
+      discount_aed?: number;
+      is_price_on_request?: boolean;
+      is_included?: boolean;
+      display_order?: number;
+    }>;
+    applyVat: boolean;
+    vatRate?: number;
+    documentDiscountAed?: number;
+    manualAdjustmentAed?: number;
+    manualAdjustmentReason?: string;
+    agreedTotalOverride?: number | null;
+  }
+): Promise<{ success: boolean; pricing?: any; error?: string }> {
+  try {
+    const supabase = await getClient();
+
+    const pricing = calculateQuotationTotals(payload.items, {
+      applyVat: payload.applyVat,
+      vatRate: payload.vatRate ?? 0.05,
+      documentDiscountAed: payload.documentDiscountAed,
+      manualAdjustmentAed: payload.manualAdjustmentAed,
+      manualAdjustmentReason: payload.manualAdjustmentReason,
+      agreedTotalOverride: payload.agreedTotalOverride,
+    });
+
+    // 1. Delete old items and insert updated items
+    await supabase.from("document_items").delete().eq("document_id", documentId);
+
+    const itemsToInsert = pricing.items.map((it, idx) => {
+      // Store metadata flags in details if needed
+      let details = it.details || "";
+      if (it.status === "price_on_request" && !details.includes("[price_on_request]")) {
+        details = details ? `${details} • [price_on_request]` : "[price_on_request]";
+      }
+      if (it.is_overridden && !details.includes("[price_overridden]")) {
+        details = details ? `${details} • [price_overridden]` : "[price_overridden]";
+      }
+
+      return {
+        document_id: documentId,
+        item_type: it.item_type as DocumentItemType,
+        description: it.description,
+        details: details || null,
+        quantity: it.quantity,
+        unit_price_aed: it.unit_price_aed,
+        discount_aed: it.discount_aed,
+        tax_aed: it.tax_aed,
+        amount_aed: it.amount_aed,
+        display_order: it.display_order ?? idx,
+      };
+    });
+
+    if (itemsToInsert.length > 0) {
+      const { error: insErr } = await supabase.from("document_items").insert(itemsToInsert);
+      if (insErr) return { success: false, error: insErr.message };
+    }
+
+    // 2. Update document totals
+    const { error: docErr } = await supabase
+      .from("documents")
+      .update({
+        subtotal_aed: pricing.subtotalAed,
+        discount_aed: pricing.discountAed,
+        tax_aed: pricing.taxAed,
+        total_aed: pricing.totalAed,
+      })
+      .eq("id", documentId);
+
+    if (docErr) return { success: false, error: docErr.message };
+
+    revalidateDocumentPaths("quotation", documentId);
+    return { success: true, pricing };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to save quotation pricing." };
+  }
 }
 
 import { createManualQuotationCore, type CreateManualQuotationInput } from "@/lib/documents/service";

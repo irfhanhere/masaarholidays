@@ -12,21 +12,25 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export async function respondToQuotation(
   token: string,
-  action: "accept" | "request_changes",
-  changeDetails?: { categories?: string[]; message?: string }
+  action: "accept" | "request_changes" | "decline",
+  changeDetails?: { categories?: string[]; message?: string; declineReason?: string }
 ) {
   const supabase = createAdminClient();
 
   const { data: share } = await supabase.from("document_shares").select("document_id").eq("share_token", token).maybeSingle();
   if (!share) throw new Error("This quotation link is no longer valid.");
 
-  const status = action === "accept" ? "accepted" : "revision_requested";
+  const status = action === "accept" ? "accepted" : action === "decline" ? "rejected" : "revision_requested";
   
   const updatePayload: { status: string; notes?: string } = { status };
   if (action === "request_changes" && changeDetails) {
     const cats = changeDetails.categories?.join(", ") || "General";
     const noteEntry = `[Client Revision Request - ${new Date().toLocaleDateString("en-GB")}]:\nCategories: ${cats}\n${changeDetails.message ? `Notes: ${changeDetails.message}` : ""}\n`;
     
+    const { data: existingDoc } = await supabase.from("documents").select("notes").eq("id", share.document_id).single();
+    updatePayload.notes = existingDoc?.notes ? `${existingDoc.notes}\n\n${noteEntry}` : noteEntry;
+  } else if (action === "decline" && changeDetails?.declineReason) {
+    const noteEntry = `[Client Declined - ${new Date().toLocaleDateString("en-GB")}]:\nReason: ${changeDetails.declineReason}\n`;
     const { data: existingDoc } = await supabase.from("documents").select("notes").eq("id", share.document_id).single();
     updatePayload.notes = existingDoc?.notes ? `${existingDoc.notes}\n\n${noteEntry}` : noteEntry;
   }

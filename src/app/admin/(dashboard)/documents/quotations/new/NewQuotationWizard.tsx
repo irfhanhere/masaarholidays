@@ -6,6 +6,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, Field, inputClass } from "@/components/admin/ui";
 import type { DocumentJourneyType } from "@/lib/types/database";
+import {
+  calculateDateRangeMetrics,
+  formatDisplayDate,
+  reconcileItineraryDays,
+  addDaysToIsoDate,
+} from "@/lib/documents/calculations";
 
 interface EnquirySeed {
   id: string;
@@ -94,8 +100,7 @@ export function NewQuotationWizard({
 
   // 3. Travel Details & Package Requirements
   const [travelDate, setTravelDate] = useState(seeded?.travel_date || "2026-10-10");
-  const [returnDate, setReturnDate] = useState("2026-10-20");
-  const [duration, setDuration] = useState("10D9N");
+  const [returnDate, setReturnDate] = useState("2026-10-14");
   const [packageScope, setPackageScope] = useState<"both" | "makkah_only" | "madinah_only">("both");
   const [roomType, setRoomType] = useState<"TWIN/DOUBLE" | "TRIPLE" | "QUAD">("TWIN/DOUBLE");
   const [customerRequirement, setCustomerRequirement] = useState("");
@@ -104,6 +109,10 @@ export function NewQuotationWizard({
   const [infants, setInfants] = useState<number>(0);
   const [origin, setOrigin] = useState("Dubai (DXB)");
   const [destination, setDestination] = useState("Jeddah (JED)");
+
+  // Derive duration metrics from travel dates dynamically
+  const dateMetrics = calculateDateRangeMetrics(travelDate, returnDate, 4);
+  const duration = dateMetrics.durationLabel;
 
   // Filter existing enquiries for search
   const filteredEnquiries = enquiries.filter((e) => {
@@ -187,13 +196,11 @@ export function NewQuotationWizard({
         display_order: number;
       }> = [];
 
-      // Parse nights from duration string (e.g. "3D2N" -> 2 nights; "10D9N" -> 9 nights)
-      const nightsMatch = duration.match(/(\d+)\s*n/i);
-      const daysMatch = duration.match(/(\d+)\s*d/i);
-      const totalNights = nightsMatch ? parseInt(nightsMatch[1], 10) : (daysMatch ? Math.max(1, parseInt(daysMatch[1], 10) - 1) : 9);
+      const totalNights = dateMetrics.nights;
+      const totalDays = dateMetrics.calendarDays;
 
       const makkahNights = packageScope === "madinah_only" ? 0 : (packageScope === "makkah_only" ? totalNights : Math.max(1, Math.ceil(totalNights * 0.6)));
-      const madinahNights = packageScope === "makkah_only" ? 0 : (packageScope === "madinah_only" ? totalNights : Math.max(1, totalNights - makkahNights));
+      const madinahNights = packageScope === "makkah_only" ? 0 : (packageScope === "madinah_only" ? totalNights : Math.max(0, totalNights - makkahNights));
 
       const scopeLabel = packageScope === "makkah_only" ? "Makkah Only" : packageScope === "madinah_only" ? "Madinah Only" : "Makkah & Madinah";
 
@@ -338,7 +345,9 @@ export function NewQuotationWizard({
         future_crm_enquiry_id: selectedEnquiry?.id || undefined,
         items: defaultItems,
         notes: notesArr.join("\n") || undefined,
-        special_requirements: customerRequirement || undefined,
+        special_requirements: JSON.stringify(
+          reconcileItineraryDays([], dateMetrics.calendarDays, dateMetrics.startDate, journeyType === "hajj")
+        ),
       };
 
       // Use API route instead of Server Action — works reliably on
@@ -858,27 +867,43 @@ export function NewQuotationWizard({
                   <span className="text-[11px] text-masaar-black/50 font-normal">e.g. 3D2N, 5D4N, 10D9N</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {["3D2N", "4D3N", "5D4N", "7D6N", "10D9N", "14D13N"].map((d) => (
+                  {[
+                    { label: "3D2N", nights: 2 },
+                    { label: "4D3N", nights: 3 },
+                    { label: "5D4N", nights: 4 },
+                    { label: "7D6N", nights: 6 },
+                    { label: "10D9N", nights: 9 },
+                    { label: "14D13N", nights: 13 },
+                  ].map(({ label, nights }) => (
                     <button
-                      key={d}
+                      key={label}
                       type="button"
-                      onClick={() => setDuration(d)}
+                      onClick={() => {
+                        if (travelDate) {
+                          setReturnDate(addDaysToIsoDate(travelDate, nights));
+                        }
+                      }}
                       className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                        duration === d
+                        duration === label
                           ? "bg-[#b37e28] text-white shadow-xs"
                           : "border border-black/15 bg-white text-masaar-black/70 hover:bg-black/5"
                       }`}
                     >
-                      {d}
+                      {label}
                     </button>
                   ))}
                 </div>
-                <input
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  placeholder="Or enter custom duration like 3D2N..."
-                  className={inputClass}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    value={duration}
+                    readOnly
+                    placeholder="Duration is calculated from travel dates"
+                    className={`${inputClass} bg-black/5 font-medium cursor-not-allowed`}
+                  />
+                  <span className="text-xs text-masaar-black/60 whitespace-nowrap">
+                    ({dateMetrics.calendarDays} Days, {dateMetrics.nights} Nights)
+                  </span>
+                </div>
               </div>
 
               {/* Room Sharing Type */}
