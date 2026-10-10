@@ -180,7 +180,19 @@ export function NewQuotationWizard({
   async function handleSubmit(asDraft = false) {
     setError(null);
     if (!clientName.trim()) {
-      setError("Please select or enter a client name.");
+      setError("Please enter or select a Client Name to proceed.");
+      setTimeout(() => {
+        const input = document.getElementById("client-name-input");
+        if (input) {
+          input.focus();
+          input.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 50);
+      return;
+    }
+
+    if (travelDate && returnDate && returnDate < travelDate) {
+      setError("Return date cannot be earlier than travel start date.");
       return;
     }
 
@@ -356,15 +368,22 @@ export function NewQuotationWizard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).then((r) => r.json()) as { success: boolean; id?: string; error?: string };
-      if (res.success && res.id) {
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || `Server returned error (${res.status}). Please try again.`);
+      }
+
+      const resData = (await res.json()) as { success: boolean; id?: string; error?: string };
+      if (resData.success && resData.id) {
         if (asDraft) {
-          router.push("/admin/documents/quotations");
+          window.location.href = "/admin/documents/quotations";
         } else {
-          router.push(`/admin/documents/quotations/${res.id}`);
+          window.location.href = `/admin/documents/quotations/${resData.id}`;
         }
       } else {
-        setError(res.error || "Failed to create quotation. Please try again.");
+        setError(resData.error || "Failed to create quotation. Please try again.");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -475,207 +494,207 @@ export function NewQuotationWizard({
         {/* Left Form: 3 Cards */}
         <div className="space-y-6 lg:col-span-8">
           {/* Card 1: Client */}
-          <Card className="!p-6 space-y-5">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">👤</span>
-              <div>
-                <h2 className="font-serif text-lg font-bold text-masaar-black">
-                  1. Client
-                </h2>
-                <p className="text-xs text-masaar-black/60">
-                  Select an existing client or create a new one.
-                </p>
+          <div id="client-section">
+            <Card className="!p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">👤</span>
+                <div>
+                  <h2 className="font-serif text-lg font-bold text-masaar-black">
+                    1. Client Details
+                  </h2>
+                  <p className="text-xs text-masaar-black/60">
+                    Search an existing lead/client to autofill, or enter new client details directly.
+                  </p>
+                </div>
               </div>
+              {selectedEnquiry && (
+                <span className="rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold px-3 py-1 flex items-center gap-1.5 border border-emerald-200">
+                  <span>✓</span> Linked to Lead
+                </span>
+              )}
             </div>
 
-            {/* Toggle Tabs */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setClientMode("existing")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all ${
-                  clientMode === "existing"
-                    ? "border-[#b37e28] bg-[#fbf6ec] text-[#865917] shadow-xs ring-1 ring-[#b37e28]/40"
-                    : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/[0.02]"
-                }`}
-              >
-                <span>👤</span> Select Existing Client
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setClientMode("new");
-                  handleClearClient();
-                }}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all ${
-                  clientMode === "new"
-                    ? "border-[#b37e28] bg-[#fbf6ec] text-[#865917] shadow-xs ring-1 ring-[#b37e28]/40"
-                    : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/[0.02]"
-                }`}
-              >
-                <span>+👤</span> Create New Client
-              </button>
-            </div>
-
-            {/* Existing Client Search & Selected Card */}
-            {clientMode === "existing" ? (
-              <div className="space-y-3">
-                {selectedEnquiry || clientName ? (
-                  /* Selected Client Card */
-                  <div className="relative flex items-center justify-between rounded-xl border border-black/15 bg-[#FAF9F7] p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#f0e4cf] text-sm font-bold text-[#845c19]">
-                        {getInitials(clientName)}
-                      </div>
-                      <div>
-                        <h4 className="font-serif font-bold text-sm text-masaar-black">
-                          {clientName}
-                        </h4>
-                        <p className="text-xs text-masaar-black/60 mt-0.5">
-                          {clientEmail || "No email"} {clientPhone ? `| ${clientPhone}` : ""}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-masaar-black/50 hidden sm:inline">
-                        {clientCountry}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleClearClient}
-                        title="Remove selected client"
-                        className="rounded-full p-1 text-masaar-black/40 hover:bg-black/5 hover:text-masaar-black text-sm"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Search Input */
-                  <div className="relative">
-                    <div className="relative">
-                      <input
-                        value={searchQuery}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value);
-                          setShowSearchDropdown(true);
-                        }}
-                        onFocus={() => setShowSearchDropdown(true)}
-                        placeholder="🔍 Search by name, email or phone..."
-                        className={inputClass}
-                      />
-                    </div>
-
-                    {showSearchDropdown && (
-                      <div className="absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-black/15 bg-white p-1.5 shadow-xl">
-                        {filteredEnquiries.length === 0 ? (
-                          <div className="p-3 text-center text-xs text-masaar-black/60 space-y-2">
-                            <p>No existing client or enquiry matches &ldquo;{searchQuery}&rdquo;.</p>
-                            {searchQuery.trim() && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setClientMode("new");
-                                  setClientName(searchQuery.trim());
-                                  setShowSearchDropdown(false);
-                                }}
-                                className="inline-flex items-center gap-1 rounded-lg bg-[#b37e28] px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#96671e]"
-                              >
-                                + Create New Client &ldquo;{searchQuery.trim()}&rdquo;
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            {filteredEnquiries.map((enq) => (
-                              <button
-                                key={enq.id}
-                                type="button"
-                                onClick={() => handleSelectEnquiry(enq)}
-                                className="w-full text-left rounded-lg p-2.5 hover:bg-black/[0.04] transition-colors flex items-center justify-between group"
-                              >
-                                <div>
-                                  <p className="font-semibold text-xs text-masaar-black group-hover:text-[#916d28]">
-                                    {enq.name}
-                                  </p>
-                                  <p className="text-[11px] text-masaar-black/50">
-                                    {enq.phone ? `📞 ${enq.phone}` : ""} {enq.email ? `• ✉️ ${enq.email}` : ""}
-                                    {!enq.phone && !enq.email ? "No contact info" : ""}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] text-[#916d28] font-bold uppercase tracking-wider bg-light-gold/20 px-2 py-0.5 rounded">
-                                    {enq.source || "Enquiry"} • {enq.enquiry_type || "Umrah"}
-                                  </span>
-                                  {enq.travel_date && (
-                                    <p className="text-[10px] text-masaar-black/40 mt-0.5">{enq.travel_date}</p>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                            {searchQuery.trim() && (
-                              <div className="border-t border-black/10 mt-1 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setClientMode("new");
-                                    setClientName(searchQuery.trim());
-                                    setShowSearchDropdown(false);
-                                  }}
-                                  className="w-full text-left rounded-lg p-2 text-xs font-semibold text-[#865d1d] hover:bg-light-gold/15"
-                                >
-                                  + Or add &ldquo;{searchQuery.trim()}&rdquo; as a brand new client
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
+            {/* Quick Find Combobox */}
+            <div className="relative">
+              <label className="block text-xs font-bold text-masaar-black mb-1">
+                Autofill from Existing Leads &amp; Enquiries
+              </label>
+              <div className="relative">
+                <input
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onFocus={() => setShowSearchDropdown(true)}
+                  placeholder="🔍 Type name, phone or email to search existing leads..."
+                  className={inputClass}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setShowSearchDropdown(false);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black/40 hover:text-black cursor-pointer"
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
-            ) : (
-              /* Create New Client Inputs */
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Full Name" required>
-                  <input
-                    required
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="e.g. Mr. Ahmed Khan"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Country / City">
-                  <input
-                    value={clientCountry}
-                    onChange={(e) => setClientCountry(e.target.value)}
-                    placeholder="e.g. Dubai, UAE"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Phone Number">
-                  <input
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="e.g. +971 50 123 4567"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Email Address">
-                  <input
-                    type="email"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    placeholder="e.g. ahmed.khan@email.com"
-                    className={inputClass}
-                  />
-                </Field>
+
+              {showSearchDropdown && (
+                <div className="absolute left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-black/15 bg-white p-1.5 shadow-xl">
+                  {filteredEnquiries.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-masaar-black/60 space-y-2">
+                      <p>No existing lead matches &ldquo;{searchQuery}&rdquo;.</p>
+                      {searchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setClientName(searchQuery.trim());
+                            setSearchQuery("");
+                            setShowSearchDropdown(false);
+                            setError(null);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg bg-[#b37e28] px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#96671e] cursor-pointer"
+                        >
+                          + Set Client Name to &ldquo;{searchQuery.trim()}&rdquo;
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="p-1.5 text-[10px] font-bold uppercase tracking-wider text-black/40 border-b border-black/5">
+                        Matching Leads ({filteredEnquiries.length})
+                      </div>
+                      {filteredEnquiries.map((enq) => (
+                        <button
+                          key={enq.id}
+                          type="button"
+                          onClick={() => handleSelectEnquiry(enq)}
+                          className="w-full text-left rounded-lg p-2.5 hover:bg-black/[0.04] transition-colors flex items-center justify-between group cursor-pointer"
+                        >
+                          <div>
+                            <p className="font-semibold text-xs text-masaar-black group-hover:text-[#916d28]">
+                              {enq.name}
+                            </p>
+                            <p className="text-[11px] text-masaar-black/50">
+                              {enq.phone ? `📞 ${enq.phone}` : ""} {enq.email ? `• ✉️ ${enq.email}` : ""}
+                              {!enq.phone && !enq.email ? "No contact details" : ""}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-[#916d28] font-bold uppercase tracking-wider bg-[#b37e28]/10 px-2 py-0.5 rounded">
+                              {enq.source || "Enquiry"}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                      {searchQuery.trim() && (
+                        <div className="border-t border-black/10 mt-1 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setClientName(searchQuery.trim());
+                              setSearchQuery("");
+                              setShowSearchDropdown(false);
+                              setError(null);
+                            }}
+                            className="w-full text-left rounded-lg p-2 text-xs font-semibold text-[#865d1d] hover:bg-[#b37e28]/10 cursor-pointer"
+                          >
+                            + Use &ldquo;{searchQuery.trim()}&rdquo; as Client Name
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedEnquiry && (
+              <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-emerald-200 text-emerald-900 font-bold text-xs">
+                    {getInitials(clientName)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-emerald-950">
+                      {clientName}
+                    </p>
+                    <p className="text-[11px] text-emerald-800">
+                      {clientEmail} {clientPhone ? `• ${clientPhone}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearClient}
+                  className="rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 transition-colors cursor-pointer"
+                >
+                  ✕ Unlink / Change
+                </button>
               </div>
             )}
+
+            {/* Direct Client Input Fields */}
+            <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-black/10">
+              <Field label="Client Full Name" required>
+                <input
+                  id="client-name-input"
+                  required
+                  value={clientName}
+                  onChange={(e) => {
+                    setClientName(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="e.g. Mr. Ahmed Khan"
+                  className={`${inputClass} ${
+                    error && !clientName.trim()
+                      ? "border-red-500 ring-2 ring-red-200 bg-red-50/20"
+                      : ""
+                  }`}
+                />
+                {error && !clientName.trim() && (
+                  <p className="text-[11px] text-red-600 font-semibold mt-1">
+                    Client Name is required to create a quotation.
+                  </p>
+                )}
+              </Field>
+
+              <Field label="Origin Country / City">
+                <input
+                  value={clientCountry}
+                  onChange={(e) => setClientCountry(e.target.value)}
+                  placeholder="e.g. Dubai, UAE"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Phone Number (with Country Code)">
+                <input
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  placeholder="e.g. +971 50 123 4567"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Email Address">
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  placeholder="e.g. ahmed.khan@email.com"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
           </Card>
+          </div>
 
           {/* Card 2: Journey Type (Exact match QUOTATION MAKER.png) */}
           <Card className="!p-6 space-y-5">
@@ -970,9 +989,25 @@ export function NewQuotationWizard({
                     <span>👤</span>
                     <span>Client</span>
                   </div>
-                  <span className="font-semibold text-masaar-black text-right">
-                    {clientName || "—"}
-                  </span>
+                  {clientName.trim() ? (
+                    <span className="font-semibold text-masaar-black text-right truncate max-w-[170px]" title={clientName}>
+                      {clientName}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById("client-name-input");
+                        if (input) {
+                          input.focus();
+                          input.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                      }}
+                      className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[11px] font-bold hover:bg-amber-200 transition-colors cursor-pointer"
+                    >
+                      ⚠️ Required *
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
@@ -1067,20 +1102,54 @@ export function NewQuotationWizard({
 
               {/* Action Buttons */}
               <div className="space-y-2.5 pt-2">
+                {error && (
+                  <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-700 font-medium space-y-1 shadow-xs">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span>⚠️</span>
+                      <span>{error}</span>
+                    </div>
+                    {!clientName.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById("client-name-input");
+                          if (input) {
+                            input.focus();
+                            input.scrollIntoView({ behavior: "smooth", block: "center" });
+                          }
+                        }}
+                        className="text-xs text-red-800 underline font-semibold block hover:text-red-950 cursor-pointer pt-0.5"
+                      >
+                        Click here to enter Client Name ↑
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  disabled={isPending || !clientName.trim()}
+                  disabled={isPending}
                   onClick={() => handleSubmit(false)}
-                  className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#96671e] py-3 text-xs font-bold text-white shadow-sm hover:from-[#9c6d1f] hover:to-[#845a17] transition-all disabled:opacity-50"
+                  className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#96671e] py-3 text-xs font-bold text-white shadow-sm hover:from-[#9c6d1f] hover:to-[#845a17] transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {isPending ? "Creating Quotation..." : "Save & Continue →"}
+                  {isPending ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin size-4 text-white" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Creating Quotation...
+                    </span>
+                  ) : (
+                    "Save & Continue →"
+                  )}
                 </button>
 
                 <button
                   type="button"
-                  disabled={isPending || !clientName.trim()}
+                  disabled={isPending}
                   onClick={() => handleSubmit(true)}
-                  className="w-full rounded-xl border border-black/15 bg-white py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/[0.02] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-full rounded-xl border border-black/15 bg-white py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/[0.02] transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <span>💾</span> Save as Draft
                 </button>
