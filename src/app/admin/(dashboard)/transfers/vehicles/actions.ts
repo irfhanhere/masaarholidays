@@ -24,13 +24,36 @@ async function getClient() {
   return createClient();
 }
 
+function isSchemaCacheOrColumnError(error: any): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST204" || error.code === "42703") return true;
+  const msg = (error.message || "").toLowerCase();
+  return (
+    msg.includes("column") ||
+    msg.includes("schema cache") ||
+    msg.includes("could not find the")
+  );
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function toggleVehicleActive(id: string, newActive: boolean) {
   const supabase = await getClient();
+
+  let targetId = id;
+  if (!UUID_REGEX.test(targetId)) {
+    const { data: existing } = await supabase
+      .from("transfer_vehicles")
+      .select("id")
+      .ilike("name", id)
+      .maybeSingle();
+    if (existing) targetId = existing.id;
+  }
 
   const { error } = await supabase
     .from("transfer_vehicles")
     .update({ is_active: newActive })
-    .eq("id", id);
+    .eq("id", targetId);
 
   if (error) {
     console.error("toggleVehicleActive error:", error.message);
@@ -47,10 +70,20 @@ export async function toggleVehicleActive(id: string, newActive: boolean) {
 export async function updateVehicleOrder(id: string, displayOrder: number) {
   const supabase = await getClient();
 
+  let targetId = id;
+  if (!UUID_REGEX.test(targetId)) {
+    const { data: existing } = await supabase
+      .from("transfer_vehicles")
+      .select("id")
+      .ilike("name", id)
+      .maybeSingle();
+    if (existing) targetId = existing.id;
+  }
+
   const { error } = await supabase
     .from("transfer_vehicles")
     .update({ display_order: displayOrder })
-    .eq("id", id);
+    .eq("id", targetId);
 
   if (error) {
     console.error("updateVehicleOrder error:", error.message);
@@ -110,20 +143,29 @@ export async function saveVehicle(formData: FormData) {
     spec_verified: true,
   };
 
-  if (id) {
+  let targetId = id;
+  if (targetId && !UUID_REGEX.test(targetId)) {
+    const { data: existing } = await supabase
+      .from("transfer_vehicles")
+      .select("id")
+      .ilike("name", name)
+      .maybeSingle();
+    targetId = existing?.id;
+  }
+
+  if (targetId) {
     // Attempt with extended payload first
     let { error } = await supabase
       .from("transfer_vehicles")
       .update(extendedPayload)
-      .eq("id", id);
+      .eq("id", targetId);
 
-    if (error && error.code === "42703") {
-      // Column doesn't exist yet in remote schema, fall back to core columns
+    if (isSchemaCacheOrColumnError(error)) {
       console.warn("Extended columns not present on transfer_vehicles. Updating core columns only.");
       const res = await supabase
         .from("transfer_vehicles")
         .update(corePayload)
-        .eq("id", id);
+        .eq("id", targetId);
       error = res.error;
     }
 
@@ -131,16 +173,28 @@ export async function saveVehicle(formData: FormData) {
       console.error("saveVehicle update error:", error.message);
       return { success: false, error: error.message };
     }
+
+    revalidatePath("/admin/transfers/vehicles");
+    revalidatePath("/admin/transfers/rate-card");
+    revalidatePath("/admin/transfers");
+    revalidatePath("/transfers");
+    return { success: true, id: targetId };
   } else {
     // New vehicle
-    let { error } = await supabase
+    let { data: newRow, error } = await supabase
       .from("transfer_vehicles")
-      .insert(extendedPayload);
+      .insert(extendedPayload)
+      .select("id")
+      .single();
 
-    if (error && error.code === "42703") {
+    if (isSchemaCacheOrColumnError(error)) {
+      console.warn("Extended columns not present on transfer_vehicles. Inserting core columns only.");
       const res = await supabase
         .from("transfer_vehicles")
-        .insert(corePayload);
+        .insert(corePayload)
+        .select("id")
+        .single();
+      newRow = res.data;
       error = res.error;
     }
 
@@ -148,11 +202,34 @@ export async function saveVehicle(formData: FormData) {
       console.error("saveVehicle insert error:", error.message);
       return { success: false, error: error.message };
     }
-  }
 
-  revalidatePath("/admin/transfers/vehicles");
-  revalidatePath("/admin/transfers/rate-card");
-  revalidatePath("/admin/transfers");
-  revalidatePath("/transfers");
-  return { success: true };
+    // Connect this new vehicle to existing active transfer routes in the rate card
+    if (newRow?.id) {
+      try {
+        const { data: routes } = await supabase
+          .from("transfers")
+          .select("id")
+          .eq("is_active", true);
+
+        if (routes && routes.length > 0) {
+          const rateInserts = routes.map((r) => ({
+            transfer_id: r.id,
+            vehicle_id: newRow.id,
+            price_aed: 0,
+            is_active: true,
+            display_order: 0,
+          }));
+          await supabase.from("transfer_route_rates").upsert(rateInserts, { onConflict: "transfer_id,vehicle_id" });
+        }
+      } catch (rateErr) {
+        console.warn("[saveVehicle] Rate card linkage skipped:", rateErr);
+      }
+    }
+
+    revalidatePath("/admin/transfers/vehicles");
+    revalidatePath("/admin/transfers/rate-card");
+    revalidatePath("/admin/transfers");
+    revalidatePath("/transfers");
+    return { success: true, id: newRow?.id };
+  }
 }

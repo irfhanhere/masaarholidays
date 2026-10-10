@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { TransferRow } from "@/lib/types/database";
+import { SUPPLIED_RATE_CARD } from "@/lib/data/transfers";
 
 export interface TransferFormState {
   status: "idle" | "success" | "error";
@@ -28,6 +29,19 @@ async function getClient() {
 
   return createClient();
 }
+
+function isSchemaCacheOrColumnError(error: any): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST204" || error.code === "42703") return true;
+  const msg = (error.message || "").toLowerCase();
+  return (
+    msg.includes("column") ||
+    msg.includes("schema cache") ||
+    msg.includes("could not find the")
+  );
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function slugify(input: string) {
   return input
@@ -97,21 +111,52 @@ export async function saveTransfer(
   try {
     const supabase = await getClient();
 
-    if (transferId) {
-      let { error } = await supabase.from("transfers").update(fullPayload as any).eq("id", transferId);
-      if (error && error.message.includes("column")) {
+    let targetId = transferId;
+    if (targetId && !UUID_REGEX.test(targetId)) {
+      const { data: bySlug } = await supabase.from("transfers").select("id").eq("slug", slug).maybeSingle();
+      targetId = bySlug?.id || null;
+    }
+
+    if (targetId) {
+      let { error } = await supabase.from("transfers").update(fullPayload as any).eq("id", targetId);
+      if (isSchemaCacheOrColumnError(error)) {
         // Fallback to core payload if columns don't exist yet in remote schema
-        const fallbackRes = await supabase.from("transfers").update(corePayload as any).eq("id", transferId);
+        const fallbackRes = await supabase.from("transfers").update(corePayload as any).eq("id", targetId);
         error = fallbackRes.error;
       }
       if (error) return { status: "error", message: error.message };
     } else {
-      let { error } = await supabase.from("transfers").insert(fullPayload as any);
-      if (error && error.message.includes("column")) {
-        const fallbackRes = await supabase.from("transfers").insert(corePayload as any);
+      let { data: newRow, error } = await supabase.from("transfers").insert(fullPayload as any).select("id").single();
+      if (isSchemaCacheOrColumnError(error)) {
+        const fallbackRes = await supabase.from("transfers").insert(corePayload as any).select("id").single();
+        newRow = fallbackRes.data;
         error = fallbackRes.error;
       }
       if (error) return { status: "error", message: error.message };
+
+      // Initialize rate card rows for active vehicles
+      if (newRow?.id) {
+        try {
+          const { data: activeVehicles } = await supabase
+            .from("transfer_vehicles")
+            .select("id, name")
+            .eq("is_active", true);
+
+          if (activeVehicles && activeVehicles.length > 0) {
+            const fallbackRates = SUPPLIED_RATE_CARD[slug] || {};
+            const initialRates = activeVehicles.map((v) => ({
+              transfer_id: newRow.id,
+              vehicle_id: v.id,
+              price_aed: fallbackRates[v.name] || 0,
+              is_active: true,
+              display_order: 0,
+            }));
+            await supabase.from("transfer_route_rates").upsert(initialRates, { onConflict: "transfer_id,vehicle_id" });
+          }
+        } catch (e) {
+          console.warn("[saveTransfer] Rate card initialization skipped:", e);
+        }
+      }
     }
 
     revalidatePath("/admin/transfers");
@@ -131,7 +176,12 @@ export async function saveTransfer(
 export async function toggleTransferActive(id: string, isActive: boolean) {
   try {
     const supabase = await getClient();
-    await supabase.from("transfers").update({ is_active: isActive }).eq("id", id);
+    let targetId = id;
+    if (!UUID_REGEX.test(targetId)) {
+      const { data: existing } = await supabase.from("transfers").select("id").eq("slug", id).maybeSingle();
+      if (existing) targetId = existing.id;
+    }
+    await supabase.from("transfers").update({ is_active: isActive }).eq("id", targetId);
     revalidatePath("/admin/transfers");
     revalidatePath("/admin/transfers/rate-card");
     revalidatePath("/transfers");
@@ -143,7 +193,12 @@ export async function toggleTransferActive(id: string, isActive: boolean) {
 export async function toggleTransferFeatured(id: string, isFeatured: boolean) {
   try {
     const supabase = await getClient();
-    const { error } = await supabase.from("transfers").update({ featured: isFeatured }).eq("id", id);
+    let targetId = id;
+    if (!UUID_REGEX.test(targetId)) {
+      const { data: existing } = await supabase.from("transfers").select("id").eq("slug", id).maybeSingle();
+      if (existing) targetId = existing.id;
+    }
+    const { error } = await supabase.from("transfers").update({ featured: isFeatured }).eq("id", targetId);
     if (error) {
       console.warn("Featured column update skipped:", error.message);
     }
@@ -157,10 +212,16 @@ export async function toggleTransferFeatured(id: string, isFeatured: boolean) {
 export async function duplicateTransfer(id: string) {
   try {
     const supabase = await getClient();
+    let targetId = id;
+    if (!UUID_REGEX.test(targetId)) {
+      const { data: bySlug } = await supabase.from("transfers").select("id").eq("slug", id).maybeSingle();
+      if (bySlug) targetId = bySlug.id;
+    }
+
     const { data: original, error: fetchErr } = await supabase
       .from("transfers")
       .select("*")
-      .eq("id", id)
+      .eq("id", targetId)
       .maybeSingle();
 
     if (fetchErr || !original) {
@@ -173,15 +234,12 @@ export async function duplicateTransfer(id: string) {
 
     const insertPayload = {
       ...original,
-      id: undefined,
-      slug: newSlug,
-      route_name: newName,
-      created_at: undefined,
-      updated_at: undefined,
     };
     delete (insertPayload as any).id;
     delete (insertPayload as any).created_at;
     delete (insertPayload as any).updated_at;
+    insertPayload.slug = newSlug;
+    insertPayload.route_name = newName;
 
     const { data: newRow, error: insertErr } = await supabase
       .from("transfers")
@@ -198,7 +256,7 @@ export async function duplicateTransfer(id: string) {
     const { data: rates } = await supabase
       .from("transfer_route_rates")
       .select("*")
-      .eq("transfer_id", id);
+      .eq("transfer_id", targetId);
 
     if (rates && rates.length > 0) {
       const clonedRates = rates.map((r) => ({
@@ -222,7 +280,12 @@ export async function duplicateTransfer(id: string) {
 export async function deleteTransfer(id: string) {
   try {
     const supabase = await getClient();
-    await supabase.from("transfers").delete().eq("id", id);
+    let targetId = id;
+    if (!UUID_REGEX.test(targetId)) {
+      const { data: existing } = await supabase.from("transfers").select("id").eq("slug", id).maybeSingle();
+      if (existing) targetId = existing.id;
+    }
+    await supabase.from("transfers").delete().eq("id", targetId);
     revalidatePath("/admin/transfers");
     revalidatePath("/admin/transfers/rate-card");
     revalidatePath("/transfers");

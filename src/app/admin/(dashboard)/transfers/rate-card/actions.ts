@@ -31,6 +31,8 @@ export interface RateUpdateItem {
   is_active: boolean;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Server action to save the entire Rate Card Matrix with server-side validation.
  */
@@ -54,13 +56,56 @@ export async function saveRateCardBulk(rates: RateUpdateItem[]) {
   }
 
   if (validUpdates.length > 0) {
-    const { error } = await supabase
-      .from("transfer_route_rates")
-      .upsert(validUpdates, { onConflict: "transfer_id,vehicle_id" });
+    // Resolve any non-UUID IDs (e.g. from static catalog fallbacks)
+    const hasNonUuid = validUpdates.some(
+      (u) => !UUID_REGEX.test(u.transfer_id) || !UUID_REGEX.test(u.vehicle_id)
+    );
 
-    if (error) {
-      console.error("saveRateCardBulk error:", error.message);
-      return { success: false, error: error.message };
+    let finalUpdates = validUpdates;
+    if (hasNonUuid) {
+      const [allTransfersRes, allVehiclesRes] = await Promise.all([
+        supabase.from("transfers").select("id, slug"),
+        supabase.from("transfer_vehicles").select("id, name"),
+      ]);
+
+      const transferMap = new Map<string, string>();
+      for (const t of allTransfersRes.data || []) {
+        transferMap.set(t.slug, t.id);
+        transferMap.set(t.id, t.id);
+      }
+
+      const vehicleMap = new Map<string, string>();
+      for (const v of allVehiclesRes.data || []) {
+        vehicleMap.set(v.name.toLowerCase(), v.id);
+        vehicleMap.set(v.id, v.id);
+      }
+
+      finalUpdates = validUpdates
+        .map((u) => {
+          const tid = UUID_REGEX.test(u.transfer_id) ? u.transfer_id : transferMap.get(u.transfer_id);
+          const vid = UUID_REGEX.test(u.vehicle_id)
+            ? u.vehicle_id
+            : vehicleMap.get(u.vehicle_id.toLowerCase()) || vehicleMap.get(u.vehicle_id.replace(/-/g, " ").toLowerCase());
+          if (!tid || !vid) return null;
+          return {
+            transfer_id: tid,
+            vehicle_id: vid,
+            price_aed: u.price_aed,
+            is_active: u.is_active,
+          };
+        })
+        .filter(Boolean) as RateUpdateItem[];
+    }
+
+    if (finalUpdates.length > 0) {
+      const { error } = await supabase
+        .from("transfer_route_rates")
+        .upsert(finalUpdates, { onConflict: "transfer_id,vehicle_id" });
+
+      if (error) {
+        console.error("saveRateCardBulk error:", error.message);
+        return { success: false, error: error.message };
+      }
     }
   }
 
@@ -99,13 +144,6 @@ export async function updateRateCard(formData: FormData) {
   }
 
   if (updates.length > 0) {
-    const { error } = await supabase
-      .from("transfer_route_rates")
-      .upsert(updates, { onConflict: "transfer_id,vehicle_id" });
-    if (error) console.error("updateRateCard", error.message);
+    await saveRateCardBulk(updates);
   }
-
-  revalidatePath("/admin/transfers/rate-card");
-  revalidatePath("/admin/transfers");
-  revalidatePath("/transfers");
 }

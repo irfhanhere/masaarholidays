@@ -49,5 +49,21 @@ export default async function EditTransferPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  return <TransferForm transferId={transfer.id} initial={transfer} />;
+  const catalogMeta = VERIFIED_ROUTE_CATALOG[transfer.slug];
+  const enrichedInitial = {
+    ...catalogMeta,
+    ...transfer,
+    pickup_location: (transfer as any).pickup_location || catalogMeta?.pickup_location,
+    dropoff_location: (transfer as any).dropoff_location || catalogMeta?.dropoff_location,
+    route_type: (transfer as any).route_type || catalogMeta?.route_type || "one-way",
+    duration: (transfer as any).duration || catalogMeta?.duration,
+    long_description: (transfer as any).long_description || catalogMeta?.long_description,
+    route_notes: (transfer as any).route_notes || catalogMeta?.route_notes,
+    featured: (transfer as any).featured ?? catalogMeta?.featured ?? false,
+    seo_title: (transfer as any).seo_title || catalogMeta?.seo_title,
+    meta_description: (transfer as any).meta_description || catalogMeta?.meta_description,
+    focus_keyword: (transfer as any).focus_keyword || catalogMeta?.focus_keyword,
+  };
+
+  return <TransferForm transferId={transfer.id} initial={enrichedInitial} />;
 }

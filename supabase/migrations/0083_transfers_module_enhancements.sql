@@ -31,6 +31,7 @@ alter table public.transfer_vehicles
   add column if not exists internal_notes text;
 
 -- 3. Allow public read of active transfer route rates so customers see configured indicative prices
+drop policy if exists "transfer_route_rates_public_read" on public.transfer_route_rates;
 create policy "transfer_route_rates_public_read" on public.transfer_route_rates
   for select using (is_active);
 
