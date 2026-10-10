@@ -15,6 +15,8 @@ import {
   reconcileItineraryDays,
   calculateQuotationTotals,
   resolveServiceImage,
+  addDaysToIsoDate,
+  buildSequencedPilgrimageDays,
   type ItineraryDayItem,
 } from "@/lib/documents/calculations";
 import {
@@ -74,14 +76,53 @@ export function ClientQuotationPortal({
     ? `Your Hajj Journey Proposal`
     : `Your Personalised Umrah Journey Proposal`;
 
-  // 1. Authoritative date and duration metrics (single source of truth)
+  // 1. Authoritative itinerary from saved document
+  let savedItinerary: ItineraryDayItem[] = [];
+  if (document.special_requirements) {
+    try {
+      const parsed = JSON.parse(document.special_requirements);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        savedItinerary = parsed;
+      }
+    } catch {}
+  }
+
+  // Base trip start date
+  const baseStartDate = document.travel_date
+    ? new Date(document.travel_date).toISOString().split("T")[0]
+    : new Date().toISOString().split("T")[0];
+
+  // Ensure day numbering & dates are clean and sequential
+  const sequencedSavedItinerary = savedItinerary.map((d, i) => ({
+    ...d,
+    day: i + 1,
+    date: d.date || addDaysToIsoDate(baseStartDate, i),
+  }));
+
+  // Effective return date matches the last day in the itinerary
+  const effectiveReturnDate =
+    sequencedSavedItinerary.length > 0
+      ? sequencedSavedItinerary[sequencedSavedItinerary.length - 1].date
+      : document.return_date;
+
+  // 2. Authoritative date and duration metrics (single source of truth)
   const dateMetrics = calculateDateRangeMetrics(
     document.travel_date,
-    document.return_date,
-    4
+    effectiveReturnDate,
+    sequencedSavedItinerary.length > 0 ? sequencedSavedItinerary.length : 4
   );
 
-  // 2. Authoritative pricing calculation
+  // Authoritative display itinerary: NEVER truncate days saved by admin
+  const displayItinerary =
+    sequencedSavedItinerary.length > 0
+      ? sequencedSavedItinerary
+      : buildSequencedPilgrimageDays(
+          dateMetrics.calendarDays,
+          dateMetrics.startDate,
+          isHajj
+        );
+
+  // 3. Authoritative pricing calculation
   const pricing = calculateQuotationTotals(
     items.map((it) => ({
       id: it.id,
@@ -100,23 +141,6 @@ export function ClientQuotationPortal({
       documentDiscountAed: Number(document.discount_aed) || 0,
       agreedTotalOverride: Number(document.total_aed) || null,
     }
-  );
-
-  // 3. Authoritative itinerary reconciliation (exact calendar days match)
-  let savedItinerary: ItineraryDayItem[] = [];
-  if (document.special_requirements) {
-    try {
-      const parsed = JSON.parse(document.special_requirements);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        savedItinerary = parsed;
-      }
-    } catch {}
-  }
-  const displayItinerary = reconcileItineraryDays(
-    savedItinerary,
-    dateMetrics.calendarDays,
-    dateMetrics.startDate,
-    isHajj
   );
 
   // 4. Categorized services
@@ -484,11 +508,11 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                     Your Day-by-Day Journey
                   </h2>
                   <p className="text-xs text-[#1A1816]/60 mt-0.5">
-                    Carefully sequenced schedule tailored exactly to your {dateMetrics.calendarDays}-day duration.
+                    Carefully sequenced schedule tailored exactly to your {displayItinerary.length}-day duration.
                   </p>
                 </div>
                 <span className="rounded-full bg-emerald-50 border border-emerald-300 px-3 py-1 text-[11px] font-bold text-emerald-800">
-                  ✓ {dateMetrics.calendarDays} Days Sequenced
+                  ✓ {displayItinerary.length} Days Sequenced
                 </span>
               </div>
 

@@ -27,6 +27,7 @@ import {
   reconcileItineraryDays,
   calculateQuotationTotals,
   resolveServiceImage,
+  addDaysToIsoDate,
   type ItineraryDayItem,
   type LineItemPricingInput,
 } from "@/lib/documents/calculations";
@@ -88,7 +89,32 @@ export function QuotationBuilder({
   const [clientCountry, setClientCountry] = useState(document.client_country || "Dubai, UAE");
   const [journeyType, setJourneyType] = useState<DocumentJourneyType>(document.journey_type || "umrah");
   const [travelDate, setTravelDate] = useState(document.travel_date || "2026-10-12");
-  const [returnDate, setReturnDate] = useState(document.return_date || "2026-10-15");
+
+  // Parse saved itinerary days with clean sequential dates
+  const initialSavedDays: ItineraryDayItem[] = useMemo(() => {
+    if (document.special_requirements) {
+      try {
+        const parsed = JSON.parse(document.special_requirements);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const base = document.travel_date || "2026-10-12";
+          return parsed.map((d: ItineraryDayItem, i: number) => ({
+            ...d,
+            day: i + 1,
+            date: addDaysToIsoDate(base, i),
+          }));
+        }
+      } catch {}
+    }
+    return [];
+  }, [document.special_requirements, document.travel_date]);
+
+  // If saved itinerary has more days than document return date, align returnDate
+  const [returnDate, setReturnDate] = useState(() => {
+    if (initialSavedDays.length > 0) {
+      return initialSavedDays[initialSavedDays.length - 1].date;
+    }
+    return document.return_date || "2026-10-15";
+  });
   const [adults, setAdults] = useState<number>(document.adults || 2);
   const [children, setChildren] = useState<number>(document.children || 0);
   const [infants, setInfants] = useState<number>(document.infants || 0);
@@ -110,14 +136,9 @@ export function QuotationBuilder({
 
   // 2. Itinerary State (Q02)
   const initialItinerary = useMemo(() => {
-    if (document.special_requirements) {
-      try {
-        const parsed = JSON.parse(document.special_requirements);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
+    if (initialSavedDays.length > 0) return initialSavedDays;
     return reconcileItineraryDays([], dateMetrics.calendarDays, dateMetrics.startDate, journeyType === "hajj");
-  }, [document.special_requirements, dateMetrics.calendarDays, dateMetrics.startDate, journeyType]);
+  }, [initialSavedDays, dateMetrics.calendarDays, dateMetrics.startDate, journeyType]);
 
   const [itineraryDays, setItineraryDays] = useState<ItineraryDayItem[]>(initialItinerary);
 
@@ -125,7 +146,22 @@ export function QuotationBuilder({
   function handleSyncItineraryWithDates() {
     const synced = reconcileItineraryDays(itineraryDays, dateMetrics.calendarDays, dateMetrics.startDate, journeyType === "hajj");
     setItineraryDays(synced);
-    handlePersistItinerary(synced);
+    handlePersistItinerary(synced, returnDate);
+  }
+
+  function handleExtendDatesToMatchItinerary() {
+    if (itineraryDays.length === 0) return;
+    const newReturnDate = addDaysToIsoDate(travelDate, itineraryDays.length - 1);
+    const resequenced = itineraryDays.map((d, i) => ({
+      ...d,
+      day: i + 1,
+      date: addDaysToIsoDate(travelDate, i),
+      title: d.title.replace(/^Day\s*\d+\s*:\s*/i, `Day ${i + 1}: `),
+    }));
+    setItineraryDays(resequenced);
+    setReturnDate(newReturnDate);
+    handlePersistItinerary(resequenced, newReturnDate);
+    setSaveSuccessMsg(`Trip extended to ${resequenced.length} days (${formatDisplayDate(travelDate)} – ${formatDisplayDate(newReturnDate)}).`);
   }
 
   // 3. Line Items & Pricing State (Q03)
@@ -238,11 +274,13 @@ export function QuotationBuilder({
   }
 
   // Save Step 2 (Itinerary)
-  function handlePersistItinerary(updatedDays: ItineraryDayItem[]) {
+  function handlePersistItinerary(updatedDays: ItineraryDayItem[], newReturnDate?: string) {
+    const finalReturn = newReturnDate || returnDate;
     startTransition(async () => {
       try {
         await updateDocumentBasics(document.id, "quotation", {
           special_requirements: JSON.stringify(updatedDays),
+          return_date: finalReturn,
         });
         setSaveSuccessMsg("Itinerary updated successfully.");
         router.refresh();
@@ -252,12 +290,12 @@ export function QuotationBuilder({
     });
   }
 
-  // Save Step 3 (Pricing)
-  function handleSavePricing(nextStep?: 1 | 2 | 3 | 4 | 5) {
+  // Persist Line Items & Pricing (Q02 & Q03)
+  function handlePersistLineItems(updatedItems: LineItemPricingInput[], nextStep?: 1 | 2 | 3 | 4 | 5) {
     startTransition(async () => {
       try {
         const res = await saveQuotationPricing(document.id, {
-          items: lineItems.map((li) => ({
+          items: updatedItems.map((li, idx) => ({
             id: li.id,
             item_type: li.item_type as DocumentItemType,
             description: li.description,
@@ -270,7 +308,7 @@ export function QuotationBuilder({
             discount_aed: li.discount_aed,
             is_price_on_request: li.is_price_on_request,
             is_included: li.is_included,
-            display_order: li.display_order,
+            display_order: li.display_order ?? idx,
           })),
           applyVat,
           vatRate,
@@ -281,7 +319,7 @@ export function QuotationBuilder({
         });
 
         if (res.success) {
-          setSaveSuccessMsg("Quotation pricing saved successfully.");
+          setSaveSuccessMsg("Services & pricing saved successfully.");
           await saveDocumentVersion(document.id, "quotation");
           if (nextStep) setActiveStep(nextStep);
           router.refresh();
@@ -294,6 +332,11 @@ export function QuotationBuilder({
     });
   }
 
+  // Save Step 3 (Pricing)
+  function handleSavePricing(nextStep?: 1 | 2 | 3 | 4 | 5) {
+    handlePersistLineItems(lineItems, nextStep);
+  }
+
   // Itinerary Controls
   function handleMoveDay(index: number, direction: "up" | "down") {
     if ((direction === "up" && index === 0) || (direction === "down" && index === itineraryDays.length - 1)) return;
@@ -302,14 +345,15 @@ export function QuotationBuilder({
     const temp = copy[index];
     copy[index] = copy[target];
     copy[target] = temp;
-    // Re-index days
+    // Re-index days with chronological sequential dates
     const reindexed = copy.map((d, i) => ({
       ...d,
       day: i + 1,
-      date: dateMetrics.dates[i] || d.date,
+      date: addDaysToIsoDate(travelDate, i),
+      title: d.title.replace(/^Day\s*\d+\s*:\s*/i, `Day ${i + 1}: `),
     }));
     setItineraryDays(reindexed);
-    handlePersistItinerary(reindexed);
+    handlePersistItinerary(reindexed, returnDate);
   }
 
   function handleEditDayTitle(index: number, title: string) {
@@ -325,19 +369,27 @@ export function QuotationBuilder({
   }
 
   function handleRemoveDay(index: number) {
+    if (itineraryDays.length <= 1) {
+      alert("A journey must have at least one day.");
+      return;
+    }
     if (!confirm(`Are you sure you want to remove Day ${index + 1}?`)) return;
-    const filtered = itineraryDays.filter((_, i) => i !== index).map((d, i) => ({
+    const filtered = itineraryDays.filter((_, i) => i !== index);
+    const reindexed = filtered.map((d, i) => ({
       ...d,
       day: i + 1,
-      date: dateMetrics.dates[i] || d.date,
+      date: addDaysToIsoDate(travelDate, i),
+      title: d.title.replace(/^Day\s*\d+\s*:\s*/i, `Day ${i + 1}: `),
     }));
-    setItineraryDays(filtered);
-    handlePersistItinerary(filtered);
+    const newReturnDate = reindexed[reindexed.length - 1].date;
+    setItineraryDays(reindexed);
+    setReturnDate(newReturnDate);
+    handlePersistItinerary(reindexed, newReturnDate);
   }
 
   function handleAddDay() {
     const nextNum = itineraryDays.length + 1;
-    const nextDate = dateMetrics.dates[itineraryDays.length] || dateMetrics.endDate;
+    const nextDate = addDaysToIsoDate(travelDate, itineraryDays.length);
     const updated = [
       ...itineraryDays,
       {
@@ -350,7 +402,8 @@ export function QuotationBuilder({
       },
     ];
     setItineraryDays(updated);
-    handlePersistItinerary(updated);
+    setReturnDate(nextDate);
+    handlePersistItinerary(updated, nextDate);
   }
 
   // Line Item Pricing Controls
@@ -364,17 +417,37 @@ export function QuotationBuilder({
 
   function handleDeleteLineItem(index: number) {
     if (!confirm("Remove this service item from the quotation?")) return;
-    setLineItems((prev) => prev.filter((_, i) => i !== index));
+    const nextItems = lineItems.filter((_, i) => i !== index);
+    setLineItems(nextItems);
+    handlePersistLineItems(nextItems);
   }
 
   function handleAddServiceSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!newServiceName.trim()) return;
 
+    const mappedItemType: DocumentItemType =
+      selectedServiceCategory === "hotel"
+        ? "hotel"
+        : selectedServiceCategory === "flight"
+        ? "flight"
+        : selectedServiceCategory === "transfer" || selectedServiceCategory === "train"
+        ? "transfer"
+        : selectedServiceCategory === "private_trip"
+        ? "private_trip"
+        : selectedServiceCategory === "custom"
+        ? "custom"
+        : "service";
+
+    let details = newServiceDetails.trim() || null;
+    if (selectedServiceCategory === "train" && (!details || !details.toLowerCase().includes("train"))) {
+      details = details ? `${details} • High-Speed Train` : "Haramain High-Speed Train";
+    }
+
     const newItem: LineItemPricingInput = {
-      item_type: selectedServiceCategory,
+      item_type: mappedItemType,
       description: newServiceName.trim(),
-      details: newServiceDetails.trim() || null,
+      details,
       quantity: newServiceQty,
       unit: newServiceUnit,
       unit_price_aed: newServicePrice,
@@ -386,13 +459,15 @@ export function QuotationBuilder({
       display_order: lineItems.length,
     };
 
-    setLineItems((prev) => [...prev, newItem]);
+    const nextItems = [...lineItems, newItem];
+    setLineItems(nextItems);
+    handlePersistLineItems(nextItems);
     setIsAddServiceModalOpen(false);
     setNewServiceName("");
     setNewServiceDetails("");
     setNewServiceQty(1);
     setNewServicePrice(0);
-    setSaveSuccessMsg("Service added to quotation items.");
+    setSaveSuccessMsg("Service added and saved to quotation.");
   }
 
   return (
@@ -807,16 +882,23 @@ export function QuotationBuilder({
                   <span>✓</span> Itinerary Matches Duration ({dateMetrics.calendarDays} Days)
                 </span>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-amber-50 border border-amber-300 px-3 py-1 text-xs font-bold text-amber-800">
                     ⚠️ Mismatch: {itineraryDays.length} days listed vs {dateMetrics.calendarDays} trip days
                   </span>
                   <button
                     type="button"
-                    onClick={handleSyncItineraryWithDates}
-                    className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 text-xs font-bold cursor-pointer"
+                    onClick={handleExtendDatesToMatchItinerary}
+                    className="rounded-lg bg-[#b37e28] hover:bg-[#916d28] text-white px-3 py-1 text-xs font-bold cursor-pointer"
                   >
-                    Sync with Dates
+                    Sync Dates to {itineraryDays.length} Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSyncItineraryWithDates}
+                    className="rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 px-2.5 py-1 text-xs font-medium cursor-pointer"
+                  >
+                    Reset Days to {dateMetrics.calendarDays} Days
                   </button>
                 </div>
               )}
@@ -863,6 +945,7 @@ export function QuotationBuilder({
                             type="text"
                             value={dItem.title}
                             onChange={(e) => handleEditDayTitle(idx, e.target.value)}
+                            onBlur={() => handlePersistItinerary(itineraryDays, returnDate)}
                             className="font-serif font-bold text-sm text-black border-b border-transparent hover:border-black/20 focus:border-[#b37e28] focus:outline-hidden w-full max-w-md bg-transparent"
                           />
                         </div>
@@ -903,6 +986,7 @@ export function QuotationBuilder({
                       rows={2}
                       value={dItem.desc}
                       onChange={(e) => handleEditDayDesc(idx, e.target.value)}
+                      onBlur={() => handlePersistItinerary(itineraryDays, returnDate)}
                       placeholder="Day activities and spiritual description..."
                       className="w-full rounded-xl border border-black/10 p-2.5 text-xs text-black/80 bg-[#FAF9F6] focus:bg-white focus:border-[#b37e28] focus:outline-hidden"
                     />
@@ -971,8 +1055,8 @@ export function QuotationBuilder({
                   <button
                     type="button"
                     onClick={() => {
-                      handlePersistItinerary(itineraryDays);
-                      setActiveStep(3);
+                      handlePersistItinerary(itineraryDays, returnDate);
+                      handlePersistLineItems(lineItems, 3);
                     }}
                     className="w-full rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] py-3 text-xs font-bold text-white shadow-xs hover:from-[#9c6d1f] hover:to-[#7d5c1f] transition-all cursor-pointer"
                   >
