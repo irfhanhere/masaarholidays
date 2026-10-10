@@ -15,6 +15,7 @@ import { UmrahTierCards } from "./UmrahTierCards";
 import { UmrahMakkahMadinahSection } from "./UmrahMakkahMadinahSection";
 import { UmrahExperienceStrip } from "./UmrahExperienceStrip";
 import { UmrahOptionalAddons, mergeAddons } from "./UmrahOptionalAddons";
+import { CrossLinkServices } from "./CrossLinkServices";
 import { UmrahFaqSection } from "./UmrahFaqSection";
 import type { PackageEnquiryInfo } from "./UmrahEnquiryModal";
 
@@ -144,6 +145,9 @@ export function UmrahLandingClient({
         addons={addons}
         onSelectAddon={handleSelectAddon}
       />
+
+      {/* 6. Explore More Services */}
+      <CrossLinkServices exclude="umrah" />
 
       {/* 7. FAQ Preview with 6-Tab Filter */}
       <UmrahFaqSection faqs={faqs} />

@@ -121,7 +121,7 @@ export function BookingVoucherBuilder({
     flightNo: "EK-803",
     driverContact: "+966 50 123 4567 (Masaar Transport Desk)",
     confirmationNo: "TRF-" + Math.floor(100000 + Math.random() * 900000),
-    vehicleImageUrl: "/vehicles/gmc-yukon-suburban.jpg",
+    vehicleImageUrl: "/vehicles/gmc-yukon-suburban.webp",
     specialRequests: "VIP private chauffeur, meet & assist on arrival.",
     voucherNotes: "Please present this voucher to your chauffeur. For assistance, call the 24/7 Masaar operations desk.",
   });

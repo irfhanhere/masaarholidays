@@ -43,7 +43,7 @@ export function HotelCard({ hotel }: { hotel: HotelWithSummary }) {
             {hotel.image_url && (
               <ExternalImage
                 src={hotel.image_url}
-                alt={hotel.name}
+                alt={`${hotel.name} accommodation in ${hotel.city}`}
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover"

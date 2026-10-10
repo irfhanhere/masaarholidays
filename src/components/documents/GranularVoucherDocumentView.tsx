@@ -218,7 +218,7 @@ export function GranularVoucherDocumentView({
                   src={
                     isHotel
                       ? hotelData?.hotelImageUrl || "/hotels/swissotel-makkah/swissotel-makkah.webp"
-                      : transferData?.vehicleImageUrl || "/vehicles/gmc-yukon-suburban.jpg"
+                      : transferData?.vehicleImageUrl || "/vehicles/gmc-yukon-suburban.webp"
                   }
                   alt={isHotel ? hotelData?.hotel || "Hotel" : transferData?.vehicleType || "Vehicle"}
                   fill

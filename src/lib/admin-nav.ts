@@ -34,7 +34,15 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Umrah Content", href: "/admin/umrah-content" },
       { label: "Hotels", href: "/admin/hotels" },
       { label: "Vehicles & Ziyarat", href: "/admin/vehicles" },
-      { label: "Transfers", href: "/admin/transfers" },
+      {
+        label: "Transfers",
+        href: "/admin/transfers",
+        children: [
+          { label: "All Routes", href: "/admin/transfers" },
+          { label: "Rate Card", href: "/admin/transfers/rate-card" },
+          { label: "Vehicle Manager", href: "/admin/transfers/vehicles" },
+        ],
+      },
       { label: "Visa Types", href: "/admin/visa-types" },
       { label: "Visa Content", href: "/admin/visa-content" },
       { label: "Testimonials", href: "/admin/testimonials" },

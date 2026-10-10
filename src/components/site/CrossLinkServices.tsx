@@ -3,7 +3,14 @@ import Link from "next/link";
 import { Container } from "./Container";
 import { SectionHeading } from "./SectionHeading";
 
-export type ServiceKey = "umrah" | "hajj" | "hotels" | "transfers" | "visa" | "private-trips";
+export type ServiceKey =
+  | "umrah"
+  | "hajj"
+  | "hotels"
+  | "transfers"
+  | "visa"
+  | "esim"
+  | "private-trips";
 
 export interface CrossLinkService {
   key: ServiceKey;
@@ -11,6 +18,7 @@ export interface CrossLinkService {
   title: string;
   description: string;
   image: string;
+  alt: string;
 }
 
 export const CROSS_LINK_SERVICES: CrossLinkService[] = [
@@ -20,6 +28,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Umrah",
     description: "Thoughtfully planned Umrah journeys for every generation of the family.",
     image: "/brand/banners/umrah.webp",
+    alt: "Umrah pilgrimage package in Makkah and Madinah",
   },
   {
     key: "hajj",
@@ -27,6 +36,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Hajj",
     description: "A guided Hajj journey, planned with care from arrival to return.",
     image: "/brand/Explore cards/explore-hajj.jpg",
+    alt: "Hajj guided pilgrimage package at Mount Arafat",
   },
   {
     key: "hotels",
@@ -34,6 +44,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Makkah & Madinah Accommodation",
     description: "A handpicked selection of hotels to suit different needs and preferences.",
     image: "/brand/Explore cards/explore-hotels.jpg",
+    alt: "Makkah and Madinah hotel accommodation options",
   },
   {
     key: "transfers",
@@ -41,6 +52,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Private Transfers",
     description: "Reliable and comfortable transport across all major routes.",
     image: "/brand/Explore cards/explore-transfers.jpg",
+    alt: "Private chauffeur transfer vehicle for Saudi Arabia travel",
   },
   {
     key: "visa",
@@ -48,6 +60,15 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Visa Assistance",
     description: "Simple, reliable visa processing with dedicated support.",
     image: "/brand/Explore cards/explore-visa.jpg",
+    alt: "Saudi Arabia Umrah and tourist visa assistance",
+  },
+  {
+    key: "esim",
+    href: "/esim",
+    title: "eSIM",
+    description: "Instant prepaid 4G/5G data connectivity across Saudi Arabia and the UAE.",
+    image: "/brand/Explore cards/explore-esim.jpg",
+    alt: "Saudi Arabia prepaid travel eSIM connectivity on mobile phone",
   },
   {
     key: "private-trips",
@@ -55,6 +76,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Private Trips",
     description: "Privately arranged journeys to meaningful places around Makkah and Madinah.",
     image: "/brand/Explore cards/explore-private-trips.jpg",
+    alt: "Private Ziyarat tour and historical excursion in Makkah and Madinah",
   },
 ];
 
@@ -102,7 +124,7 @@ export function CrossLinkServices({
               <div className="relative h-48 w-full overflow-hidden bg-warm-ivory">
                 <Image
                   src={service.image}
-                  alt={service.title}
+                  alt={service.alt}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -126,3 +148,6 @@ export function CrossLinkServices({
     </section>
   );
 }
+
+export { CrossLinkServices as ExploreMore };
+

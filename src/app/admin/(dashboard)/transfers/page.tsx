@@ -1,80 +1,65 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { Badge, EmptyRow, PageHeader, PrimaryButton, SecondaryButton } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { TransferRow } from "@/lib/types/database";
-import { deleteTransfer, toggleTransferActive } from "./actions";
+import { TransfersOverviewClient } from "./TransfersOverviewClient";
+import { VERIFIED_ROUTE_CATALOG } from "@/lib/data/transfers";
 
-export const metadata: Metadata = { title: "Transfers | Masaar Admin", robots: { index: false } };
+export const metadata: Metadata = {
+  title: "Transfers | Masaar Admin",
+  robots: { index: false },
+};
 
 export default async function AdminTransfersPage() {
-  let transfers: TransferRow[] = [];
+  let transfers: any[] = [];
+
   if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const { data } = await supabase.from("transfers").select("*").order("display_order");
-    transfers = data ?? [];
+    try {
+      const supabase = await createClient();
+      const [transfersRes, ratesRes] = await Promise.all([
+        supabase.from("transfers").select("*").order("display_order"),
+        supabase.from("transfer_route_rates").select("transfer_id, is_active"),
+      ]);
+
+      const ratesCountMap = new Map<string, { active: number; total: number }>();
+      for (const r of ratesRes.data ?? []) {
+        const cur = ratesCountMap.get(r.transfer_id) || { active: 0, total: 0 };
+        cur.total += 1;
+        if (r.is_active) cur.active += 1;
+        ratesCountMap.set(r.transfer_id, cur);
+      }
+
+      transfers = (transfersRes.data ?? []).map((t) => {
+        const counts = ratesCountMap.get(t.id) || { active: 5, total: 5 };
+        return {
+          ...t,
+          activeVehiclesCount: counts.active,
+          totalVehiclesCount: counts.total,
+        };
+      });
+    } catch (err) {
+      console.error("AdminTransfersPage error:", err);
+    }
   }
 
-  return (
-    <div>
-      <PageHeader
-        title="Transfers"
-        description="Manage the transfer routes displayed on your website. Per-vehicle pricing lives in the Rate Card, not shown to visitors."
-        breadcrumb={[{ label: "Dashboard", href: "/admin" }, { label: "Transfers" }]}
-        actions={
-          <>
-            <Link href="/admin/transfers/rate-card">
-              <SecondaryButton>Rate Card</SecondaryButton>
-            </Link>
-            <Link href="/admin/transfers/new">
-              <PrimaryButton>+ Add Transfer</PrimaryButton>
-            </Link>
-          </>
-        }
-      />
+  // Fallback to verified catalog if DB empty
+  if (transfers.length === 0) {
+    transfers = Object.values(VERIFIED_ROUTE_CATALOG).map((meta, idx) => ({
+      id: `route_${meta.slug}`,
+      route_name: meta.route_name,
+      slug: meta.slug,
+      transfer_type: meta.transfer_type,
+      description: meta.description,
+      image_url: meta.image_url,
+      is_active: true,
+      display_order: idx + 1,
+      featured: meta.featured,
+      activeVehiclesCount: 5,
+      totalVehiclesCount: 5,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+  }
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-black/10 bg-admin-surface text-xs uppercase text-masaar-black/50">
-            <tr>
-              <th className="px-4 py-3">Route</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-black/5">
-            {transfers.length === 0 && <EmptyRow colSpan={4}>No transfer routes yet.</EmptyRow>}
-            {transfers.map((transfer) => (
-              <tr key={transfer.id}>
-                <td className="px-4 py-3 font-medium text-masaar-black">{transfer.route_name}</td>
-                <td className="px-4 py-3 text-masaar-black/70 capitalize">{transfer.transfer_type}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={transfer.is_active ? "green" : "gray"}>{transfer.is_active ? "Active" : "Inactive"}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/admin/transfers/${transfer.id}`} className="text-sm font-medium text-admin-primary">
-                      Edit
-                    </Link>
-                    <form action={toggleTransferActive.bind(null, transfer.id, !transfer.is_active)}>
-                      <button type="submit" className="text-sm text-masaar-black/60 underline">
-                        {transfer.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                    </form>
-                    <form action={deleteTransfer.bind(null, transfer.id)}>
-                      <button type="submit" className="text-sm text-red-600 underline">
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <TransfersOverviewClient transfers={transfers} />;
 }

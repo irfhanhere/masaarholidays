@@ -43,3 +43,48 @@ export function formatCurrency(amount: number, currency: CurrencyCode): string {
   const rounded = Math.round(amount).toLocaleString();
   return `${CURRENCY_PREFIX[currency]} ${rounded}`;
 }
+
+/**
+ * Converts a base USD amount into the visitor's chosen currency.
+ * In Supabase currency_rates, rates are stored relative to 1 AED (e.g. rate_to_aed for USD is ~0.272).
+ * Thus:
+ * 1 USD = (1 / rates["USD"]) AED.
+ * Target Currency Amount = (amountUsd / rates["USD"]) * rates[currency].
+ */
+export function convertFromUsd(
+  amountUsd: number,
+  currency: CurrencyCode,
+  rates: RateMap
+): number | null {
+  if (currency === "USD") return amountUsd;
+  const usdRate = rates["USD"];
+  if (usdRate == null || !Number.isFinite(usdRate) || usdRate <= 0) {
+    return null; // Fallback to USD
+  }
+  const amountAed = amountUsd / usdRate;
+  if (currency === "AED") return amountAed;
+  const targetRate = rates[currency];
+  if (targetRate == null || !Number.isFinite(targetRate)) {
+    return null;
+  }
+  return amountAed * targetRate;
+}
+
+/**
+ * Formats an eSIM plan price for display according to the visitor's selected currency.
+ */
+export function formatEsimPrice(
+  amountUsd: number,
+  currency: CurrencyCode,
+  rates: RateMap
+): string {
+  const converted = convertFromUsd(amountUsd, currency, rates);
+  if (converted == null) {
+    return `$${amountUsd.toFixed(2)}`;
+  }
+  const prefix = CURRENCY_PREFIX[currency] ?? currency;
+  if (currency === "USD") {
+    return `$${converted.toFixed(2)}`;
+  }
+  return `${prefix} ${converted.toFixed(2)}`;
+}

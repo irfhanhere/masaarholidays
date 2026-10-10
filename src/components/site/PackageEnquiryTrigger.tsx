@@ -40,16 +40,21 @@ export function PackageEnquiryTrigger({
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const isHajj = pkg.type === "hajj";
   const info: PackageEnquiryInfo = {
     name: pkg.title,
     tier: TIER_LABEL[pkg.tier],
-    destination: destination || pkg.city_destination || "Makkah",
+    packageType: isHajj ? "hajj" : "umrah",
+    destination: destination || pkg.city_destination || (isHajj ? "Makkah → Mina → Arafat → Madinah" : "Makkah"),
     duration: duration || pkg.duration_label || `${pkg.duration_days} Days`,
-    hotelName: hotelName || pkg.makkah_hotel_name || pkg.madinah_hotel_name || "Handpicked hotel",
+    hotelName: hotelName || pkg.makkah_hotel_name || pkg.madinah_hotel_name || (isHajj ? "Premium hotels in Makkah and Madinah" : "Handpicked hotel"),
     hotelRating: "5-Star accommodation",
     shuttleInfo: shuttleInfo || pkg.makkah_hotel_access_tag || pkg.madinah_hotel_access_tag || undefined,
-    imageUrl: pkg.hero_image_url || fallbackImageUrl,
+    imageUrl: pkg.hero_image_url || fallbackImageUrl || (isHajj ? "/brand/banners/hajj.webp" : "/brand/banners/umrah.webp"),
     shortDescription: pkg.short_description || pkg.tagline || undefined,
+    maktabCategory: pkg.maktab_category || (isHajj ? "Category A Air-Conditioned Camps" : undefined),
+    makkahHotelName: pkg.makkah_hotel_name || undefined,
+    madinahHotelName: pkg.madinah_hotel_name || undefined,
   };
 
   const base =

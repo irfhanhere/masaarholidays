@@ -27,6 +27,7 @@ const STATIC_ROUTES = [
   "/hotels",
   "/transfers",
   "/visa",
+  "/esim",
   "/faq",
   "/about",
   "/contact",
@@ -35,6 +36,7 @@ const STATIC_ROUTES = [
   "/privacy-policy",
   "/terms-conditions",
   "/accessibility",
+  "/cookie-preferences",
 ];
 
 // Fallback stable date for static pages if no database record exists
@@ -108,7 +110,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   // 2. Data-driven published content
-  const [umrahPackages, hajjPackages, hotels, visaTypes, departureMonths, blogPosts, privateTrips] = await Promise.all([
+  const [umrahPackages, hajjPackages, hotels, visaTypes, departureMonths, blogPosts, privateTrips, transfers] = await Promise.all([
     getPublishedPackages("umrah"),
     getPublishedPackages("hajj"),
     getActiveHotels(),
@@ -116,6 +118,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getActiveUmrahDepartureMonths(),
     getSitemapVisibleBlogPosts(),
     getPublishedPrivateTrips(),
+    (await import("@/lib/data/transfers")).getPublicTransfers(),
   ]);
 
   // Exclude any internal/admin placeholder slugs (e.g. umrah-*-placeholder, hajj-*-placeholder)
@@ -158,7 +161,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     createSitemapEntries(`/private-trips/${trip.slug}`, new Date(trip.updated_at), origin)
   );
 
-  return [
+  const transferEntries: MetadataRoute.Sitemap = transfers
+    .filter((t) => t.is_active)
+    .flatMap((t) =>
+      createSitemapEntries(`/transfers/${t.slug}`, new Date(t.updated_at), origin)
+    );
+
+  const allEntries = [
     ...staticEntries,
     ...packageEntries,
     ...hotelEntries,
@@ -167,5 +176,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...journeyEntries,
     ...blogEntries,
     ...privateTripEntries,
+    ...transferEntries,
   ];
+
+  const seenUrls = new Set<string>();
+  const deduplicated: MetadataRoute.Sitemap = [];
+  for (const entry of allEntries) {
+    if (!seenUrls.has(entry.url)) {
+      seenUrls.add(entry.url);
+      deduplicated.push(entry);
+    }
+  }
+
+  return deduplicated;
 }

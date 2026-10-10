@@ -54,7 +54,13 @@ function StayEntry({
     <div className="flex items-center gap-3">
       <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-warm-ivory">
         {image ? (
-          <ExternalImage src={image} alt={hotelName} fill sizes="64px" className="object-cover" />
+          <ExternalImage
+            src={image}
+            alt={`${hotelName} accommodation in ${cityLabel}`}
+            fill
+            sizes="64px"
+            className="object-cover"
+          />
         ) : (
           <div className="flex size-full items-center justify-center text-deep-gold">
             <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,9 +144,23 @@ export function FeaturedPackageCard({
         className="relative h-52 w-full shrink-0 bg-warm-ivory lg:h-auto lg:w-72 lg:self-stretch"
       >
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 288px" className="object-cover" />
+          <ExternalImage
+            src={pkg.hero_image_url}
+            alt={`${pkg.title} package in ${pkg.city_destination || "Saudi Arabia"}`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 288px"
+            className="object-cover"
+          />
         ) : (
-          fallbackImageUrl && <Image src={fallbackImageUrl} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 288px" className="object-cover" />
+          fallbackImageUrl && (
+            <Image
+              src={fallbackImageUrl}
+              alt={`${pkg.title} package in ${pkg.city_destination || "Saudi Arabia"}`}
+              fill
+              sizes="(max-width: 1024px) 100vw, 288px"
+              className="object-cover"
+            />
+          )
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-transparent" />
         <span className="absolute bottom-4 left-4 right-4 font-[family-name:var(--font-display)] text-lg font-bold uppercase leading-tight text-white">

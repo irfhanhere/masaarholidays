@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "esim:smoke": "tsx --conditions react-server scripts/esim-smoke-test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

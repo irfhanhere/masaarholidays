@@ -304,18 +304,8 @@ export async function getActiveHotelRoomPriceSummaries(): Promise<HotelRoomPrice
 }
 
 export async function getActiveTransfers(): Promise<TransferRow[]> {
-  if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("transfers")
-    .select("*")
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
-  if (error) {
-    console.error("getActiveTransfers", error.message);
-    return [];
-  }
-  return data ?? [];
+  const { getPublicTransfers } = await import("@/lib/data/transfers");
+  return getPublicTransfers();
 }
 
 /**

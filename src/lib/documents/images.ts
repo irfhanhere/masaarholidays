@@ -150,7 +150,7 @@ export function getTransportImage(title?: string | null, details?: string | null
     text.includes("suburban") ||
     text.includes("tahoe")
   ) {
-    return "/vehicles/gmc-yukon-suburban.jpg";
+    return "/vehicles/gmc-yukon-suburban.webp";
   }
 
   // Van / Minivan (Hyundai Staria, Toyota HiAce)

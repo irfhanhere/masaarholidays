@@ -45,6 +45,7 @@ export const MAIN_NAV: NavItem[] = [
       { label: "Indian Visa", href: "/visa/india" },
     ],
   },
+  { label: "eSIM", href: "/esim" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
@@ -65,6 +66,7 @@ export const FOOTER_SERVICES_NAV: NavChild[] = [
   { label: "Transfers", href: "/transfers" },
   { label: "Visa", href: "/visa" },
   { label: "Private Trips", href: "/private-trips" },
+  { label: "eSIM", href: "/esim" },
 ];
 
 export const FOOTER_COMPANY_NAV: NavChild[] = [

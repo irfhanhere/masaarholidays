@@ -20,7 +20,12 @@ export function TransferCard({
     <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-4 sm:flex-row">
       <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-md bg-warm-ivory sm:w-48">
         {transfer.image_url && (
-          <ExternalImage src={transfer.image_url} alt={transfer.route_name} fill className="object-cover" />
+          <ExternalImage
+            src={transfer.image_url}
+            alt={`Private transfer service for ${transfer.route_name}`}
+            fill
+            className="object-cover"
+          />
         )}
       </div>
       <div className="flex flex-1 flex-col justify-between gap-3 sm:flex-row sm:items-center">

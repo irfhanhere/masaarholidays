@@ -101,7 +101,12 @@ function HotelStayCard({
       {/* Optional Hotel Image */}
       {hotel.image_url && (
         <div className="relative h-44 w-full bg-warm-ivory">
-          <ExternalImage src={hotel.image_url} alt={hotel.name} fill className="object-cover" />
+          <ExternalImage
+            src={hotel.image_url}
+            alt={`${hotel.name} accommodation in ${hotel.city || "Saudi Arabia"}`}
+            fill
+            className="object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
           <div className="absolute left-3 top-3 flex items-center gap-1.5">
             <span
@@ -243,23 +248,6 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData, depa
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { currency, rates } = useCurrency();
 
-  // Vehicle picker for the Makkah Ziyarat add-on line — capacity_label
-  // (e.g. "Up to 4") comes straight from the admin-managed vehicle type,
-  // never a hardcoded pax range, so it stays correct if that changes.
-  const [selectedMakkahVehicleId, setSelectedMakkahVehicleId] = useState<string>("");
-  const makkahVehicleOptions = ziyaratData.vehicleTypes
-    .map((vehicle) => ({
-      vehicle,
-      price: ziyaratData.pricing.find((p) => p.city === "Makkah" && p.vehicle_type_id === vehicle.id)?.price_aed,
-    }))
-    .filter((v): v is { vehicle: typeof v.vehicle; price: number } => v.price != null);
-  const selectedMakkahVehicle = makkahVehicleOptions.find((v) => v.vehicle.id === selectedMakkahVehicleId);
-
-  function formatOptionPrice(amountAed: number): string {
-    const converted = convertFromAed(amountAed, currency, rates);
-    return converted != null ? formatCurrency(converted, currency) : formatCurrency(amountAed, "AED");
-  }
-
   // Separate configs by journey type
   const makkahOnlyConfigs = tierConfigs.filter((c) => c.journey_type === "makkah_only");
   const makkahMadinahConfigs = tierConfigs.filter((c) => c.journey_type === "makkah_madinah");
@@ -348,9 +336,23 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData, depa
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <div className="relative min-h-[320px] w-full bg-masaar-black sm:min-h-[400px]">
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill sizes="100vw" priority className="object-cover opacity-80" />
+          <ExternalImage
+            src={pkg.hero_image_url}
+            alt={`${pkg.title} Umrah package overview and accommodation banner`}
+            fill
+            sizes="100vw"
+            priority
+            className="object-cover opacity-80"
+          />
         ) : (
-          <Image src="/brand/banners/umrah.webp" alt={pkg.title} fill sizes="100vw" priority className="object-cover opacity-65" />
+          <Image
+            src="/brand/banners/umrah.webp"
+            alt={`${pkg.title} Umrah package banner`}
+            fill
+            sizes="100vw"
+            priority
+            className="object-cover opacity-65"
+          />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-masaar-black via-masaar-black/40 to-transparent" />
         <Container className="relative flex h-full flex-col justify-end pb-8 pt-24 text-white sm:pb-12 sm:pt-32">
@@ -761,193 +763,28 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData, depa
               </div>
             )}
 
-            {/* ── INCLUDED IN YOUR JOURNEY / OPTIONAL ADD-ONS ──────────── */}
+            {/* ── INCLUDED IN YOUR JOURNEY ──────────── */}
             <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
-              <div className="grid gap-8 sm:grid-cols-2">
-                <div>
-                  <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-                    Included in Your Journey
-                  </h2>
-                  {inclusionsList.length > 0 ? (
-                    <ul className="mt-4 space-y-2.5">
-                      {inclusionsList.map((line) => (
-                        <li key={line} className="flex items-start gap-2.5 text-sm text-masaar-black">
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-[11px] font-bold text-masaar-black">
-                            ✓
-                          </span>
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-4 text-sm text-masaar-black/60">
-                      Includes hotel accommodation, private intercity transfers, visa guidance, and guided support.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-                    Optional Add-ons
-                  </h2>
-                  <ul className="mt-4 space-y-3 text-sm text-masaar-black">
-                    <li className="space-y-1 rounded-lg border border-black/5 bg-warm-ivory/20 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="font-semibold text-masaar-black">1-Year Saudi Tourist / Umrah Visa (Multiple Entry)</span>
-                        <span className="shrink-0 font-bold text-deep-gold"><Price amountAed={650} /></span>
-                      </div>
-                      <p className="text-[11px] text-masaar-black/60">Optional add-on per person; valid for multiple entries across 12 months with insurance included.</p>
+              <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
+                Included in Your Journey
+              </h2>
+              {inclusionsList.length > 0 ? (
+                <ul className="mt-4 space-y-2.5">
+                  {inclusionsList.map((line) => (
+                    <li key={line} className="flex items-start gap-2.5 text-sm text-masaar-black">
+                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-[11px] font-bold text-masaar-black">
+                        ✓
+                      </span>
+                      <span>{line}</span>
                     </li>
-                    <li className="space-y-1 rounded-lg border border-black/5 bg-warm-ivory/20 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="font-semibold text-masaar-black">Electronic Umrah Visa</span>
-                        <span className="shrink-0 font-bold text-deep-gold"><Price amountAed={650} /></span>
-                      </div>
-                      <p className="text-[11px] text-masaar-black/60">Official electronic Umrah visa issued directly with comprehensive medical cover.</p>
-                    </li>
-                    <li className="rounded-md bg-warm-ivory/60 p-2.5 text-[11px] text-masaar-black/70 border border-black/5">
-                      ℹ️ <strong>Note on Visas:</strong> Visa processing is optional across all packages since many pilgrims already hold valid visas. We provide both visa options above on demand.
-                    </li>
-                    <li>
-                      <div className="flex items-start justify-between gap-3">
-                        <span>Private Makkah Ziyarat Tour</span>
-                        <span className="shrink-0 font-semibold">
-                          {selectedMakkahVehicle ? (
-                            <Price amountAed={selectedMakkahVehicle.price} />
-                          ) : (
-                            <>
-                              From <Price amountAed={makkahZiyaratFrom ?? 300} />
-                            </>
-                          )}
-                        </span>
-                      </div>
-                      {makkahVehicleOptions.length > 0 && (
-                        <div className="mt-2 pl-3">
-                          <label className="sr-only" htmlFor="makkah-ziyarat-vehicle">
-                            Select a vehicle for your Makkah Ziyarat tour
-                          </label>
-                          <select
-                            id="makkah-ziyarat-vehicle"
-                            value={selectedMakkahVehicleId}
-                            onChange={(e) => setSelectedMakkahVehicleId(e.target.value)}
-                            className="w-full rounded-md border border-black/15 bg-white px-2.5 py-1.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
-                          >
-                            <option value="">Select a vehicle by group size…</option>
-                            {makkahVehicleOptions.map(({ vehicle, price }) => (
-                              <option key={vehicle.id} value={vehicle.id}>
-                                {vehicle.name} ({vehicle.capacity_label}) — {formatOptionPrice(price)}/vehicle
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </li>
-                    <li className="flex items-start justify-between gap-3">
-                      <span>Flight Arrangements</span>
-                      <span className="shrink-0 font-semibold">Available upon request</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-masaar-black/60">
+                  Includes hotel accommodation, private intercity transfers, visa guidance, and guided support.
+                </p>
+              )}
             </div>
-
-            {/* ── PRIVATE TRIPS & ZIYARAT ADD-ONS SECTION ────────────── */}
-            {(displayConfig?.private_trips.length > 0 || ziyaratData.vehicleTypes.length > 0) && (
-              <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm space-y-6">
-                <div>
-                  <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
-                    Ziyarat & Private Tour Add-ons
-                  </h2>
-                  <p className="mt-1 text-sm text-masaar-black/60">
-                    Enhance your Umrah journey with guided private tours in Makkah & Madinah.
-                  </p>
-                </div>
-
-                {/* Linked Private Trips */}
-                {displayConfig?.private_trips && displayConfig.private_trips.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-deep-gold">
-                      Recommended Private Tours
-                    </h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {displayConfig.private_trips.map((trip) => (
-                        <div key={trip.id} className="rounded-lg border border-black/10 bg-warm-ivory/50 p-4">
-                          <h4 className="font-bold text-sm text-masaar-black">{trip.name}</h4>
-                          <span className="text-xs font-medium text-deep-gold">{trip.destination}</span>
-                          <p className="mt-1 text-xs text-masaar-black/70">{trip.short_description}</p>
-                          <Link
-                            href={`/private-trips/${trip.slug}`}
-                            className="mt-2 inline-block text-xs font-semibold text-deep-gold hover:underline"
-                          >
-                            See what&apos;s included →
-                          </Link>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Ziyarat Vehicles & Pricing Matrix preview */}
-                {ziyaratData.vehicleTypes.length > 0 && (
-                  <div className="space-y-3 border-t border-black/10 pt-4">
-                    <div>
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-deep-gold">
-                        Private Vehicles Catalog & Ziyarat Pricing
-                      </h3>
-                      {ziyaratData.relatedTrips.length > 0 && (
-                        <p className="mt-1 text-xs text-masaar-black/60">
-                          Prices above are per vehicle, not per person — see what&apos;s included:{" "}
-                          {ziyaratData.relatedTrips.map((trip, i) => (
-                            <span key={trip.slug}>
-                              {i > 0 && " · "}
-                              <Link href={`/private-trips/${trip.slug}`} className="font-semibold text-deep-gold hover:underline">
-                                {trip.destination} Ziyarat →
-                              </Link>
-                            </span>
-                          ))}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      {ziyaratData.vehicleTypes.map((vehicle) => {
-                        const makkahPrice = ziyaratData.pricing.find((p) => p.city === "Makkah" && p.vehicle_type_id === vehicle.id)?.price_aed;
-                        const madinahPrice = ziyaratData.pricing.find((p) => p.city === "Madinah" && p.vehicle_type_id === vehicle.id)?.price_aed;
-
-                        return (
-                          <div key={vehicle.id} className="rounded-lg border border-black/10 bg-white p-3.5 text-center space-y-2">
-                            {vehicle.image_url ? (
-                              <img src={vehicle.image_url} alt={vehicle.name} className="h-20 w-full object-cover rounded" />
-                            ) : (
-                              <div className="h-20 w-full bg-warm-ivory rounded flex items-center justify-center text-xs text-masaar-black/40">
-                                🚗 {vehicle.name}
-                              </div>
-                            )}
-                            <h4 className="font-bold text-xs text-masaar-black">{vehicle.name}</h4>
-                            <p className="text-[11px] text-masaar-black/60">{vehicle.capacity_label}</p>
-
-                            <div className="border-t border-black/5 pt-2 text-[11px] space-y-1">
-                              {makkahPrice != null && (
-                                <div className="flex justify-between">
-                                  <span>Makkah Ziyarat:</span>
-                                  <span className="font-bold"><Price amountAed={makkahPrice} /></span>
-                                </div>
-                              )}
-                              {madinahPrice != null && (
-                                <div className="flex justify-between">
-                                  <span>Madinah Ziyarat:</span>
-                                  <span className="font-bold"><Price amountAed={madinahPrice} /></span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* ── Sticky Sidebar ────────────────────────────────────────── */}

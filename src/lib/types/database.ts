@@ -294,6 +294,18 @@ type TransferRowShape = {
   display_order: number;
   created_at: string;
   updated_at: string;
+  pickup_location?: string | null;
+  dropoff_location?: string | null;
+  route_type?: "one-way" | "round-trip" | string | null;
+  long_description?: string | null;
+  duration?: string | null;
+  route_notes?: string | null;
+  gallery_images?: string[] | null;
+  featured?: boolean | null;
+  seo_title?: string | null;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
+  canonical_url_override?: string | null;
 };
 
 type TransferVehicleRowShape = {
@@ -303,6 +315,17 @@ type TransferVehicleRowShape = {
   display_order: number;
   created_at: string;
   updated_at: string;
+  slug?: string | null;
+  vehicle_type?: string | null;
+  model_year?: string | null;
+  description?: string | null;
+  detailed_description?: string | null;
+  image_url?: string | null;
+  passenger_capacity?: number | null;
+  luggage_capacity?: number | null;
+  features?: string[] | null;
+  spec_verified?: boolean | null;
+  internal_notes?: string | null;
 };
 
 type TransferRouteRateRowShape = {
@@ -695,6 +718,67 @@ type AdminMfaBackupCodeRowShape = {
   created_at: string;
 };
 
+export type EsimPlanRowShape = {
+  plan_id: string;
+  plan_kind: string;
+  name: string;
+  country_iso: string | null;
+  region_slug: string | null;
+  data_gb: number;
+  validity_days: number;
+  is_unlimited: boolean;
+  network_type: string | null;
+  carriers: any | null;
+  fup_note: string | null;
+  supports_topup: boolean;
+  supports_cancel: boolean;
+  supports_hotspot: boolean | null;
+  ip_export: string | null;
+  retail_price_usd: number;
+  cost_usd: number;
+  sale_price_usd: number;
+  is_active: boolean;
+  raw: any | null;
+  synced_at: string;
+};
+
+export type EsimCatalogueMetaRowShape = {
+  id: string;
+  prices_version: string | null;
+  last_synced_at: string | null;
+};
+
+export type EsimOrderRowShape = {
+  id: string;
+  partner_ref: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  plan_id: string;
+  quantity: number;
+  amount_usd: number | null;
+  currency: string;
+  payment_provider: string | null;
+  payment_ref: string | null;
+  payment_status: "pending" | "paid" | "failed" | "refunded";
+  fulfilment_status: "pending" | "processing" | "completed" | "failed" | "refunded";
+  megaesim_order_number: string | null;
+  megaesim_order_id: string | null;
+  esims: any | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EsimWebhookEventRowShape = {
+  id: string;
+  source: "megaesim" | "payment";
+  event: string;
+  payload: any;
+  processed: boolean;
+  received_at: string;
+};
+
 type Table<Row, RequiredKeys extends keyof Row> = {
   Row: Row;
   Insert: Partial<Row> & Pick<Row, RequiredKeys>;
@@ -773,6 +857,13 @@ export interface Database {
       document_templates: Table<DocumentTemplateRowShape, "document_type" | "name">;
       document_shares: Table<DocumentShareRowShape, "document_id" | "share_token">;
       document_settings: Table<DocumentSettingsRowShape, "id">;
+      esim_plans: Table<
+        EsimPlanRowShape,
+        "plan_id" | "name" | "data_gb" | "validity_days" | "retail_price_usd" | "cost_usd" | "sale_price_usd"
+      >;
+      esim_catalogue_meta: Table<EsimCatalogueMetaRowShape, "id">;
+      esim_orders: Table<EsimOrderRowShape, "partner_ref" | "plan_id">;
+      esim_webhook_events: Table<EsimWebhookEventRowShape, "source" | "event" | "payload">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -1069,5 +1160,10 @@ export type DocumentVersionRow = Database["public"]["Tables"]["document_versions
 export type DocumentTemplateRow = Database["public"]["Tables"]["document_templates"]["Row"];
 export type DocumentShareRow = Database["public"]["Tables"]["document_shares"]["Row"];
 export type DocumentSettingsRow = Database["public"]["Tables"]["document_settings"]["Row"];
+
+export type EsimPlanRow = Database["public"]["Tables"]["esim_plans"]["Row"];
+export type EsimCatalogueMetaRow = Database["public"]["Tables"]["esim_catalogue_meta"]["Row"];
+export type EsimOrderRow = Database["public"]["Tables"]["esim_orders"]["Row"];
+export type EsimWebhookEventRow = Database["public"]["Tables"]["esim_webhook_events"]["Row"];
 
 

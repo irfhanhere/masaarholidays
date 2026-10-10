@@ -1,95 +1,148 @@
 import type { Metadata } from "next";
-import { Card, PageHeader, PrimaryButton } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type { TransferRow, TransferVehicleRow } from "@/lib/types/database";
-import { updateRateCard } from "./actions";
+import {
+  VERIFIED_TRANSFER_ROUTES,
+  VERIFIED_TRANSFER_VEHICLES,
+  TRANSFER_SUPPLIED_RATE_CARD,
+  type VehicleCatalogItem,
+  type VerifiedRouteMeta,
+} from "@/lib/data/transfers";
+import {
+  RateCardMatrixClient,
+  type RateCardRouteItem,
+  type RateCardVehicleItem,
+  type RateCardCellState,
+} from "./RateCardMatrixClient";
 
-export const metadata: Metadata = { title: "Transfer Rate Card | Masaar Admin", robots: { index: false } };
+export const metadata: Metadata = {
+  title: "Transfer Rate Card | Masaar Admin",
+  robots: { index: false },
+};
 
 export default async function TransferRateCardPage() {
-  let routes: TransferRow[] = [];
-  let vehicles: TransferVehicleRow[] = [];
-  const rateMap = new Map<string, number>(); // `${transfer_id}__${vehicle_id}` -> price
+  let routes: RateCardRouteItem[] = [];
+  let vehicles: RateCardVehicleItem[] = [];
+  const rateMap: Record<string, RateCardCellState> = {};
 
   if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const [routesRes, vehiclesRes, ratesRes] = await Promise.all([
-      supabase.from("transfers").select("*").order("display_order"),
-      supabase.from("transfer_vehicles").select("*").order("display_order"),
-      supabase.from("transfer_route_rates").select("transfer_id, vehicle_id, price_aed"),
-    ]);
-    routes = routesRes.data ?? [];
-    vehicles = vehiclesRes.data ?? [];
-    for (const rate of ratesRes.data ?? []) {
-      rateMap.set(`${rate.transfer_id}__${rate.vehicle_id}`, rate.price_aed);
+    try {
+      const supabase = await createClient();
+      const [routesRes, vehiclesRes, ratesRes] = await Promise.all([
+        supabase.from("transfers").select("*").order("display_order", { ascending: true }),
+        supabase.from("transfer_vehicles").select("*").order("display_order", { ascending: true }),
+        supabase.from("transfer_route_rates").select("transfer_id, vehicle_id, price_aed, is_active"),
+      ]);
+
+      const dbRoutes = routesRes.data ?? [];
+      const dbVehicles = vehiclesRes.data ?? [];
+      const dbRates = ratesRes.data ?? [];
+
+      // 1. Process routes
+      if (dbRoutes.length > 0) {
+        routes = dbRoutes.map((r: any) => ({
+          id: r.id,
+          route_name: r.route_name,
+          slug: r.slug,
+          transfer_type: r.transfer_type || "airport",
+          description: r.description || null,
+          image_url: r.image_url || "/trips/jeddah-airport-to-makkah.webp",
+          is_active: r.is_active ?? true,
+          display_order: r.display_order ?? 0,
+        }));
+      }
+
+      // 2. Process vehicles
+      if (dbVehicles.length > 0) {
+        vehicles = dbVehicles.map((v: any) => {
+          const verified = VERIFIED_TRANSFER_VEHICLES.find(
+            (vv: VehicleCatalogItem) =>
+              vv.slug === v.slug ||
+              vv.name.toLowerCase() === v.name.toLowerCase()
+          );
+          return {
+            id: v.id,
+            name: v.name,
+            display_order: v.display_order ?? 0,
+            image_url: v.image_url || verified?.image_url || "/vehicles/TOYOTA CAMERY.webp",
+            passengers: v.passenger_capacity ?? verified?.passenger_capacity ?? 3,
+            luggage: v.luggage_capacity ?? verified?.luggage_capacity ?? 3,
+          };
+        });
+      }
+
+      // 3. Process rates from DB
+      for (const r of dbRates) {
+        rateMap[`${r.transfer_id}__${r.vehicle_id}`] = {
+          price_aed: Number(r.price_aed) || 0,
+          is_active: r.is_active ?? true,
+        };
+      }
+    } catch (err) {
+      console.error("Error fetching rate card:", err);
+    }
+  }
+
+  // Fallbacks if DB is offline or empty
+  if (routes.length === 0) {
+    routes = VERIFIED_TRANSFER_ROUTES.map((r: VerifiedRouteMeta, i: number) => ({
+      id: r.slug,
+      route_name: r.route_name,
+      slug: r.slug,
+      transfer_type: r.transfer_type,
+      description: r.description,
+      image_url: r.image_url,
+      is_active: true,
+      display_order: i + 1,
+    }));
+  }
+
+  if (vehicles.length === 0) {
+    vehicles = VERIFIED_TRANSFER_VEHICLES.map((v: VehicleCatalogItem) => ({
+      id: v.slug,
+      name: v.name,
+      display_order: v.display_order,
+      image_url: v.image_url,
+      passengers: v.passenger_capacity,
+      luggage: v.luggage_capacity,
+    }));
+  }
+
+  // Ensure every route x vehicle pair has a seeded default from the supplied rate card
+  for (const r of routes) {
+    const routeCard = TRANSFER_SUPPLIED_RATE_CARD[r.slug];
+
+    for (const v of vehicles) {
+      const key = `${r.id}__${v.id}`;
+      if (!rateMap[key]) {
+        let price = 0;
+        if (routeCard) {
+          for (const [vName, p] of Object.entries(routeCard)) {
+            if (
+              v.name.toLowerCase().includes(vName.toLowerCase()) ||
+              vName.toLowerCase().includes(v.name.toLowerCase())
+            ) {
+              price = p;
+              break;
+            }
+          }
+        }
+
+        rateMap[key] = {
+          price_aed: price,
+          is_active: price > 0,
+        };
+      }
     }
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Transfer Rate Card"
-        description="Internal reference only — route × vehicle pricing, for the team to quote from on WhatsApp. Never shown on the public Transfers page."
-        breadcrumb={[
-          { label: "Dashboard", href: "/admin" },
-          { label: "Transfers", href: "/admin/transfers" },
-          { label: "Rate Card" },
-        ]}
+    <div className="p-6">
+      <RateCardMatrixClient
+        routes={routes}
+        vehicles={vehicles}
+        initialRateMap={rateMap}
       />
-
-      <div className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-        Prices here are admin-only (enforced at the database level, not just hidden in the UI) —
-        the public Transfers page shows route + available vehicles only, no numbers.
-      </div>
-
-      {routes.length === 0 || vehicles.length === 0 ? (
-        <Card>
-          <p className="text-sm text-masaar-black/60">
-            No routes/vehicles yet. Seeded by supabase/migrations/0006_seed_transfer_rate_card.sql.
-          </p>
-        </Card>
-      ) : (
-        <form action={updateRateCard}>
-          <Card className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-black/10">
-                  <th className="py-2 pr-4">Route</th>
-                  {vehicles.map((v) => (
-                    <th key={v.id} className="whitespace-nowrap px-2 py-2 text-center">
-                      {v.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5">
-                {routes.map((route) => (
-                  <tr key={route.id}>
-                    <td className="py-2 pr-4 font-medium text-masaar-black">{route.route_name}</td>
-                    {vehicles.map((vehicle) => (
-                      <td key={vehicle.id} className="px-2 py-2 text-center">
-                        <input
-                          type="number"
-                          min={0}
-                          step="1"
-                          name={`rate__${route.id}__${vehicle.id}`}
-                          defaultValue={rateMap.get(`${route.id}__${vehicle.id}`) ?? ""}
-                          placeholder="—"
-                          className="w-20 rounded border border-black/15 px-2 py-1 text-center text-sm"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-4 flex justify-end">
-              <PrimaryButton type="submit">Save Rate Card</PrimaryButton>
-            </div>
-          </Card>
-        </form>
-      )}
     </div>
   );
 }

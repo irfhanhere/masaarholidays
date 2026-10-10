@@ -183,9 +183,21 @@ function TierCard({
       {/* Left Photo Panel with Caption Overlay */}
       <div className="relative h-64 lg:h-auto lg:w-5/12 bg-masaar-black shrink-0 overflow-hidden">
         {pkg.hero_image_url ? (
-          <ExternalImage src={pkg.hero_image_url} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
+          <ExternalImage
+            src={pkg.hero_image_url}
+            alt={`${pkg.title} Umrah package showcase`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 42vw"
+            className="object-cover"
+          />
         ) : (
-          <Image src={meta.defaultPhoto} alt={pkg.title} fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
+          <Image
+            src={meta.defaultPhoto}
+            alt={`${pkg.title} Umrah package showcase`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 42vw"
+            className="object-cover"
+          />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/60" />
 
