@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Container } from "./Container";
+import { Price } from "./Price";
 import type { PublicAddonCatalogRow } from "@/lib/data/public";
 
 interface Props {
@@ -69,6 +70,23 @@ const DEFAULT_ADDONS: AddonItem[] = [
  * updates this card automatically, per the no-duplication rule. Shared
  * with UmrahAddonsCartModal so the basket shows the exact same list.
  */
+function RenderAddonPrice({ note }: { note: string }) {
+  const match = note.match(/^(From\s+)?AED\s*([\d,]+)(.*)$/i);
+  if (match) {
+    const prefix = match[1] || "";
+    const num = parseInt(match[2].replace(/,/g, ""), 10);
+    const suffix = match[3] || "";
+    if (!isNaN(num)) {
+      return (
+        <>
+          {prefix}<Price amountAed={num} />{suffix}
+        </>
+      );
+    }
+  }
+  return <>{note}</>;
+}
+
 /** Lowercases and strips separators so "makkah_ziyarat" / "makkah-ziyarat" / "Makkah Ziyarat" all compare equal. */
 function normalizeKey(value: string): string {
   return value.toLowerCase().replace(/[\s_-]+/g, "");
@@ -169,7 +187,7 @@ export function UmrahOptionalAddons({ addons, onSelectAddon }: Props) {
               </div>
 
               <div className="p-4 pt-0 space-y-3 border-t border-black/5 mt-auto">
-                <p className="font-bold text-xs text-masaar-black">{addon.price_note}</p>
+                <p className="font-bold text-xs text-masaar-black"><RenderAddonPrice note={addon.price_note} /></p>
 
                 <button
                   type="button"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { EnrichedTransferRoute, TransferType } from "@/lib/data/transfers-catalog";
 import { TRANSFER_CATEGORIES } from "@/lib/data/transfers-catalog";
+import { Price } from "./Price";
 
 interface Props {
   routes: EnrichedTransferRoute[];
@@ -271,11 +272,8 @@ export function TransfersCatalogueClient({ routes }: Props) {
                         {route.startingPriceAed ? (
                           <>
                             <span className="text-[10px] uppercase tracking-wider text-masaar-black/50">From</span>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-xs font-semibold text-deep-gold">AED</span>
-                              <span className="text-lg font-bold text-masaar-black">
-                                {route.startingPriceAed}
-                              </span>
+                            <div className="text-lg font-bold text-masaar-black">
+                              <Price amountAed={route.startingPriceAed} />
                             </div>
                           </>
                         ) : (

@@ -7,6 +7,7 @@ import type { PackageRow } from "@/lib/types/database";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
+import { Price } from "./Price";
 import type { PackageEnquiryInfo } from "./UmrahEnquiryModal";
 
 interface Props {
@@ -290,17 +291,17 @@ function TierCard({
               <div className="flex flex-wrap gap-3">
                 <div className="rounded-xl border border-black/10 bg-warm-ivory/30 px-4 py-2.5 text-center min-w-[100px]">
                   <p className="text-[10px] font-bold text-masaar-black/60 uppercase">Double</p>
-                  <p className="text-sm font-bold text-masaar-black mt-0.5">AED {doublePrice.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-masaar-black mt-0.5"><Price amountAed={doublePrice} /></p>
                 </div>
 
                 <div className="rounded-xl border border-black/10 bg-warm-ivory/30 px-4 py-2.5 text-center min-w-[100px]">
                   <p className="text-[10px] font-bold text-masaar-black/60 uppercase">Triple</p>
-                  <p className="text-sm font-bold text-masaar-black mt-0.5">AED {triplePrice.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-masaar-black mt-0.5"><Price amountAed={triplePrice} /></p>
                 </div>
 
                 <div className="rounded-xl border border-black/10 bg-warm-ivory/30 px-4 py-2.5 text-center min-w-[100px]">
                   <p className="text-[10px] font-bold text-masaar-black/60 uppercase">Quad</p>
-                  <p className="text-sm font-bold text-masaar-black mt-0.5">AED {quadPrice.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-masaar-black mt-0.5"><Price amountAed={quadPrice} /></p>
                 </div>
               </div>
 
@@ -308,7 +309,7 @@ function TierCard({
               <div className="text-right">
                 <span className="text-[11px] font-medium text-masaar-black/50">From</span>
                 <p className="text-2xl font-bold text-[#A87F12]">
-                  AED {startingPrice ? startingPrice.toLocaleString() : "—"}
+                  {startingPrice ? <Price amountAed={startingPrice} /> : "—"}
                 </p>
 
                 <span className="text-[11px] text-masaar-black/60">/ person</span>

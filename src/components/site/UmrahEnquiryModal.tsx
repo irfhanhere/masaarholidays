@@ -9,6 +9,9 @@ import {
   ROUTE_VEHICLE_RATES,
 } from "@/lib/data/transfers-catalog";
 import { WhatsAppGlyph } from "./WhatsAppButton";
+import { Price } from "./Price";
+import { useCurrency } from "./CurrencyProvider";
+import { convertFromAed, formatCurrency } from "@/lib/currency";
 
 export interface PackageEnquiryInfo {
   name: string;
@@ -144,6 +147,7 @@ export function UmrahEnquiryModal({
   packageInfo,
   initialAddon,
 }: Props) {
+  const { currency, rates } = useCurrency();
   const isHajj = packageInfo.packageType === "hajj" || packageInfo.destination?.toLowerCase().includes("hajj");
   const modalId = useId();
 
@@ -280,7 +284,11 @@ export function UmrahEnquiryModal({
       let tDetails = `• Private Transfers: Configured — ${selectedRouteObj.route_name} with ${selectedVehicleObj.name}`;
       if (transferDate) tDetails += ` on ${transferDate}`;
       if (transferTime) tDetails += ` at ${transferTime}`;
-      if (vehiclePriceAed != null) tDetails += ` (Configured Price: AED ${vehiclePriceAed})`;
+      if (vehiclePriceAed != null) {
+        const converted = convertFromAed(vehiclePriceAed, currency, rates);
+        const display = converted != null ? formatCurrency(converted, currency) : `AED ${vehiclePriceAed}`;
+        tDetails += ` (Configured Price: ${currency !== "AED" ? `${display} / AED ${vehiclePriceAed}` : display})`;
+      }
       services.push(tDetails);
     } else if (transferStatus === "add_later") {
       services.push(`• Private Transfers: Decide Later`);
@@ -796,7 +804,7 @@ export function UmrahEnquiryModal({
                                       {veh.passenger_capacity} Pax · {veh.luggage_capacity} Bags
                                     </p>
                                     <p className="text-[10px] font-bold text-[#8F6407]">
-                                      {price != null ? `AED ${price}` : "Price on request"}
+                                      {price != null ? <Price amountAed={price} /> : "Price on request"}
                                     </p>
                                   </div>
                                 </button>
@@ -1390,7 +1398,7 @@ export function UmrahEnquiryModal({
                             {selectedVehicleObj.name} · {selectedVehicleObj.passenger_capacity} Passengers · {selectedVehicleObj.luggage_capacity} Luggage
                           </p>
                           {vehiclePriceAed != null ? (
-                            <p className="text-[11px] font-bold text-[#8F6407]">AED {vehiclePriceAed}</p>
+                            <p className="text-[11px] font-bold text-[#8F6407]"><Price amountAed={vehiclePriceAed} /></p>
                           ) : (
                             <p className="text-[11px] text-[#8F6407]">Price on request</p>
                           )}

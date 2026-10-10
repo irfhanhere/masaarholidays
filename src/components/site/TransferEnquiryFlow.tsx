@@ -4,6 +4,9 @@ import { useId, useMemo, useState } from "react";
 import Image from "next/image";
 import type { EnrichedTransferRoute, RouteVehicleOption } from "@/lib/data/transfers-catalog";
 import { buildWhatsAppLink } from "@/lib/contact";
+import { convertFromAed, formatCurrency } from "@/lib/currency";
+import { useCurrency } from "./CurrencyProvider";
+import { Price } from "./Price";
 
 interface Props {
   route: EnrichedTransferRoute;
@@ -11,6 +14,7 @@ interface Props {
 }
 
 export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
+  const { currency, rates } = useCurrency();
   const isAirportRoute = route.transfer_type === "airport";
   const formId = useId();
 
@@ -105,7 +109,10 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
     }
 
     if (selectedVehicle?.priceAed) {
-      lines.push(`Displayed Price: AED ${selectedVehicle.priceAed}`);
+      const converted = convertFromAed(selectedVehicle.priceAed, currency, rates);
+      const displayPrice = converted != null ? formatCurrency(converted, currency) : `AED ${selectedVehicle.priceAed}`;
+      const priceText = currency !== "AED" ? `${displayPrice} (AED ${selectedVehicle.priceAed})` : displayPrice;
+      lines.push(`Displayed Price: ${priceText}`);
     }
 
     if (additionalNotes.trim()) {
@@ -133,6 +140,8 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
     dropoffLocation,
     additionalNotes,
     whatsappPhone,
+    currency,
+    rates,
   ]);
 
   // Handle continuing to Step 2
@@ -294,7 +303,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
               </p>
             </div>
             <div className="text-xs text-masaar-black/50">
-              Prices displayed in <strong className="font-bold text-masaar-black">AED</strong>
+              Prices displayed in <strong className="font-bold text-masaar-black">{currency}</strong>
             </div>
           </div>
 
@@ -371,9 +380,8 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                       <div className="mb-3 flex items-baseline justify-between">
                         <span className="text-xs text-masaar-black/60">Indicative Price</span>
                         <div className="text-right">
-                          <span className="text-xs font-semibold text-deep-gold">AED </span>
                           <span className="text-xl font-bold text-masaar-black">
-                            {v.priceAed}
+                            <Price amountAed={v.priceAed} />
                           </span>
                         </div>
                       </div>
@@ -453,7 +461,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                 <div className="text-right">
                   <span className="text-[10px] text-masaar-black/50 uppercase">Rate</span>
                   <div className="text-sm font-bold text-deep-gold">
-                    AED {selectedVehicle.priceAed}
+                    <Price amountAed={selectedVehicle.priceAed} />
                   </div>
                 </div>
                 <button
@@ -717,7 +725,9 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                   {selectedVehicle?.priceAed ? (
                     <div className="flex justify-between border-t border-black/10 pt-2 text-sm font-bold">
                       <span className="text-masaar-black">Indicative Price:</span>
-                      <span className="text-deep-gold">AED {selectedVehicle.priceAed}</span>
+                      <span className="text-deep-gold">
+                        <Price amountAed={selectedVehicle.priceAed} />
+                      </span>
                     </div>
                   ) : null}
                 </div>

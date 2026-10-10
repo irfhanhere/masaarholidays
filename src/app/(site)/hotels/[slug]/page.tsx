@@ -556,7 +556,7 @@ export default async function HotelDetailPage({
                     </div>
                     <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-between text-xs">
                       <span className="font-semibold text-masaar-black">
-                        {rel.price_from_aed ? `From AED ${rel.price_from_aed}` : "Price on request"}
+                        {rel.price_from_aed ? <>From <Price amountAed={rel.price_from_aed} /></> : "Price on request"}
                       </span>
                       <span className="text-deep-gold font-semibold group-hover:underline">View Details →</span>
                     </div>

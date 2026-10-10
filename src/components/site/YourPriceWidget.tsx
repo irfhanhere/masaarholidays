@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Price } from "./Price";
 
 interface Props {
   doublePrice?: number;
@@ -93,7 +94,7 @@ export function YourPriceWidget({
             </div>
           </div>
           <div className="text-right">
-            <p className="text-base font-bold text-masaar-black">AED {doublePrice.toLocaleString()}</p>
+            <p className="text-base font-bold text-masaar-black"><Price amountAed={doublePrice} /></p>
             <p className="text-[10px] text-masaar-black/55">/ person</p>
           </div>
         </div>
@@ -115,7 +116,7 @@ export function YourPriceWidget({
             </div>
           </div>
           <div className="text-right">
-            <p className="text-base font-bold text-masaar-black">AED {triplePrice.toLocaleString()}</p>
+            <p className="text-base font-bold text-masaar-black"><Price amountAed={triplePrice} /></p>
             <p className="text-[10px] text-masaar-black/55">/ person</p>
           </div>
         </div>
@@ -137,7 +138,7 @@ export function YourPriceWidget({
             </div>
           </div>
           <div className="text-right">
-            <p className="text-base font-bold text-masaar-black">AED {quadPrice.toLocaleString()}</p>
+            <p className="text-base font-bold text-masaar-black"><Price amountAed={quadPrice} /></p>
             <p className="text-[10px] text-masaar-black/55">/ person</p>
           </div>
         </div>
@@ -148,7 +149,7 @@ export function YourPriceWidget({
         <div>
           <p className="text-[10px] uppercase font-bold text-masaar-black/50">Starting from</p>
           <p className="text-2xl font-bold text-[#A87F12]">
-            AED {quadPrice.toLocaleString()}{" "}
+            <Price amountAed={quadPrice} />{" "}
             <span className="text-xs font-normal text-masaar-black/60">/ person</span>
           </p>
         </div>

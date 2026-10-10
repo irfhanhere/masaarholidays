@@ -7,6 +7,7 @@ import { Container } from "@/components/site/Container";
 import { FaqSection } from "@/components/site/FaqSection";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { TransferEnquiryFlow } from "@/components/site/TransferEnquiryFlow";
+import { Price } from "@/components/site/Price";
 import {
   getPublicTransferBySlug,
   getPublicTransfers,
@@ -323,7 +324,7 @@ export default async function TransferDetailPage({ params }: Props) {
                   </p>
                   <div className="mt-3 flex items-center justify-between pt-2 border-t border-black/5 text-xs">
                     <span className="font-semibold text-deep-gold">
-                      From AED {rel.startingPriceAed || "—"}
+                      {rel.startingPriceAed ? <>From <Price amountAed={rel.startingPriceAed} /></> : "Enquiry Only"}
                     </span>
                     <span className="text-masaar-black/50 group-hover:text-masaar-black">
                       View Details →

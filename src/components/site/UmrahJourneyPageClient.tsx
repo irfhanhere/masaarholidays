@@ -18,6 +18,8 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
 import { Price } from "./Price";
+import { useCurrency } from "./CurrencyProvider";
+import { convertFromAed, formatCurrency } from "@/lib/currency";
 import { WhatsAppButton } from "./WhatsAppButton";
 import { CarIcon, CheckIcon, HeadsetIcon, KaabaIcon } from "./icons";
 
@@ -41,6 +43,7 @@ function InfoIcon({ className = "size-4" }: { className?: string }) {
 }
 
 export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journeyConfigsByTier }: Props) {
+  const { currency, rates } = useCurrency();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -115,6 +118,13 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
 
   const stayText = `${activeConfig.makkah_nights} nights in Makkah + ${activeConfig.madinah_nights} nights in Madinah`;
 
+  const whatsappPriceText = (() => {
+    if (currentPrice == null) return undefined;
+    const converted = convertFromAed(currentPrice, currency, rates);
+    const display = converted != null ? formatCurrency(converted, currency) : `AED ${currentPrice.toLocaleString()}`;
+    return currency !== "AED" ? `${display} (AED ${currentPrice.toLocaleString()}) per person` : `${display} per person`;
+  })();
+
   const whatsappParams =
     currentPrice != null
       ? {
@@ -124,7 +134,7 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
           duration: activeConfig.duration_label,
           stay: `${activeConfig.makkah_nights} Nights Makkah + ${activeConfig.madinah_nights} Nights Madinah`,
           occupancy: selectedOccupancy,
-          price: `AED ${currentPrice.toLocaleString()} per person`,
+          price: whatsappPriceText || `AED ${currentPrice.toLocaleString()} per person`,
         }
       : undefined;
 
@@ -287,7 +297,7 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
                   <thead>
                     <tr className="bg-warm-ivory/60 text-left text-xs uppercase tracking-wide text-masaar-black/60">
                       <th className="px-4 py-2.5 font-semibold">Occupancy</th>
-                      <th className="px-4 py-2.5 text-right font-semibold">Price (AED)</th>
+                      <th className="px-4 py-2.5 text-right font-semibold">Price</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5">
@@ -311,7 +321,7 @@ export function UmrahJourneyPageClient({ month, activeTier, tierPackages, journe
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-[11px] text-masaar-black/50">Tap a row to select your occupancy — AED shown is per person.</p>
+              <p className="mt-2 text-[11px] text-masaar-black/50">Tap a row to select your occupancy — Prices shown are per person.</p>
             </div>
 
             <div className="rounded-xl border border-deep-gold/30 bg-warm-ivory/50 p-6">

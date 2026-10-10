@@ -7,6 +7,7 @@ import type { PackageRow } from "@/lib/types/database";
 import type { PublicUmrahInventoryConfig } from "@/lib/data/public";
 import { Container } from "./Container";
 import { ExternalImage } from "./ExternalImage";
+import { Price } from "./Price";
 import type { PackageEnquiryInfo } from "./UmrahEnquiryModal";
 import { resolveUmrahItinerary } from "@/lib/umrah-itineraries";
 
@@ -227,7 +228,7 @@ export function UmrahMakkahMadinahSection({ packages, inventoryConfigs, onOpenEn
 
                   <div className="sm:col-span-2 text-right border-t sm:border-t-0 border-black/10 pt-2 sm:pt-0">
                     <p className="text-[10px] text-masaar-black/50">From</p>
-                    <p className="text-xl font-bold text-[#A87F12]">AED {price.toLocaleString()}</p>
+                    <p className="text-xl font-bold text-[#A87F12]"><Price amountAed={price} /></p>
                     <p className="text-[10px] text-masaar-black/60">/ person</p>
                   </div>
                 </div>
