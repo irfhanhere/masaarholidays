@@ -214,9 +214,52 @@ export function QuotationBuilder({
   const [selectedServiceCategory, setSelectedServiceCategory] = useState<string>("hotel");
   const [newServiceName, setNewServiceName] = useState("");
   const [newServiceDetails, setNewServiceDetails] = useState("");
+  const [newServiceMealPlan, setNewServiceMealPlan] = useState<string>("Room Only (No Meals Included)");
   const [newServiceQty, setNewServiceQty] = useState(1);
   const [newServiceUnit, setNewServiceUnit] = useState("item");
   const [newServicePrice, setNewServicePrice] = useState(0);
+
+  function handleAddQuickFlight() {
+    const flightItem: LineItemPricingInput = {
+      item_type: "flight",
+      description: "Emirates – Economy Class Flight",
+      details: `${origin} ⇄ ${destination} • Round Trip Confirmed PNR • Baggage Included`,
+      quantity: adults,
+      unit: "ticket",
+      unit_price_aed: 1850,
+      catalog_unit_price_aed: 1850,
+      is_overridden: false,
+      discount_aed: 0,
+      is_price_on_request: false,
+      is_included: false,
+      display_order: lineItems.length,
+    };
+    const nextItems = [...lineItems, flightItem];
+    setLineItems(nextItems);
+    handlePersistLineItems(nextItems);
+    setSaveSuccessMsg("Flight added to quotation with round trip route.");
+  }
+
+  function handleAddQuickVisa() {
+    const visaItem: LineItemPricingInput = {
+      item_type: "custom",
+      description: "Saudi Tourist / Umrah E-Visa",
+      details: "Official Saudi Tourist / Umrah E-Visa with full health insurance coverage",
+      quantity: adults,
+      unit: "item",
+      unit_price_aed: 450,
+      catalog_unit_price_aed: 450,
+      is_overridden: false,
+      discount_aed: 0,
+      is_price_on_request: false,
+      is_included: false,
+      display_order: lineItems.length,
+    };
+    const nextItems = [...lineItems, visaItem];
+    setLineItems(nextItems);
+    handlePersistLineItems(nextItems);
+    setSaveSuccessMsg("Saudi Visa added to quotation.");
+  }
 
   // Flash message timeouts
   useEffect(() => {
@@ -458,13 +501,30 @@ export function QuotationBuilder({
         ? "transfer"
         : selectedServiceCategory === "private_trip"
         ? "private_trip"
+        : selectedServiceCategory === "visa"
+        ? "custom"
         : selectedServiceCategory === "custom"
         ? "custom"
         : "service";
 
     let details = newServiceDetails.trim() || null;
-    if (selectedServiceCategory === "train" && (!details || !details.toLowerCase().includes("train"))) {
+    if (selectedServiceCategory === "hotel") {
+      const meal = newServiceMealPlan || "Room Only (No Meals Included)";
+      if (!details) {
+        details = `Meal Plan: ${meal}`;
+      } else if (
+        !details.toLowerCase().includes("meal plan") &&
+        !details.toLowerCase().includes("breakfast") &&
+        !details.toLowerCase().includes("room only")
+      ) {
+        details = `${details} • Meal Plan: ${meal}`;
+      }
+    } else if (selectedServiceCategory === "train" && (!details || !details.toLowerCase().includes("train"))) {
       details = details ? `${details} • High-Speed Train` : "Haramain High-Speed Train";
+    } else if (selectedServiceCategory === "flight" && !details) {
+      details = `${origin} ⇄ ${destination} • Round Trip Confirmed PNR • Baggage Included`;
+    } else if (selectedServiceCategory === "visa" && !details) {
+      details = "Official Saudi Tourist / Umrah E-Visa with comprehensive insurance";
     }
 
     const newItem: LineItemPricingInput = {
@@ -1120,13 +1180,31 @@ export function QuotationBuilder({
                 Catalogue prices are defaults. Staff can enter agreed client prices or mark items as &ldquo;Price on request&rdquo;.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAddServiceModalOpen(true)}
-              className="rounded-xl bg-[#b37e28] text-white px-4 py-2 text-xs font-bold hover:bg-[#916d28] shadow-2xs cursor-pointer"
-            >
-              + Add Line Item
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAddQuickFlight}
+                className="rounded-xl border border-black/15 bg-white px-3 py-2 text-xs font-bold text-masaar-black hover:bg-black/5 shadow-2xs cursor-pointer flex items-center gap-1.5"
+                title="Quickly add round trip flight item"
+              >
+                <span>✈️</span> + Add Flight
+              </button>
+              <button
+                type="button"
+                onClick={handleAddQuickVisa}
+                className="rounded-xl border border-black/15 bg-white px-3 py-2 text-xs font-bold text-masaar-black hover:bg-black/5 shadow-2xs cursor-pointer flex items-center gap-1.5"
+                title="Quickly add Saudi eVisa item"
+              >
+                <span>🛂</span> + Add Visa
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddServiceModalOpen(true)}
+                className="rounded-xl bg-[#b37e28] text-white px-4 py-2 text-xs font-bold hover:bg-[#916d28] shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <span>+</span> Add Line Item
+              </button>
+            </div>
           </div>
 
           {/* Pricing Table (Matches FLEXIBLE PRICING & SUMMARY.png) */}
@@ -1148,10 +1226,57 @@ export function QuotationBuilder({
                 {pricingSummary.items.map((it, idx) => (
                   <tr key={it.id || idx} className="hover:bg-black/[0.01]">
                     <td className="py-3 px-4">
-                      <div className="font-bold text-black">{it.description}</div>
+                      <div className="font-bold text-black flex items-center gap-2">
+                        <span>{it.description}</span>
+                        {it.item_type === "hotel" && (
+                          <span className="rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 uppercase">
+                            Hotel
+                          </span>
+                        )}
+                        {it.item_type === "flight" && (
+                          <span className="rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[9px] font-bold text-blue-800 uppercase">
+                            Flight
+                          </span>
+                        )}
+                      </div>
                       {it.details && (
                         <div className="text-[11px] text-black/60 mt-0.5">
                           {it.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                        </div>
+                      )}
+                      {it.item_type === "hotel" && (
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-black/60">Meal Plan:</span>
+                          <select
+                            value={
+                              (it.details?.toLowerCase().includes("full board") && "Full Board (Breakfast, Lunch & Dinner)") ||
+                              (it.details?.toLowerCase().includes("half board") && "Half Board (Breakfast & Dinner)") ||
+                              ((it.details?.toLowerCase().includes("breakfast") || it.details?.toLowerCase().includes("buffet")) &&
+                              !it.details?.toLowerCase().includes("without breakfast") &&
+                              !it.details?.toLowerCase().includes("no breakfast") &&
+                              !it.details?.toLowerCase().includes("room only")
+                                ? "Breakfast Included"
+                                : "Room Only (No Meals Included)")
+                            }
+                            onChange={(e) => {
+                              const newMeal = e.target.value;
+                              const currentDetails = it.details || "";
+                              const cleaned = currentDetails
+                                .replace(/\|\s*5★ Luxury Buffet/gi, "")
+                                .replace(/\|\s*Meal Plan:\s*[^|•]+/gi, "")
+                                .replace(/•?\s*Meal Plan:\s*[^|•]+/gi, "")
+                                .replace(/•?\s*(Room Only|Breakfast Included|Half Board|Full Board)[^|•]*/gi, "")
+                                .trim();
+                              const updatedDetails = `${cleaned} • Meal Plan: ${newMeal}`.trim();
+                              handleUpdateLineItem(idx, { details: updatedDetails });
+                            }}
+                            className="rounded border border-black/20 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#865d1d] focus:border-[#b37e28]"
+                          >
+                            <option value="Room Only (No Meals Included)">Room Only (No Meals)</option>
+                            <option value="Breakfast Included">Breakfast Included</option>
+                            <option value="Half Board (Breakfast & Dinner)">Half Board (Breakfast + Dinner)</option>
+                            <option value="Full Board (Breakfast, Lunch & Dinner)">Full Board (All 3 Meals)</option>
+                          </select>
                         </div>
                       )}
                       {it.is_overridden && (
@@ -1285,6 +1410,10 @@ export function QuotationBuilder({
                 <div className="flex justify-between text-black/70">
                   <span>Flights:</span>
                   <span className="font-semibold text-black">AED {pricingSummary.categories.flightsAed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-black/70">
+                  <span>Saudi Visa:</span>
+                  <span className="font-semibold text-black">AED {pricingSummary.categories.visaAed.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-black/70">
                   <span>Packages:</span>
@@ -1654,18 +1783,73 @@ Masaar Holidays`)}`}
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Swissôtel Makkah / GMC Yukon Airport Transfer"
+                  placeholder="e.g. Swissôtel Makkah / Emirates Flight / Saudi Visa"
                   value={newServiceName}
                   onChange={(e) => setNewServiceName(e.target.value)}
                   className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"
                 />
+                {selectedServiceCategory === "flight" && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {["Emirates", "Saudia", "flydubai", "Flynas", "Air Arabia"].map((air) => (
+                      <button
+                        key={air}
+                        type="button"
+                        onClick={() => {
+                          setNewServiceName(`${air} – Economy Class`);
+                          if (!newServiceDetails) setNewServiceDetails(`${origin} ⇄ ${destination} • Round Trip PNR • Baggage Included`);
+                          if (newServicePrice === 0) setNewServicePrice(1850);
+                        }}
+                        className="rounded-md border border-black/10 bg-neutral-50 px-2 py-0.5 text-[10px] font-semibold text-black/70 hover:bg-[#b37e28]/10 hover:text-[#865d1d]"
+                      >
+                        ✈️ {air}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedServiceCategory === "visa" && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {[
+                      { label: "Saudi Tourist eVisa", name: "Saudi Tourist / Umrah E-Visa", price: 450 },
+                      { label: "Umrah eVisa (Ministry)", name: "Official Umrah E-Visa (Ministry)", price: 550 },
+                    ].map((v) => (
+                      <button
+                        key={v.label}
+                        type="button"
+                        onClick={() => {
+                          setNewServiceName(v.name);
+                          setNewServiceDetails("Official eVisa processing with full medical insurance coverage");
+                          setNewServicePrice(v.price);
+                        }}
+                        className="rounded-md border border-black/10 bg-neutral-50 px-2 py-0.5 text-[10px] font-semibold text-black/70 hover:bg-[#b37e28]/10 hover:text-[#865d1d]"
+                      >
+                        🛂 {v.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {selectedServiceCategory === "hotel" && (
+                <div>
+                  <label className="font-semibold block mb-1 text-black/70">Meal Plan</label>
+                  <select
+                    value={newServiceMealPlan}
+                    onChange={(e) => setNewServiceMealPlan(e.target.value)}
+                    className="w-full rounded-lg border border-black/15 p-2.5 text-xs bg-white text-black font-semibold"
+                  >
+                    <option value="Room Only (No Meals Included)">Room Only (No Meals Included)</option>
+                    <option value="Breakfast Included">Breakfast Included (Daily Buffet)</option>
+                    <option value="Half Board (Breakfast & Dinner)">Half Board (Breakfast + Dinner)</option>
+                    <option value="Full Board (Breakfast, Lunch & Dinner)">Full Board (Breakfast, Lunch & Dinner)</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="font-semibold block mb-1 text-black/70">Details / Specifications</label>
                 <input
                   type="text"
-                  placeholder="e.g. 5★ Luxury Kaaba view • Breakfast Included"
+                  placeholder="e.g. 5★ Luxury Kaaba view • Near Haram Courtyard"
                   value={newServiceDetails}
                   onChange={(e) => setNewServiceDetails(e.target.value)}
                   className="w-full rounded-lg border border-black/15 p-2.5 text-xs text-black"

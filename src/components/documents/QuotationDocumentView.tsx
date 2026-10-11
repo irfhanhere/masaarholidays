@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { DocumentItemRow, DocumentRow, DocumentTemplateRow } from "@/lib/types/database";
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
+import { resolveHotelMealPlan } from "@/lib/documents/calculations";
 
 function formatMoney(amountAed: number | null | undefined): string {
   return `AED ${Number(amountAed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -537,11 +538,12 @@ export function QuotationDocumentView({
                                 <span className="text-xs text-amber-500 font-bold">★★★★★ 5 Star</span>
                               </div>
                               <h3 className="font-serif text-base font-bold text-masaar-black mt-1">{h.description}</h3>
-                              <p className="text-[11px] text-masaar-black/70 mt-1 whitespace-pre-line">{h.details || "Luxury accommodations with daily breakfast included."}</p>
+                              <p className="text-[11px] text-masaar-black/70 mt-1 whitespace-pre-line">{h.details || "Confirmed 5-Star luxury accommodations."}</p>
                             </div>
-                            <p className="text-[10px] text-masaar-black/50 mt-2 border-t border-black/5 pt-1.5">
-                              Daily international buffet breakfast included; 24-hour concierge assistance.
-                            </p>
+                            <div className="text-[10px] text-masaar-black/60 mt-2 border-t border-black/5 pt-1.5 flex items-center justify-between">
+                              <span>Meal Plan: <strong>{resolveHotelMealPlan(h.details, h.description)}</strong></span>
+                              <span>24-Hour Concierge &amp; Reception</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -652,7 +654,13 @@ export function QuotationDocumentView({
                 <div className="rounded-xl border border-black/10 bg-[#FAF8F5] p-5">
                   <h3 className="font-serif text-sm font-bold text-masaar-black mb-2">Dining &amp; Board Inclusions</h3>
                   <p className="text-masaar-black/80 leading-relaxed">
-                    Daily five-star international buffet breakfast included across all hotels with gourmet halal live cooking stations. Complimentary bottled water and coffee service provided daily in private vehicles and rooms. Optional half-board / full-board catering upgrades available upon request.
+                    {(() => {
+                      const resolvedMeal = hotelItems.map((h) => resolveHotelMealPlan(h.details, h.description)).find((m) => m !== "Room Only (No Meals Included)") || "Room Only (No Meals Included)";
+                      if (resolvedMeal === "Room Only (No Meals Included)") {
+                        return "Accommodations are arranged on a Room Only basis (meals and catering arranged separately or upon request). Complimentary bottled water and coffee service provided daily in rooms. Gourmet buffet catering upgrades available upon request.";
+                      }
+                      return `Accommodations include ${resolvedMeal} across reserved hotels with gourmet halal live cooking stations. Complimentary bottled water and coffee service provided daily in private vehicles and rooms.`;
+                    })()}
                   </p>
                 </div>
               </div>
@@ -700,7 +708,12 @@ export function QuotationDocumentView({
                   <h3 className="font-serif text-sm font-bold text-green-900 mb-3">Included in Your Sacred Package</h3>
                   <div className="grid grid-cols-2 gap-3 text-green-950">
                     <div className="flex items-center gap-2">✓ 5★ Accommodations in Makkah &amp; Madinah</div>
-                    <div className="flex items-center gap-2">✓ Daily International Breakfast Buffets</div>
+                    {(() => {
+                      const resolvedMeal = hotelItems.map((h) => resolveHotelMealPlan(h.details, h.description)).find((m) => m !== "Room Only (No Meals Included)") || "Room Only (No Meals Included)";
+                      return (
+                        <div className="flex items-center gap-2">✓ Meal Plan: {resolvedMeal}</div>
+                      );
+                    })()}
                     <div className="flex items-center gap-2">✓ Private GMC Yukon XL Transfers</div>
                     {flightItems.length > 0 ? (
                       <div className="flex items-center gap-2">✓ Direct Flight Return Tickets</div>
@@ -738,7 +751,17 @@ export function QuotationDocumentView({
                       <div className="flex items-center gap-2 font-semibold">✗ Airline flight tickets (land package only — airfare arranged separately)</div>
                     )}
                     <div className="flex items-center gap-2">✗ Personal room service, telephone and laundry expenses</div>
-                    <div className="flex items-center gap-2">✗ Lunch and dinners outside of the specified breakfast board</div>
+                    {(() => {
+                      const resolvedMeal = hotelItems.map((h) => resolveHotelMealPlan(h.details, h.description)).find((m) => m !== "Room Only (No Meals Included)") || "Room Only (No Meals Included)";
+                      if (resolvedMeal === "Room Only (No Meals Included)") {
+                        return (
+                          <div className="flex items-center gap-2 font-semibold">✗ Meals &amp; catering (Package is Room Only — all meals arranged separately)</div>
+                        );
+                      }
+                      return (
+                        <div className="flex items-center gap-2">✗ Meals outside of specified board ({resolvedMeal})</div>
+                      );
+                    })()}
                     <div className="flex items-center gap-2">✗ Excess baggage fees levied by airlines beyond 30 KG</div>
                     <div className="flex items-center gap-2">✗ Discretionary tips and gratuities to drivers and local guides</div>
                     <div className="flex items-center gap-2">✗ Personal medical expenses and unstated travel insurance</div>

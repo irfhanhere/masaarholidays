@@ -103,6 +103,13 @@ export function NewQuotationWizard({
   const [returnDate, setReturnDate] = useState("2026-10-14");
   const [packageScope, setPackageScope] = useState<"both" | "makkah_only" | "madinah_only">("both");
   const [roomType, setRoomType] = useState<"TWIN/DOUBLE" | "TRIPLE" | "QUAD">("TWIN/DOUBLE");
+  const [mealPlan, setMealPlan] = useState<string>("Room Only (No Meals Included)");
+  const [includeFlights, setIncludeFlights] = useState<boolean>(true);
+  const [airline, setAirline] = useState<string>("Emirates");
+  const [cabinClass, setCabinClass] = useState<"Economy" | "Business" | "First">("Economy");
+  const [flightPricePerPerson, setFlightPricePerPerson] = useState<number>(1850);
+  const [includeVisa, setIncludeVisa] = useState<boolean>(true);
+  const [visaPricePerPerson, setVisaPricePerPerson] = useState<number>(450);
   const [customerRequirement, setCustomerRequirement] = useState("");
   const [adults, setAdults] = useState<number>(seeded?.passengers || 2);
   const [children, setChildren] = useState<number>(0);
@@ -258,36 +265,41 @@ export function NewQuotationWizard({
           unit_price_aed: 950,
           display_order: order++,
         });
-        defaultItems.push({
-          item_type: "flight",
-          description: "Emirates – Business Class",
-          details: "Dubai (DXB) → Jeddah (JED) • Madinah (MED) → Dubai (DXB)",
-          quantity: adults,
-          unit_price_aed: 4500,
-          display_order: order++,
-        });
-        defaultItems.push({
-          item_type: "custom",
-          description: "3 Course Meals",
-          details: "Daily breakfast, lunch and dinner included",
-          quantity: adults,
-          unit_price_aed: 0,
-          display_order: order++,
-        });
+        if (includeFlights) {
+          defaultItems.push({
+            item_type: "flight",
+            description: `${airline} – ${cabinClass} Class`,
+            details: `${origin} → ${destination} • Round Trip Confirmed PNR • Baggage Included`,
+            quantity: adults,
+            unit_price_aed: flightPricePerPerson > 0 ? flightPricePerPerson : 4500,
+            display_order: order++,
+          });
+        }
+        if (includeVisa) {
+          defaultItems.push({
+            item_type: "custom",
+            description: "Official Hajj Visa & Processing",
+            details: "Official Saudi Hajj Nusuk / Ministry Visa with Comprehensive Pilgrimage Insurance",
+            quantity: adults,
+            unit_price_aed: visaPricePerPerson,
+            display_order: order++,
+          });
+        }
         defaultItems.push({
           item_type: "service",
           description: "Additional Services",
-          details: "Haramain High Speed Train • Ziyarat in Makkah & Madinah • Dedicated Tour Guide",
+          details: "Haramain High Speed Train (Business Class) • Ziyarat in Makkah & Madinah • Dedicated Tour Guide",
           quantity: 1,
           unit_price_aed: 0,
           display_order: order++,
         });
       } else {
         // Default Umrah Package
+        const mealPlanStr = mealPlan || "Room Only (No Meals Included)";
         defaultItems.push({
           item_type: "umrah_package",
           description: `Umrah 2026 – Exclusive Package (${duration})`,
-          details: `${duration} | ${scopeLabel} • ${roomType} Sharing${customerRequirement ? ` • Requirement: ${customerRequirement}` : ""}`,
+          details: `${duration} | ${scopeLabel} • ${roomType} Sharing • Meal Plan: ${mealPlanStr}${customerRequirement ? ` • Requirement: ${customerRequirement}` : ""}`,
           quantity: adults,
           unit_price_aed: 8500,
           display_order: order++,
@@ -296,7 +308,7 @@ export function NewQuotationWizard({
           defaultItems.push({
             item_type: "hotel",
             description: "Makkah Hotel — Swissôtel Makkah",
-            details: `${makkahNights} Nights | Clock Tower / Near Haram Courtyard | ${roomType} Sharing | 5★ Luxury Buffet`,
+            details: `${makkahNights} Nights | Clock Tower / Near Haram Courtyard | ${roomType} Sharing | Meal Plan: ${mealPlanStr}`,
             quantity: makkahNights,
             unit_price_aed: 840,
             display_order: order++,
@@ -306,9 +318,19 @@ export function NewQuotationWizard({
           defaultItems.push({
             item_type: "hotel",
             description: "Madinah Hotel — Anwar Al Madinah Mövenpick",
-            details: `${madinahNights} Nights | Steps from Prophet's Mosque | ${roomType} Sharing | 5★ Luxury Buffet`,
+            details: `${madinahNights} Nights | Steps from Prophet's Mosque | ${roomType} Sharing | Meal Plan: ${mealPlanStr}`,
             quantity: madinahNights,
             unit_price_aed: 650,
+            display_order: order++,
+          });
+        }
+        if (includeFlights) {
+          defaultItems.push({
+            item_type: "flight",
+            description: `${airline} – ${cabinClass} Class`,
+            details: `${origin} ⇄ ${destination} • Round Trip Confirmed PNR • Baggage Included`,
+            quantity: adults,
+            unit_price_aed: flightPricePerPerson,
             display_order: order++,
           });
         }
@@ -324,10 +346,20 @@ export function NewQuotationWizard({
           unit_price_aed: packageScope === "both" ? 950 : 600,
           display_order: order++,
         });
+        if (includeVisa) {
+          defaultItems.push({
+            item_type: "custom",
+            description: "Saudi Tourist / Umrah E-Visa",
+            details: "Official Saudi Tourist / Umrah E-Visa with full health insurance coverage",
+            quantity: adults,
+            unit_price_aed: visaPricePerPerson,
+            display_order: order++,
+          });
+        }
         defaultItems.push({
           item_type: "service",
           description: "Additional Services & Ziyarat",
-          details: `${packageScope === "both" ? "Haramain High Speed Train (Business) • " : ""}${packageScope !== "madinah_only" ? "Makkah " : ""}${packageScope === "both" ? "& " : ""}${packageScope !== "makkah_only" ? "Madinah " : ""}Historical Ziyarat • Saudi Tourist E-Visa`,
+          details: `${packageScope === "both" ? "Haramain High Speed Train (Business) • " : ""}${packageScope !== "madinah_only" ? "Makkah " : ""}${packageScope === "both" ? "& " : ""}${packageScope !== "makkah_only" ? "Madinah " : ""}Historical Ziyarat`,
           quantity: 1,
           unit_price_aed: 0,
           display_order: order++,
@@ -339,6 +371,9 @@ export function NewQuotationWizard({
         `Package Scope: ${scopeLabel}`,
         `Duration: ${duration}`,
         `Room Type: ${roomType}`,
+        `Meal Plan: ${mealPlan || "Room Only (No Meals Included)"}`,
+        includeFlights ? `Flight: ${airline} (${cabinClass}) - ${origin} to ${destination}` : "Flight: Not included / Arranged by client",
+        includeVisa ? `Saudi Visa: Included (${adults} Pax)` : "Saudi Visa: Not included",
       ].filter(Boolean);
 
       const payload = {
@@ -948,6 +983,155 @@ export function NewQuotationWizard({
                 </div>
               </div>
 
+              {/* Meal Plan Selection (Flaw 1 & 2 Fix) */}
+              <div className="sm:col-span-2 lg:col-span-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-masaar-black">
+                    Meal Plan
+                  </label>
+                  <span className="text-[11px] text-masaar-black/50">
+                    Default: Room Only (Opt-in for Breakfast / Half / Full Board)
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { id: "Room Only (No Meals Included)", label: "Room Only", desc: "No Meals Included", icon: "☕❌" },
+                    { id: "Breakfast Included", label: "Breakfast Included", desc: "Daily Buffet Breakfast", icon: "🍳" },
+                    { id: "Half Board (Breakfast & Dinner)", label: "Half Board", desc: "Breakfast + Dinner", icon: "🍽️" },
+                    { id: "Full Board (Breakfast, Lunch & Dinner)", label: "Full Board", desc: "All 3 Meals Included", icon: "🍲" },
+                  ].map((m) => {
+                    const isSelected = mealPlan === m.id || (m.label !== "Room Only" && mealPlan.startsWith(m.label));
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setMealPlan(m.id)}
+                        className={`rounded-xl border p-2.5 text-left transition-all ${
+                          isSelected
+                            ? "border-[#b37e28] bg-[#FAF8F5] text-[#865d1d] ring-2 ring-[#b37e28] shadow-xs"
+                            : "border-black/15 bg-white text-masaar-black/70 hover:bg-black/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <span>{m.icon}</span>
+                          <span>{m.label}</span>
+                        </div>
+                        <p className="text-[10px] text-masaar-black/50 mt-0.5">{m.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Flights Section (Flaw 4 Fix) */}
+              <div className="sm:col-span-2 lg:col-span-3 space-y-3 pt-3 border-t border-black/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✈️</span>
+                    <div>
+                      <label className="text-xs font-bold text-masaar-black block">
+                        Include Flight in Quotation
+                      </label>
+                      <p className="text-[11px] text-masaar-black/50">
+                        Automatically adds flight item with live itinerary routing and pricing
+                      </p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeFlights}
+                      onChange={(e) => setIncludeFlights(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-black/20 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#b37e28]"></div>
+                  </label>
+                </div>
+
+                {includeFlights && (
+                  <div className="grid gap-3 sm:grid-cols-3 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#b37e28]/20">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-masaar-black/70 mb-1">Airline</label>
+                      <select
+                        value={airline}
+                        onChange={(e) => setAirline(e.target.value)}
+                        className={inputClass}
+                      >
+                        <option value="Emirates">Emirates (EK)</option>
+                        <option value="Saudia">Saudia (SV)</option>
+                        <option value="flydubai">flydubai (FZ)</option>
+                        <option value="Flynas">Flynas (XY)</option>
+                        <option value="Air Arabia">Air Arabia (G9)</option>
+                        <option value="Etihad Airways">Etihad Airways (EY)</option>
+                        <option value="Partner Airline">Other / Partner Airline</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-masaar-black/70 mb-1">Cabin Class</label>
+                      <select
+                        value={cabinClass}
+                        onChange={(e) => setCabinClass(e.target.value as any)}
+                        className={inputClass}
+                      >
+                        <option value="Economy">Economy Class</option>
+                        <option value="Business">Business Class</option>
+                        <option value="First">First Class</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-masaar-black/70 mb-1">Flight Price / Person (AED)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={flightPricePerPerson}
+                        onChange={(e) => setFlightPricePerPerson(Math.max(0, Number(e.target.value) || 0))}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Visa Section (Flaw 3 Fix) */}
+              <div className="sm:col-span-2 lg:col-span-3 pt-3 border-t border-black/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🛂</span>
+                    <div>
+                      <span className="text-xs font-bold text-masaar-black block">Saudi Tourist / Umrah E-Visa</span>
+                      <p className="text-[11px] text-masaar-black/50">Official eVisa processing with medical insurance</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {includeVisa && (
+                      <div className="flex items-center gap-1.5 text-xs text-masaar-black/70">
+                        <span>AED</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={visaPricePerPerson}
+                          onChange={(e) => setVisaPricePerPerson(Math.max(0, Number(e.target.value) || 0))}
+                          className="w-20 rounded-lg border border-black/15 bg-white px-2 py-1 text-xs text-right font-medium"
+                        />
+                        <span>/ pax</span>
+                      </div>
+                    )}
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeVisa}
+                        onChange={(e) => setIncludeVisa(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-5 bg-black/20 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#b37e28]"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               {/* Customer Requirement for the Package */}
               <div className="sm:col-span-2 lg:col-span-3 space-y-1.5">
                 <label className="block text-xs font-bold text-masaar-black">
@@ -1067,6 +1251,36 @@ export function NewQuotationWizard({
                   </div>
                   <span className="font-semibold text-[#865d1d] text-right">
                     {roomType}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-masaar-black/60">
+                    <span>☕</span>
+                    <span>Meal Plan</span>
+                  </div>
+                  <span className="font-semibold text-masaar-black text-right truncate max-w-[170px]" title={mealPlan}>
+                    {mealPlan.split("(")[0].trim()}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-masaar-black/60">
+                    <span>✈️</span>
+                    <span>Flight</span>
+                  </div>
+                  <span className="font-semibold text-masaar-black text-right truncate max-w-[170px]">
+                    {includeFlights ? `${airline} (${cabinClass})` : "Not included"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-masaar-black/60">
+                    <span>🛂</span>
+                    <span>Saudi Visa</span>
+                  </div>
+                  <span className="font-semibold text-masaar-black text-right">
+                    {includeVisa ? `Included (${adults} Pax)` : "Not included"}
                   </span>
                 </div>
 

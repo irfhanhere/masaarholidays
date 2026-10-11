@@ -15,6 +15,7 @@ import {
   reconcileItineraryDays,
   calculateQuotationTotals,
   resolveServiceImage,
+  resolveHotelMealPlan,
   addDaysToIsoDate,
   buildSequencedPilgrimageDays,
   type ItineraryDayItem,
@@ -147,7 +148,13 @@ export function ClientQuotationPortal({
   const hotels = items.filter(
     (i) => i.item_type === "hotel" || (i.item_type as any) === "accommodation"
   );
-  const flights = items.filter((i) => i.item_type === "flight");
+  const flights = items.filter(
+    (i) =>
+      i.item_type === "flight" ||
+      i.description.toLowerCase().includes("flight") ||
+      i.description.toLowerCase().includes("airline") ||
+      Boolean(i.details && (i.details.toLowerCase().includes("flight") || i.details.toLowerCase().includes("pnr")))
+  );
   const trains = items.filter(
     (i) =>
       (i.item_type as any) === "train" ||
@@ -156,17 +163,23 @@ export function ClientQuotationPortal({
   );
   const transfers = items.filter(
     (i) =>
-      i.item_type === "transfer" &&
+      (i.item_type === "transfer" || i.item_type === "private_trip") &&
       !i.description.toLowerCase().includes("train") &&
       !i.description.toLowerCase().includes("haramain")
   );
+  const visas = items.filter(
+    (i) =>
+      (i.item_type as any) === "visa" ||
+      i.description.toLowerCase().includes("visa") ||
+      Boolean(i.details && i.details.toLowerCase().includes("visa"))
+  );
   const otherServices = items.filter(
     (i) =>
-      !["hotel", "accommodation", "flight", "transfer", "umrah_package", "hajj_package"].includes(
-        i.item_type
-      ) &&
-      !i.description.toLowerCase().includes("train") &&
-      !i.description.toLowerCase().includes("haramain")
+      !["hotel", "accommodation", "umrah_package", "hajj_package"].includes(i.item_type) &&
+      !flights.some((f) => f.id === i.id || f.description === i.description) &&
+      !trains.some((t) => t.id === i.id || t.description === i.description) &&
+      !transfers.some((t) => t.id === i.id || t.description === i.description) &&
+      !visas.some((v) => v.id === i.id || v.description === i.description)
   );
 
   const publicUrl =
@@ -482,14 +495,24 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                             )}
                           </div>
 
-                          <div className="rounded-xl bg-[#FAF8F5] border border-black/5 p-3 text-xs space-y-1">
+                          <div className="rounded-xl bg-[#FAF8F5] border border-black/5 p-3 text-xs space-y-1.5">
                             <div className="flex justify-between text-[#1A1816]/70">
                               <span>Stay Duration:</span>
                               <span className="font-semibold text-[#1A1816]">{hotel.quantity} Nights</span>
                             </div>
                             <div className="flex justify-between text-[#1A1816]/70">
                               <span>Meal Plan:</span>
-                              <span className="font-semibold text-[#1A1816]">Daily Gourmet Buffet</span>
+                              <span className="font-semibold text-[#865d1d]">
+                                {resolveHotelMealPlan(hotel.details, hotel.description)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-[#1A1816]/70 pt-1 border-t border-black/5">
+                              <span>Accommodation Investment:</span>
+                              <span className="font-bold text-[#1A1816]">
+                                {Number(hotel.unit_price_aed) > 0
+                                  ? `AED ${(Number(hotel.unit_price_aed) * Number(hotel.quantity || 1)).toLocaleString()}`
+                                  : "Included in Package"}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -568,14 +591,14 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
             </section>
 
             {/* SECTION C: TRANSPORTATION & TRAVEL SERVICES */}
-            {(transfers.length > 0 || trains.length > 0 || flights.length > 0) && (
+            {(transfers.length > 0 || trains.length > 0 || flights.length > 0 || visas.length > 0 || Boolean(document.origin && document.destination)) && (
               <section className="space-y-4">
                 <div className="border-b border-black/10 pb-3">
                   <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
                     Transportation &amp; Travel Services
                   </h2>
                   <p className="text-xs text-[#1A1816]/60 mt-0.5">
-                    Seamless transit with private chauffeurs, flights, and high-speed rail.
+                    Seamless transit with private chauffeurs, flights, high-speed rail, and visa assistance.
                   </p>
                 </div>
 
@@ -609,10 +632,50 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                               {f.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
                             </p>
                           )}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
+                            <span>{f.quantity || document.adults || 2} Pax • Return Ticket</span>
+                            <span className="font-bold text-[#865d1d]">
+                              {Number(f.unit_price_aed) > 0
+                                ? `AED ${(Number(f.unit_price_aed) * Number(f.quantity || 1)).toLocaleString()}`
+                                : "Included in Package"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
+
+                  {/* Fallback Route Card if no flight item was explicitly added */}
+                  {flights.length === 0 && document.origin && document.destination && (
+                    <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4">
+                      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                        <Image
+                          src="/Assets/image-flight.jpg"
+                          alt="Flight Itinerary Route"
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="text-xs flex-1">
+                        <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                          Flight Routing Itinerary
+                        </span>
+                        <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
+                          {document.origin} ⇄ {document.destination}
+                        </h4>
+                        <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                          Round Trip Flights • {formatDisplayDate(document.travel_date)} to {formatDisplayDate(document.return_date)}
+                        </p>
+                        <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
+                          <span>{document.adults || 2} Travellers</span>
+                          <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            Scheduled
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Haramain High-Speed Train */}
                   {trains.map((tr, idx) => {
@@ -643,6 +706,14 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                               {tr.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
                             </p>
                           )}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
+                            <span>{tr.quantity || 1} Ticket{(tr.quantity || 1) > 1 ? "s" : ""}</span>
+                            <span className="font-bold text-[#865d1d]">
+                              {Number(tr.unit_price_aed) > 0
+                                ? `AED ${(Number(tr.unit_price_aed) * Number(tr.quantity || 1)).toLocaleString()}`
+                                : "Included in Package"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -677,6 +748,56 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                               {tr.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
                             </p>
                           )}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
+                            <span>{tr.quantity || 1} Transfer{(tr.quantity || 1) > 1 ? "s" : ""}</span>
+                            <span className="font-bold text-[#865d1d]">
+                              {Number(tr.unit_price_aed) > 0
+                                ? `AED ${(Number(tr.unit_price_aed) * Number(tr.quantity || 1)).toLocaleString()}`
+                                : "Included in Package"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Visa Services */}
+                  {visas.map((v, idx) => {
+                    const imgRes = resolveServiceImage("visa", v.description, v.details);
+                    return (
+                      <div
+                        key={v.id || idx}
+                        className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4"
+                      >
+                        <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                          <Image
+                            src={imgRes.imageUrl}
+                            alt={imgRes.altText}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="text-xs flex-1">
+                          <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                            Visa &amp; Medical Insurance
+                          </span>
+                          <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
+                            {v.description}
+                          </h4>
+                          {v.details && (
+                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                              {v.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
+                          )}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
+                            <span>{v.quantity || document.adults || 1} Pax</span>
+                            <span className="font-bold text-[#865d1d]">
+                              {Number(v.unit_price_aed) > 0
+                                ? `AED ${(Number(v.unit_price_aed) * Number(v.quantity || 1)).toLocaleString()}`
+                                : "Included in Package"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -783,9 +904,79 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                   )}
                 </div>
 
-                {/* Price Breakdown */}
-                <div className="space-y-2 py-4 text-xs border-b border-black/10">
-                  <div className="flex justify-between text-[#1A1816]/70">
+                {/* Investment Breakup (Flaw 3 Fix) */}
+                <div className="py-4 text-xs border-b border-black/10 space-y-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#1A1816]/50 block">
+                    Investment Breakup
+                  </span>
+
+                  {pricing.categories.accommodationAed > 0 && (
+                    <div className="flex justify-between text-[#1A1816]/80">
+                      <span className="flex items-center gap-1.5">
+                        <span>🏨</span> Hotel Accommodations:
+                      </span>
+                      <span className="font-semibold text-[#1A1816]">
+                        AED {pricing.categories.accommodationAed.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {pricing.categories.flightsAed > 0 && (
+                    <div className="flex justify-between text-[#1A1816]/80">
+                      <span className="flex items-center gap-1.5">
+                        <span>✈️</span> Flights &amp; Aviation:
+                      </span>
+                      <span className="font-semibold text-[#1A1816]">
+                        AED {pricing.categories.flightsAed.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {pricing.categories.visaAed > 0 && (
+                    <div className="flex justify-between text-[#1A1816]/80">
+                      <span className="flex items-center gap-1.5">
+                        <span>🛂</span> Saudi Visa &amp; Insurance:
+                      </span>
+                      <span className="font-semibold text-[#1A1816]">
+                        AED {pricing.categories.visaAed.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {pricing.categories.transfersAed > 0 && (
+                    <div className="flex justify-between text-[#1A1816]/80">
+                      <span className="flex items-center gap-1.5">
+                        <span>🚗</span> Transfers &amp; Train:
+                      </span>
+                      <span className="font-semibold text-[#1A1816]">
+                        AED {pricing.categories.transfersAed.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {pricing.categories.packagesAed > 0 && (
+                    <div className="flex justify-between text-[#1A1816]/80">
+                      <span className="flex items-center gap-1.5">
+                        <span>🕋</span> Base Pilgrimage Package:
+                      </span>
+                      <span className="font-semibold text-[#1A1816]">
+                        AED {pricing.categories.packagesAed.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {pricing.categories.otherServicesAed > 0 && (
+                    <div className="flex justify-between text-[#1A1816]/80">
+                      <span className="flex items-center gap-1.5">
+                        <span>✨</span> Additional Amenities:
+                      </span>
+                      <span className="font-semibold text-[#1A1816]">
+                        AED {pricing.categories.otherServicesAed.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-black/5 flex justify-between text-[#1A1816]/70">
                     <span>Services Subtotal:</span>
                     <span className="font-semibold text-[#1A1816]">AED {pricing.subtotalAed.toLocaleString()}</span>
                   </div>

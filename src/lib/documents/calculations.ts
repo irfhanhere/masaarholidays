@@ -470,6 +470,7 @@ export interface QuotationPricingSummary {
     accommodationAed: number;
     transfersAed: number;
     flightsAed: number;
+    visaAed: number;
     otherServicesAed: number;
   };
 }
@@ -504,6 +505,7 @@ export function calculateQuotationTotals(
     accommodationAed: 0,
     transfersAed: 0,
     flightsAed: 0,
+    visaAed: 0,
     otherServicesAed: 0,
   };
 
@@ -534,14 +536,21 @@ export function calculateQuotationTotals(
 
     // Category breakdown
     const type = (item.item_type || "").toLowerCase();
+    const desc = (item.description || "").toLowerCase();
+    const details = (item.details || "").toLowerCase();
+    const isVisa = type === "visa" || desc.includes("visa") || details.includes("visa");
+    const isFlight = type === "flight" || desc.includes("flight") || desc.includes("airline") || details.includes("flight") || details.includes("pnr");
+
     if (type.includes("package")) {
       categories.packagesAed += amount;
     } else if (type === "hotel" || type === "accommodation") {
       categories.accommodationAed += amount;
-    } else if (type === "transfer" || type.includes("transport") || type.includes("cab")) {
-      categories.transfersAed += amount;
-    } else if (type === "flight") {
+    } else if (isFlight) {
       categories.flightsAed += amount;
+    } else if (type === "transfer" || type.includes("transport") || type.includes("cab") || type === "private_trip") {
+      categories.transfersAed += amount;
+    } else if (isVisa) {
+      categories.visaAed += amount;
     } else {
       categories.otherServicesAed += amount;
     }
@@ -748,7 +757,7 @@ export function resolveServiceImage(
   }
 
   // 6. VISA SERVICES
-  if (cat.includes("visa")) {
+  if (cat.includes("visa") || text.includes("visa")) {
     return {
       imageUrl: "/trips/visa-assistance-card-home.webp",
       altText: title || "Saudi Visa Processing",
@@ -781,3 +790,50 @@ export function resolveServiceImage(
     badgeLabel: "SERVICE",
   };
 }
+
+/**
+ * Safely resolves the hotel meal plan from line item details or description.
+ * Defaults strictly to "Room Only (No Meals Included)" to avoid accidental breakfast assumptions.
+ */
+export function resolveHotelMealPlan(details?: string | null, description?: string | null): string {
+  const text = `${details || ""} ${description || ""}`.toLowerCase();
+
+  // Explicit "Room Only" or "No Breakfast" / "No Meals"
+  if (
+    text.includes("room only") ||
+    text.includes("no meal") ||
+    text.includes("without breakfast") ||
+    text.includes("no breakfast")
+  ) {
+    return "Room Only (No Meals Included)";
+  }
+
+  // Full Board
+  if (text.includes("full board")) {
+    return "Full Board (Breakfast, Lunch & Dinner)";
+  }
+
+  // Half Board
+  if (text.includes("half board")) {
+    return "Half Board (Breakfast & Dinner)";
+  }
+
+  // Breakfast Included variants
+  if (
+    text.includes("breakfast included") ||
+    text.includes("daily gourmet buffet") ||
+    text.includes("buffet breakfast") ||
+    text.includes("with breakfast") ||
+    text.includes("daily buffet")
+  ) {
+    return "Daily Buffet Breakfast Included";
+  }
+
+  if (text.includes("breakfast") || text.includes("buffet")) {
+    return "Breakfast Included";
+  }
+
+  // Strict default when nothing is specified: Room Only (No Meals Included)
+  return "Room Only (No Meals Included)";
+}
+
