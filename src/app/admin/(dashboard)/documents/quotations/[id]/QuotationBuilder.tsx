@@ -5,13 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, Field, inputClass, Badge } from "@/components/admin/ui";
-import {
-  saveQuotationPricing,
-  updateDocumentBasics,
-  updateDocumentStatus,
-  saveDocumentVersion,
-  createDocumentFromSource,
-} from "../../actions";
+
 import type {
   DocumentItemRow,
   DocumentRow,
@@ -81,6 +75,7 @@ export function QuotationBuilder({
   const [isPending, startTransition] = useTransition();
   const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null);
 
   // 1. Client & Travel Details State (Q01)
   const [clientName, setClientName] = useState(document.client_name || "");
@@ -223,13 +218,20 @@ export function QuotationBuilder({
   const [newServiceUnit, setNewServiceUnit] = useState("item");
   const [newServicePrice, setNewServicePrice] = useState(0);
 
-  // Flash message timeout
+  // Flash message timeouts
   useEffect(() => {
     if (saveSuccessMsg) {
       const t = setTimeout(() => setSaveSuccessMsg(null), 3000);
       return () => clearTimeout(t);
     }
   }, [saveSuccessMsg]);
+
+  useEffect(() => {
+    if (saveErrorMsg) {
+      const t = setTimeout(() => setSaveErrorMsg(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [saveErrorMsg]);
 
   // Save Step 1 (Basics)
   function handleSaveBasics(nextStep?: 1 | 2 | 3 | 4 | 5) {
@@ -243,32 +245,38 @@ export function QuotationBuilder({
           notes ? `Notes: ${notes}` : "",
         ].filter(Boolean);
 
-        const res = await updateDocumentBasics(document.id, "quotation", {
-          client_name: clientName.trim(),
-          client_phone: clientPhone.trim() || null,
-          client_email: clientEmail.trim() || null,
-          client_country: clientCountry.trim() || null,
-          journey_type: journeyType,
-          travel_date: travelDate || null,
-          return_date: returnDate || null,
-          adults,
-          children,
-          infants,
-          origin,
-          destination,
-          notes: notesArr.join("\n"),
-          special_requirements: JSON.stringify(itineraryDays),
-        });
+        const res = await fetch(`/api/admin/documents/${document.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_name: clientName.trim(),
+            client_phone: clientPhone.trim() || null,
+            client_email: clientEmail.trim() || null,
+            client_country: clientCountry.trim() || null,
+            journey_type: journeyType,
+            travel_date: travelDate || null,
+            return_date: returnDate || null,
+            adults,
+            children,
+            infants,
+            origin,
+            destination,
+            notes: notesArr.join("\n"),
+            special_requirements: JSON.stringify(itineraryDays),
+          }),
+        }).then((r) => r.json());
 
         if (res.success) {
           setSaveSuccessMsg("Client and travel details saved successfully.");
+          setSaveErrorMsg(null);
           if (nextStep) setActiveStep(nextStep);
           router.refresh();
         } else {
-          alert(res.error || "Failed to save client details.");
+          setSaveErrorMsg(res.error || "Failed to save client details.");
         }
       } catch (err: any) {
-        alert(err.message || "Failed to save.");
+        console.error("Save client details error:", err);
+        setSaveErrorMsg(err?.message && !err.message.includes("Minified React error") ? err.message : "Unable to save client details. Please try again.");
       }
     });
   }
@@ -278,12 +286,22 @@ export function QuotationBuilder({
     const finalReturn = newReturnDate || returnDate;
     startTransition(async () => {
       try {
-        await updateDocumentBasics(document.id, "quotation", {
-          special_requirements: JSON.stringify(updatedDays),
-          return_date: finalReturn,
-        });
-        setSaveSuccessMsg("Itinerary updated successfully.");
-        router.refresh();
+        const res = await fetch(`/api/admin/documents/${document.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            special_requirements: JSON.stringify(updatedDays),
+            return_date: finalReturn,
+          }),
+        }).then((r) => r.json());
+
+        if (res.success) {
+          setSaveSuccessMsg("Itinerary updated successfully.");
+          setSaveErrorMsg(null);
+          router.refresh();
+        } else {
+          console.warn("Itinerary save warning:", res.error);
+        }
       } catch (e: any) {
         console.error("Itinerary save error:", e);
       }
@@ -294,40 +312,45 @@ export function QuotationBuilder({
   function handlePersistLineItems(updatedItems: LineItemPricingInput[], nextStep?: 1 | 2 | 3 | 4 | 5) {
     startTransition(async () => {
       try {
-        const res = await saveQuotationPricing(document.id, {
-          items: updatedItems.map((li, idx) => ({
-            id: li.id,
-            item_type: li.item_type as DocumentItemType,
-            description: li.description,
-            details: li.details,
-            quantity: li.quantity,
-            unit: li.unit,
-            unit_price_aed: li.unit_price_aed,
-            catalog_unit_price_aed: li.catalog_unit_price_aed,
-            is_overridden: li.is_overridden,
-            discount_aed: li.discount_aed,
-            is_price_on_request: li.is_price_on_request,
-            is_included: li.is_included,
-            display_order: li.display_order ?? idx,
-          })),
-          applyVat,
-          vatRate,
-          documentDiscountAed: documentDiscount,
-          manualAdjustmentAed: manualAdjustment,
-          manualAdjustmentReason,
-          agreedTotalOverride,
-        });
+        const res = await fetch(`/api/admin/documents/${document.id}/pricing`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: updatedItems.map((li, idx) => ({
+              id: li.id,
+              item_type: li.item_type as DocumentItemType,
+              description: li.description,
+              details: li.details,
+              quantity: li.quantity,
+              unit: li.unit,
+              unit_price_aed: li.unit_price_aed,
+              catalog_unit_price_aed: li.catalog_unit_price_aed,
+              is_overridden: li.is_overridden,
+              discount_aed: li.discount_aed,
+              is_price_on_request: li.is_price_on_request,
+              is_included: li.is_included,
+              display_order: li.display_order ?? idx,
+            })),
+            applyVat,
+            vatRate,
+            documentDiscountAed: documentDiscount,
+            manualAdjustmentAed: manualAdjustment,
+            manualAdjustmentReason,
+            agreedTotalOverride,
+          }),
+        }).then((r) => r.json());
 
         if (res.success) {
           setSaveSuccessMsg("Services & pricing saved successfully.");
-          await saveDocumentVersion(document.id, "quotation");
+          setSaveErrorMsg(null);
           if (nextStep) setActiveStep(nextStep);
           router.refresh();
         } else {
-          alert(res.error || "Failed to save pricing.");
+          setSaveErrorMsg(res.error || "Failed to save pricing.");
         }
       } catch (e: any) {
-        alert(e.message || "Error saving pricing.");
+        console.error("Save pricing error:", e);
+        setSaveErrorMsg(e?.message && !e.message.includes("Minified React error") ? e.message : "Error saving pricing. Please try again.");
       }
     });
   }
@@ -500,6 +523,12 @@ export function QuotationBuilder({
           {saveSuccessMsg && (
             <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg animate-in fade-in">
               ✓ {saveSuccessMsg}
+            </span>
+          )}
+
+          {saveErrorMsg && (
+            <span className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg animate-in fade-in">
+              ⚠ {saveErrorMsg}
             </span>
           )}
 

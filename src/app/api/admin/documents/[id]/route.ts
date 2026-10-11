@@ -25,6 +25,12 @@ export async function PATCH(
       .single();
 
     if (error) {
+      if (error.code === "23505" && patch.document_number) {
+        return NextResponse.json(
+          { success: false, error: `Document number "${patch.document_number}" is already in use by another document.` },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 400 }

@@ -54,9 +54,7 @@ const VAT_RATE = 0.05;
 
 function revalidateDocumentPaths(documentType: DocumentType, documentId?: string) {
   try {
-    revalidatePath("/admin/documents");
-    revalidatePath(`/admin/documents/${moduleSlug(documentType)}`);
-    if (documentId) revalidatePath(`/admin/documents/${moduleSlug(documentType)}/${documentId}`);
+    revalidatePath(`/admin/documents/${moduleSlug(documentType)}`, "page");
   } catch (err) {
     console.warn("[revalidateDocumentPaths] Failed to revalidate:", err);
   }
