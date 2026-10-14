@@ -35,6 +35,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const canonicalPath = PLACEHOLDER_CLEAN_MAP[slug] || `/umrah/${slug}`;
   const targetSlug = SLUG_ALIASES[slug] || slug;
   const detail = await getPackageBySlugAndType(targetSlug, "umrah");
   if (!detail) notFound();
@@ -43,7 +44,7 @@ export async function generateMetadata({
   const isPlaceholder = slug.includes("placeholder");
 
   return buildPageMetadata({
-    path: `/umrah/${slug}`,
+    path: canonicalPath,
     title: detail.pkg.meta_title || `${detail.pkg.title} | Masaar Holidays`,
     description:
       detail.pkg.meta_description ||
