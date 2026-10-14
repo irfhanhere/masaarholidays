@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CONTACT } from "@/lib/contact";
 import { localizedPath, type Locale } from "@/lib/locale-constants";
-import { FOOTER_COMPANY_NAV, FOOTER_SERVICES_NAV } from "@/lib/nav";
+import { FOOTER_COMPANY_NAV, FOOTER_LEGAL_NAV, FOOTER_SERVICES_NAV } from "@/lib/nav";
 import { Container } from "./Container";
 import { FacebookIcon, InstagramIcon, LinkedInIcon } from "./icons";
 
@@ -69,12 +69,20 @@ export function Footer({ locale }: { locale: Locale }) {
       </Container>
 
       <div className="border-t border-white/10">
-        <Container className="flex flex-col items-center justify-between gap-2 py-5 text-xs text-white/60 sm:flex-row">
-          <p>
-            © {year} Masaar Holidays. All rights reserved.
-            {/* TODO: registration/protection details — placeholder per brief */}
-          </p>
-          <p className="tracking-widest">FAITH &nbsp;·&nbsp; CLARITY &nbsp;·&nbsp; CARE &nbsp;·&nbsp; PEACE</p>
+        <Container className="flex flex-col items-center justify-between gap-3 py-5 text-xs text-white/60 md:flex-row">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 md:justify-start">
+            <span>© {year} Masaar Holidays. All rights reserved.</span>
+            {FOOTER_LEGAL_NAV.map((link) => (
+              <Link
+                key={link.href}
+                href={localizedPath(locale, link.href)}
+                className="transition-colors hover:text-pure-gold"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <p className="tracking-widest text-center">FAITH &nbsp;·&nbsp; CLARITY &nbsp;·&nbsp; CARE &nbsp;·&nbsp; PEACE</p>
         </Container>
       </div>
     </footer>

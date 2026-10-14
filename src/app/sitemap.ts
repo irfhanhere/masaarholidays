@@ -13,12 +13,13 @@ import { getSiteOrigin } from "@/lib/site-url";
 import {
   DEFAULT_LOCALE,
   LOCALE_HREFLANG,
-  SUPPORTED_LOCALES,
+  SEO_ENABLED_LOCALES,
   localizedPath,
 } from "@/lib/locale-constants";
 
 /**
  * Top-level static pages on the site that are published and indexable.
+ * Note: /cookie-preferences is intentionally omitted because it is marked noindex.
  */
 const STATIC_ROUTES = [
   "/",
@@ -36,33 +37,34 @@ const STATIC_ROUTES = [
   "/privacy-policy",
   "/terms-conditions",
   "/accessibility",
-  "/cookie-preferences",
 ];
 
 // Fallback stable date for static pages if no database record exists
 const STABLE_STATIC_FALLBACK_DATE = new Date("2026-09-20T04:16:10.000Z");
 
 /**
- * Helper to generate sitemap entries across all supported languages (en, ar, ur, hi)
- * with reciprocal hreflang alternates.
+ * Helper to generate sitemap entries across approved SEO locales (English only
+ * until translations for ar/ur/hi are published) with reciprocal hreflang alternates
+ * when multiple locales are active.
  */
 function createSitemapEntries(
   path: string,
   lastModified: Date,
   origin: string
 ): MetadataRoute.Sitemap {
+  const isMultiLingual = SEO_ENABLED_LOCALES.length > 1;
   const languages: Record<string, string> = {};
-  for (const l of SUPPORTED_LOCALES) {
-    languages[LOCALE_HREFLANG[l]] = `${origin}${localizedPath(l, path)}`;
+  if (isMultiLingual) {
+    for (const l of SEO_ENABLED_LOCALES) {
+      languages[LOCALE_HREFLANG[l]] = `${origin}${localizedPath(l, path)}`;
+    }
+    languages["x-default"] = `${origin}${localizedPath(DEFAULT_LOCALE, path)}`;
   }
-  languages["x-default"] = `${origin}${localizedPath(DEFAULT_LOCALE, path)}`;
 
-  return SUPPORTED_LOCALES.map((locale) => ({
+  return SEO_ENABLED_LOCALES.map((locale) => ({
     url: `${origin}${localizedPath(locale, path)}`,
     lastModified,
-    alternates: {
-      languages,
-    },
+    ...(isMultiLingual ? { alternates: { languages } } : {}),
   }));
 }
 
@@ -88,7 +90,7 @@ async function getSitemapVisibleBlogPosts() {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = getSiteOrigin();
 
-  let noindexedPaths = new Set<string>();
+  const noindexedPaths = new Set<string>();
   const pageSeoMap = new Map<string, { noindex: boolean; updated_at: string }>();
 
   if (isSupabaseConfigured()) {

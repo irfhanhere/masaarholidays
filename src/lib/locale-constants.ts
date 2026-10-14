@@ -21,10 +21,11 @@ export const DEFAULT_LOCALE: Locale = "en";
  * Locales that have verified, substantive translations and are approved for
  * indexing, hreflang alternates, and sitemap inclusion.
  *
- * All supported locales (en, ar, ur, hi) are now approved for indexing,
- * reciprocal hreflang alternates, and sitemap inclusion.
+ * English is currently the only locale with verified, human-authored copy.
+ * ar/ur/hi routes remain fully functional for users via middleware rewrites,
+ * but are marked noindex and kept out of sitemap until real translations are ready.
  */
-export const SEO_ENABLED_LOCALES: Locale[] = [...SUPPORTED_LOCALES];
+export const SEO_ENABLED_LOCALES: Locale[] = ["en"];
 
 export function isSeoEnabledLocale(locale: Locale): boolean {
   return (SEO_ENABLED_LOCALES as readonly Locale[]).includes(locale);

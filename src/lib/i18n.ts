@@ -50,6 +50,11 @@ export async function getRequestLocale(): Promise<Locale> {
  */
 export function buildAlternates(locale: Locale, path: string): Metadata["alternates"] {
   const origin = getSiteOrigin();
+  if (SEO_ENABLED_LOCALES.length <= 1) {
+    return {
+      canonical: `${origin}${localizedPath(locale, path)}`,
+    };
+  }
   const languages: Record<string, string> = {};
   for (const l of SEO_ENABLED_LOCALES) {
     languages[LOCALE_HREFLANG[l]] = `${origin}${localizedPath(l, path)}`;

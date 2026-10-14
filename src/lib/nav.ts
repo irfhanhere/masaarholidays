@@ -76,4 +76,12 @@ export const FOOTER_COMPANY_NAV: NavChild[] = [
   { label: "Blog", href: "/blog" },
   { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Terms & Conditions", href: "/terms-conditions" },
+  { label: "Accessibility", href: "/accessibility" },
+];
+
+export const FOOTER_LEGAL_NAV: NavChild[] = [
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms & Conditions", href: "/terms-conditions" },
+  { label: "Accessibility", href: "/accessibility" },
+  { label: "Cookie Preferences", href: "/cookie-preferences" },
 ];
