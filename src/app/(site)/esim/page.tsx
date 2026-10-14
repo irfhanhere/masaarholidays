@@ -10,18 +10,18 @@ export const revalidate = 3600;
 export async function generateMetadata(): Promise<Metadata> {
   return buildStaticPageMetadata({
     path: "/esim",
-    fallbackTitle: "Prepaid Travel eSIM for Saudi Arabia, UAE & More | Masaar Holidays",
+    fallbackTitle: "Saudi Arabia eSIM for Umrah and Hajj travellers | Masaar Holidays",
     fallbackDescription:
-      "Prepaid travel eSIM for Saudi Arabia, UAE and more. High-speed 4G/5G data coverage for Umrah pilgrims and international travelers. Order on WhatsApp, install before you fly.",
+      "Saudi Arabia eSIM for Umrah and Hajj travellers. High-speed prepaid mobile data, hotspot sharing, and WhatsApp activation. Install on Wi-Fi before you fly.",
   });
 }
 
 export default async function EsimPage({
   searchParams,
 }: {
-  searchParams: Promise<{ country?: string }>;
+  searchParams: Promise<{ country?: string; validity?: string; data?: string }>;
 }) {
-  const { country } = await searchParams;
+  const { country, validity, data } = await searchParams;
   const plans = await getEsimPlans();
 
   return (
@@ -34,7 +34,12 @@ export default async function EsimPage({
           </div>
         }
       >
-        <EsimBrowser plans={plans} initialCountry={country ?? "SA"} />
+        <EsimBrowser
+          plans={plans}
+          initialCountry={country ?? "SA"}
+          initialValidity={validity}
+          initialData={data}
+        />
       </Suspense>
     </>
   );

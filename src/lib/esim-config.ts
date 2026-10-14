@@ -68,3 +68,10 @@ export function calculateSalePriceUsd(retailPrice: number, markupPct = getEsimMa
   const multiplied = retailPrice * (1 + markupPct / 100);
   return Math.round(multiplied * 100) / 100;
 }
+
+/**
+ * Plan IDs highlighted with a "Popular" badge on the eSIM store.
+ * One 7-day plan (P6019: 7-day 2GB/day unlimited) and one 15-day plan (P6020: 15-day 2GB/day unlimited).
+ */
+export const featuredPlanIds: string[] = ["P6019", "P6020"];
+
