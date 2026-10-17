@@ -6,8 +6,11 @@ import { FOOTER_COMPANY_NAV, FOOTER_LEGAL_NAV, FOOTER_SERVICES_NAV } from "@/lib
 import { Container } from "./Container";
 import { FacebookIcon, InstagramIcon, LinkedInIcon } from "./icons";
 
-export function Footer({ locale }: { locale: Locale }) {
+export function Footer({ locale, showEsim = true }: { locale: Locale; showEsim?: boolean }) {
   const year = new Date().getFullYear();
+  const servicesLinks = showEsim
+    ? FOOTER_SERVICES_NAV
+    : FOOTER_SERVICES_NAV.filter((link) => link.href !== "/esim");
 
   return (
     <footer className="bg-masaar-black text-white">
@@ -25,7 +28,7 @@ export function Footer({ locale }: { locale: Locale }) {
           </p>
         </div>
 
-        <FooterColumn title="Our Services" links={FOOTER_SERVICES_NAV} locale={locale} />
+        <FooterColumn title="Our Services" links={servicesLinks} locale={locale} />
         <FooterColumn title="Company" links={FOOTER_COMPANY_NAV} locale={locale} />
 
         <div>

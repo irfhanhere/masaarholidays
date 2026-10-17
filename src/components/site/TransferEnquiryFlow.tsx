@@ -50,6 +50,15 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
   const [additionalNotes, setAdditionalNotes] = useState<string>("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // Lead Passenger & Contact Details
+  const [fullName, setFullName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+
+  // Payment loading state & error
+  const [isPaying, setIsPaying] = useState<boolean>(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
   // Today's date in YYYY-MM-DD for min date
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -115,6 +124,16 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
       lines.push(`Displayed Price: ${priceText}`);
     }
 
+    if (fullName.trim()) {
+      lines.push(`Passenger Name: ${fullName.trim()}`);
+    }
+    if (email.trim()) {
+      lines.push(`Email: ${email.trim()}`);
+    }
+    if (phone.trim()) {
+      lines.push(`Phone/WhatsApp: ${phone.trim()}`);
+    }
+
     if (additionalNotes.trim()) {
       lines.push("", "Additional Notes:", additionalNotes.trim());
     }
@@ -139,6 +158,9 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
     pickupLocation,
     dropoffLocation,
     additionalNotes,
+    fullName,
+    email,
+    phone,
     whatsappPhone,
     currency,
     rates,
@@ -176,10 +198,72 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
       return;
     }
 
+    // Validate Lead Passenger details
+    if (!fullName.trim() || fullName.trim().length < 2) {
+      setValidationError("Please enter the lead passenger's full name.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setValidationError("Please enter a valid email address for your booking confirmation.");
+      return;
+    }
+    if (!phone.trim() || phone.trim().length < 6) {
+      setValidationError("Please enter a valid WhatsApp or phone number for driver coordination.");
+      return;
+    }
+
     setValidationError(null);
     setCurrentStep(3);
     const elem = document.getElementById("enquiry-wizard");
     if (elem) elem.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Handle Online Stripe Checkout
+  const handlePayOnline = async () => {
+    if (!selectedVehicle?.vehicleId) return;
+    setIsPaying(true);
+    setPayError(null);
+
+    try {
+      const response = await fetch("/api/transfers/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          routeSlug: route.slug,
+          vehicleId: selectedVehicle.vehicleId,
+          travelDate,
+          pickupTime,
+          passengers,
+          luggage,
+          flightNumber,
+          pickupLocation,
+          dropoffLocation,
+          notes: additionalNotes,
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          currency,
+        }),
+      });
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Handle non-JSON response
+      }
+
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.error || "Failed to initialize payment gateway. Please try again.");
+      }
+
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong during checkout. Please try again.";
+      setPayError(msg);
+      setIsPaying(false);
+    }
   };
 
   return (
@@ -629,6 +713,65 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                   className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
                 />
               </div>
+
+              {/* Lead Passenger & Contact Information */}
+              <div className="sm:col-span-2 border-t border-black/10 pt-5 mt-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-masaar-black">
+                    Lead Passenger &amp; Contact Details
+                  </span>
+                  <span className="text-[10px] text-masaar-black/50">
+                    (Used for confirmation email &amp; chauffeur dispatch)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor={`${formId}-fullname`} className="block text-xs font-semibold text-masaar-black">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id={`${formId}-fullname`}
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Irfhan Works"
+                      className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor={`${formId}-email`} className="block text-xs font-semibold text-masaar-black">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id={`${formId}-email`}
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor={`${formId}-phone`} className="block text-xs font-semibold text-masaar-black">
+                      WhatsApp / Phone <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id={`${formId}-phone`}
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+971 50 123 4567"
+                      className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Buttons */}
@@ -734,7 +877,23 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
               </div>
 
               {/* Right Column: Travel Party & Schedule Details */}
+              {/* Right Column: Travel Party & Schedule Details */}
               <div className="rounded-lg border border-black/10 bg-white p-5 space-y-3 text-xs">
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-masaar-black/60">Lead Passenger:</span>
+                  <span className="font-bold text-masaar-black">{fullName}</span>
+                </div>
+
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-masaar-black/60">Email:</span>
+                  <span className="font-bold text-masaar-black">{email}</span>
+                </div>
+
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-masaar-black/60">Phone / WhatsApp:</span>
+                  <span className="font-bold text-masaar-black">{phone}</span>
+                </div>
+
                 <div className="flex justify-between border-b border-black/5 pb-2">
                   <span className="text-masaar-black/60">Travel Date:</span>
                   <span className="font-bold text-masaar-black">{formattedDate}</span>
@@ -771,42 +930,81 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
               </div>
             </div>
 
+            {/* Error Message if Checkout Fails */}
+            {payError && (
+              <div className="mt-6 rounded-lg bg-red-50 p-4 border border-red-200 text-xs text-red-700">
+                <div className="font-semibold mb-0.5">Payment Initialization Failed</div>
+                <p>{payError}</p>
+              </div>
+            )}
+
             {/* Notice Banner */}
-            <div className="mt-6 flex items-start gap-3 rounded-lg bg-amber-50/80 p-4 text-xs text-amber-900 border border-amber-200/60">
-              <svg className="size-5 shrink-0 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="mt-6 flex items-start gap-3 rounded-lg bg-warm-ivory/50 p-4 text-xs text-masaar-black/80 border border-black/10">
+              <svg className="size-5 shrink-0 text-deep-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <strong className="font-semibold">Availability Verification:</strong>
-                <p className="mt-0.5">
-                  This enquiry requests availability and final confirmation from Masaar Holidays.
-                  Our concierge team will review your travel details on WhatsApp and confirm driver scheduling.
+                <strong className="font-semibold text-masaar-black">Instant Booking &amp; Live Dispatch:</strong>
+                <p className="mt-0.5 text-masaar-black/70">
+                  Pay securely online with card or Apple Pay to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
                 </p>
               </div>
             </div>
 
-            {/* WhatsApp CTA Button */}
+            {/* Action Buttons: Pay Online (Primary) + WhatsApp (Secondary) */}
             <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-black/10 pt-6 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
-                className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black"
+                className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black order-last sm:order-first"
               >
                 ← Back to Edit Details
               </button>
 
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#25D366] px-8 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#1EBE5D] hover:shadow-lg sm:w-auto"
-              >
-                <svg className="size-5 fill-current" viewBox="0 0 24 24">
-                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-                </svg>
-                <span>Enquire on WhatsApp</span>
-              </a>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  disabled={isPaying}
+                  onClick={handlePayOnline}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-masaar-black px-7 py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-deep-gold hover:shadow-lg disabled:opacity-50 sm:w-auto"
+                >
+                  {isPaying ? (
+                    <>
+                      <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      <span>Connecting to Payment...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Pay Online &amp; Book Now</span>
+                      {selectedVehicle?.priceAed ? (
+                        <span className="font-normal text-white/90">
+                          (
+                          <Price amountAed={selectedVehicle.priceAed} />
+                          )
+                        </span>
+                      ) : null}
+                      <span>&rarr;</span>
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-black/15 bg-white px-5 py-3.5 text-xs font-bold text-masaar-black shadow-xs transition-all hover:bg-black/5 sm:w-auto"
+                >
+                  <svg className="size-4 fill-[#25D366]" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                  </svg>
+                  <span>Or Enquire on WhatsApp</span>
+                </a>
+              </div>
             </div>
+
           </div>
         </div>
       )}

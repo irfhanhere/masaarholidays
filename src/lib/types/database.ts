@@ -751,6 +751,17 @@ export type EsimCatalogueMetaRowShape = {
 export type EsimOrderRowShape = {
   id: string;
   partner_ref: string;
+  public_token: string;
+  stripe_session_id: string | null;
+  stripe_payment_intent: string | null;
+  charged_amount_minor: number | null;
+  expected_amount_minor: number | null;
+  charge_currency: string;
+  fx_rate?: number | null;
+  fx_rate_at?: string | null;
+  terms_accepted_at: string | null;
+  fulfilment_error: string | null;
+  needs_attention: boolean;
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
@@ -760,12 +771,20 @@ export type EsimOrderRowShape = {
   currency: string;
   payment_provider: string | null;
   payment_ref: string | null;
-  payment_status: "pending" | "paid" | "failed" | "refunded";
+  payment_status: "pending" | "paid" | "failed" | "refunded" | "abandoned";
   fulfilment_status: "pending" | "processing" | "completed" | "failed" | "refunded";
   megaesim_order_number: string | null;
   megaesim_order_id: string | null;
-  esims: any | null;
+  esims: unknown | null;
   error: string | null;
+  sweep_count?: number;
+  refund_notes?: string | null;
+  presentment_currency?: string | null;
+  presentment_amount_minor?: number | null;
+  vat_amount_minor?: number | null;
+  vat_rate_pct?: number | null;
+  vat_trn?: string | null;
+  invoice_number?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -773,10 +792,56 @@ export type EsimOrderRowShape = {
 export type EsimWebhookEventRowShape = {
   id: string;
   source: "megaesim" | "payment";
+  external_id: string | null;
   event: string;
-  payload: any;
+  payload: unknown;
   processed: boolean;
   received_at: string;
+};
+
+export type EsimFxRateRowShape = {
+  currency: string;
+  usd_rate: number;
+  source: string;
+  fetched_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TransferBookingRowShape = {
+  id: string;
+  booking_ref: string;
+  public_token: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  route_slug: string;
+  route_name: string;
+  transfer_type: string;
+  pickup_location: string;
+  dropoff_location: string;
+  duration_text: string | null;
+  vehicle_id: string;
+  vehicle_name: string;
+  model_year: string | null;
+  travel_date: string;
+  pickup_time: string;
+  passengers: number;
+  suitcases: string | null;
+  flight_number: string | null;
+  special_requests: string | null;
+  price_aed: number;
+  charged_amount_minor: number;
+  charge_currency: string;
+  fx_rate: number | null;
+  payment_status: "pending" | "paid" | "failed" | "refunded";
+  booking_status: "pending" | "confirmed" | "voucher_issued" | "completed" | "cancelled";
+  stripe_session_id: string | null;
+  stripe_payment_intent: string | null;
+  voucher_document_id: string | null;
+  voucher_number: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type Table<Row, RequiredKeys extends keyof Row> = {
@@ -864,6 +929,11 @@ export interface Database {
       esim_catalogue_meta: Table<EsimCatalogueMetaRowShape, "id">;
       esim_orders: Table<EsimOrderRowShape, "partner_ref" | "plan_id">;
       esim_webhook_events: Table<EsimWebhookEventRowShape, "source" | "event" | "payload">;
+      esim_fx_rates: Table<EsimFxRateRowShape, "currency" | "usd_rate">;
+      transfer_bookings: Table<
+        TransferBookingRowShape,
+        "booking_ref" | "customer_name" | "customer_email" | "customer_phone" | "route_slug" | "route_name" | "pickup_location" | "dropoff_location" | "vehicle_id" | "vehicle_name" | "travel_date" | "pickup_time" | "price_aed" | "charged_amount_minor"
+      >;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -1165,5 +1235,6 @@ export type EsimPlanRow = Database["public"]["Tables"]["esim_plans"]["Row"];
 export type EsimCatalogueMetaRow = Database["public"]["Tables"]["esim_catalogue_meta"]["Row"];
 export type EsimOrderRow = Database["public"]["Tables"]["esim_orders"]["Row"];
 export type EsimWebhookEventRow = Database["public"]["Tables"]["esim_webhook_events"]["Row"];
+export type TransferBookingRow = Database["public"]["Tables"]["transfer_bookings"]["Row"];
 
 

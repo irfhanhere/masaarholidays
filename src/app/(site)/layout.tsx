@@ -10,6 +10,7 @@ import {
   getCachedWhatsAppConfig,
 } from "@/lib/data/public";
 import { getRequestLocale } from "@/lib/i18n";
+import { isEsimLive } from "@/lib/esim-launch";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const [locale, departureMonths, whatsAppConfig, currencyRates] = await Promise.all([
@@ -23,6 +24,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     href: `/umrah/departures/${m.slug}`,
   }));
 
+  const showEsim = isEsimLive();
+
   return (
     <WhatsAppTemplatesProvider
       initialTemplates={whatsAppConfig.templates}
@@ -30,9 +33,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     >
       <CurrencyProvider initialRates={currencyRates}>
         <OrganizationSchema />
-        <Header umrahDepartureMonths={umrahDepartureMonths} />
+        <Header umrahDepartureMonths={umrahDepartureMonths} showEsim={showEsim} />
         <main className="flex-1">{children}</main>
-        <Footer locale={locale} />
+        <Footer locale={locale} showEsim={showEsim} />
         <SiteFloatingWidgets />
       </CurrencyProvider>
     </WhatsAppTemplatesProvider>

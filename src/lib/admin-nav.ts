@@ -38,6 +38,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         label: "Transfers",
         href: "/admin/transfers",
         children: [
+          { label: "Bookings", href: "/admin/transfers/bookings" },
           { label: "All Routes", href: "/admin/transfers" },
           { label: "Rate Card", href: "/admin/transfers/rate-card" },
           { label: "Vehicle Manager", href: "/admin/transfers/vehicles" },
@@ -62,6 +63,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Invoices", href: "/admin/documents/invoices" },
       { label: "Receipts", href: "/admin/documents/receipts" },
       { label: "Booking Vouchers", href: "/admin/documents/booking-vouchers" },
+      { label: "eSIM Orders", href: "/admin/esim-orders" },
       { label: "Templates", href: "/admin/documents/templates" },
       { label: "Settings", href: "/admin/documents/settings" },
     ],

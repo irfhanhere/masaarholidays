@@ -51,21 +51,27 @@ export const ESIM_CONFIG: EsimSyncConfig = {
 
 /**
  * Returns the configured markup percentage (default 0).
- * Read from ESIM_MARKUP_PCT env variable.
+ * Read dynamically at call time from ESIM_MARKUP_PCT env variable.
  */
 export function getEsimMarkupPct(): number {
-  const envVal = process.env.ESIM_MARKUP_PCT?.trim();
-  if (!envVal) return 0;
-  const parsed = parseFloat(envVal);
+  const envVal = process.env.ESIM_MARKUP_PCT;
+  if (envVal === undefined || envVal === null) return 0;
+  const trimmed = String(envVal).trim();
+  if (!trimmed) return 0;
+  const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /**
  * Computes the customer sale price in USD from retail_price and markup percentage.
- * Formula: retail_price * (1 + ESIM_MARKUP_PCT/100), rounded to 2 decimal places.
+ * Formula: retail_price * (1 + markup/100), rounded to 2 decimal places.
  */
-export function calculateSalePriceUsd(retailPrice: number, markupPct = getEsimMarkupPct()): number {
-  const multiplied = retailPrice * (1 + markupPct / 100);
+export function calculateSalePriceUsd(retailPrice: number, markupPct?: number): number {
+  const effectiveMarkup =
+    typeof markupPct === "number" && Number.isFinite(markupPct)
+      ? markupPct
+      : getEsimMarkupPct();
+  const multiplied = retailPrice * (1 + effectiveMarkup / 100);
   return Math.round(multiplied * 100) / 100;
 }
 

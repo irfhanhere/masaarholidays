@@ -11,7 +11,13 @@ import { CurrencySwitcher } from "./CurrencySwitcher";
 import { TopBar } from "./TopBar";
 import { WhatsAppButton } from "./WhatsAppButton";
 
-export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: NavChild[] }) {
+export function Header({
+  umrahDepartureMonths = [],
+  showEsim = true,
+}: {
+  umrahDepartureMonths?: NavChild[];
+  showEsim?: boolean;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -25,12 +31,12 @@ export function Header({ umrahDepartureMonths = [] }: { umrahDepartureMonths?: N
   // untouched.
   const navItems = useMemo(
     () =>
-      MAIN_NAV.map((item) =>
+      MAIN_NAV.filter((item) => showEsim || item.href !== "/esim").map((item) =>
         item.label === "Umrah" && umrahDepartureMonths.length > 0
           ? { ...item, children: umrahDepartureMonths }
           : item
       ),
-    [umrahDepartureMonths]
+    [umrahDepartureMonths, showEsim]
   );
 
   // Nav hrefs are authored unprefixed (English); localize them against

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "./Container";
 import { SectionHeading } from "./SectionHeading";
+import { isEsimLive } from "@/lib/esim-launch";
 
 export type ServiceKey =
   | "umrah"
@@ -93,7 +94,10 @@ export function CrossLinkServices({
   subtitle?: string;
   className?: string;
 }) {
-  const excludedKeys = Array.isArray(exclude) ? exclude : exclude ? [exclude] : [];
+  const excludedKeys = Array.isArray(exclude) ? [...exclude] : exclude ? [exclude] : [];
+  if (!isEsimLive() && !excludedKeys.includes("esim")) {
+    excludedKeys.push("esim");
+  }
   const filteredServices = CROSS_LINK_SERVICES.filter((s) => !excludedKeys.includes(s.key));
 
   return (

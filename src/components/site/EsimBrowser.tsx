@@ -21,6 +21,8 @@ interface EsimBrowserProps {
   initialCountry?: string;
   initialValidity?: string;
   initialData?: string;
+  vatEnabled?: boolean;
+  vatPct?: number;
 }
 
 type DataFilter = "all" | "1-3" | "5-10" | "50" | "unlimited";
@@ -71,6 +73,8 @@ export function EsimBrowser({
   initialCountry = "SA",
   initialValidity,
   initialData,
+  vatEnabled = false,
+  vatPct = 5,
 }: EsimBrowserProps) {
   const { currency, rates } = useCurrency();
 
@@ -1058,17 +1062,31 @@ export function EsimBrowser({
                                 <div className="font-[family-name:var(--font-display)] text-2xl font-bold text-[#0A0A08]">
                                   {formatEsimPrice(plan.sale_price_usd, currency, rates)}
                                 </div>
+                                {vatEnabled && (
+                                  <div className="mt-1 text-[11px] font-medium text-[#8F6407]">
+                                    Price includes {vatPct}% VAT
+                                  </div>
+                                )}
                               </div>
 
-                              <a
-                                href={getWhatsAppOrderUrl(plan)}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <Link
+                                href={`/esim/checkout/${encodeURIComponent(plan.plan_id)}`}
                                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A227] px-4 py-3 text-sm font-bold text-[#0A0A08] transition hover:bg-[#A87F12] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A227]"
                               >
-                                <WhatsAppIcon className="size-4.5" />
-                                Order on WhatsApp
-                              </a>
+                                Buy eSIM
+                              </Link>
+
+                              <div className="mt-2.5 text-center">
+                                <a
+                                  href={getWhatsAppOrderUrl(plan)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-[#0A0A08]/70 hover:text-[#0A0A08] transition underline underline-offset-2"
+                                >
+                                  <WhatsAppIcon className="size-3.5 text-[#25D366]" />
+                                  Prefer to order on WhatsApp?
+                                </a>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1249,17 +1267,31 @@ export function EsimBrowser({
                                 <div className="font-[family-name:var(--font-display)] text-2xl font-bold text-[#0A0A08]">
                                   {formatEsimPrice(plan.sale_price_usd, currency, rates)}
                                 </div>
+                                {vatEnabled && (
+                                  <div className="mt-1 text-[11px] font-medium text-[#8F6407]">
+                                    Price includes {vatPct}% VAT
+                                  </div>
+                                )}
                               </div>
 
-                              <a
-                                href={getWhatsAppOrderUrl(plan)}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <Link
+                                href={`/esim/checkout/${encodeURIComponent(plan.plan_id)}`}
                                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A227] px-4 py-3 text-sm font-bold text-[#0A0A08] transition hover:bg-[#A87F12] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A227]"
                               >
-                                <WhatsAppIcon className="size-4.5" />
-                                Order on WhatsApp
-                              </a>
+                                Buy eSIM
+                              </Link>
+
+                              <div className="mt-2.5 text-center">
+                                <a
+                                  href={getWhatsAppOrderUrl(plan)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-[#0A0A08]/70 hover:text-[#0A0A08] transition underline underline-offset-2"
+                                >
+                                  <WhatsAppIcon className="size-3.5 text-[#25D366]" />
+                                  Prefer to order on WhatsApp?
+                                </a>
+                              </div>
                             </div>
                           </div>
                         );

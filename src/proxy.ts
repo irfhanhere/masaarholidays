@@ -23,7 +23,10 @@ const RETIRED_SLUG_REDIRECTS: Record<string, string> = {
   "/umrah/umrah-exclusive": "/umrah/exclusive",
 };
 
-export async function middleware(request: NextRequest) {
+/**
+ * Next.js 16 Proxy handler (migrated from deprecated middleware convention).
+ */
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Resolve locale first so the /admin guard automatically covers every
@@ -63,13 +66,32 @@ export async function middleware(request: NextRequest) {
   // locale — see lib/i18n.ts for the full rationale.
   requestHeaders.set("x-locale", locale);
 
+  let response: NextResponse;
   if (internalPath !== pathname) {
     const url = request.nextUrl.clone();
     url.pathname = internalPath;
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  } else {
+    response = NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  // eSIM Preview Mode Cookie handler:
+  // If user visits /esim?preview=<KEY> with matching ESIM_PREVIEW_KEY, set httpOnly cookie for 7 days
+  if (internalPath.startsWith("/esim")) {
+    const previewQuery = request.nextUrl.searchParams.get("preview")?.trim();
+    const configuredKey = process.env.ESIM_PREVIEW_KEY?.trim();
+    if (previewQuery && configuredKey && previewQuery === configuredKey) {
+      response.cookies.set("esim_preview_access", previewQuery, {
+        httpOnly: true,
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+    }
+  }
+
+  return response;
 }
 
 export const config = {

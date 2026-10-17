@@ -17,6 +17,8 @@ import {
   localizedPath,
 } from "@/lib/locale-constants";
 
+import { isEsimLive } from "@/lib/esim-launch";
+
 /**
  * Top-level static pages on the site that are published and indexable.
  * Note: /cookie-preferences is intentionally omitted because it is marked noindex.
@@ -103,7 +105,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // 1. Static pages with real updated_at dates from page_seo
-  const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.filter(
+  const activeStaticRoutes = isEsimLive()
+    ? STATIC_ROUTES
+    : STATIC_ROUTES.filter((path) => path !== "/esim");
+
+  const staticEntries: MetadataRoute.Sitemap = activeStaticRoutes.filter(
     (path) => !noindexedPaths.has(path)
   ).flatMap((path) => {
     const seo = pageSeoMap.get(path);
