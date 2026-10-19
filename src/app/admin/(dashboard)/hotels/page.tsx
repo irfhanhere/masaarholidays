@@ -8,11 +8,20 @@ export const metadata: Metadata = { title: "Hotels | Masaar Admin", robots: { in
 
 export default async function AdminHotelsPage() {
   let hotels: HotelRow[] = [];
+  const roomCounts: Record<string, number> = {};
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const { data } = await supabase.from("hotels").select("*").order("display_order");
-    hotels = data ?? [];
+    const [{ data: hotelRows }, { data: roomRows }] = await Promise.all([
+      supabase.from("hotels").select("*").order("display_order"),
+      supabase.from("hotel_rooms").select("id, hotel_id"),
+    ]);
+    hotels = hotelRows ?? [];
+    if (roomRows) {
+      for (const r of roomRows) {
+        roomCounts[r.hotel_id] = (roomCounts[r.hotel_id] || 0) + 1;
+      }
+    }
   }
 
-  return <HotelsListManager hotels={hotels} />;
+  return <HotelsListManager hotels={hotels} roomCounts={roomCounts} />;
 }

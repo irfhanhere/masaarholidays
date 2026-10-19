@@ -42,7 +42,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
   // Journey Details Form State
   const [travelDate, setTravelDate] = useState<string>("");
   const [pickupTime, setPickupTime] = useState<string>("10:00");
-  const [passengers, setPassengers] = useState<number>(2);
+  const [passengers, setPassengers] = useState<number | string>(2);
   const [luggage, setLuggage] = useState<string>("2");
   const [flightNumber, setFlightNumber] = useState<string>("");
   const [pickupLocation, setPickupLocation] = useState<string>(route.pickupLocation);
@@ -98,7 +98,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
       `Vehicle: ${vehicleText}`,
       `Travel Date: ${formattedDate}`,
       `Pickup Time: ${pickupTime}`,
-      `Passengers: ${passengers}`,
+      `Passengers: ${Number(passengers) === 0 ? "0 (Luggage transfer)" : passengers}`,
     ];
 
     if (luggage && luggage !== "0") {
@@ -187,11 +187,16 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
       setValidationError("Please select your estimated pickup time.");
       return;
     }
-    if (passengers < 1) {
-      setValidationError("Please specify at least 1 passenger.");
+    const numPassengers = passengers === "" ? 0 : Number(passengers);
+    if (isNaN(numPassengers) || numPassengers < 0) {
+      setValidationError("Please specify a valid passenger count.");
       return;
     }
-    if (selectedVehicle && passengers > selectedVehicle.passengerCapacity) {
+    if (numPassengers === 0 && (!luggage || luggage === "0")) {
+      setValidationError("Please specify at least 1 passenger, or select luggage for transfer.");
+      return;
+    }
+    if (selectedVehicle && numPassengers > selectedVehicle.passengerCapacity) {
       setValidationError(
         `The selected ${selectedVehicle.vehicleName} accommodates up to ${selectedVehicle.passengerCapacity} passengers. Please adjust passenger count or select a larger vehicle.`
       );
@@ -234,7 +239,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
           vehicleId: selectedVehicle.vehicleId,
           travelDate,
           pickupTime,
-          passengers,
+          passengers: passengers === "" ? 0 : Number(passengers),
           luggage,
           flightNumber,
           pickupLocation,
@@ -613,10 +618,23 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                   <input
                     id={`${formId}-passengers`}
                     type="number"
-                    min={1}
+                    min={0}
                     max={selectedVehicle?.passengerCapacity || 50}
                     value={passengers}
-                    onChange={(e) => setPassengers(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "") {
+                        setPassengers("");
+                        return;
+                      }
+                      const parsed = parseInt(val, 10);
+                      setPassengers(isNaN(parsed) ? "" : Math.max(0, parsed));
+                    }}
+                    onBlur={() => {
+                      if (passengers === "") {
+                        setPassengers(0);
+                      }
+                    }}
                     required
                     className="w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
                   />
@@ -735,8 +753,11 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                       type="text"
                       required
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Irfhan Works"
+                      onChange={(e) => {
+                        setFullName(e.target.value);
+                        if (validationError) setValidationError(null);
+                      }}
+                      placeholder="e.g. Mohammed Al-Hashimi"
                       className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
                     />
                   </div>
@@ -750,7 +771,10 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                       type="email"
                       required
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (validationError) setValidationError(null);
+                      }}
                       placeholder="name@example.com"
                       className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
                     />
@@ -765,7 +789,10 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                       type="tel"
                       required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (validationError) setValidationError(null);
+                      }}
                       placeholder="+971 50 123 4567"
                       className="mt-1.5 w-full rounded-lg border border-black/15 bg-white px-3 py-2.5 text-xs text-masaar-black focus:border-deep-gold focus:outline-none"
                     />
@@ -906,7 +933,11 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
 
                 <div className="flex justify-between border-b border-black/5 pb-2">
                   <span className="text-masaar-black/60">Passengers:</span>
-                  <span className="font-bold text-masaar-black">{passengers} Passengers</span>
+                  <span className="font-bold text-masaar-black">
+                    {Number(passengers) === 0
+                      ? "0 Passengers (Luggage Only)"
+                      : `${passengers} Passenger${Number(passengers) > 1 ? "s" : ""}`}
+                  </span>
                 </div>
 
                 <div className="flex justify-between border-b border-black/5 pb-2">

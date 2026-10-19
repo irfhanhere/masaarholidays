@@ -176,11 +176,11 @@ export function UmrahEnquiryModal({
 
   const [visaStatus, setVisaStatus] = useState<ServiceStatus>("none");
   const [visaType, setVisaType] = useState<string>("1-Year Saudi Tourist / Umrah Visa (Multiple Entry)");
-  const [visaTravellers, setVisaTravellers] = useState<number>(2);
+  const [visaTravellers, setVisaTravellers] = useState<number | string>(2);
 
   const [esimStatus, setEsimStatus] = useState<ServiceStatus>("none");
   const [esimPlan, setEsimPlan] = useState<string>("Saudi Arabia 10 GB · 30 Days");
-  const [esimTravellers, setEsimTravellers] = useState<number>(1);
+  const [esimTravellers, setEsimTravellers] = useState<number | string>(1);
 
   const [flightStatus, setFlightStatus] = useState<ServiceStatus>("none");
   const [flightOrigin, setFlightOrigin] = useState<string>("Dubai (DXB)");
@@ -907,7 +907,20 @@ export function UmrahEnquiryModal({
                             min={1}
                             max={10}
                             value={visaTravellers}
-                            onChange={(e) => setVisaTravellers(Math.max(1, parseInt(e.target.value) || 1))}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "") {
+                                setVisaTravellers("");
+                                return;
+                              }
+                              const parsed = parseInt(val, 10);
+                              setVisaTravellers(isNaN(parsed) ? "" : Math.max(1, Math.min(10, parsed)));
+                            }}
+                            onBlur={() => {
+                              if (visaTravellers === "") {
+                                setVisaTravellers(1);
+                              }
+                            }}
                             className="w-full rounded-lg border border-black/15 bg-[#FAF7F2] p-2 text-xs text-[#0A0A08] focus:border-[#C9A227] focus:outline-none"
                           />
                         </div>
@@ -981,7 +994,20 @@ export function UmrahEnquiryModal({
                             min={1}
                             max={6}
                             value={esimTravellers}
-                            onChange={(e) => setEsimTravellers(Math.max(1, parseInt(e.target.value) || 1))}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "") {
+                                setEsimTravellers("");
+                                return;
+                              }
+                              const parsed = parseInt(val, 10);
+                              setEsimTravellers(isNaN(parsed) ? "" : Math.max(1, Math.min(6, parsed)));
+                            }}
+                            onBlur={() => {
+                              if (esimTravellers === "") {
+                                setEsimTravellers(1);
+                              }
+                            }}
                             className="w-full rounded-lg border border-black/15 bg-[#FAF7F2] p-2 text-xs text-[#0A0A08] focus:border-[#C9A227] focus:outline-none"
                           />
                         </div>

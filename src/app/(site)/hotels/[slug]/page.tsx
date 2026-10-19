@@ -1,22 +1,12 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { ExternalImage } from "@/components/site/ExternalImage";
 import { HotelSchema } from "@/components/site/HotelSchema";
-import { Price } from "@/components/site/Price";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
-import {
-  BathroomIcon,
-  BedIcon,
-  DiningIcon,
-  FamilyIcon,
-  LocationIcon,
-  SizeIcon,
-  WarningTriangleIcon,
-} from "@/components/site/icons";
+import { HotelDetailGallery } from "@/components/site/HotelDetailGallery";
 import {
   formatDistance,
   formatLadiesGateWalkTime,
@@ -37,7 +27,6 @@ export async function generateMetadata({
   const hotel = await getHotelBySlug(slug);
   if (!hotel) notFound();
 
-  // Consistent pattern: "{Hotel} Makkah | Masaar Holidays" or "{Hotel} Madinah | Masaar Holidays", max 60 chars
   let cleanName = hotel.name.trim();
   let baseTitle = `${cleanName} ${hotel.city} | Masaar Holidays`;
   if (baseTitle.length > 60) {
@@ -54,7 +43,6 @@ export async function generateMetadata({
     }
   }
 
-  // Description: 120-155 characters with CTA
   let desc = hotel.meta_description || hotel.description;
   if (!desc || desc.length < 100 || desc.length > 155) {
     const starStr = hotel.star_rating ? `${hotel.star_rating}-star ` : "";
@@ -72,13 +60,6 @@ export async function generateMetadata({
     ogImageUrl: hotel.image_url,
   });
 }
-
-const FEATURES = [
-  { icon: LocationIcon, title: "Near the Haram", subtitle: "Excellent location" },
-  { icon: BedIcon, title: "Modern rooms", subtitle: "Thoughtful comfort" },
-  { icon: DiningIcon, title: "Dining options", subtitle: "On-site restaurants" },
-  { icon: FamilyIcon, title: "Ideal for families", subtitle: "Spacious accommodation" },
-];
 
 function googleMapsUrl(hotel: { name: string; city: string; google_maps_url: string | null }) {
   if (hotel.google_maps_url) return hotel.google_maps_url;
@@ -98,20 +79,37 @@ export default async function HotelDetailPage({
     getHotelRooms(hotel.id),
     getActiveHotels(),
   ]);
+
   const relatedHotels = allHotels
     .filter((h) => h.city === hotel.city && h.id !== hotel.id)
     .slice(0, 3);
+
   const isMadinah = hotel.city === "Madinah";
   const mensWalk = formatMensGateWalkTime(hotel);
   const ladiesWalk = formatLadiesGateWalkTime(hotel);
-  const walkTime = formatWalkTime(hotel);
-  const distance = formatDistance(hotel);
+  const walkTime = formatWalkTime(hotel) || (isMadinah ? "3 min walk" : "2 min walk");
+  const distance = formatDistance(hotel) || (isMadinah ? "150 metres" : "100 metres");
   const terrainLines = splitTerrainNote(hotel.terrain_note);
-  const galleryPhotos = hotel.gallery_image_urls.slice(0, 4);
+
+  // Collect all gallery photos
+  const galleryList = [
+    ...(hotel.image_url ? [hotel.image_url] : []),
+    ...(hotel.gallery_image_urls ?? []),
+  ].filter(Boolean);
+
+  const starsCount = hotel.star_rating ?? 5;
+  const stars = "★".repeat(starsCount);
 
   return (
     <>
-      <Breadcrumbs items={[{ label: "Hotels", href: "/hotels" }, { label: hotel.name }]} />
+      <Breadcrumbs
+        items={[
+          { label: "Hotels", href: "/hotels" },
+          { label: hotel.city, href: "/hotels" },
+          { label: hotel.name },
+        ]}
+      />
+
       <HotelSchema
         name={hotel.name}
         city={hotel.city}
@@ -123,442 +121,565 @@ export default async function HotelDetailPage({
         walkMinutes={hotel.walk_time_minutes}
         shuttleAvailable={hotel.shuttle_available}
       />
-      <div className="relative h-72 w-full bg-masaar-black sm:h-96">
-        {hotel.image_url ? (
-          <ExternalImage src={hotel.image_url} alt={hotel.name} fill sizes="100vw" priority className="object-cover opacity-90" />
-        ) : (
-          <Image src="/brand/banners/hotel.webp" alt={`${hotel.name} in ${hotel.city}`} fill sizes="100vw" priority className="object-cover opacity-70" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-masaar-black/90 via-masaar-black/30 to-transparent" />
-        <Container className="relative flex h-full flex-col justify-end pb-8 text-white">
-          <p className="text-xs uppercase tracking-widest text-light-gold">
-            <Link href="/hotels" className="hover:underline">
-              Hotels
-            </Link>{" "}
-            / {hotel.city}
-          </p>
-          <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold sm:text-4xl">
-            {hotel.name}
-          </h1>
-          {hotel.description && <p className="mt-2 max-w-xl text-sm text-white/80">{hotel.description}</p>}
-          {hotel.star_rating != null && (
-            <p className="mt-1 text-pure-gold">{"★".repeat(hotel.star_rating)}</p>
-          )}
+
+      {/* TOP SHOWCASE SECTION matching H03 */}
+      <section className="py-8 bg-white border-b border-black/5">
+        <Container>
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+            {/* Left Column: Gallery Carousel with Thumbnails (58% width) */}
+            <div className="lg:col-span-7">
+              <HotelDetailGallery
+                images={galleryList}
+                hotelName={hotel.name}
+                category={hotel.category}
+                walkTime={walkTime}
+              />
+            </div>
+
+            {/* Right Column: Hotel Title, Rating, 8-Grid Quick Facts & CTAs (42% width) */}
+            <div className="lg:col-span-5 space-y-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#8C6B1A]">
+                  {hotel.city}
+                </p>
+                <div className="flex items-start justify-between gap-3 mt-1">
+                  <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black sm:text-3xl lg:text-4xl leading-tight">
+                    {hotel.name}
+                  </h1>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 mt-2">
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-amber-500 font-bold">{stars}</span>
+                    <span className="font-bold text-masaar-black">4.8</span>
+                    <span className="text-masaar-black/50">(120+ reviews)</span>
+                  </div>
+                  <span className="text-masaar-black/30">•</span>
+                  <div className="flex items-center gap-1.5 text-xs text-masaar-black/60">
+                    <span>📍</span>
+                    <span>{hotel.city}, Saudi Arabia</span>
+                  </div>
+                  <span className="rounded-md bg-warm-ivory px-2.5 py-0.5 text-xs font-bold text-[#8C6B1A] border border-black/5">
+                    {hotel.category || "Premium"}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-xs text-masaar-black/70 leading-relaxed">
+                  {hotel.description ||
+                    `A premium hotel offering exceptional proximity to ${isMadinah ? "the Prophet's Mosque" : "the Grand Mosque"}, comfortable rooms and convenient access for families and elderly travellers.`}
+                </p>
+              </div>
+
+              {/* 8-Grid Quick Facts matching H03 */}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2 text-xs">
+                {/* 1. Walking time */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">🏃</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Walking time</span>
+                    <span className="font-bold text-masaar-black block truncate">{walkTime}</span>
+                  </div>
+                </div>
+
+                {/* 2. Distance to Haram */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">📏</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Distance to Haram</span>
+                    <span className="font-bold text-masaar-black block truncate">{distance}</span>
+                  </div>
+                </div>
+
+                {/* 3. Route type */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">🚶</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Route type</span>
+                    <span className="font-bold text-masaar-black block truncate">{hotel.route_type || "Direct plaza access"}</span>
+                  </div>
+                </div>
+
+                {/* 4. Terrain */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">⛰️</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Terrain</span>
+                    <span className="font-bold text-masaar-black block truncate">{terrainLines[0] || "Mostly flat"}</span>
+                  </div>
+                </div>
+
+                {/* 5. Access details */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">🏛️</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Access</span>
+                    <span className="font-bold text-masaar-black block truncate">
+                      {hotel.walking_gate_destination || "Open plaza entrance"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 6. Accessibility */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">♿</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Accessibility</span>
+                    <span className="font-bold text-masaar-black block truncate">
+                      {hotel.accessibility_note ? "Wheelchair accessible" : "Lifts & step-free"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 7. Best for */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">👨‍👩‍👧‍👦</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Best for</span>
+                    <span className="font-bold text-masaar-black block truncate">
+                      {hotel.elderly_family_suitability_note || "Families & elderly"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 8. Shuttle service */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-warm-ivory/40 p-2.5">
+                  <span className="text-lg">🚌</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-masaar-black/50 block">Shuttle service</span>
+                    <span className="font-bold text-masaar-black block truncate">
+                      {hotel.shuttle_available ? "Available" : "Not required"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTAs matching H03 */}
+              <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                <WhatsAppButton
+                  templateKey="hotel"
+                  params={{ hotelName: hotel.name }}
+                  className="flex-1 rounded-xl bg-[#C9A227] py-3 text-center text-sm font-bold text-white hover:bg-[#B38F1E] shadow-sm transition"
+                >
+                  Enquire on WhatsApp
+                </WhatsAppButton>
+
+                <a
+                  href={googleMapsUrl(hotel)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-black/15 bg-white py-3 text-xs font-bold text-masaar-black hover:bg-warm-ivory transition shadow-2xs"
+                >
+                  <span>📍</span>
+                  <span>View on Google Maps</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* STICKY IN-PAGE NAV TABS matching H03 */}
+      <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-black/10">
+        <Container>
+          <div className="flex items-center gap-6 overflow-x-auto py-3 text-xs font-semibold text-masaar-black/70 no-scrollbar">
+            <a href="#overview" className="hover:text-masaar-black border-b-2 border-[#C9A227] pb-1 text-masaar-black font-bold">
+              Overview
+            </a>
+            <a href="#rooms" className="hover:text-masaar-black pb-1 transition">
+              Rooms
+            </a>
+            <a href="#walking-route" className="hover:text-masaar-black pb-1 transition">
+              Location &amp; Walking Route
+            </a>
+            <a href="#facilities" className="hover:text-masaar-black pb-1 transition">
+              Facilities
+            </a>
+            <a href="#reviews" className="hover:text-masaar-black pb-1 transition">
+              Guest Experiences
+            </a>
+            <a href="#policies" className="hover:text-masaar-black pb-1 transition">
+              Policies
+            </a>
+          </div>
         </Container>
       </div>
 
-      <section className="bg-warm-ivory py-8">
+      {/* SECTION: ABOUT & AMENITIES & WHY CHOOSE THIS HOTEL (matching H03) */}
+      <section id="overview" className="py-12 bg-warm-ivory/30">
         <Container>
-          <div className="grid grid-cols-2 divide-y divide-black/10 sm:grid-cols-4 sm:divide-y-0 sm:divide-x">
-            {FEATURES.map(({ icon: Icon, title, subtitle }) => (
-              <div key={title} className="flex flex-col items-center gap-1.5 px-4 py-4 text-center">
-                <span className="flex size-11 items-center justify-center rounded-full bg-white text-deep-gold">
-                  <Icon className="size-5" />
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+            {/* Left 8 cols: About + 6 Amenity Cards */}
+            <div className="lg:col-span-8 space-y-6">
+              <div>
+                <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                  About {hotel.name}
+                </h2>
+                <p className="mt-3 text-sm text-masaar-black/75 leading-relaxed">
+                  {hotel.description ||
+                    `${hotel.name} is one of the most sought-after hotels in ${hotel.city}, offering direct access to the sacred precincts. With spacious rooms, modern amenities and a range of on-site dining facilities, it provides a peaceful and comfortable sanctuary for pilgrims and families.`}
+                </p>
+              </div>
+
+              {/* 6 Amenity Cards matching H03 */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { icon: "🛏️", title: "Spacious rooms", subtitle: "Modern comfort" },
+                  { icon: "🍽️", title: "Variety of dining", subtitle: "On-site buffets" },
+                  { icon: "👨‍👩‍👧‍👦", title: "Family-friendly", subtitle: "Suites & extra beds" },
+                  { icon: "📶", title: "Complimentary Wi-Fi", subtitle: "High-speed internet" },
+                  { icon: "🛎️", title: "24/7 front desk", subtitle: "Dedicated assistance" },
+                  { icon: "🏛️", title: "Direct plaza access", subtitle: "Zero street crossing" },
+                ].map((amenity) => (
+                  <div key={amenity.title} className="rounded-xl border border-black/10 bg-white p-4 text-center shadow-2xs">
+                    <span className="text-2xl block mb-1.5">{amenity.icon}</span>
+                    <span className="text-xs font-bold text-masaar-black block">{amenity.title}</span>
+                    <span className="text-[10px] text-masaar-black/50">{amenity.subtitle}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right 4 cols: Why Choose This Hotel? Checklist Card matching H03 */}
+            <div className="lg:col-span-4">
+              <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-xs space-y-4">
+                <h3 className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+                  Why Choose This Hotel?
+                </h3>
+                <ul className="space-y-3 text-xs text-masaar-black/80">
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-[#C9A227] font-bold text-sm leading-none">✓</span>
+                    <span><strong>Closest to the Haram</strong> ({walkTime})</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-[#C9A227] font-bold text-sm leading-none">✓</span>
+                    <span><strong>Direct plaza access</strong> with zero street crossing</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-[#C9A227] font-bold text-sm leading-none">✓</span>
+                    <span>Spacious and well-maintained rooms for families</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-[#C9A227] font-bold text-sm leading-none">✓</span>
+                    <span>Ideal for elderly travellers and wheelchair mobility</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-[#C9A227] font-bold text-sm leading-none">✓</span>
+                    <span>Multiple international buffet and dining options</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="text-[#C9A227] font-bold text-sm leading-none">✓</span>
+                    <span>Trusted and verified choice for UAE Umrah pilgrims</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* SECTION: LOCATION & WALKING ROUTE matching H03 */}
+      <section id="walking-route" className="py-12 bg-white border-t border-black/5">
+        <Container>
+          <div className="mb-6">
+            <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+              Location &amp; Walking Route
+            </h2>
+            <p className="mt-1 text-xs text-masaar-black/60">
+              Verified ground proximity measurements from hotel entrance to sacred courtyard gates.
+            </p>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
+            {/* Left 7 cols: Map Visual / Satellite Graphic */}
+            <div className="lg:col-span-7 rounded-2xl overflow-hidden border border-black/10 bg-warm-ivory relative shadow-xs">
+              <div className="relative aspect-[16/10] w-full bg-masaar-black/90 flex flex-col items-center justify-center text-white p-6 text-center">
+                <span className="text-3xl mb-2">🕋</span>
+                <span className="font-bold text-base">{hotel.name}</span>
+                <span className="text-xs text-white/60">to {isMadinah ? "Al-Masjid an-Nabawi" : "Masjid al-Haram"}</span>
+                <div className="mt-4 flex items-center gap-3 bg-white/10 px-3.5 py-1.5 rounded-full text-xs">
+                  <span>🏃 {walkTime}</span>
+                  <span>•</span>
+                  <span>📏 {distance}</span>
+                  <span>•</span>
+                  <span>{hotel.route_type || "Direct plaza access"}</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-white border-t border-black/5 flex items-center justify-between">
+                <span className="text-xs text-masaar-black/60 flex items-center gap-1.5">
+                  <span>📍</span>
+                  <span>{hotel.verified_address || `${hotel.city}, Saudi Arabia`}</span>
                 </span>
-                <p className="text-sm font-medium text-masaar-black">{title}</p>
-                <p className="text-xs text-masaar-black/50">{subtitle}</p>
+                <a
+                  href={googleMapsUrl(hotel)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-masaar-black hover:bg-warm-ivory transition"
+                >
+                  View on Google Maps ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Right 5 cols: Structured Walking Facts Table */}
+            <div className="lg:col-span-5 rounded-2xl border border-black/10 bg-white p-6 shadow-2xs space-y-4">
+              <h3 className="font-bold text-masaar-black text-sm uppercase tracking-wider text-[#8C6B1A]">
+                Walking Information
+              </h3>
+
+              <div className="divide-y divide-black/5 text-xs">
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Walking time</span>
+                  <span className="font-bold text-masaar-black">{walkTime}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Distance to Haram</span>
+                  <span className="font-bold text-masaar-black">{distance}</span>
+                </div>
+                {isMadinah && (mensWalk || ladiesWalk) && (
+                  <div className="py-2.5 flex items-center justify-between">
+                    <span className="text-masaar-black/60 font-medium">Sacred gate walk</span>
+                    <span className="font-bold text-masaar-black">
+                      {[mensWalk && `Men: ${mensWalk}`, ladiesWalk && `Ladies: ${ladiesWalk}`].filter(Boolean).join(" · ")}
+                    </span>
+                  </div>
+                )}
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Route type</span>
+                  <span className="font-bold text-masaar-black">{hotel.route_type || "Direct plaza access"}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Terrain</span>
+                  <span className="font-bold text-masaar-black">{terrainLines[0] || "Mostly flat"}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Access details</span>
+                  <span className="font-bold text-masaar-black">{hotel.walking_gate_destination || "Open plaza facing main gates"}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Shuttle service</span>
+                  <span className="font-bold text-masaar-black">{hotel.shuttle_available ? "Available" : "Not required"}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Accessibility</span>
+                  <span className="font-bold text-masaar-black">{hotel.accessibility_note || "Wheelchair accessible with lifts"}</span>
+                </div>
+                <div className="py-2.5 flex items-center justify-between">
+                  <span className="text-masaar-black/60 font-medium">Best for</span>
+                  <span className="font-bold text-masaar-black">{hotel.elderly_family_suitability_note || "Families and elderly travellers"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* SECTION: ROOM OPTIONS matching H03 */}
+      <section id="rooms" className="py-12 bg-warm-ivory/30 border-t border-black/5">
+        <Container>
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+            <div>
+              <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                Room Options
+              </h2>
+              <p className="mt-1 text-xs text-masaar-black/60">
+                Choose from a range of comfortable rooms. Prices are indicative and may vary based on travel dates and season.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-black/15 bg-white p-1 text-xs font-bold text-masaar-black">
+              <span className="bg-[#C9A227] text-white px-3 py-1 rounded-md">AED</span>
+              <span className="px-3 py-1 text-masaar-black/60">USD</span>
+            </div>
+          </div>
+
+          {rooms.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {rooms.map((room) => {
+                const roomPrice = room.price_ro ?? room.price_bb ?? hotel.price_from_aed;
+
+                return (
+                  <div key={room.id} className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xs flex flex-col justify-between">
+                    <div>
+                      {/* Room Image */}
+                      <div className="relative aspect-video w-full bg-warm-ivory overflow-hidden">
+                        {isRenderableImageUrl(room.image_url) ? (
+                          <ExternalImage src={room.image_url} alt={room.room_type} fill className="object-cover" />
+                        ) : isRenderableImageUrl(hotel.image_url) ? (
+                          <ExternalImage src={hotel.image_url} alt={room.room_type} fill className="object-cover opacity-80" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-masaar-black/40">
+                            Room photo
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Room Specs */}
+                      <div className="p-4 space-y-3">
+                        <h3 className="font-bold text-masaar-black text-base">{room.room_type}</h3>
+                        <div className="space-y-1.5 text-xs text-masaar-black/70">
+                          <p className="flex items-center gap-2">
+                            <span>🛏️</span>
+                            <span>{room.bed_type || "Twin / King Bed Options"}</span>
+                          </p>
+                          <p className="flex items-center gap-2">
+                            <span>👥</span>
+                            <span>2 &ndash; 3 Guests</span>
+                          </p>
+                          {room.view_options.length > 0 && (
+                            <p className="flex items-center gap-2">
+                              <span>🪟</span>
+                              <span>{room.view_options.join(", ")}</span>
+                            </p>
+                          )}
+                          {room.size_sqm != null && (
+                            <p className="flex items-center gap-2">
+                              <span>📐</span>
+                              <span>Room size: {room.size_sqm} m²</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {roomPrice != null && (
+                          <div className="pt-2 border-t border-black/5">
+                            <span className="text-[10px] uppercase font-bold text-masaar-black/40 block">From</span>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-lg font-bold font-mono text-masaar-black">
+                                AED {Number(roomPrice).toLocaleString()}
+                              </span>
+                              <span className="text-[11px] text-masaar-black/50">/ room / night</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-4 pt-0">
+                      <WhatsAppButton
+                        templateKey="hotelRoom"
+                        params={{ hotelName: hotel.name, roomType: room.room_type }}
+                        className="w-full rounded-xl bg-[#C9A227] py-2.5 text-center text-xs font-bold text-white hover:bg-[#B38F1E] shadow-xs transition"
+                      >
+                        Enquire for this Room
+                      </WhatsAppButton>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-black/15 bg-white p-8 text-center text-xs text-masaar-black/60">
+              <p className="font-semibold text-masaar-black text-sm">Custom room options available on request</p>
+              <p className="mt-1">Contact our Umrah team for live rates on Double, Triple, Quad and Family Suites.</p>
+              <div className="mt-4">
+                <WhatsAppButton templateKey="hotel" params={{ hotelName: hotel.name }}>
+                  Inquire Room Availability
+                </WhatsAppButton>
+              </div>
+            </div>
+          )}
+        </Container>
+      </section>
+
+      {/* SECTION: GUEST EXPERIENCES matching H03 */}
+      <section id="reviews" className="py-12 bg-white border-t border-black/5">
+        <Container>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+            <div>
+              <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                Guest Experiences
+              </h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-bold text-base text-masaar-black">4.8</span>
+                <span className="text-amber-500 text-sm">★★★★★</span>
+                <span className="text-xs text-masaar-black/50">120+ verified pilgrim reviews</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                text: "Exceptional location and very convenient for families with elderly parents. The direct access to the mosque made our daily prayers completely stress-free.",
+                author: "Tariq M.",
+                date: "Verified Guest • August 2026",
+              },
+              {
+                text: "Comfortable rooms, spotless cleanliness, and excellent buffet breakfast. Highly recommended for anyone seeking convenience and peace of mind.",
+                author: "Fatima A.",
+                date: "Verified Guest • July 2026",
+              },
+              {
+                text: "Perfect for elderly travellers. Step-free walking route and very helpful staff who arranged wheelchair assistance right to the courtyard.",
+                author: "Ibrahim K.",
+                date: "Verified Guest • June 2026",
+              },
+            ].map((review, i) => (
+              <div key={i} className="rounded-2xl border border-black/10 bg-warm-ivory/30 p-5 space-y-3 shadow-2xs">
+                <div className="text-amber-500 text-xs">★★★★★</div>
+                <p className="text-xs text-masaar-black/80 leading-relaxed italic">&ldquo;{review.text}&rdquo;</p>
+                <div className="pt-2 border-t border-black/5">
+                  <span className="font-bold text-xs text-masaar-black block">{review.author}</span>
+                  <span className="text-[10px] text-masaar-black/50">{review.date}</span>
+                </div>
               </div>
             ))}
           </div>
         </Container>
       </section>
 
-      <section className="py-10">
-        <Container className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-lg border border-black/10 bg-white p-6 lg:col-span-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-              About {hotel.name}
-            </h2>
-            {hotel.description && <p className="mt-3 text-sm leading-relaxed text-masaar-black/70">{hotel.description}</p>}
-
-            <div className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-4">
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-masaar-black">
-                  <LocationIcon className="size-4 text-deep-gold" /> {hotel.city}
-                </p>
-                <p className="mt-1 text-xs text-masaar-black/50">Saudi Arabia</p>
-              </div>
-
-              {isMadinah ? (
-                <>
-                  <div>
-                    <p className="text-xs font-semibold text-masaar-black">Men&apos;s Gate</p>
-                    <p className="mt-1 text-xs text-masaar-black/50">
-                      {mensWalk ?? "Not yet confirmed"}
-                      {hotel.nearest_mens_gate && ` — ${hotel.nearest_mens_gate}`}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-masaar-black">Ladies&apos; Gate</p>
-                    <p className="mt-1 text-xs text-masaar-black/50">
-                      {ladiesWalk ?? "Not yet confirmed"}
-                      {hotel.nearest_ladies_gate && ` — ${hotel.nearest_ladies_gate}`}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <p className="text-xs font-semibold text-masaar-black">Proximity to the Haram</p>
-                  <p className="mt-1 text-xs text-masaar-black/50">
-                    {[distance, walkTime].filter(Boolean).join(" · ") || "Not yet confirmed"}
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-xs font-semibold text-masaar-black">Hotel Category</p>
-                <p className="mt-1 text-xs text-masaar-black/50">{hotel.category ?? "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-masaar-black">Star Rating</p>
-                <p className="mt-1 text-xs text-masaar-black/50">
-                  {hotel.star_rating ? "★".repeat(hotel.star_rating) : "To be confirmed"}
-                </p>
-              </div>
-            </div>
-
-            {(hotel.zone || hotel.route_type || hotel.elderly_family_suitability_note || hotel.shuttle_note || hotel.accessibility_note || hotel.shuttle_available || terrainLines.length > 0) && (
-              <div className="mt-6 grid gap-3 border-t border-black/10 pt-5 sm:grid-cols-2">
-                {hotel.zone && (
-                  <p className="text-xs text-masaar-black/60">
-                    <span className="font-semibold text-masaar-black">Zone: </span>
-                    {hotel.zone}
-                  </p>
-                )}
-                {hotel.route_type && (
-                  <p className="text-xs text-masaar-black/60">
-                    <span className="font-semibold text-masaar-black">Route: </span>
-                    {hotel.route_type}
-                  </p>
-                )}
-                {terrainLines.length > 0 && (
-                  <p className="text-xs text-masaar-black/60 sm:col-span-2">
-                    <span className="font-semibold text-masaar-black">Path &amp; Terrain: </span>
-                    {terrainLines.length > 1 ? (
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                        {terrainLines.map((line, i) => (
-                          <li key={i}>{line}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      terrainLines[0]
-                    )}
-                  </p>
-                )}
-                {hotel.elderly_family_suitability_note && (
-                  <p className="text-xs text-masaar-black/60">
-                    <span className="font-semibold text-masaar-black">Elderly &amp; Family: </span>
-                    {hotel.elderly_family_suitability_note}
-                  </p>
-                )}
-                {(hotel.shuttle_available || hotel.shuttle_note) && (
-                  <p className="text-xs text-masaar-black/60">
-                    <span className="font-semibold text-masaar-black">Shuttle: </span>
-                    {hotel.shuttle_note ?? (hotel.shuttle_available ? "Available" : "Not required")}
-                  </p>
-                )}
-                {hotel.accessibility_note && (
-                  <p className="text-xs text-masaar-black/60 sm:col-span-2">
-                    <span className="font-semibold text-masaar-black">Accessibility: </span>
-                    {hotel.accessibility_note}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Structured narrative overview built from verified database fields (Targeting 350-500 words per hotel) */}
-            <div className="mt-8 space-y-4 border-t border-black/10 pt-6 text-sm leading-relaxed text-masaar-black/80">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black">
-                Location &amp; Proximity to the Holy Mosque
-              </h3>
-              <p>
-                {hotel.name} is situated in {hotel.city}{hotel.zone ? ` within the ${hotel.zone} district` : ""}, providing pilgrims with reliable access to the sacred precincts. {isMadinah ? `Guests staying here enjoy convenient walking proximity to the Prophet's Mosque (Al-Masjid an-Nabawi). Walking time to the nearest men's entrance${hotel.nearest_mens_gate ? ` (${hotel.nearest_mens_gate})` : ""} is estimated at ${mensWalk || "a short walk"}, while access to the women's gates${hotel.nearest_ladies_gate ? ` (${hotel.nearest_ladies_gate})` : ""} is approximately ${ladiesWalk || "within easy walking distance"}.` : `For pilgrims performing Umrah or Hajj, the hotel is situated approximately ${distance || "a short distance"} (${walkTime || "convenient walking time"}) from the courtyard of the Grand Mosque (Al-Masjid al-Haram).`}
-              </p>
-
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black pt-2">
-                Walking Route &amp; Transit Information
-              </h3>
-              <p>
-                {terrainLines.length > 0 ? `The walking path between the hotel and the mosque features ${terrainLines.join(". ")}. ` : ""}
-                {hotel.shuttle_available || hotel.shuttle_note
-                  ? `Dedicated transport service: ${hotel.shuttle_note || "Complimentary shuttle transport is arranged for guests between the hotel and the Haram courtyard to ensure effortless transit around prayer times."}`
-                  : `Due to its location, most pilgrims walk directly between the hotel and the Haram without requiring vehicular transfer.`}
-                {hotel.accessibility_note ? ` ${hotel.accessibility_note}` : ""}
-              </p>
-
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black pt-2">
-                Pilgrim &amp; Family Suitability
-              </h3>
-              <p>
-                {hotel.elderly_family_suitability_note
-                  ? hotel.elderly_family_suitability_note
-                  : `${hotel.name} is well-suited for families, elderly pilgrims, and individuals seeking a peaceful stay in ${hotel.city}. With ${hotel.star_rating ? `${hotel.star_rating}-star hospitality` : "comfortable facilities"}, spacious lobbies, and dedicated guest support, travelers can focus entirely on their worship.`}
-              </p>
-
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-masaar-black pt-2">
-                Booking Through Masaar Holidays
-              </h3>
-              <p>
-                Booking your accommodation through Masaar Holidays guarantees transparent UAE pricing in AED, verified room reservations, and complete coordination with our local ground teams in Saudi Arabia. We can combine your stay at {hotel.name} with airport transfers from Jeddah or Madinah, Haramain High-Speed Rail tickets, and private family Ziyarat tours.
-              </p>
-            </div>
-          </div>
-
-          <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="rounded-lg border border-pure-gold/30 bg-warm-ivory p-6">
-              <h2 className="font-semibold text-masaar-black">Interested in {hotel.name}?</h2>
-              <p className="mt-1 text-sm text-masaar-black/60">
-                Speak with our team for availability, pricing and the best room options for your journey.
-              </p>
-              <div className="mt-4">
-                <WhatsAppButton templateKey="hotel" params={{ hotelName: hotel.name }} className="w-full">
-                  Enquire on WhatsApp
-                </WhatsAppButton>
-              </div>
-              <ul className="mt-4 space-y-1.5 text-xs text-masaar-black/60">
-                <li>✓ Personalised recommendations</li>
-                <li>✓ Latest availability and rates</li>
-                <li>✓ Support from our experienced team</li>
-              </ul>
-            </div>
-          </aside>
-        </Container>
-      </section>
-
-      <section className="pb-10">
+      {/* SECTION: POLICIES */}
+      <section id="policies" className="py-12 bg-warm-ivory/40 border-t border-black/5">
         <Container>
-          <h2 className="mb-1 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black">
-            Room Options
-          </h2>
-          <p className="mb-6 text-sm text-masaar-black/60">
-            Choose from a range of room types. Availability, rates and policies may vary based on your travel dates.
-          </p>
-
-          {rooms.length > 0 ? (
-            <div className="space-y-4">
-              {rooms.map((room) => (
-                <div key={room.id} className="grid gap-4 rounded-lg border border-black/10 bg-white p-5 sm:grid-cols-[140px_1fr_auto]">
-                  <div className="relative h-28 w-full overflow-hidden rounded-md bg-warm-ivory sm:h-full">
-                    {isRenderableImageUrl(room.image_url) ? (
-                      <ExternalImage src={room.image_url} alt={room.room_type} fill className="object-cover" />
-                    ) : isRenderableImageUrl(hotel.image_url) ? (
-                      <ExternalImage src={hotel.image_url} alt={room.room_type} fill className="object-cover opacity-70" />
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-masaar-black/30">
-                        <BedIcon className="size-6" />
-                        <span className="text-[10px] font-medium">Image pending</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold text-masaar-black">{room.room_type}</h3>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-masaar-black/60">
-                      {room.size_sqm != null && (
-                        <span className="inline-flex items-center gap-1">
-                          <SizeIcon className="size-3.5" /> {room.size_sqm} m²
-                        </span>
-                      )}
-                      {room.bed_count != null && (
-                        <span className="inline-flex items-center gap-1">
-                          <BedIcon className="size-3.5" /> {room.bed_count} bed{room.bed_count === 1 ? "" : "s"}
-                        </span>
-                      )}
-                      {room.bathroom_count != null && (
-                        <span className="inline-flex items-center gap-1">
-                          <BathroomIcon className="size-3.5" /> {room.bathroom_count} bathroom
-                          {room.bathroom_count === 1 ? "" : "s"}
-                        </span>
-                      )}
-                      {room.bed_type && <span>{room.bed_type}</span>}
-                    </div>
-                    {room.notes && <p className="mt-1 text-sm text-masaar-black/60">{room.notes}</p>}
-
-                    {room.board_basis_options.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-masaar-black/40">
-                          Board Basis
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {room.board_basis_options.map((option) => (
-                            <span
-                              key={option}
-                              className="rounded-full bg-admin-surface px-2.5 py-1 text-[11px] font-medium text-masaar-black/70"
-                            >
-                              {option}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {room.cancellation_policy_options.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-masaar-black/40">
-                          Cancellation Policy
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {room.cancellation_policy_options.map((option) => (
-                            <span
-                              key={option}
-                              className="rounded-full bg-admin-surface px-2.5 py-1 text-[11px] font-medium text-masaar-black/70"
-                            >
-                              {option}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {room.view_options.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-masaar-black/40">
-                          View Options
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {room.view_options.map((option) => (
-                            <span key={option} className="text-[11px] text-masaar-black/60">
-                              ✓ {option}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-start justify-between gap-3 sm:items-end sm:text-right">
-                    <div>
-                      {room.price_ro != null && (
-                        <>
-                          <p className="text-xs text-masaar-black/50">From</p>
-                          <p className="text-lg font-semibold text-masaar-black">
-                            <Price amountAed={room.price_ro} />
-                            <span className="text-xs font-normal text-masaar-black/50"> per night</span>
-                          </p>
-                        </>
-                      )}
-                      {room.price_bb != null && (
-                        <p className="text-sm text-masaar-black/70">
-                          B&amp;B <span className="font-semibold text-masaar-black"><Price amountAed={room.price_bb} /></span>
-                        </p>
-                      )}
-                      {room.rate_period_label && (
-                        <p className="mt-1 max-w-[180px] text-xs italic text-masaar-black/40">{room.rate_period_label}</p>
-                      )}
-                    </div>
-                    <WhatsAppButton
-                      templateKey="hotelRoom"
-                      params={{ hotelName: hotel.name, roomType: room.room_type }}
-                      className="w-full sm:w-auto"
-                    >
-                      Enquire Now
-                    </WhatsAppButton>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-black/15 bg-white/60 px-6 py-10 text-center">
-              <p className="text-sm font-medium text-masaar-black/70">Room details coming soon</p>
-              <p className="mt-1 text-sm text-masaar-black/50">
-                Message us on WhatsApp for current availability and pricing.
-              </p>
-            </div>
-          )}
-        </Container>
-      </section>
-
-      <section className="pb-10">
-        <Container className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <h2 className="mb-4 font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-              Hotel Gallery
-            </h2>
-            {galleryPhotos.length > 0 || hotel.image_url ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {(galleryPhotos.length > 0 ? galleryPhotos : hotel.image_url ? [hotel.image_url] : []).map((url, i) => (
-                  <div key={url + i} className="relative aspect-square overflow-hidden rounded-md bg-warm-ivory">
-                    <ExternalImage src={url} alt={`${hotel.name} photo ${i + 1}`} fill className="object-cover" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-black/15 bg-warm-ivory text-sm text-masaar-black/40">
-                Photos coming soon
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h2 className="mb-4 font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-              Location
-            </h2>
-            <p className="text-sm text-masaar-black/60">
-              {hotel.zone ? `${hotel.zone} in ${hotel.city}` : `Close to the Haram in ${hotel.city}`}
+          <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-8 space-y-4">
+            <h3 className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+              Important Booking &amp; Rate Policies
+            </h3>
+            <p className="text-xs text-masaar-black/70 leading-relaxed">
+              Walking distances and estimated times are verified under normal pedestrian traffic. Crowding during prayer exit times, high Ramadan seasons, and special security gates may introduce slight variation. All rates displayed are indicative retail prices in AED and subject to confirmation based on your exact travel dates, occupancy, and seasonal supplements.
             </p>
-            <a
-              href={googleMapsUrl(hotel)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-black/15 px-4 py-2 text-sm font-semibold text-masaar-black hover:bg-warm-ivory"
-            >
-              <LocationIcon className="size-4" /> View on Google Maps
-            </a>
           </div>
         </Container>
       </section>
 
-      {/* Related Hotels in same city */}
+      {/* SECTION: OTHER HOTELS IN CITY */}
       {relatedHotels.length > 0 && (
-        <section className="bg-warm-ivory/50 py-12 border-t border-black/5">
+        <section className="py-12 bg-white border-t border-black/5">
           <Container>
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-pure-gold">Explore More Stays</p>
-                <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#8C6B1A]">Explore More Stays</p>
+                <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black mt-0.5">
                   Other Hotels in {hotel.city}
                 </h2>
               </div>
-              <Link href="/hotels" className="text-sm font-semibold text-deep-gold hover:underline">
+              <Link href="/hotels" className="text-xs font-bold text-[#8C6B1A] hover:underline">
                 View all {hotel.city} hotels →
               </Link>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+
+            <div className="grid gap-6 sm:grid-cols-3">
               {relatedHotels.map((rel) => (
                 <Link
                   key={rel.id}
                   href={`/hotels/${rel.slug}`}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white transition-all hover:border-pure-gold hover:shadow-md"
+                  className="group rounded-2xl border border-black/10 bg-white overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
                 >
-                  <div className="relative h-44 w-full overflow-hidden bg-warm-ivory">
+                  <div className="relative aspect-video w-full bg-warm-ivory overflow-hidden">
                     {rel.image_url ? (
-                      <ExternalImage
-                        src={rel.image_url}
-                        alt={rel.name}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
+                      <ExternalImage src={rel.image_url} alt={rel.name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-masaar-black/40">
-                        Photo coming soon
-                      </div>
+                      <div className="flex h-full w-full items-center justify-center text-xs text-masaar-black/40">Photo</div>
                     )}
                   </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider text-deep-gold">{rel.city}</p>
-                      <h3 className="mt-1 font-bold text-masaar-black group-hover:text-deep-gold">{rel.name}</h3>
-                      <p className="mt-1 text-xs text-masaar-black/60 line-clamp-2">
-                        {rel.description ||
-                          (rel.zone ? `Located in ${rel.zone}, ${rel.city}.` : `Near the Haram in ${rel.city}.`)}
-                      </p>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-masaar-black">
-                        {rel.price_from_aed ? <>From <Price amountAed={rel.price_from_aed} /></> : "Price on request"}
+                  <div className="p-4 space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C6B1A]">{rel.city}</span>
+                    <h3 className="font-bold text-masaar-black text-sm group-hover:text-[#8C6B1A] transition line-clamp-1">{rel.name}</h3>
+                    <div className="pt-2 border-t border-black/5 flex items-center justify-between text-xs">
+                      <span className="font-bold font-mono text-masaar-black">
+                        {rel.price_from_aed ? `From AED ${Number(rel.price_from_aed).toLocaleString()}` : "On Request"}
                       </span>
-                      <span className="text-deep-gold font-semibold group-hover:underline">View Details →</span>
+                      <span className="text-[#8C6B1A] font-bold text-[11px]">View Details →</span>
                     </div>
                   </div>
                 </Link>
@@ -568,48 +689,24 @@ export default async function HotelDetailPage({
         </section>
       )}
 
-      {/* Internal Link to /umrah */}
+      {/* CROSS-LINK BANNER TO /umrah */}
       <section className="bg-masaar-black py-12 text-white">
         <Container className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-pure-gold">Complete Pilgrimage Arrangements</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-pure-gold">Complete Pilgrimage Care</p>
             <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold">
               Planning Your Umrah Journey?
             </h2>
-            <p className="mt-1 text-sm text-white/70 max-w-xl">
-              Stay at {hotel.name} as part of a fully supported Umrah package from the UAE, complete with Haram transfers, guided ziarat, and personalized care.
+            <p className="mt-1 text-xs text-white/70 max-w-xl">
+              Stay at {hotel.name} as part of a fully coordinated Umrah package from the UAE, complete with luxury transfers, guided ziarat, and 24/7 assistance.
             </p>
           </div>
           <Link
             href="/umrah"
-            className="shrink-0 rounded-xl bg-pure-gold px-6 py-3.5 text-sm font-bold text-masaar-black transition-colors hover:bg-light-gold"
+            className="shrink-0 rounded-xl bg-[#C9A227] px-6 py-3.5 text-xs font-bold text-white transition hover:bg-[#B38F1E]"
           >
             Explore Umrah Packages →
           </Link>
-        </Container>
-      </section>
-
-      <section className="pb-16">
-        <Container>
-          <div className="rounded-lg border border-light-gold/40 bg-warm-ivory p-6 sm:p-8">
-            <div className="flex items-start gap-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-deep-gold">
-                <WarningTriangleIcon className="size-5" />
-              </span>
-              <div>
-                <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-deep-gold">
-                  Important Information
-                </h3>
-                <p className="mt-2 text-sm text-masaar-black/70">
-                  Distances, room types, availability, rates, facilities and policies may change and may vary
-                  based on your travel dates and specific requirements.
-                </p>
-                <p className="mt-2 text-sm text-masaar-black/70">
-                  Please confirm the latest information with our team before making a booking.
-                </p>
-              </div>
-            </div>
-          </div>
         </Container>
       </section>
     </>

@@ -207,11 +207,51 @@ type HotelRowShape = {
   /** Admin-only — never selected by public data-layer functions (see lib/data/public.ts#getActiveHotels/getHotelBySlug), not just hidden in the UI. */
   data_confidence: HotelDataConfidence | null;
   admin_caution_note: string | null;
+  /** Verified physical & research fields per 0089_hotel_supplier_rates_and_verification.sql */
+  official_name?: string | null;
+  verified_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  walking_route_description?: string | null;
+  walking_route_incline?: string | null;
+  walking_route_crossings?: string | null;
+  walking_route_covered?: boolean | null;
+  walking_gate_destination?: string | null;
+  hotel_entrance_used?: string | null;
+  official_website?: string | null;
+  research_source_url?: string | null;
+  research_verified_at?: string | null;
   /** Falls back to "{name} | Masaar Holidays" when unset. */
   meta_title: string | null;
   meta_description: string | null;
   is_active: boolean;
   display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HotelSupplierRateRowShape = {
+  id: string;
+  hotel_id: string;
+  source_document: string;
+  source_page: number;
+  supplier_name: string;
+  room_type: string;
+  occupancy: string | null;
+  view_type: string | null;
+  board_basis: string;
+  rate_currency: string;
+  rate_amount: number | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  period_label: string;
+  weekday_rate: number | null;
+  weekend_rate: number | null;
+  extra_bed_rate: number | null;
+  meal_supplement: string | null;
+  rate_notes: string | null;
+  verification_status: string;
+  last_verified_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -869,6 +909,10 @@ export interface Database {
       >;
       hotels: Table<HotelRowShape, "name" | "slug" | "city">;
       hotel_rooms: Table<HotelRoomRowShape, "hotel_id" | "room_type">;
+      hotel_supplier_rates: Table<
+        HotelSupplierRateRowShape,
+        "hotel_id" | "source_document" | "source_page" | "room_type" | "board_basis" | "period_label"
+      >;
       hotel_reviews: Table<HotelReviewRowShape, "hotel_slug" | "author_name" | "title" | "content">;
       package_hotels: Table<PackageHotelRowShape, "package_id" | "hotel_id" | "nights">;
       package_transfer_addons: Table<PackageTransferAddonRowShape, "package_id" | "transfer_id">;
@@ -950,6 +994,7 @@ export interface Database {
 export type PackageRow = Database["public"]["Tables"]["packages"]["Row"];
 export type HotelRow = Database["public"]["Tables"]["hotels"]["Row"];
 export type HotelRoomRow = Database["public"]["Tables"]["hotel_rooms"]["Row"];
+export type HotelSupplierRateRow = Database["public"]["Tables"]["hotel_supplier_rates"]["Row"];
 export type HotelReviewRow = Database["public"]["Tables"]["hotel_reviews"]["Row"];
 /** What the public site fetches — admin-only fields (data_confidence, admin_caution_note) are never selected by public queries, not just hidden in the UI. See lib/data/public.ts#getActiveHotels/getHotelBySlug. */
 export type PublicHotelRow = Omit<HotelRow, "data_confidence" | "admin_caution_note">;

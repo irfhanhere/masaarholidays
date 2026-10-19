@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
   const vehicleId = typeof body.vehicleId === "string" ? body.vehicleId.trim() : "";
   const travelDate = typeof body.travelDate === "string" ? body.travelDate.trim() : "";
   const pickupTime = typeof body.pickupTime === "string" ? body.pickupTime.trim() : "";
-  const passengers = typeof body.passengers === "number" ? Math.floor(body.passengers) : 1;
+  const rawPassengers = typeof body.passengers === "number" ? body.passengers : Number(body.passengers);
+  const passengers = !isNaN(rawPassengers) && rawPassengers >= 0 ? Math.floor(rawPassengers) : 1;
   const luggage = typeof body.luggage === "string" ? body.luggage.trim() : "0";
   const flightNumber = typeof body.flightNumber === "string" ? body.flightNumber.trim() : "";
   const pickupLocation = typeof body.pickupLocation === "string" ? body.pickupLocation.trim() : "";
@@ -214,7 +215,8 @@ export async function POST(request: NextRequest) {
 
   const successUrl = `${siteOrigin}/transfers/booking/success?token=${booking.public_token}&session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${siteOrigin}/transfers/${encodeURIComponent(route.slug)}`;
-  const lineItemDescription = `${selectedVehicle.vehicleName} (${selectedVehicle.modelYear}) · ${travelDate} at ${pickupTime} · ${passengers} Passenger${passengers > 1 ? "s" : ""}`;
+  const passengerLabel = passengers === 0 ? "Luggage Transfer (0 Pax)" : `${passengers} Passenger${passengers > 1 ? "s" : ""}`;
+  const lineItemDescription = `${selectedVehicle.vehicleName} (${selectedVehicle.modelYear}) · ${travelDate} at ${pickupTime} · ${passengerLabel}`;
 
   try {
     const session = await stripe.checkout.sessions.create({

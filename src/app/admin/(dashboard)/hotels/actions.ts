@@ -100,16 +100,48 @@ export async function saveHotel(
     is_active: formData.get("is_active") === "on",
   };
 
+  // Optional verified fields per 0089 migration
+  const verifiedPayload: Record<string, any> = {
+    official_name: textField("official_name"),
+    verified_address: textField("verified_address"),
+    latitude: numberField("latitude"),
+    longitude: numberField("longitude"),
+    walking_route_description: textField("walking_route_description"),
+    walking_route_incline: textField("walking_route_incline") || "flat",
+    walking_route_crossings: textField("walking_route_crossings") || "none",
+    walking_route_covered: formData.get("walking_route_covered") === "on",
+    walking_gate_destination: textField("walking_gate_destination"),
+    hotel_entrance_used: textField("hotel_entrance_used"),
+    official_website: textField("official_website"),
+    research_source_url: textField("research_source_url"),
+  };
+
   try {
     const supabase = await getClient();
 
     if (hotelId) {
-      const { error } = await supabase.from("hotels").update(payload).eq("id", hotelId);
-      if (error) return { status: "error", message: error.message };
+      // First attempt with verified fields
+      const { error } = await supabase.from("hotels").update({ ...payload, ...verifiedPayload }).eq("id", hotelId);
+      if (error) {
+        // If 0089 columns aren't in remote schema yet, retry with base payload
+        if (error.message?.includes("column") || error.code === "42703") {
+          const { error: baseError } = await supabase.from("hotels").update(payload).eq("id", hotelId);
+          if (baseError) return { status: "error", message: baseError.message };
+        } else {
+          return { status: "error", message: error.message };
+        }
+      }
     } else {
       const slug = `${slugify(name)}-${Date.now().toString(36)}`;
-      const { error } = await supabase.from("hotels").insert({ ...payload, slug });
-      if (error) return { status: "error", message: error.message };
+      const { error } = await supabase.from("hotels").insert({ ...payload, ...verifiedPayload, slug });
+      if (error) {
+        if (error.message?.includes("column") || error.code === "42703") {
+          const { error: baseError } = await supabase.from("hotels").insert({ ...payload, slug });
+          if (baseError) return { status: "error", message: baseError.message };
+        } else {
+          return { status: "error", message: error.message };
+        }
+      }
     }
 
     revalidatePath("/admin/hotels");

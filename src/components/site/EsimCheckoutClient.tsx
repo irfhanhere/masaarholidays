@@ -198,6 +198,15 @@ export function EsimCheckoutClient({
   } · ${plan.validity_days} days · Plan ${plan.plan_id}.`;
   const whatsAppOrderUrl = buildWhatsAppLink(whatsAppMessage);
 
+  const clearError = (field: string) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -227,7 +236,16 @@ export function EsimCheckoutClient({
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    if (!isValid && typeof document !== "undefined") {
+      setTimeout(() => {
+        const firstErrorEl = document.querySelector(".border-red-500, p.text-red-600");
+        if (firstErrorEl) {
+          firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 50);
+    }
+    return isValid;
   };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
@@ -387,8 +405,22 @@ export function EsimCheckoutClient({
                     autoComplete="name"
                     value={fullName}
                     onChange={(e) => {
-                      setFullName(e.target.value);
-                      saveFormState({ fullName: e.target.value });
+                      const val = e.target.value;
+                      setFullName(val);
+                      saveFormState({ fullName: val });
+                      if (errors.fullName && val.trim().length >= 2) {
+                        clearError("fullName");
+                      }
+                    }}
+                    onBlur={() => {
+                      if (fullName.trim() && fullName.trim().length < 2) {
+                        setErrors((prev) => ({
+                          ...prev,
+                          fullName: "Please enter your full name (minimum 2 characters).",
+                        }));
+                      } else if (fullName.trim().length >= 2) {
+                        clearError("fullName");
+                      }
                     }}
                     placeholder="e.g. Mohammed Al-Hashimi"
                     className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-[#C9A227] ${
@@ -410,8 +442,36 @@ export function EsimCheckoutClient({
                     autoComplete="email"
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value);
-                      saveFormState({ email: e.target.value });
+                      const val = e.target.value;
+                      setEmail(val);
+                      saveFormState({ email: val });
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (errors.email && (emailRegex.test(val.trim()) || val === "")) {
+                        clearError("email");
+                      }
+                      if (
+                        errors.confirmEmail &&
+                        confirmEmail.trim() &&
+                        val.trim().toLowerCase() === confirmEmail.trim().toLowerCase()
+                      ) {
+                        clearError("confirmEmail");
+                      }
+                    }}
+                    onBlur={() => {
+                      const trimmed = email.trim();
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (trimmed && !emailRegex.test(trimmed)) {
+                        setErrors((prev) => ({ ...prev, email: "Please enter a valid email address." }));
+                      } else if (trimmed && emailRegex.test(trimmed)) {
+                        clearError("email");
+                      }
+                      if (confirmEmail.trim()) {
+                        if (trimmed.toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+                          setErrors((prev) => ({ ...prev, confirmEmail: "Email addresses do not match." }));
+                        } else {
+                          clearError("confirmEmail");
+                        }
+                      }
                     }}
                     placeholder="name@example.com"
                     className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-[#C9A227] ${
@@ -432,8 +492,20 @@ export function EsimCheckoutClient({
                     required
                     value={confirmEmail}
                     onChange={(e) => {
-                      setConfirmEmail(e.target.value);
-                      saveFormState({ confirmEmail: e.target.value });
+                      const val = e.target.value;
+                      setConfirmEmail(val);
+                      saveFormState({ confirmEmail: val });
+                      if (errors.confirmEmail && val.trim().toLowerCase() === email.trim().toLowerCase()) {
+                        clearError("confirmEmail");
+                      }
+                    }}
+                    onBlur={() => {
+                      const trimmed = confirmEmail.trim();
+                      if (trimmed && trimmed.toLowerCase() !== email.trim().toLowerCase()) {
+                        setErrors((prev) => ({ ...prev, confirmEmail: "Email addresses do not match." }));
+                      } else if (trimmed && trimmed.toLowerCase() === email.trim().toLowerCase()) {
+                        clearError("confirmEmail");
+                      }
                     }}
                     placeholder="name@example.com"
                     className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-[#C9A227] ${
@@ -478,6 +550,7 @@ export function EsimCheckoutClient({
                     onChange={(e) => {
                       setCheckDeviceUnlocked(e.target.checked);
                       saveFormState({ checkDeviceUnlocked: e.target.checked });
+                      if (e.target.checked) clearError("checkDeviceUnlocked");
                     }}
                     className="mt-1 size-4 rounded border-gray-300 text-[#C9A227] focus:ring-[#C9A227]"
                   />
@@ -503,6 +576,7 @@ export function EsimCheckoutClient({
                     onChange={(e) => {
                       setCheckDataOnlyRefund(e.target.checked);
                       saveFormState({ checkDataOnlyRefund: e.target.checked });
+                      if (e.target.checked) clearError("checkDataOnlyRefund");
                     }}
                     className="mt-1 size-4 rounded border-gray-300 text-[#C9A227] focus:ring-[#C9A227]"
                   />
@@ -528,6 +602,7 @@ export function EsimCheckoutClient({
                     onChange={(e) => {
                       setCheckTermsPrivacy(e.target.checked);
                       saveFormState({ checkTermsPrivacy: e.target.checked });
+                      if (e.target.checked) clearError("checkTermsPrivacy");
                     }}
                     className="mt-1 size-4 rounded border-gray-300 text-[#C9A227] focus:ring-[#C9A227]"
                   />

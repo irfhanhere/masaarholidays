@@ -65,6 +65,31 @@ export default async function HotelsPage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <WhatsAppButton templateKey="general">Enquire on WhatsApp</WhatsAppButton>
         </div>
+
+        {/* 3 Trust Badges matching H01 */}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+          <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-white/90 backdrop-blur-xs p-3 shadow-xs">
+            <span className="text-lg">🏨</span>
+            <div>
+              <span className="text-xs font-bold text-masaar-black block">Trusted Hotels</span>
+              <span className="text-[10px] text-masaar-black/60">Near the Haram</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-white/90 backdrop-blur-xs p-3 shadow-xs">
+            <span className="text-lg">👨‍👩‍👧‍👦</span>
+            <div>
+              <span className="text-xs font-bold text-masaar-black block">For Families</span>
+              <span className="text-[10px] text-masaar-black/60">&amp; Groups</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-xl border border-black/10 bg-white/90 backdrop-blur-xs p-3 shadow-xs">
+            <span className="text-lg">🛡️</span>
+            <div>
+              <span className="text-xs font-bold text-masaar-black block">Verified Info</span>
+              <span className="text-[10px] text-masaar-black/60">Ground Surveyed</span>
+            </div>
+          </div>
+        </div>
       </Hero>
 
       <section className="py-16">

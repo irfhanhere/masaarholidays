@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
 import { HotelForm } from "../HotelForm";
-import { HotelRoomsManager } from "../HotelRoomsManager";
-import { HotelReviewsManager } from "../HotelReviewsManager";
 import { fetchHotelReviewsForAdmin } from "../review-actions";
 
 export const metadata = { title: "Edit Hotel | Masaar Admin", robots: { index: false } };
@@ -18,23 +15,11 @@ export default async function EditHotelPage({ params }: { params: Promise<{ id: 
   const reviews = await fetchHotelReviewsForAdmin(hotel.slug, hotel.id);
 
   return (
-    <div>
-      <PageHeader
-        title={`Edit ${hotel.name}`}
-        breadcrumb={[{ label: "Dashboard", href: "/admin" }, { label: "Hotels", href: "/admin/hotels" }, { label: "Edit" }]}
-      />
-      <HotelForm hotelId={hotel.id} initial={hotel} />
-      <div className="mt-6">
-        <HotelRoomsManager hotelId={hotel.id} rooms={rooms ?? []} />
-      </div>
-      <div className="mt-6">
-        <HotelReviewsManager
-          hotelId={hotel.id}
-          hotelSlug={hotel.slug}
-          hotelName={hotel.name}
-          initialReviews={reviews}
-        />
-      </div>
-    </div>
+    <HotelForm
+      hotelId={hotel.id}
+      initial={hotel}
+      rooms={rooms ?? []}
+      reviews={reviews ?? []}
+    />
   );
 }
