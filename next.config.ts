@@ -184,6 +184,7 @@ const nextConfig: NextConfig = {
     ];
   },
   experimental: {
+    cpus: process.env.NEXT_CPUS ? parseInt(process.env.NEXT_CPUS, 10) : 4,
     inlineCss: true,
     serverActions: {
       allowedOrigins: [
