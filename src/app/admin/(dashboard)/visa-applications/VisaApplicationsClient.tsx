@@ -24,8 +24,12 @@ import {
   Calendar,
   FileCheck,
 } from "@/components/admin/icons";
+import {
+  updateVisaApplicationStatus,
+  getDocumentSignedUrlAction,
+  retryVisaNotificationAction,
+} from "./actions";
 import type { VisaApplicationRow } from "@/lib/types/database";
-import { updateVisaApplicationStatus, getDocumentSignedUrlAction } from "./actions";
 
 interface ApplicationItem {
   id: string;
@@ -381,6 +385,26 @@ export default function VisaApplicationsClient({
       window.open(res.url, "_blank");
     } else {
       alert("Opening document in preview mode (Demo / Test mode).");
+    }
+  };
+
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetryEmail = async (appId: string) => {
+    setIsRetrying(true);
+    setRetryStatus(null);
+    try {
+      const res = await retryVisaNotificationAction(appId);
+      if (res.success) {
+        setRetryStatus("Customer notification sent successfully.");
+      } else {
+        setRetryStatus(`Failed: ${res.error || "Delivery error"}`);
+      }
+    } catch {
+      setRetryStatus("Failed to retry notification.");
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -808,7 +832,7 @@ export default function VisaApplicationsClient({
             {/* Payment Information */}
             <div className="rounded-xl border border-black/10 p-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                Payment Information
+                Payment & Pricing (5% Online Discount Applied)
               </h4>
               <div className="mt-3 space-y-2 text-xs">
                 <div className="flex justify-between">
@@ -818,13 +842,47 @@ export default function VisaApplicationsClient({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Total Amount</span>
-                  <span className="font-bold text-masaar-black">USD {selectedApp.total_amount}</span>
+                  <span className="text-masaar-black/60">Original Package Price</span>
+                  <span className="text-masaar-black line-through">
+                    USD {(selectedApp.total_amount / 0.95).toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-emerald-700 font-medium">5% Online Discount</span>
+                  <span className="text-emerald-700 font-semibold">
+                    -USD {((selectedApp.total_amount / 0.95) * 0.05).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-black/10 pt-2 font-bold">
+                  <span className="text-masaar-black">Total Charged</span>
+                  <span className="text-masaar-black">USD {selectedApp.total_amount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between pt-1">
                   <span className="text-masaar-black/60">Payment Method</span>
                   <span className="font-medium text-masaar-black">{selectedApp.payment_method}</span>
                 </div>
+              </div>
+
+              {/* Notification Status & Retry */}
+              <div className="mt-4 border-t border-black/10 pt-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-masaar-black">Customer Notification</p>
+                    <p className="text-[10px] text-masaar-black/60">Transactional email log & delivery</p>
+                  </div>
+                  <button
+                    disabled={isRetrying}
+                    onClick={() => handleRetryEmail(selectedApp.id)}
+                    className="rounded bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50 transition"
+                  >
+                    {isRetrying ? "Sending..." : "Retry Email"}
+                  </button>
+                </div>
+                {retryStatus && (
+                  <p className="mt-2 text-[11px] font-medium text-amber-800 bg-amber-50 rounded p-1.5 border border-amber-200">
+                    {retryStatus}
+                  </p>
+                )}
               </div>
             </div>
 

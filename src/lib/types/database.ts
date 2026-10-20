@@ -572,6 +572,23 @@ export type VisaPaymentRowShape = {
   updated_at: string;
 };
 
+export type EmailNotificationRowShape = {
+  id: string;
+  idempotency_key: string;
+  recipient: string;
+  subject: string;
+  template_type: string;
+  reference_id: string | null;
+  service_type: string | null;
+  status: "sent" | "failed" | "skipped_no_smtp" | "pending";
+  attempt_count: number;
+  error_message: string | null;
+  metadata: Record<string, any> | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 /** Singleton row (id always 1) — admin-editable copy for the /visa landing page's Important Information + bottom CTA section, same pattern as WhatsAppSettingsRow. */
 type VisaLandingContentRowShape = {
   id: number;
@@ -1129,6 +1146,7 @@ export interface Database {
       visa_applicants: Table<VisaApplicantRowShape, "application_id" | "full_name" | "passport_number">;
       visa_application_documents: Table<VisaApplicationDocumentRowShape, "application_id" | "document_type" | "file_path" | "file_name">;
       visa_payments: Table<VisaPaymentRowShape, "application_id" | "transaction_reference" | "amount">;
+      email_notifications: Table<EmailNotificationRowShape, "idempotency_key" | "recipient" | "subject" | "template_type">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -1167,6 +1185,7 @@ export type VisaApplicationRow = Database["public"]["Tables"]["visa_applications
 export type VisaApplicantRow = Database["public"]["Tables"]["visa_applicants"]["Row"];
 export type VisaApplicationDocumentRow = Database["public"]["Tables"]["visa_application_documents"]["Row"];
 export type VisaPaymentRow = Database["public"]["Tables"]["visa_payments"]["Row"];
+export type EmailNotificationRow = Database["public"]["Tables"]["email_notifications"]["Row"];
 export type VisaDocumentContextRow =
   Database["public"]["Tables"]["visa_document_contexts"]["Row"];
 export type VisaDocumentRow = Database["public"]["Tables"]["visa_documents"]["Row"];

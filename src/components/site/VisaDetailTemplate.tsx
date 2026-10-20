@@ -477,12 +477,31 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
                         </p>
                       )}
 
-                      <div className="mt-4 flex items-baseline gap-1 border-b border-black/5 pb-4">
-                        <span className="text-xs font-semibold text-masaar-black/60">USD</span>
-                        <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black sm:text-4xl">
-                          {product.total_usd}
-                        </span>
-                      </div>
+                      {/* Price Section with 5% Discount */}
+                      {(() => {
+                        const originalPrice = product.total_usd;
+                        const discount = Math.round(originalPrice * 0.05 * 100) / 100;
+                        const discountedPrice = Math.round((originalPrice - discount) * 100) / 100;
+
+                        return (
+                          <div className="mt-4 border-b border-black/5 pb-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-masaar-black/50 line-through">
+                                USD {originalPrice}
+                              </span>
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                                Save 5%
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-baseline gap-1">
+                              <span className="text-xs font-semibold text-masaar-black/60">USD</span>
+                              <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black sm:text-4xl">
+                                {discountedPrice}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Checklist */}
                       <ul className="mt-4 space-y-2.5 text-xs text-masaar-black/80">

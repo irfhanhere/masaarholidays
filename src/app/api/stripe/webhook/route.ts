@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { fulfilEsimOrder } from "@/lib/esim-fulfilment";
 import { fulfilTransferBooking } from "@/lib/transfer-fulfilment";
+import { sendVisaPaymentAndSubmissionEmails, sendRefundNotification } from "@/lib/email/service";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -194,6 +195,15 @@ export async function POST(request: NextRequest) {
             } catch (payInsertErr) {
               console.warn("[stripe-webhook] Error recording visa payment ledger:", payInsertErr);
             }
+
+            // Dispatch transactional customer confirmation & staff alert emails asynchronously
+            after(async () => {
+              try {
+                await sendVisaPaymentAndSubmissionEmails(application.id);
+              } catch (emailErr: unknown) {
+                console.error("[stripe-webhook] Error dispatching visa confirmation emails:", emailErr);
+              }
+            });
           }
           break;
         }
@@ -326,6 +336,83 @@ export async function POST(request: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", order.id);
+        }
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+        const paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+        const refundAmount = (charge.amount_refunded ?? 0) / 100;
+        const currency = (charge.currency || "usd").toUpperCase();
+
+        if (paymentIntentId) {
+          // 1. Check Visa applications
+          const { data: visaApp } = await supabase
+            .from("visa_applications")
+            .select("id, reference_no, primary_contact_name, primary_contact_email, product_title")
+            .eq("stripe_payment_intent_id", paymentIntentId)
+            .maybeSingle();
+
+          if (visaApp) {
+            await supabase
+              .from("visa_applications")
+              .update({
+                payment_status: "refunded",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", visaApp.id);
+
+            after(async () => {
+              try {
+                await sendRefundNotification({
+                  serviceType: "visa",
+                  referenceNo: visaApp.reference_no,
+                  customerName: visaApp.primary_contact_name,
+                  customerEmail: visaApp.primary_contact_email,
+                  serviceName: `${visaApp.product_title} Visa`,
+                  refundAmount,
+                  currency,
+                });
+              } catch (e) {
+                console.error("[stripe-webhook] Error sending visa refund email:", e);
+              }
+            });
+          }
+
+          // 2. Check Transfer bookings
+          const { data: trfBooking } = await supabase
+            .from("transfer_bookings")
+            .select("id, booking_ref, customer_name, customer_email, route_name")
+            .eq("stripe_payment_intent", paymentIntentId)
+            .maybeSingle();
+
+          if (trfBooking) {
+            await supabase
+              .from("transfer_bookings")
+              .update({
+                payment_status: "refunded",
+                booking_status: "cancelled",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", trfBooking.id);
+
+            after(async () => {
+              try {
+                await sendRefundNotification({
+                  serviceType: "transport",
+                  referenceNo: trfBooking.booking_ref,
+                  customerName: trfBooking.customer_name,
+                  customerEmail: trfBooking.customer_email,
+                  serviceName: trfBooking.route_name,
+                  refundAmount,
+                  currency,
+                });
+              } catch (e) {
+                console.error("[stripe-webhook] Error sending transfer refund email:", e);
+              }
+            });
+          }
         }
         break;
       }

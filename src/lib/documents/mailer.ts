@@ -64,20 +64,24 @@ export async function sendDocumentEmail(input: SendDocumentEmailInput): Promise<
     );
   }
 
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const isSecure = port === 465;
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const isSecure = process.env.SMTP_SECURE === "true" || port === 465;
 
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: process.env.SMTP_HOST || "smtp.hostinger.com",
     port,
-    secure: isSecure, // true when SMTP_PORT is 465, STARTTLS otherwise
+    secure: isSecure, // true for port 465 Hostinger SSL/TLS
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
   });
 
   const fromAddress = getMasaarFromAddress();
+  const fromName = process.env.MAIL_FROM_NAME || "Masaar Holidays";
   const formattedFrom = fromAddress.includes("<")
     ? fromAddress
-    : `Masaar Holidays <${fromAddress}>`;
+    : `"${fromName}" <${fromAddress}>`;
 
   const to = Array.isArray(input.to) ? input.to.join(", ") : input.to;
   const cc = Array.isArray(input.cc) ? input.cc.join(", ") : input.cc;

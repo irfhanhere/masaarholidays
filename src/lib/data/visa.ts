@@ -334,23 +334,41 @@ export async function getVisaProductById(productId: string): Promise<VisaProduct
 
 /**
  * Server-side trusted price calculation. Never trusts client-supplied sums.
+ * Applies central 5% price reduction rule to customer-facing visa package price.
  */
 export function calculateVisaPricing(product: VisaProductRow, applicantCount: number) {
   const count = Math.max(1, applicantCount);
   const visaFeeTotal = product.visa_fee_usd * count;
   const serviceFeeTotal = product.service_fee_usd * count;
   const processingFeeTotal = product.processing_fee_usd * count;
-  const totalAmount = visaFeeTotal + serviceFeeTotal + processingFeeTotal;
+
+  const originalSubtotal = visaFeeTotal + serviceFeeTotal + processingFeeTotal;
+  const originalTotalPerPerson = product.total_usd;
+
+  // 5% reduction on Visa service package
+  const discountRate = 0.05;
+  const discountAmount = Math.round(originalSubtotal * discountRate * 100) / 100;
+  const totalAmount = Math.round((originalSubtotal - discountAmount) * 100) / 100;
+
+  const discountPerPerson = Math.round(originalTotalPerPerson * discountRate * 100) / 100;
+  const discountedTotalPerPerson = Math.round((originalTotalPerPerson - discountPerPerson) * 100) / 100;
 
   return {
     applicantCount: count,
     visaFeePerPerson: product.visa_fee_usd,
     serviceFeePerPerson: product.service_fee_usd,
     processingFeePerPerson: product.processing_fee_usd,
-    totalPerPerson: product.total_usd,
+    originalTotalPerPerson,
+    discountPerPerson,
+    discountedTotalPerPerson,
+    totalPerPerson: discountedTotalPerPerson,
     visaFeeTotal,
     serviceFeeTotal,
     processingFeeTotal,
+    subtotalAmount: originalSubtotal,
+    originalTotalAmount: originalSubtotal,
+    discountAmount,
+    discountPercent: 5,
     totalAmount,
     currency: product.currency || "USD",
   };

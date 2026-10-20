@@ -131,7 +131,16 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
   const visaFeeTotal = (selectedProduct?.visa_fee_usd || 80) * count;
   const serviceFeeTotal = (selectedProduct?.service_fee_usd || 20) * count;
   const processingFeeTotal = (selectedProduct?.processing_fee_usd || 10) * count;
-  const totalAmount = visaFeeTotal + serviceFeeTotal + processingFeeTotal;
+  const subtotalAmount = visaFeeTotal + serviceFeeTotal + processingFeeTotal;
+
+  // 5% reduction on customer-facing price
+  const discountRate = 0.05;
+  const discountAmount = Math.round(subtotalAmount * discountRate * 100) / 100;
+  const totalAmount = Math.round((subtotalAmount - discountAmount) * 100) / 100;
+
+  const originalPerPerson = selectedProduct?.total_usd || Math.round(subtotalAmount / count);
+  const discountPerPerson = Math.round(originalPerPerson * discountRate * 100) / 100;
+  const discountedPerPerson = Math.round((originalPerPerson - discountPerPerson) * 100) / 100;
 
   // File upload handler
   const handleFileUpload = async (documentType: string, title: string, file: File) => {
@@ -590,13 +599,27 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                             )}
                           </div>
 
-                          <div className="mt-3 flex items-baseline gap-1">
-                            <span className="text-[11px] text-masaar-black/60">USD</span>
-                            <span className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
-                              {p.total_usd}
-                            </span>
-                            <span className="text-[10px] text-masaar-black/50">/ person</span>
-                          </div>
+                          {(() => {
+                            const pDisc = Math.round(p.total_usd * 0.05 * 100) / 100;
+                            const pNet = Math.round((p.total_usd - pDisc) * 100) / 100;
+                            return (
+                              <div className="mt-3">
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <span className="text-masaar-black/40 line-through">USD {p.total_usd}</span>
+                                  <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-200">
+                                    Save 5%
+                                  </span>
+                                </div>
+                                <div className="mt-0.5 flex items-baseline gap-1">
+                                  <span className="text-[11px] text-masaar-black/60">USD</span>
+                                  <span className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                                    {pNet}
+                                  </span>
+                                  <span className="text-[10px] text-masaar-black/50">/ person</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           <ul className="mt-3 space-y-1 text-[11px] text-masaar-black/75">
                             {p.inclusions.slice(0, 3).map((inc, i) => (
@@ -1029,9 +1052,15 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                       <p className="font-semibold text-masaar-black">{selectedProduct?.title}</p>
                       <p className="text-masaar-black/60">{selectedProduct?.duration} · {selectedProduct?.entry_type} Entry</p>
                     </div>
-                    <p className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
-                      USD {selectedProduct?.total_usd} / person
-                    </p>
+                    <div className="text-right">
+                      <div className="flex items-center justify-end gap-1.5 text-[10px]">
+                        <span className="text-masaar-black/40 line-through">USD {originalPerPerson}</span>
+                        <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700">Save 5%</span>
+                      </div>
+                      <p className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+                        USD {discountedPerPerson} / person
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -1293,6 +1322,14 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                 <div className="flex justify-between text-masaar-black/70">
                   <span>Processing Fee</span>
                   <span>USD {processingFeeTotal}</span>
+                </div>
+                <div className="flex justify-between text-masaar-black/60 border-t border-black/5 pt-2">
+                  <span>Subtotal</span>
+                  <span>USD {subtotalAmount}</span>
+                </div>
+                <div className="flex justify-between font-medium text-emerald-700">
+                  <span>5% Online Discount</span>
+                  <span>-USD {discountAmount}</span>
                 </div>
                 <div className="flex justify-between border-t border-black/10 pt-3 text-sm font-bold text-masaar-black">
                   <span>Total Amount</span>

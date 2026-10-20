@@ -175,6 +175,9 @@ export async function POST(request: NextRequest) {
           visa_fee: pricing.visaFeeTotal,
           service_fee: pricing.serviceFeeTotal,
           processing_fee: pricing.processingFeeTotal,
+          subtotal: pricing.subtotalAmount,
+          discount_amount: pricing.discountAmount,
+          discount_percent: pricing.discountPercent,
           total: pricing.totalAmount,
           currency: pricing.currency,
         },
@@ -249,8 +252,8 @@ export async function POST(request: NextRequest) {
   const successUrl = `${siteOrigin}/visa/application/${trackingToken}?session_id={CHECKOUT_SESSION_ID}&paid=1`;
   const cancelUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&cancelled=1`;
 
-  const itemTitle = `${product.title} (${pricing.applicantCount} Traveller${pricing.applicantCount > 1 ? "s" : ""})`;
-  const itemDescription = `${product.subtitle || visaSlug.toUpperCase() + " Visa"} · Reference: ${referenceNo}`;
+  const discountNote = pricing.discountAmount > 0 ? ` · Includes 5% Online Discount (-$${pricing.discountAmount.toFixed(2)})` : "";
+  const itemDescription = `${product.subtitle || visaSlug.toUpperCase() + " Visa"} · Reference: ${referenceNo}${discountNote}`;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -273,7 +276,7 @@ export async function POST(request: NextRequest) {
             currency: "usd",
             unit_amount: chargedAmountMinor,
             product_data: {
-              name: `Masaar Holidays: ${itemTitle}`,
+              name: `Masaar Holidays: ${product.title}`,
               description: itemDescription,
             },
           },
