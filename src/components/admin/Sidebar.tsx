@@ -31,34 +31,44 @@ export function Sidebar({ userEmail }: { userEmail: string | null }) {
               </p>
             )}
             <ul className={group.title ? "mt-2 space-y-0.5" : "space-y-0.5"}>
-              {group.items.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive(item.href)
-                        ? "bg-admin-ink-active text-white"
-                        : "text-white/75 hover:bg-white/5 hover:text-white"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                  {item.children && isActive(item.href) && (
-                    <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-white/10 pl-3">
-                      {item.children.map((child) => (
-                        <li key={child.href}>
-                          <Link
-                            href={child.href}
-                            className="block rounded-md px-2 py-1.5 text-xs text-white/60 hover:text-white"
-                          >
-                            {child.label}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
+              {group.items.map((item) => {
+                const parentActive = isActive(item.href) || !!item.children?.some((c) => isActive(c.href));
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        parentActive
+                          ? "bg-admin-ink-active text-white"
+                          : "text-white/75 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                    {item.children && parentActive && (
+                      <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-white/10 pl-3">
+                        {item.children.map((child) => {
+                          const childActive = isActive(child.href);
+                          return (
+                            <li key={child.href}>
+                              <Link
+                                href={child.href}
+                                className={`block rounded-md px-2 py-1.5 text-xs transition-colors ${
+                                  childActive
+                                    ? "bg-white/15 text-white font-semibold"
+                                    : "text-white/60 hover:text-white"
+                                }`}
+                              >
+                                {child.label}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}

@@ -381,16 +381,73 @@ export async function getVisaTypeBySlug(
     .eq("is_active", true)
     .maybeSingle();
   if (visaTypeError || !visaType) {
+    if (slug === "us") {
+      const usFallback: VisaTypeRow = {
+        id: "us-visa-type",
+        slug: "us",
+        name: "US Visa",
+        description: "B1/B2 visitor visa assistance with guided application, document check, and appointment preparation.",
+        audience_text: "Travellers seeking tourist, business, or visitor visas to the United States.",
+        hero_headline: "Apply for Your US Visa Online",
+        hero_intro: "Get expert assistance for your US visa with guided DS-160 application, document verification, and interview preparation support.",
+        hero_image_url: "/trips/package-detail-hero-3.webp",
+        features: [
+          { icon_key: "document", label: "DS-160 Application Support" },
+          { icon_key: "clock", label: "Appointment Scheduling" },
+          { icon_key: "shield", label: "Document Verification" },
+          { icon_key: "headset", label: "Interview Preparation" },
+        ],
+        benefits: [
+          { title: "Complete Form Assistance", description: "Step-by-step guidance on DS-160 submission to prevent common errors." },
+          { title: "Expedited Slot Monitoring", description: "Guidance on earliest available appointment slots at US embassies." },
+        ],
+        documents_intro: "Prepare the following documents for your US visa application and interview appointment.",
+        important_info_text: "US visa issuance is entirely at the discretion of the US Department of State and consular officers. Masaar Holidays provides expert documentation and advisory support, but cannot guarantee appointment slots or visa issuance.",
+        who_needs_this: ["Tourism and holiday visitors", "Business attendees and delegates", "Family visits and medical treatment"],
+        cta_note: "Our team is available to assist you throughout the application and interview preparation process.",
+        meta_title: "US Visa Assistance | Masaar Holidays",
+        service_mode: "online",
+        category: "United States",
+        price_range: "USD 160 - 250",
+        display_order: 3,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      return { visaType: usFallback, documents: [] };
+    }
     if (visaTypeError) console.error("getVisaTypeBySlug", visaTypeError.message);
     return null;
   }
+
+  // Ensure service_mode is populated
+  const resolvedServiceMode =
+    visaType.service_mode ||
+    (["uae", "saudi-tourist", "us"].includes(visaType.slug) ? "online" : "enquiry");
+
+  const enrichedVisaType: VisaTypeRow = {
+    ...visaType,
+    service_mode: resolvedServiceMode,
+    category:
+      visaType.category ||
+      (visaType.slug === "uae"
+        ? "UAE"
+        : visaType.slug === "saudi-tourist" || visaType.slug === "umrah"
+        ? "Saudi Arabia"
+        : visaType.slug === "us"
+        ? "United States"
+        : visaType.slug === "india"
+        ? "India"
+        : "Global"),
+  };
+
   const { data: documents, error: documentsError } = await supabase
     .from("visa_documents")
     .select("*")
     .eq("visa_type_id", visaType.id)
     .order("display_order", { ascending: true });
   if (documentsError) console.error("getVisaTypeBySlug documents", documentsError.message);
-  return { visaType, documents: documents ?? [] };
+  return { visaType: enrichedVisaType, documents: documents ?? [] };
 }
 
 /** Singleton row — the /visa landing page's Important Information + CTA copy, admin-editable from Admin → Visa Types → Edit Landing Page Content. Returns null when unset; callers fall back to generic copy. */

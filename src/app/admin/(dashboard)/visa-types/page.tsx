@@ -1,84 +1,57 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { Badge, EmptyRow, PageHeader, PrimaryButton, SecondaryButton } from "@/components/admin/ui";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { VisaTypeRow } from "@/lib/types/database";
-import { deleteVisaType, toggleVisaTypeActive } from "./actions";
+import { VisaServicesManager } from "./VisaServicesManager";
 
-export const metadata: Metadata = { title: "Visa Types | Masaar Admin", robots: { index: false } };
+export const metadata: Metadata = {
+  title: "Visa Services | Masaar Admin",
+  robots: { index: false },
+};
 
 async function getVisaTypes(): Promise<VisaTypeRow[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
-  const { data } = await supabase.from("visa_types").select("*").order("display_order", { ascending: true });
-  return data ?? [];
+  const { data } = await supabase
+    .from("visa_types")
+    .select("*")
+    .order("display_order", { ascending: true });
+
+  const list = data ?? [];
+
+  // Ensure US Visa appears in admin if not yet in database
+  if (!list.some((v) => v.slug === "us")) {
+    list.push({
+      id: "us-visa-type",
+      slug: "us",
+      name: "US Visa",
+      service_mode: "online",
+      category: "United States",
+      price_range: "USD 160 – 250",
+      description: "B1/B2 visitor visa assistance with guided application and interview preparation.",
+      audience_text: "Travellers seeking tourist, business, or visitor visas to the United States.",
+      hero_headline: "Apply for Your US Visa Online",
+      hero_intro: "Get expert assistance for your US visa with guided DS-160 application, document verification, and interview preparation support.",
+      hero_image_url: "/trips/package-detail-hero-3.webp",
+      features: [],
+      benefits: [],
+      documents_intro: null,
+      important_info_text: null,
+      who_needs_this: [],
+      cta_note: null,
+      meta_title: "US Visa | Masaar Holidays",
+      display_order: 3,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  return list;
 }
 
 export default async function AdminVisaTypesPage() {
   const visaTypes = await getVisaTypes();
 
-  return (
-    <div>
-      <PageHeader
-        title="Visa Types"
-        description="The 6 visa detail pages under /visa/[slug] — one shared template, different content per type."
-        breadcrumb={[{ label: "Dashboard", href: "/admin" }, { label: "Visa Types" }]}
-        actions={
-          <>
-            <Link href="/admin/visa-types/landing">
-              <SecondaryButton>Edit Landing Page Content</SecondaryButton>
-            </Link>
-            <Link href="/admin/visa-types/new">
-              <PrimaryButton>+ Add Visa Type</PrimaryButton>
-            </Link>
-          </>
-        }
-      />
-
-      <div className="overflow-x-auto rounded-lg border border-black/10 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-black/10 bg-admin-surface text-xs uppercase text-masaar-black/50">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Slug</th>
-              <th className="px-4 py-3">Order</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-black/5">
-            {visaTypes.length === 0 && <EmptyRow colSpan={5}>No visa types yet.</EmptyRow>}
-            {visaTypes.map((visa) => (
-              <tr key={visa.id}>
-                <td className="px-4 py-3 font-medium text-masaar-black">{visa.name}</td>
-                <td className="px-4 py-3 font-mono text-xs text-masaar-black/60">/visa/{visa.slug}</td>
-                <td className="px-4 py-3 text-masaar-black/70">{visa.display_order}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={visa.is_active ? "green" : "gray"}>{visa.is_active ? "Active" : "Inactive"}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/admin/visa-types/${visa.id}`} className="text-sm font-medium text-admin-primary">
-                      Edit
-                    </Link>
-                    <form action={toggleVisaTypeActive.bind(null, visa.id, !visa.is_active)}>
-                      <button type="submit" className="text-sm text-masaar-black/60 underline">
-                        {visa.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                    </form>
-                    <form action={deleteVisaType.bind(null, visa.id)}>
-                      <button type="submit" className="text-sm text-red-600 underline">
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <VisaServicesManager initialVisaTypes={visaTypes} />;
 }

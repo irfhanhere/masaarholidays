@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, Field, PrimaryButton, SecondaryButton, inputClass } from "@/components/admin/ui";
 import type { VisaTypeRow } from "@/lib/types/database";
 import { saveVisaType, type VisaTypeFormState } from "./actions";
@@ -54,17 +55,42 @@ export function VisaTypeForm({ visaTypeId, initial }: { visaTypeId?: string; ini
           <Field label="Display Order" hint="Position on the /visa landing page grid — lower shows first.">
             <input type="number" name="display_order" defaultValue={initial?.display_order ?? 0} className={inputClass} />
           </Field>
+          <Field label="Visa Category" hint='Category badge e.g. "UAE", "Saudi Arabia", "United States", "Global", "India"'>
+            <input name="category" defaultValue={initial?.category ?? (initial?.slug === "uae" ? "UAE" : initial?.slug === "saudi-tourist" ? "Saudi Arabia" : initial?.slug === "us" ? "United States" : "General")} className={inputClass} />
+          </Field>
+          <Field label="Service Mode" hint="Online application with Stripe checkout vs enquiry on WhatsApp">
+            <select
+              name="service_mode"
+              defaultValue={initial?.service_mode ?? (["uae", "saudi-tourist", "us"].includes(initial?.slug || "") ? "online" : "enquiry")}
+              className={inputClass}
+            >
+              <option value="online">Online Application & Payment</option>
+              <option value="enquiry">Enquiry Based</option>
+            </select>
+          </Field>
+          <Field label="Price Range / Badge" hint='Displayed on listing card e.g. "USD 90 - 140" or "On Request"'>
+            <input name="price_range" defaultValue={initial?.price_range ?? ""} placeholder="e.g. USD 90 – 140" className={inputClass} />
+          </Field>
         </div>
         <div className="mt-4">
           <Field label="Audience Text" hint="Optional short 'who it's for' note.">
             <input name="audience_text" defaultValue={initial?.audience_text ?? ""} className={inputClass} />
           </Field>
         </div>
-        <div className="mt-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="is_active" defaultChecked={initial?.is_active ?? true} />
+        <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4">
+          <label className="flex items-center gap-2 text-sm font-semibold text-masaar-black">
+            <input type="checkbox" name="is_active" defaultChecked={initial?.is_active ?? true} className="rounded text-pure-gold" />
             Active (visible on /visa and reachable at /visa/[slug])
           </label>
+          {initial?.slug && (
+            <Link
+              href={`/visa/${initial.slug}`}
+              target="_blank"
+              className="text-xs font-semibold text-deep-gold hover:underline"
+            >
+              Preview Public Page ↗
+            </Link>
+          )}
         </div>
       </Card>
 

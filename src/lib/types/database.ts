@@ -433,9 +433,141 @@ type VisaTypeRowShape = {
   cta_note: string | null;
   /** Falls back to "{name} | Masaar Holidays" when unset. */
   meta_title: string | null;
-  meta_description: string | null;
+  meta_description?: string | null;
+  service_mode?: "online" | "enquiry";
+  category?: string;
+  price_range?: string | null;
   display_order: number;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VisaProductRowShape = {
+  id: string;
+  visa_type_slug: string;
+  title: string;
+  subtitle: string | null;
+  duration: string;
+  entry_type: string;
+  visa_fee_usd: number;
+  service_fee_usd: number;
+  processing_fee_usd: number;
+  total_usd: number;
+  currency: string;
+  validity_days: string | null;
+  processing_time: string | null;
+  is_popular: boolean;
+  is_active: boolean;
+  display_order: number;
+  inclusions: string[];
+  exclusions: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type VisaApplicationStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "documents_required"
+  | "submitted_to_authorities"
+  | "approved"
+  | "rejected"
+  | "delivered";
+
+export type VisaPaymentStatus = "pending" | "paid" | "failed" | "refunded";
+
+export type VisaApplicationRowShape = {
+  id: string;
+  reference_no: string;
+  tracking_token: string;
+  visa_type_slug: string;
+  product_id: string | null;
+  product_title: string;
+  applicant_count: number;
+  primary_contact_name: string;
+  primary_contact_email: string;
+  primary_contact_phone: string;
+  nationality: string;
+  country_of_residence: string;
+  travel_date: string | null;
+  purpose_of_visit: string | null;
+  duration_of_stay: string | null;
+  residential_address: Record<string, string> | null;
+  fee_breakdown: {
+    visa_fee?: number;
+    service_fee?: number;
+    processing_fee?: number;
+    total?: number;
+    currency?: string;
+  } | null;
+  total_amount: number;
+  currency: string;
+  payment_status: VisaPaymentStatus;
+  payment_method: string | null;
+  stripe_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  application_status: VisaApplicationStatus;
+  status_timeline: Array<{
+    step: string;
+    timestamp: string;
+    status: "completed" | "in_progress" | "pending";
+    note?: string;
+  }>;
+  assigned_reviewer: string | null;
+  internal_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VisaApplicantRowShape = {
+  id: string;
+  application_id: string;
+  applicant_number: number;
+  full_name: string;
+  date_of_birth: string;
+  gender: string;
+  nationality: string;
+  country_of_residence: string;
+  passport_number: string;
+  passport_issue_date: string;
+  passport_expiry_date: string;
+  place_of_issue: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VisaApplicationDocumentRowShape = {
+  id: string;
+  application_id: string;
+  applicant_id: string | null;
+  document_type: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  verification_status: "pending" | "verified" | "rejected";
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VisaPaymentRowShape = {
+  id: string;
+  application_id: string;
+  transaction_reference: string;
+  stripe_session_id: string | null;
+  amount: number;
+  currency: string;
+  payment_method: string | null;
+  payment_status: VisaPaymentStatus;
+  gateway: string;
+  gateway_payment_id: string | null;
+  refund_status: string | null;
+  refund_amount: number | null;
+  refund_date: string | null;
+  idempotency_key: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -758,6 +890,19 @@ type AdminMfaBackupCodeRowShape = {
   created_at: string;
 };
 
+export type AdminAuditLogRowShape = {
+  id: string;
+  admin_user_id: string | null;
+  admin_email: string;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  details: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
 export type EsimPlanRowShape = {
   plan_id: string;
   plan_kind: string;
@@ -960,6 +1105,7 @@ export interface Database {
       package_inclusions_catalog: Table<PackageInclusionCatalogRowShape, "name">;
       package_addons_catalog: Table<PackageAddonCatalogRowShape, "name" | "key_slug">;
       admin_mfa_backup_codes: Table<AdminMfaBackupCodeRowShape, "user_id" | "code_hash">;
+      admin_audit_logs: Table<AdminAuditLogRowShape, "admin_email" | "action" | "resource_type">;
       documents: Table<DocumentRowShape, "document_type" | "document_number" | "client_name">;
       document_items: Table<DocumentItemRowShape, "document_id" | "description">;
       document_versions: Table<DocumentVersionRowShape, "document_id" | "version_number" | "status_at_version" | "snapshot">;
@@ -978,6 +1124,11 @@ export interface Database {
         TransferBookingRowShape,
         "booking_ref" | "customer_name" | "customer_email" | "customer_phone" | "route_slug" | "route_name" | "pickup_location" | "dropoff_location" | "vehicle_id" | "vehicle_name" | "travel_date" | "pickup_time" | "price_aed" | "charged_amount_minor"
       >;
+      visa_products: Table<VisaProductRowShape, "visa_type_slug" | "title" | "duration" | "entry_type" | "total_usd">;
+      visa_applications: Table<VisaApplicationRowShape, "reference_no" | "tracking_token" | "visa_type_slug" | "product_title" | "primary_contact_name" | "primary_contact_email" | "primary_contact_phone" | "total_amount">;
+      visa_applicants: Table<VisaApplicantRowShape, "application_id" | "full_name" | "passport_number">;
+      visa_application_documents: Table<VisaApplicationDocumentRowShape, "application_id" | "document_type" | "file_path" | "file_name">;
+      visa_payments: Table<VisaPaymentRowShape, "application_id" | "transaction_reference" | "amount">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -1011,6 +1162,11 @@ export type TestimonialRow = Database["public"]["Tables"]["testimonials"]["Row"]
 export type EnquiryRow = Database["public"]["Tables"]["enquiries"]["Row"];
 export type CurrencyRateRow = Database["public"]["Tables"]["currency_rates"]["Row"];
 export type VisaTypeRow = Database["public"]["Tables"]["visa_types"]["Row"];
+export type VisaProductRow = Database["public"]["Tables"]["visa_products"]["Row"];
+export type VisaApplicationRow = Database["public"]["Tables"]["visa_applications"]["Row"];
+export type VisaApplicantRow = Database["public"]["Tables"]["visa_applicants"]["Row"];
+export type VisaApplicationDocumentRow = Database["public"]["Tables"]["visa_application_documents"]["Row"];
+export type VisaPaymentRow = Database["public"]["Tables"]["visa_payments"]["Row"];
 export type VisaDocumentContextRow =
   Database["public"]["Tables"]["visa_document_contexts"]["Row"];
 export type VisaDocumentRow = Database["public"]["Tables"]["visa_documents"]["Row"];

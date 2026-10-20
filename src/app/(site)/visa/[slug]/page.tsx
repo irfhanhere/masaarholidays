@@ -32,6 +32,8 @@ export async function generateMetadata({
  * active visa_types row, same is_active-gated pattern as
  * /umrah/departures/[slug].
  */
+import { getPublicVisaProducts } from "@/lib/data/visa";
+
 export default async function VisaTypeDetailPage({
   params,
 }: {
@@ -41,5 +43,13 @@ export default async function VisaTypeDetailPage({
   const result = await getVisaTypeBySlug(slug);
   if (!result) notFound();
 
-  return <VisaDetailTemplate visaType={result.visaType} documents={result.documents} />;
+  const products = await getPublicVisaProducts(slug);
+
+  return (
+    <VisaDetailTemplate
+      visaType={result.visaType}
+      documents={result.documents}
+      products={products}
+    />
+  );
 }

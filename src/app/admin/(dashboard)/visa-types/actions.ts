@@ -95,6 +95,9 @@ export async function saveVisaType(
     cta_note: textField("cta_note"),
     meta_title: textField("meta_title"),
     meta_description: textField("meta_description"),
+    service_mode: (String(formData.get("service_mode") ?? "enquiry").trim() as "online" | "enquiry"),
+    category: String(formData.get("category") ?? "General").trim(),
+    price_range: textField("price_range"),
     display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
     is_active: isActive,
   };

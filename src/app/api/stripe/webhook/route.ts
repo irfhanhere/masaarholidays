@@ -129,7 +129,76 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // 2. Handle eSIM order payment
+        // 2. Handle Visa application payment
+        if (session.metadata?.type === "visa" || session.metadata?.reference_no?.startsWith("MH-")) {
+          const applicationId = (session.metadata?.application_id as string) || session.client_reference_id;
+          let visaQuery = supabase.from("visa_applications").select("*");
+          if (applicationId) {
+            visaQuery = visaQuery.eq("id", applicationId);
+          } else if (session.id) {
+            visaQuery = visaQuery.eq("stripe_session_id", session.id);
+          }
+
+          const { data: application, error: appErr } = await visaQuery.maybeSingle();
+          if (appErr) {
+            console.warn(`[stripe-webhook] Error querying visa_applications for session ${session.id}:`, appErr.message);
+          }
+
+          if (application && session.payment_status === "paid") {
+            const paymentIntentId =
+              typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+            const existingTimeline = Array.isArray(application.status_timeline) ? application.status_timeline : [];
+            const updatedTimeline: Array<{
+              step: string;
+              timestamp: string;
+              status: "completed" | "in_progress" | "pending";
+              note?: string;
+            }> = existingTimeline.map((item: any) => {
+              if (item.step === "payment_received") {
+                return { ...item, status: "completed" as const, timestamp: new Date().toISOString() };
+              }
+              if (item.step === "application_under_review") {
+                return { ...item, status: "in_progress" as const, timestamp: new Date().toISOString() };
+              }
+              const validStatus: "completed" | "in_progress" | "pending" =
+                item.status === "completed" || item.status === "in_progress" ? item.status : "pending";
+              return { ...item, status: validStatus };
+            });
+
+            await supabase
+              .from("visa_applications")
+              .update({
+                payment_status: "paid",
+                application_status: "submitted",
+                stripe_payment_intent_id: paymentIntentId,
+                payment_method: session.payment_method_types?.[0] || "card",
+                status_timeline: updatedTimeline,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", application.id);
+
+            // Record payment in visa_payments
+            try {
+              await supabase.from("visa_payments").insert({
+                application_id: application.id,
+                transaction_reference: paymentIntentId || session.id,
+                stripe_session_id: session.id,
+                amount: (session.amount_total ?? 0) / 100,
+                currency: (session.currency?.toUpperCase() || "USD"),
+                payment_method: session.payment_method_types?.[0] || "card",
+                payment_status: "paid",
+                gateway: "stripe",
+                idempotency_key: `visa_pay_${event.id}`,
+              });
+            } catch (payInsertErr) {
+              console.warn("[stripe-webhook] Error recording visa payment ledger:", payInsertErr);
+            }
+          }
+          break;
+        }
+
+        // 3. Handle eSIM order payment
         const orderId = session.client_reference_id || (session.metadata?.order_id as string);
 
         let query = supabase.from("esim_orders").select("*");
