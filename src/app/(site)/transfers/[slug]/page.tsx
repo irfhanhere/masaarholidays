@@ -26,10 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const transfer = await getPublicTransferBySlug(slug);
 
   if (!transfer || !transfer.is_active) {
-    return {
-      title: "Transfer Route Not Found | Masaar Holidays",
-      robots: { index: false, follow: false },
-    };
+    notFound();
   }
 
   const title =
@@ -63,46 +60,19 @@ export default async function TransferDetailPage({ params }: Props) {
   const catMeta =
     TRANSFER_CATEGORIES[transfer.transfer_type] || TRANSFER_CATEGORIES.other;
 
-  // Structured Data (Breadcrumbs & Service)
+  // Structured Data (Service)
   const jsonLd = {
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "BreadcrumbList",
-        itemListElement: [
-          {
-            "@type": "ListItem",
-            position: 1,
-            name: "Home",
-            item: origin,
-          },
-          {
-            "@type": "ListItem",
-            position: 2,
-            name: "Transfers",
-            item: `${origin}/transfers`,
-          },
-          {
-            "@type": "ListItem",
-            position: 3,
-            name: transfer.route_name,
-            item: `${origin}/transfers/${transfer.slug}`,
-          },
-        ],
-      },
-      {
-        "@type": "Service",
-        name: transfer.route_name,
-        serviceType: "Private Transfer",
-        provider: {
-          "@type": "TravelAgency",
-          name: "Masaar Holidays",
-          url: origin,
-        },
-        description: transfer.description || transfer.longDescriptionText,
-        areaServed: ["Makkah", "Madinah", "Jeddah", "Taif"],
-      },
-    ],
+    "@type": "Service",
+    name: transfer.route_name,
+    serviceType: "Private Transfer",
+    provider: {
+      "@type": "TravelAgency",
+      name: "Masaar Holidays",
+      url: origin,
+    },
+    description: transfer.description || transfer.longDescriptionText,
+    areaServed: ["Makkah", "Madinah", "Jeddah", "Taif"],
   };
 
   // Get other routes for bottom recommendation

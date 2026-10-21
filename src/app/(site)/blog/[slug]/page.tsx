@@ -12,7 +12,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getBlogPostBySlug(slug);
-  if (!post) return buildPageMetadata({ path: `/blog/${slug}`, title: "Article | Masaar Holidays" });
+  if (!post) notFound();
 
   const metadata = await buildPageMetadata({
     path: `/blog/${slug}`,

@@ -28,6 +28,7 @@ import {
 import { HomePrivateTrips } from "@/components/site/HomePrivateTrips";
 import { WhyMasaar } from "@/components/site/WhyMasaar";
 import { buildStaticPageMetadata } from "@/lib/i18n";
+import { getSiteOrigin } from "@/lib/site-url";
 import type { PackageTier } from "@/lib/types/database";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
@@ -87,9 +88,25 @@ export default async function HomePage() {
   ]);
 
   const featuredConfigs = pickFeaturedUmrahConfigs(inventoryConfigs);
+  const origin = getSiteOrigin();
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Masaar Holidays",
+    alternateName: ["Masaar Holidays UAE", "Masaar"],
+    url: origin,
+    inLanguage: "en",
+    description:
+      "Private, family-paced Umrah journeys from the UAE with handpicked hotels, direct transfers, and personal support.",
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
       <Hero
         eyebrow="Masaar Holidays"
         h1="Thoughtfully Planned Umrah Journeys from"

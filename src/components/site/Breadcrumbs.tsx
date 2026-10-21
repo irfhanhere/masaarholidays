@@ -19,7 +19,7 @@ export interface BreadcrumbItem {
 // 'server-only'..."). NEXT_PUBLIC_ vars are safe to read in either
 // context (inlined at build time both ways), so this duplicates
 // getSiteOrigin()'s fallback logic locally instead of sharing it.
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://masaarholidays.com").replace(/\/$/, "");
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.masaarholidays.com").replace(/\/$/, "");
 
 /**
  * Visual breadcrumb trail + matching BreadcrumbList JSON-LD in one place,

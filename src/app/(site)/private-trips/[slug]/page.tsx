@@ -54,10 +54,7 @@ export async function generateMetadata({
   const data = await getPrivateTripBySlug(slug);
 
   if (!data || data.trip.status !== "published") {
-    return buildPageMetadata({
-      path: `/private-trips/${slug}`,
-      title: "Private Trip | Masaar Holidays",
-    });
+    notFound();
   }
 
   const { trip } = data;

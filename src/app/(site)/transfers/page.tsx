@@ -27,38 +27,17 @@ export default async function TransfersPage() {
 
   const jsonLd = {
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "BreadcrumbList",
-        itemListElement: [
-          {
-            "@type": "ListItem",
-            position: 1,
-            name: "Home",
-            item: origin,
-          },
-          {
-            "@type": "ListItem",
-            position: 2,
-            name: "Transfers",
-            item: `${origin}/transfers`,
-          },
-        ],
-      },
-      {
-        "@type": "Service",
-        name: "Private Umrah Transfers",
-        serviceType: "Ground Transportation",
-        provider: {
-          "@type": "TravelAgency",
-          name: "Masaar Holidays",
-          url: origin,
-        },
-        description:
-          "Private transfers across Saudi Arabia including King Abdulaziz Airport (JED), Prince Mohammad Airport (MED), Makkah, Madinah, Haramain High Speed Train, and Taif.",
-        areaServed: ["Jeddah", "Makkah", "Madinah", "Taif"],
-      },
-    ],
+    "@type": "Service",
+    name: "Private Umrah Transfers",
+    serviceType: "Ground Transportation",
+    provider: {
+      "@type": "TravelAgency",
+      name: "Masaar Holidays",
+      url: origin,
+    },
+    description:
+      "Private transfers across Saudi Arabia including King Abdulaziz Airport (JED), Prince Mohammad Airport (MED), Makkah, Madinah, Haramain High Speed Train, and Taif.",
+    areaServed: ["Jeddah", "Makkah", "Madinah", "Taif"],
   };
 
   return (
