@@ -15,9 +15,9 @@ interface ApplicantData {
   nationality: string;
   countryOfResidence: string;
   passportNumber: string;
-  passportIssueDate: string;
+  passportIssueDate?: string;
   passportExpiryDate: string;
-  placeOfIssue: string;
+  placeOfIssue?: string;
 }
 
 interface UploadedDoc {
@@ -61,9 +61,7 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
       nationality: "India",
       countryOfResidence: "United Arab Emirates",
       passportNumber: "",
-      passportIssueDate: "",
       passportExpiryDate: "",
-      placeOfIssue: "",
     },
   ]);
   const [activeApplicantIndex, setActiveApplicantIndex] = useState<number>(0);
@@ -106,9 +104,7 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
           nationality: nationality || "India",
           countryOfResidence: countryOfResidence || "United Arab Emirates",
           passportNumber: "",
-          passportIssueDate: "",
           passportExpiryDate: "",
-          placeOfIssue: "",
         });
       }
       setApplicants(newApplicants);
@@ -226,7 +222,15 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
 
   const validateStep3 = () => {
     if (!uploadedDocuments["passport_front"]) {
-      alert("Please upload at least the Passport First Page copy to proceed.");
+      alert("Please upload your Passport First Page copy to proceed.");
+      return false;
+    }
+    if (!uploadedDocuments["passport_photo"]) {
+      alert("Please upload your Passport Size Photo to proceed.");
+      return false;
+    }
+    if (!uploadedDocuments["passport_address"]) {
+      alert("Please upload your Passport Address Page copy to proceed.");
       return false;
     }
     return true;
@@ -680,7 +684,7 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                     </div>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-masaar-black">
                         Full Name (as per passport) <span className="text-red-500">*</span>
@@ -763,19 +767,6 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
 
                     <div>
                       <label className="block text-xs font-semibold text-masaar-black">
-                        Passport Issue Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={applicants[activeApplicantIndex].passportIssueDate}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "passportIssueDate", e.target.value)}
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
                         Passport Expiry Date <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -783,19 +774,6 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                         required
                         value={applicants[activeApplicantIndex].passportExpiryDate}
                         onChange={(e) => updateApplicantField(activeApplicantIndex, "passportExpiryDate", e.target.value)}
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-3">
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Place of Issue <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={applicants[activeApplicantIndex].placeOfIssue}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "placeOfIssue", e.target.value)}
-                        placeholder="e.g. Dubai / New Delhi / London"
                         className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
                       />
                     </div>
@@ -940,22 +918,10 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                         required: true,
                       },
                       {
-                        key: "travel_details",
-                        title: "3. Confirmed Travel Details",
-                        desc: "Confirmed flight ticket or itinerary showing arrival and departure.",
+                        key: "passport_address",
+                        title: "3. Passport Address Page",
+                        desc: "Clear copy of the passport's address page showing resident address and details.",
                         required: true,
-                      },
-                      {
-                        key: "hotel_booking",
-                        title: "4. Hotel Booking Proof",
-                        desc: "Confirmed accommodation booking for your stay (optional, recommended).",
-                        required: false,
-                      },
-                      {
-                        key: "additional_docs",
-                        title: "5. Additional Documents",
-                        desc: "Any other supporting documents requested for your nationality (optional).",
-                        required: false,
                       },
                     ].map((item) => {
                       const uploaded = uploadedDocuments[item.key];
@@ -1297,7 +1263,11 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
               <div className="mt-4 flex items-center gap-3">
                 <div className="relative size-12 overflow-hidden rounded-lg bg-warm-ivory">
                   <Image
-                    src={visaType.hero_image_url || "/trips/destination-image.webp"}
+                    src={
+                      visaType.slug === "uae"
+                        ? "/brand/banners/uae.webp"
+                        : visaType.hero_image_url || "/trips/destination-image.webp"
+                    }
                     alt={visaType.name}
                     fill
                     className="object-cover"

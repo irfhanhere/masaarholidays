@@ -531,9 +531,9 @@ export type VisaApplicantRowShape = {
   nationality: string;
   country_of_residence: string;
   passport_number: string;
-  passport_issue_date: string;
+  passport_issue_date: string | null;
   passport_expiry_date: string;
-  place_of_issue: string;
+  place_of_issue: string | null;
   created_at: string;
   updated_at: string;
 };

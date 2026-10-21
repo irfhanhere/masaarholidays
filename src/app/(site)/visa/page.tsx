@@ -53,7 +53,7 @@ const VISA_CARDS_CATALOG: VisaCardConfig[] = [
     slug: "uae",
     name: "UAE Visa",
     mode: "online",
-    image: "/trips/destination-image.webp",
+    image: "/brand/banners/uae.webp",
     icon: DocumentIcon,
     description: "Apply for your UAE visa online with simple steps, secure payment and expert support.",
     bullets: ["Multiple visa options", "Clear document checklist", "Fast and secure process"],

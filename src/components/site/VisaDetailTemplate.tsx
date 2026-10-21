@@ -28,9 +28,11 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   const heroImage =
-    visaType.hero_image_url ||
+    (visaType.slug === "uae" && (!visaType.hero_image_url || visaType.hero_image_url.includes("default") || visaType.hero_image_url.includes("destination-image")))
+      ? "/brand/banners/uae.webp"
+      : visaType.hero_image_url ||
     (visaType.slug === "uae"
-      ? "/trips/destination-image.webp"
+      ? "/brand/banners/uae.webp"
       : visaType.slug === "saudi-tourist"
       ? "/trips/package-detail-hero-1.webp"
       : visaType.slug === "us"
@@ -51,8 +53,40 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
     ? visaType.important_info_text.split("\n").map((p) => p.trim()).filter(Boolean)
     : defaultImportantInfo;
 
-  // Build standard 4 document items if none or fewer configured
-  const displayDocuments = documents.length > 0
+  const uaeDocuments: VisaDocumentRow[] = [
+    {
+      id: "doc-1",
+      context_id: null,
+      visa_type_id: visaType.id,
+      title: "Passport First Page",
+      description: "Clear, coloured copy of the passport's bio-data page showing photo, name, and validity.",
+      icon_key: "passport",
+      display_order: 1,
+    },
+    {
+      id: "doc-2",
+      context_id: null,
+      visa_type_id: visaType.id,
+      title: "Passport Size Photo",
+      description: "Recent passport-size photo with white background (within the last 6 months).",
+      icon_key: "photo",
+      display_order: 2,
+    },
+    {
+      id: "doc-3",
+      context_id: null,
+      visa_type_id: visaType.id,
+      title: "Passport Address Page",
+      description: "Clear copy of the passport's address page showing residential address details.",
+      icon_key: "document",
+      display_order: 3,
+    },
+  ];
+
+  // Build standard document items
+  const displayDocuments = visaType.slug === "uae"
+    ? (documents.length === 3 ? documents : uaeDocuments)
+    : documents.length > 0
     ? documents
     : [
         {
@@ -64,7 +98,7 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
         {
           id: "doc-2",
           title: "Passport Photo",
-          description: "Recent passport-size photo with white background (within 6 months).",
+          description: "Recent passport-size photo with white background (within the last 6 months).",
           icon_key: "photo",
         },
         {
@@ -567,7 +601,7 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
                 </p>
               </div>
 
-              <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <div className={`mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 ${displayDocuments.length === 3 ? "lg:grid-cols-3 max-w-5xl mx-auto" : "lg:grid-cols-4"}`}>
                 {displayDocuments.map((doc, idx) => (
                   <div key={idx} className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
                     <span className="flex size-11 items-center justify-center rounded-lg bg-warm-ivory text-deep-gold">

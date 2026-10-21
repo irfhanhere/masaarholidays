@@ -210,9 +210,9 @@ export async function POST(request: NextRequest) {
       nationality: (typeof a.nationality === "string" ? a.nationality.trim() : nationality),
       country_of_residence: (typeof a.countryOfResidence === "string" ? a.countryOfResidence.trim() : countryOfResidence),
       passport_number: (typeof a.passportNumber === "string" ? a.passportNumber.trim() : "PENDING"),
-      passport_issue_date: (typeof a.passportIssueDate === "string" ? a.passportIssueDate.trim() : "2020-01-01"),
-      passport_expiry_date: (typeof a.passportExpiryDate === "string" ? a.passportExpiryDate.trim() : "2030-01-01"),
-      place_of_issue: (typeof a.placeOfIssue === "string" ? a.placeOfIssue.trim() : "Capital"),
+      passport_issue_date: (typeof a.passportIssueDate === "string" && a.passportIssueDate.trim() ? a.passportIssueDate.trim() : "N/A"),
+      passport_expiry_date: (typeof a.passportExpiryDate === "string" && a.passportExpiryDate.trim() ? a.passportExpiryDate.trim() : "2030-01-01"),
+      place_of_issue: (typeof a.placeOfIssue === "string" && a.placeOfIssue.trim() ? a.placeOfIssue.trim() : "N/A"),
     }));
 
     await supabase.from("visa_applicants").insert(applicantRows);

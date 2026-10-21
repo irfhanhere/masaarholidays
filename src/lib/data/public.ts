@@ -427,6 +427,10 @@ export async function getVisaTypeBySlug(
 
   const enrichedVisaType: VisaTypeRow = {
     ...visaType,
+    hero_image_url:
+      visaType.slug === "uae" && (!visaType.hero_image_url || visaType.hero_image_url.includes("default") || visaType.hero_image_url.includes("destination-image"))
+        ? "/brand/banners/uae.webp"
+        : visaType.hero_image_url,
     service_mode: resolvedServiceMode,
     category:
       visaType.category ||
