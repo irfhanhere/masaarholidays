@@ -145,9 +145,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     createSitemapEntries(`/hotels/${hotel.slug}`, new Date(hotel.updated_at), origin)
   );
 
-  const visaTypeEntries: MetadataRoute.Sitemap = visaTypes.flatMap((visaType) =>
-    createSitemapEntries(`/visa/${visaType.slug}`, new Date(visaType.updated_at), origin)
-  );
+  const RETAINED_VISA_SLUGS = new Set(["saudi-tourist", "uae", "golden-visa-assistance"]);
+  const validVisaTypes = visaTypes.filter((vt) => RETAINED_VISA_SLUGS.has(vt.slug));
+
+  const visaTypeEntries: MetadataRoute.Sitemap = [
+    ...validVisaTypes.flatMap((visaType) =>
+      createSitemapEntries(`/visa/${visaType.slug}`, new Date(visaType.updated_at), origin)
+    ),
+    // Online application flows for Saudi and UAE Visas
+    ...["saudi-tourist", "uae"].flatMap((slug) =>
+      createSitemapEntries(`/visa/${slug}/apply`, STABLE_STATIC_FALLBACK_DATE, origin)
+    ),
+  ];
 
   // Only active departure months (inactive months like July/Aug/Sept are excluded by getActiveUmrahDepartureMonths)
   const departureEntries: MetadataRoute.Sitemap = departureMonths.flatMap((month) =>

@@ -37,9 +37,48 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
   const [isActive, setIsActive] = useState(initial?.is_active ?? true);
   const [priceFromAed, setPriceFromAed] = useState(initial?.price_from_aed ? String(initial.price_from_aed) : "249");
 
-  // Location & Walking Access
-  const [distanceMeters, setDistanceMeters] = useState(initial?.distance_from_haram_meters ? String(initial.distance_from_haram_meters) : "100");
-  const [walkMinutes, setWalkMinutes] = useState(initial?.walk_time_minutes ? String(initial.walk_time_minutes) : "2");
+  // Location & Walking Access with Unit Support ('m' or 'km')
+  const initialUnit: "m" | "km" =
+    (initial as any)?.distance_unit === "km" ||
+    (!(initial as any)?.distance_unit && initial?.distance_from_haram_meters != null && initial.distance_from_haram_meters >= 1000)
+      ? "km"
+      : "m";
+
+  const initialDistanceVal = initial?.distance_from_haram_meters != null
+    ? initialUnit === "km"
+      ? String(initial.distance_from_haram_meters / 1000)
+      : String(initial.distance_from_haram_meters)
+    : "";
+
+  const initialWalkVal = initial?.walk_time_minutes != null ? String(initial.walk_time_minutes) : "";
+  const initialWalkMaxVal = initial?.walk_time_minutes_max != null ? String(initial.walk_time_minutes_max) : "";
+
+  const [distanceUnit, setDistanceUnit] = useState<"m" | "km">(initialUnit);
+  const [distanceValue, setDistanceValue] = useState<string>(initialDistanceVal);
+  const [walkMinutes, setWalkMinutes] = useState<string>(initialWalkVal);
+  const [walkMinutesMax, setWalkMinutesMax] = useState<string>(initialWalkMaxVal);
+
+  const calculatedMeters = useMemo(() => {
+    if (!distanceValue.trim() || isNaN(Number(distanceValue))) return null;
+    const num = Number(distanceValue);
+    if (num < 0) return null;
+    return distanceUnit === "km" ? Math.round(num * 1000) : Math.round(num);
+  }, [distanceValue, distanceUnit]);
+
+  function handleUnitChange(newUnit: "m" | "km") {
+    if (newUnit === distanceUnit) return;
+    setDistanceUnit(newUnit);
+    setIsDirty(true);
+    if (distanceValue && !isNaN(Number(distanceValue))) {
+      const num = Number(distanceValue);
+      if (newUnit === "km") {
+        setDistanceValue(String(Math.round(num) / 1000));
+      } else {
+        setDistanceValue(String(Math.round(num * 1000)));
+      }
+    }
+  }
+
   const [routeType, setRouteType] = useState(initial?.route_type ?? "Direct plaza access");
   const [terrainNote, setTerrainNote] = useState(initial?.terrain_note ?? "Mostly flat");
   const [googleMapsUrl, setGoogleMapsUrl] = useState(initial?.google_maps_url ?? "");
@@ -107,14 +146,14 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
       { id: "desc", label: "Short and full description", done: Boolean(shortDesc && fullDesc) },
       { id: "cover", label: "Cover image uploaded", done: Boolean(coverImageUrl) },
       { id: "gallery", label: "At least 3 gallery images", done: galleryCount >= 3 || Boolean(coverImageUrl) },
-      { id: "walking", label: "Walking distance and route information", done: Boolean(distanceMeters && walkMinutes) },
+      { id: "walking", label: "Walking distance and route information", done: Boolean(distanceValue && walkMinutes) },
       { id: "rooms", label: "At least one room type with price", done: rooms.length > 0 || Boolean(priceFromAed) },
       { id: "facilities", label: "Facilities (minimum 3 configured)", done: true },
       { id: "seo", label: "SEO title and description", done: Boolean(metaTitle && metaDesc) },
       { id: "maps", label: "Google Maps property link", done: Boolean(googleMapsUrl) },
       { id: "verification", label: "Verification status confirmed", done: Boolean(dataConfidence) },
     ];
-  }, [name, city, category, shortDesc, fullDesc, coverImageUrl, galleryUrls, distanceMeters, walkMinutes, rooms, priceFromAed, metaTitle, metaDesc, googleMapsUrl, dataConfidence]);
+  }, [name, city, category, shortDesc, fullDesc, coverImageUrl, galleryUrls, distanceValue, walkMinutes, rooms, priceFromAed, metaTitle, metaDesc, googleMapsUrl, dataConfidence]);
 
   const allChecksPassed = checklist.every((c) => c.done);
 
@@ -235,7 +274,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
       </div>
 
       {/* TAB 1: BASIC DETAILS (A02) */}
-      {activeTab === "basic" && (
+      <div className={activeTab === "basic" ? "block" : "hidden"}>
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column: 1. Hotel Information + 2. Key Highlights */}
           <div className="space-y-6 lg:col-span-2">
@@ -526,10 +565,10 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* TAB 2: LOCATION & ACCESS (A03) */}
-      {activeTab === "location" && (
+      <div className={activeTab === "location" ? "block" : "hidden"}>
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column: Distance, Route, Accessibility, Map */}
           <div className="space-y-6 lg:col-span-2">
@@ -545,23 +584,53 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
+                {/* 1. Distance to Haram with Unit Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-masaar-black mb-1">
-                    Distance to Haram (Meters)
+                    Distance to Haram ({distanceUnit})
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      name="distance_from_haram_meters"
-                      value={distanceMeters}
-                      onChange={(e) => setDistanceMeters(e.target.value)}
-                      placeholder="100"
-                      className="w-full rounded-lg border border-black/15 bg-white py-2 pl-3 pr-8 text-xs font-bold text-masaar-black focus:border-[#C9A227] focus:outline-none"
-                    />
-                    <span className="absolute right-3 top-2 text-xs font-semibold text-masaar-black/40">m</span>
+                  <div className="flex gap-1.5">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        step={distanceUnit === "km" ? "0.01" : "1"}
+                        min="0"
+                        name="distance_input_value"
+                        value={distanceValue}
+                        onChange={(e) => {
+                          setDistanceValue(e.target.value);
+                          setIsDirty(true);
+                        }}
+                        placeholder={distanceUnit === "km" ? "e.g. 0.35" : "e.g. 350"}
+                        className="w-full rounded-lg border border-black/15 bg-white py-2 pl-3 pr-3 text-xs font-bold text-masaar-black focus:border-[#C9A227] focus:outline-none"
+                      />
+                    </div>
+                    <select
+                      name="distance_unit"
+                      value={distanceUnit}
+                      onChange={(e) => handleUnitChange(e.target.value as "m" | "km")}
+                      className="rounded-lg border border-black/15 bg-warm-ivory px-2.5 py-2 text-xs font-bold text-masaar-black focus:border-[#C9A227] focus:outline-none"
+                      title="Select distance unit"
+                    >
+                      <option value="m">m (meters)</option>
+                      <option value="km">km (kilometers)</option>
+                    </select>
                   </div>
+                  {/* Hidden field submitting converted meters */}
+                  <input
+                    type="hidden"
+                    name="distance_from_haram_meters"
+                    value={calculatedMeters != null ? String(calculatedMeters) : ""}
+                  />
+                  {calculatedMeters != null && (
+                    <p className="text-[11px] text-masaar-black/60 mt-1">
+                      = <strong>{calculatedMeters.toLocaleString()} m</strong>{" "}
+                      {distanceUnit === "km" ? `(${distanceValue} km)` : calculatedMeters >= 1000 ? `(${(calculatedMeters / 1000).toFixed(2)} km)` : ""}
+                    </p>
+                  )}
                 </div>
 
+                {/* 2. Estimated Walking Time */}
                 <div>
                   <label className="block text-xs font-semibold text-masaar-black mb-1">
                     Estimated Walking Time
@@ -569,16 +638,27 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
                   <div className="relative">
                     <input
                       type="number"
+                      step="1"
+                      min="0"
                       name="walk_time_minutes"
                       value={walkMinutes}
-                      onChange={(e) => setWalkMinutes(e.target.value)}
-                      placeholder="2"
+                      onChange={(e) => {
+                        setWalkMinutes(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="e.g. 2"
                       className="w-full rounded-lg border border-black/15 bg-white py-2 pl-3 pr-10 text-xs font-bold text-masaar-black focus:border-[#C9A227] focus:outline-none"
                     />
                     <span className="absolute right-3 top-2 text-xs font-semibold text-masaar-black/40">min</span>
                   </div>
+                  {walkMinutes && Number(walkMinutes) > 0 && calculatedMeters && (
+                    <p className="text-[11px] text-masaar-black/50 mt-1">
+                      Pace: ~{Math.round(calculatedMeters / Number(walkMinutes))} m/min
+                    </p>
+                  )}
                 </div>
 
+                {/* 3. Max Walking Time (Crowd / Rush) */}
                 <div>
                   <label className="block text-xs font-semibold text-masaar-black mb-1">
                     Max Walking Time (Crowd)
@@ -586,13 +666,20 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
                   <div className="relative">
                     <input
                       type="number"
+                      step="1"
+                      min="0"
                       name="walk_time_minutes_max"
-                      defaultValue={initial?.walk_time_minutes_max ?? ""}
-                      placeholder="5"
+                      value={walkMinutesMax}
+                      onChange={(e) => {
+                        setWalkMinutesMax(e.target.value);
+                        setIsDirty(true);
+                      }}
+                      placeholder="e.g. 5"
                       className="w-full rounded-lg border border-black/15 bg-white py-2 pl-3 pr-10 text-xs text-masaar-black focus:border-[#C9A227] focus:outline-none"
                     />
                     <span className="absolute right-3 top-2 text-xs text-masaar-black/40">min</span>
                   </div>
+                  <p className="text-[11px] text-masaar-black/50 mt-1">Peak prayer exit time</p>
                 </div>
               </div>
             </div>
@@ -826,9 +913,9 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
                 <span className="text-xs font-bold">{name}</span>
                 <span className="text-[10px] text-white/60">to {city === "Makkah" ? "Masjid al-Haram" : "Al-Masjid an-Nabawi"}</span>
                 <div className="mt-3 flex items-center gap-2 text-[10px] bg-white/10 px-2.5 py-1 rounded-full">
-                  <span>🏃 {walkMinutes} min walk</span>
+                  <span>🏃 {walkMinutes ? `${walkMinutes} min walk` : "Walk pending"}</span>
                   <span>•</span>
-                  <span>📏 {distanceMeters} m</span>
+                  <span>📏 {calculatedMeters != null ? `${calculatedMeters} m (${distanceValue} ${distanceUnit})` : "Distance pending"}</span>
                 </div>
               </div>
 
@@ -855,8 +942,8 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
                 Proximity Facts
               </h3>
               <ul className="space-y-1.5 text-xs text-masaar-black/80">
-                <li className="flex items-center gap-1.5">✓ <strong>{walkMinutes} minutes</strong> ground walking time</li>
-                <li className="flex items-center gap-1.5">✓ <strong>{distanceMeters} meters</strong> verified path length</li>
+                <li className="flex items-center gap-1.5">✓ <strong>{walkMinutes ? `${walkMinutes} minutes` : "Pending measurement"}</strong> ground walking time</li>
+                <li className="flex items-center gap-1.5">✓ <strong>{calculatedMeters != null ? `${calculatedMeters} meters (${distanceValue} ${distanceUnit})` : "Pending measurement"}</strong> verified path length</li>
                 <li className="flex items-center gap-1.5">✓ Route type: <strong>{routeType}</strong></li>
                 <li className="flex items-center gap-1.5">✓ Terrain: <strong>{terrainNote}</strong></li>
                 {shuttleAvailable && <li className="flex items-center gap-1.5">✓ <strong>Shuttle service available</strong></li>}
@@ -864,7 +951,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* TAB 3: ROOM OPTIONS & PRICING (A04) */}
       {activeTab === "rooms" && (
@@ -905,7 +992,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
       )}
 
       {/* TAB 4: FACILITIES */}
-      {activeTab === "facilities" && (
+      <div className={activeTab === "facilities" ? "block" : "hidden"}>
         <div className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs space-y-4">
           <div className="border-b border-black/5 pb-3">
             <h2 className="text-base font-bold text-masaar-black font-[family-name:var(--font-display)]">
@@ -945,10 +1032,10 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
             ))}
           </div>
         </div>
-      )}
+      </div>
 
       {/* TAB 5: GALLERY, SEO & VERIFICATION (A05) */}
-      {activeTab === "gallery_seo" && (
+      <div className={activeTab === "gallery_seo" ? "block" : "hidden"}>
         <div className="space-y-6">
           {/* Gallery management */}
           <div className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs space-y-4">
@@ -1114,7 +1201,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* TAB 6: GUEST REVIEWS */}
       {activeTab === "reviews" && (
@@ -1143,7 +1230,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
       )}
 
       {/* TAB 7: PREVIEW & PUBLISH (A06) */}
-      {activeTab === "preview" && (
+      <div className={activeTab === "preview" ? "block" : "hidden"}>
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Website Live Preview matching A06 */}
           <div className="space-y-4 lg:col-span-2">
@@ -1216,8 +1303,8 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
                       {/* 4 Quick Badges matching A06 */}
                       <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                         <div className="rounded-lg bg-warm-ivory p-2 border border-black/5">
-                          <span className="font-bold text-masaar-black block">{walkMinutes} min walk</span>
-                          <span className="text-[10px] text-masaar-black/50">{distanceMeters} metres</span>
+                          <span className="font-bold text-masaar-black block">{walkMinutes ? `${walkMinutes} min walk` : "Walk pending"}</span>
+                          <span className="text-[10px] text-masaar-black/50">{calculatedMeters != null ? `${calculatedMeters} metres` : "Distance pending"}</span>
                         </div>
                         <div className="rounded-lg bg-warm-ivory p-2 border border-black/5">
                           <span className="font-bold text-masaar-black block">{routeType}</span>
@@ -1273,7 +1360,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
 
                   <div className="grid grid-cols-2 gap-2 text-center text-[10px]">
                     <div className="rounded bg-warm-ivory p-1.5 border border-black/5 font-bold">
-                      {walkMinutes} min walk
+                      {walkMinutes ? `${walkMinutes} min walk` : "Walk pending"}
                     </div>
                     <div className="rounded bg-warm-ivory p-1.5 border border-black/5 font-bold">
                       {routeType}
@@ -1411,7 +1498,7 @@ export function HotelForm({ hotelId, initial, rooms = [], reviews = [] }: Props)
             </div>
           </div>
         </div>
-      )}
+      </div>
     </form>
   );
 }

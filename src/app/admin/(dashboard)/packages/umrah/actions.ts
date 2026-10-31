@@ -42,13 +42,30 @@ export async function savePackageTierMaster(formData: FormData) {
       .map((slug) => slug.trim())
       .filter(Boolean);
 
+    const is_active = formData.get("is_active") === "on";
+    const show_on_website = formData.get("show_on_website") === "on";
+    const starting_price_aed = formData.get("starting_price_aed")
+      ? Number(formData.get("starting_price_aed"))
+      : null;
+    const route_line = (formData.get("route_line") as string)?.trim() || null;
+    const flight_note = (formData.get("flight_note") as string)?.trim() || null;
+    const makkah_hotel_note = (formData.get("makkah_hotel_note") as string)?.trim() || null;
+    const madinah_hotel_note = (formData.get("madinah_hotel_note") as string)?.trim() || null;
+
     const payload = {
       title,
       tagline,
       short_description,
       is_featured,
+      is_active,
+      show_on_website,
+      starting_price_aed,
+      route_line,
+      flight_note,
       makkah_hotel_name,
+      makkah_hotel_note,
       madinah_hotel_name,
+      madinah_hotel_note,
       inclusions_text,
       default_addon_slugs,
       updated_at: new Date().toISOString(),
@@ -62,6 +79,10 @@ export async function savePackageTierMaster(formData: FormData) {
 
     revalidatePath("/admin/packages/umrah");
     revalidatePath("/admin/packages");
+    revalidatePath("/umrah");
+    revalidatePath("/umrah/essential");
+    revalidatePath("/umrah/signature");
+    revalidatePath("/umrah/exclusive");
     redirect("/admin/packages/umrah");
   } catch (err: any) {
     if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {

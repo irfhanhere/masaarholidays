@@ -11,9 +11,10 @@ import { Price } from "./Price";
 interface Props {
   route: EnrichedTransferRoute;
   whatsappPhone?: string;
+  tabbyEnabled?: boolean;
 }
 
-export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
+export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true }: Props) {
   const { currency, rates } = useCurrency();
   const isAirportRoute = route.transfer_type === "airport";
   const formId = useId();
@@ -54,6 +55,9 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
+
+  // Payment gateway selection state (Stripe or Tabby)
+  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby">("stripe");
 
   // Payment loading state & error
   const [isPaying, setIsPaying] = useState<boolean>(false);
@@ -249,6 +253,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
           email: email.trim().toLowerCase(),
           phone: phone.trim(),
           currency,
+          paymentGateway: tabbyEnabled ? paymentGateway : "stripe",
         }),
       });
 
@@ -969,6 +974,144 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
               </div>
             )}
 
+            {/* Payment Gateway Selection */}
+            <div className="mt-6 rounded-xl border border-black/10 bg-warm-ivory/20 p-5">
+              <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-deep-gold">Payment Method</span>
+                  <h3 className="text-sm font-bold text-masaar-black">Choose How You Wish to Pay</h3>
+                </div>
+                <span className="text-xs text-masaar-black/60 font-medium">100% Secure Checkout</span>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {/* Option 1: Card / Apple Pay (Stripe) */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentGateway("stripe")}
+                  className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+                    paymentGateway === "stripe"
+                      ? "border-masaar-black bg-white ring-2 ring-masaar-black/20 shadow-xs"
+                      : "border-black/10 bg-white hover:border-black/30"
+                  }`}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="text-xs font-bold text-masaar-black">Credit / Debit Card</span>
+                    <div className="flex items-center gap-1 text-[10px] text-masaar-black/60">
+                      <span>Visa</span>
+                      <span>•</span>
+                      <span>MC</span>
+                      <span>•</span>
+                      <span>Amex</span>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[11px] text-masaar-black/70">
+                    Pay in full securely via Stripe with card, Apple Pay or Google Pay.
+                  </p>
+                  <div className="mt-3 text-xs font-bold text-masaar-black">
+                    <span>Pay in Full: </span>
+                    <span className="text-deep-gold">
+                      {selectedVehicle?.priceAed ? <Price amountAed={selectedVehicle.priceAed} /> : "AED —"}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Option 2: Tabby (Pay in 4) */}
+                <button
+                  type="button"
+                  disabled={!tabbyEnabled}
+                  onClick={() => {
+                    if (tabbyEnabled) setPaymentGateway("tabby");
+                  }}
+                  className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+                    !tabbyEnabled
+                      ? "border-black/10 bg-white/60 opacity-70 cursor-not-allowed"
+                      : paymentGateway === "tabby"
+                      ? "border-[#3EEDB4] bg-white ring-2 ring-[#3EEDB4]/50 shadow-xs"
+                      : "border-black/10 bg-white hover:border-black/30"
+                  }`}
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-sm bg-[#3EEDB4] px-1.5 py-0.5 text-[10px] font-black text-black">
+                        tabby
+                      </span>
+                      <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                    </div>
+                    {!tabbyEnabled ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                        Offline
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        0% Interest · Sharia-Compliant
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-masaar-black/70">
+                    {!tabbyEnabled
+                      ? "Tabby Pay in 4 is currently offline. Please use Card payment."
+                      : `4 monthly interest-free payments of AED ${Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}. No hidden fees.`}
+                  </p>
+                  {tabbyEnabled && (
+                    <div className="mt-3 text-xs font-bold text-masaar-black">
+                      <span>AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}</span>
+                      <span className="font-normal text-masaar-black/60 text-[10px]"> / month (4 payments)</span>
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              {/* Tabby breakdown schedule box when selected */}
+              {paymentGateway === "tabby" && tabbyEnabled && (
+                <div className="mt-4 rounded-xl border border-[#3EEDB4]/40 bg-[#3EEDB4]/10 p-4 text-xs">
+                  <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#3EEDB4] text-[10px] font-bold text-black">
+                        4
+                      </span>
+                      <span className="font-semibold text-masaar-black">Tabby 4-Month Installment Plan (AED)</span>
+                    </div>
+                    <span className="text-[11px] text-emerald-700 font-semibold">0% APR · Sharia-Compliant</span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[10px] text-masaar-black/60">
+                    You will be redirected securely to Tabby to verify your mobile number and UAE Emirates ID / GCC ID.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Notice Banner */}
             <div className="mt-6 flex items-start gap-3 rounded-lg bg-warm-ivory/50 p-4 text-xs text-masaar-black/80 border border-black/10">
               <svg className="size-5 shrink-0 text-deep-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -977,7 +1120,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
               <div>
                 <strong className="font-semibold text-masaar-black">Instant Booking &amp; Live Dispatch:</strong>
                 <p className="mt-0.5 text-masaar-black/70">
-                  Pay securely online with card or Apple Pay to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
+                  Pay securely online with card or Tabby Pay in 4 to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
                 </p>
               </div>
             </div>
@@ -1006,6 +1149,13 @@ export function TransferEnquiryFlow({ route, whatsappPhone }: Props) {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
                       <span>Connecting to Payment...</span>
+                    </>
+                  ) : paymentGateway === "tabby" && tabbyEnabled ? (
+                    <>
+                      <span className="inline-flex rounded-sm bg-black px-1.5 py-0.5 text-[10px] font-black text-[#3EEDB4]">
+                        tabby
+                      </span>
+                      <span>Pay AED {selectedVehicle?.priceAed || 0} in 4 Installments →</span>
                     </>
                   ) : (
                     <>

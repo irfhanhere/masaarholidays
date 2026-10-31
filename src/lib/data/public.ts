@@ -381,6 +381,84 @@ export async function getVisaTypeBySlug(
     .eq("is_active", true)
     .maybeSingle();
   if (visaTypeError || !visaType) {
+    if (slug === "saudi-tourist") {
+      const saudiFallback: VisaTypeRow = {
+        id: "saudi-tourist-visa-type",
+        slug: "saudi-tourist",
+        name: "Saudi Tourist Visa",
+        description: "Official tourist e-visa assistance for exploring the Kingdom of Saudi Arabia, tourism, and family visits.",
+        audience_text: "Eligible international travellers and GCC residents seeking to visit Saudi Arabia for tourism, leisure, and events.",
+        hero_headline: "Saudi Tourist Visa Online Application",
+        hero_intro: "Fast, simple, and reliable online application for your Saudi Tourist e-Visa. Transparent pricing, verified documents, and dedicated support.",
+        hero_image_url: "/trips/destination-image.webp",
+        features: [
+          { icon_key: "document", label: "Fast Online Processing" },
+          { icon_key: "shield", label: "Official Portal Compliance" },
+          { icon_key: "clock", label: "1-3 Working Days Turnaround" },
+          { icon_key: "headset", label: "Dedicated Visa Specialists" },
+        ],
+        benefits: [
+          { title: "Direct e-Visa Submission", description: "Seamless online submission directly verified against official Saudi immigration rules." },
+          { title: "Split in 4 with Tabby", description: "Convenient payment in full with Card or 4 interest-free monthly installments." },
+        ],
+        documents_intro: "Prepare clear copies of your passport bio-page and recent passport photo before applying.",
+        important_info_text: "Saudi tourist visa issuance and processing times are subject to Saudi immigration authorities.\nMasaar Holidays provides document review and application management but cannot guarantee final authority decisions.",
+        who_needs_this: [
+          "Tourism, leisure, and cultural exploration across Saudi Arabia",
+          "Visiting friends and relatives in the Kingdom",
+          "Attending entertainment, concerts, cultural and sports events",
+          "Eligible Umrah outside of the restricted Hajj period",
+        ],
+        cta_note: "Our visa specialists are available to verify your documents and guide your application.",
+        meta_title: "Saudi Tourist Visa Online Application | Masaar Holidays",
+        service_mode: "online",
+        category: "Saudi Arabia",
+        price_range: "USD 105 - 220",
+        display_order: 2,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const saudiDocs: VisaDocumentRow[] = [
+        {
+          id: "s-doc-1",
+          context_id: null,
+          visa_type_id: "saudi-tourist-visa-type",
+          title: "Valid Passport First Page",
+          description: "Clear, coloured copy of the passport's bio-data page with at least 6 months validity from intended travel date.",
+          icon_key: "passport",
+          display_order: 1,
+        },
+        {
+          id: "s-doc-2",
+          context_id: null,
+          visa_type_id: "saudi-tourist-visa-type",
+          title: "Recent Passport Photo",
+          description: "Recent passport-size photo with white background (within the last 6 months).",
+          icon_key: "photo",
+          display_order: 2,
+        },
+        {
+          id: "s-doc-3",
+          context_id: null,
+          visa_type_id: "saudi-tourist-visa-type",
+          title: "Confirmed Travel Details",
+          description: "Flight itinerary showing arrival and departure dates or ports of entry.",
+          icon_key: "flight",
+          display_order: 3,
+        },
+        {
+          id: "s-doc-4",
+          context_id: null,
+          visa_type_id: "saudi-tourist-visa-type",
+          title: "Hotel Reservation / Host Address",
+          description: "Confirmed hotel reservation or residential address of your host in Saudi Arabia.",
+          icon_key: "hotel",
+          display_order: 4,
+        },
+      ];
+      return { visaType: saudiFallback, documents: saudiDocs };
+    }
     if (slug === "us") {
       const usFallback: VisaTypeRow = {
         id: "us-visa-type",

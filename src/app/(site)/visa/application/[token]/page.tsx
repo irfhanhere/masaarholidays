@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getVisaApplicationByToken } from "@/lib/data/visa";
@@ -34,11 +35,19 @@ export default async function VisaApplicationTrackingPage({
   }
 
   return (
-    <VisaTrackingView
-      application={application}
-      applicants={applicants}
-      documents={documents}
-      payments={payments}
-    />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-warm-ivory/30 py-24 text-center">
+          <p className="text-sm text-masaar-black/60">Loading application details...</p>
+        </div>
+      }
+    >
+      <VisaTrackingView
+        application={application}
+        applicants={applicants}
+        documents={documents}
+        payments={payments}
+      />
+    </Suspense>
   );
 }

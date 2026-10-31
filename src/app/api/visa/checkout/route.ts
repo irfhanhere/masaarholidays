@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
+import {
+  createTabbyCheckoutSession,
+  convertUsdToTabbyCurrency,
+  isTabbyCheckoutEnabled,
+  getTabbyConfig,
+} from "@/lib/tabby";
 import { getSiteOrigin } from "@/lib/site-url";
 import { getVisaProductById, calculateVisaPricing } from "@/lib/data/visa";
 
@@ -70,6 +76,7 @@ export async function POST(request: NextRequest) {
 
   const visaSlug = typeof body.visaSlug === "string" ? body.visaSlug.trim().toLowerCase() : "uae";
   const productId = typeof body.productId === "string" ? body.productId.trim() : "";
+  const paymentGateway = typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby" ? "tabby" : "stripe";
   const nationality = typeof body.nationality === "string" ? body.nationality.trim() : "";
   const countryOfResidence = typeof body.countryOfResidence === "string" ? body.countryOfResidence.trim() : "";
   const travelDate = typeof body.travelDate === "string" ? body.travelDate.trim() : "";
@@ -109,6 +116,10 @@ export async function POST(request: NextRequest) {
   // 2. Strict Server-Side Price Calculation
   const pricing = calculateVisaPricing(product, rawApplicants.length);
   const chargedAmountMinor = Math.round(pricing.totalAmount * 100);
+
+  // Tabby converted pegged currency calculations (AED for UAE, SAR for Saudi Tourist)
+  const tabbyTargetCurrency: "AED" | "SAR" = visaSlug === "saudi-tourist" ? "SAR" : "AED";
+  const tabbyConverted = convertUsdToTabbyCurrency(pricing.totalAmount, tabbyTargetCurrency);
 
   const referenceNo = generateReferenceNo(visaSlug);
   const trackingToken = crypto.randomBytes(24).toString("hex");
@@ -183,6 +194,9 @@ export async function POST(request: NextRequest) {
         },
         total_amount: pricing.totalAmount,
         currency: pricing.currency,
+        payment_gateway: paymentGateway,
+        charged_currency: paymentGateway === "tabby" ? tabbyTargetCurrency : "USD",
+        charged_amount: paymentGateway === "tabby" ? tabbyConverted.amount : pricing.totalAmount,
         payment_status: "pending",
         application_status: "draft",
         status_timeline: initialTimeline,
@@ -240,7 +254,96 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 6. Create Stripe Checkout Session
+  // 6. Create Payment Checkout Session (Tabby or Stripe)
+  const discountNote = pricing.discountAmount > 0 ? ` · Includes 5% Online Discount (-$${pricing.discountAmount.toFixed(2)})` : "";
+  const itemDescription = `${product.subtitle || visaSlug.toUpperCase() + " Visa"} · Reference: ${referenceNo}${discountNote}`;
+
+  // Tabby Payment Gateway Branch
+  if (paymentGateway === "tabby") {
+    if (!isTabbyCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tabby Pay in 4 is currently unavailable. Please select card payment to complete your checkout." },
+        { status: 400 }
+      );
+    }
+
+    const tabbyConfig = getTabbyConfig();
+    if (tabbyTargetCurrency === "SAR" && !tabbyConfig.isSarAvailable) {
+      return NextResponse.json(
+        {
+          error:
+            "Tabby Pay in 4 in SAR is currently unavailable pending regional merchant account activation. Please select Card Payment to complete your application.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const successUrl = `${siteOrigin}/visa/application/${trackingToken}?payment_id={payment_id}&tabby=1`;
+    const cancelUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&cancelled=1`;
+    const failureUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&failed=1`;
+
+    try {
+      const tabbySession = await createTabbyCheckoutSession({
+        amount: tabbyConverted.amount,
+        currency: tabbyTargetCurrency,
+        description: `Masaar Holidays: ${product.title} (${referenceNo})`,
+        referenceId: referenceNo,
+        buyer: {
+          name: primaryApplicantName,
+          email,
+          phone,
+          dob: typeof rawApplicants[0]?.dateOfBirth === "string" ? rawApplicants[0].dateOfBirth : undefined,
+        },
+        items: [
+          {
+            title: `${product.title} (${visaSlug.toUpperCase()})`,
+            description: itemDescription,
+            quantity: 1,
+            unitPrice: tabbyConverted.amount,
+            category: "Visa Services",
+            referenceId: product.id,
+          },
+        ],
+        successUrl,
+        cancelUrl,
+        failureUrl,
+        shippingAddress: {
+          city: residentialAddress.city || (tabbyTargetCurrency === "SAR" ? "Riyadh" : "Dubai"),
+          address: residentialAddress.street || "Customer Residence",
+          zip: residentialAddress.postalCode || "00000",
+        },
+      });
+
+      // Update application with Tabby session & payment IDs
+      try {
+        await supabase
+          .from("visa_applications")
+          .update({
+            tabby_session_id: tabbySession.sessionId,
+            tabby_payment_id: tabbySession.paymentId,
+          })
+          .eq("id", applicationId);
+      } catch (saveErr) {
+        console.warn("[visa-checkout] Error saving tabby session id:", saveErr);
+      }
+
+      return NextResponse.json({
+        url: tabbySession.webUrl,
+        referenceNo,
+        trackingToken,
+        paymentGateway: "tabby",
+        chargedAmount: tabbyConverted.amount,
+        chargedCurrency: tabbyTargetCurrency,
+        installmentAmount: tabbyConverted.installmentAmount,
+      });
+    } catch (tabbyErr: unknown) {
+      const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
+      console.error("[visa-checkout] Tabby session creation failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
+  // 6b. Preserved Stripe Checkout Session Branch
   let stripe;
   try {
     stripe = getStripe();
@@ -249,11 +352,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Payment gateway is currently unavailable." }, { status: 500 });
   }
 
-  const successUrl = `${siteOrigin}/visa/application/${trackingToken}?session_id={CHECKOUT_SESSION_ID}&paid=1`;
-  const cancelUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&cancelled=1`;
-
-  const discountNote = pricing.discountAmount > 0 ? ` · Includes 5% Online Discount (-$${pricing.discountAmount.toFixed(2)})` : "";
-  const itemDescription = `${product.subtitle || visaSlug.toUpperCase() + " Visa"} · Reference: ${referenceNo}${discountNote}`;
+  const stripeSuccessUrl = `${siteOrigin}/visa/application/${trackingToken}?session_id={CHECKOUT_SESSION_ID}&paid=1`;
+  const stripeCancelUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&cancelled=1`;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -282,8 +382,8 @@ export async function POST(request: NextRequest) {
           },
         },
       ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: stripeSuccessUrl,
+      cancel_url: stripeCancelUrl,
     });
 
     // Save session ID on application
@@ -300,6 +400,9 @@ export async function POST(request: NextRequest) {
       url: session.url,
       referenceNo,
       trackingToken,
+      paymentGateway: "stripe",
+      chargedAmount: pricing.totalAmount,
+      chargedCurrency: "USD",
     });
   } catch (stripeErr: unknown) {
     const msg = stripeErr instanceof Error ? stripeErr.message : "Stripe checkout session failed";

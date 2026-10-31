@@ -720,7 +720,11 @@ export function HotelsListManager({ hotels: initialHotels, roomCounts = {} }: Pr
                           <div className="flex items-center gap-1 font-bold text-masaar-black">
                             <span className="text-masaar-black/50">🏃</span>
                             <span>{walkMin} min walk</span>
-                            {walkMeters && <span className="text-masaar-black/50 font-normal">({walkMeters} m)</span>}
+                            {walkMeters && (
+                              <span className="text-masaar-black/50 font-normal">
+                                ({walkMeters >= 1000 ? `${(walkMeters / 1000).toFixed(1)} km` : `${walkMeters} m`})
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-masaar-black/50 truncate max-w-[160px]">
                             {hotel.route_type || (walkMeters && walkMeters <= 200 ? "Direct plaza access" : "Walking route")}

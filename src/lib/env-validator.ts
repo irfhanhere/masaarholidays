@@ -46,7 +46,14 @@ ${missing.map((v) => `│   • ${v}`).join("\n")}
 └────────────────────────────────────────────────────────────────────────┘
 `);
   } else {
-    console.log("[MASAAR] All production environment variables verified successfully.");
+    console.log("[MASAAR] All core production environment variables verified successfully.");
+  }
+
+  const tabbyConfigured = Boolean(process.env.TABBY_SECRET_KEY && process.env.TABBY_PUBLIC_KEY);
+  if (!tabbyConfigured) {
+    console.info("[MASAAR] Tabby BNPL: Operating in sandbox fallback mode (set TABBY_SECRET_KEY and TABBY_PUBLIC_KEY for live processing).");
+  } else {
+    console.log(`[MASAAR] Tabby BNPL: Configured in ${process.env.TABBY_ENVIRONMENT || "sandbox"} environment.`);
   }
 
   return {

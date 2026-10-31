@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
     path: "/visa",
     fallbackTitle: "Visa & Document Assistance | Masaar Holidays",
     fallbackDescription:
-      "Reliable visa and travel document assistance from the UAE. Clear guidance on Umrah, Saudi tourist, UAE, Golden Visa and global destinations. Apply online or talk to our team.",
+      "Reliable visa and travel document assistance from the UAE. Transparent guidance and processing for Saudi Visa, UAE Visa, and UAE Golden Visa. Apply online or talk to our team.",
   });
 }
 
@@ -50,81 +50,37 @@ interface VisaCardConfig {
 
 const VISA_CARDS_CATALOG: VisaCardConfig[] = [
   {
+    slug: "saudi-tourist",
+    name: "Saudi Visa",
+    mode: "online",
+    image: "/brand/banners/umrah.webp",
+    icon: PassportIcon,
+    description: "Explore Saudi Arabia with ease. Apply online for your tourist e-Visa with transparent pricing and full guidance.",
+    bullets: ["Multiple entry options", "Online tracking & document review", "Pay with Card or Tabby (Split in 4)"],
+    applyHref: "/visa/saudi-tourist/apply",
+    detailHref: "/visa/saudi-tourist",
+  },
+  {
     slug: "uae",
     name: "UAE Visa",
     mode: "online",
     image: "/brand/banners/uae.webp",
     icon: DocumentIcon,
-    description: "Apply for your UAE visa online with simple steps, secure payment and expert support.",
-    bullets: ["Multiple visa options", "Clear document checklist", "Fast and secure process"],
-    applyHref: "/visa/uae",
+    description: "Apply for your UAE tourist or visit visa online with simple steps, secure payment and expert support.",
+    bullets: ["30 & 60 days entry options", "Fast online processing", "Pay with Card or Tabby (Split in 4)"],
+    applyHref: "/visa/uae/apply",
     detailHref: "/visa/uae",
   },
   {
-    slug: "saudi-tourist",
-    name: "Saudi Tourist Visa",
-    mode: "online",
-    image: "/brand/banners/umrah.webp",
-    icon: PassportIcon,
-    description: "Explore Saudi Arabia with ease. Apply online for your tourist visa with full guidance.",
-    bullets: ["Tourist visa assistance", "Document guidance", "Reliable support"],
-    applyHref: "/visa/saudi-tourist",
-    detailHref: "/visa/saudi-tourist",
-  },
-  {
-    slug: "us-visa",
-    name: "US Visa",
-    mode: "online",
-    image: "/brand/banners/default.webp",
-    icon: DocumentIcon,
-    description: "Get expert assistance for your US visa application with a smooth and transparent process.",
-    bullets: ["Step-by-step application", "Document review guidance", "Dedicated support"],
-    applyHref: "/visa/global",
-    detailHref: "/visa/global",
-  },
-  {
-    slug: "umrah",
-    name: "Umrah Visa",
-    mode: "enquiry",
-    image: "/trips/umrah-banner.webp",
-    icon: PassportIcon,
-    description: "Get guidance and support for your Umrah visa application.",
-    bullets: ["Latest requirements", "Document checklist", "Personalised support"],
-    applyHref: "/visa/umrah",
-    detailHref: "/visa/umrah",
-  },
-  {
-    slug: "global",
-    name: "Global Visa Assistance",
-    mode: "enquiry",
-    image: "/brand/banners/Day Trips & Return Journeys.webp",
-    icon: PlaneIcon,
-    description: "Guidance for visa requirements for international destinations beyond the UAE and Saudi Arabia.",
-    bullets: ["Country-specific guidance", "Document support", "Expert assistance"],
-    applyHref: "/visa/global",
-    detailHref: "/visa/global",
-  },
-  {
     slug: "golden-visa-assistance",
-    name: "Golden Visa Assistance",
+    name: "UAE Golden Visa",
     mode: "enquiry",
     image: "/brand/banners/destination.webp",
     icon: ShieldIcon,
-    description: "Support for UAE Golden Visa — for long-term residency for eligible individuals and their families.",
-    bullets: ["Eligibility guidance", "Document support", "End-to-end assistance"],
-    applyHref: "/visa/golden-visa-assistance",
+    description: "Guidance for UAE Golden Visa 10-year residency for eligible investors, professionals, entrepreneurs and their families.",
+    bullets: ["10-year renewable residency", "Eligibility & document guidance", "Enquire directly with specialists"],
+    applyHref: "/visa/golden-visa-assistance#enquiry-form",
     detailHref: "/visa/golden-visa-assistance",
-  },
-  {
-    slug: "india",
-    name: "India Visa",
-    mode: "enquiry",
-    image: "/brand/banners/hotel.webp",
-    icon: LocationIcon,
-    description: "Support with visa requirements and documentation for travel to India.",
-    bullets: ["Latest requirements", "Document checklist", "Personalised guidance"],
-    applyHref: "/visa/india",
-    detailHref: "/visa/india",
   },
 ];
 
@@ -139,7 +95,7 @@ export default async function VisaPage() {
     .map((p) => p.trim())
     .filter(Boolean);
 
-  // Merge database items with rich presentation data
+  // Merge database items with rich presentation data - exactly 3 retained services
   const displayedCards = VISA_CARDS_CATALOG.map((card) => {
     const matchingDbRow = dbVisaTypes.find(
       (t) => t.slug === card.slug || (card.slug === "golden-visa-assistance" && t.slug.includes("golden"))
@@ -148,10 +104,10 @@ export default async function VisaPage() {
 
     return {
       ...card,
-      name: matchingDbRow.name || card.name,
+      name: card.name,
       description: matchingDbRow.description || card.description,
       detailHref: `/visa/${matchingDbRow.slug}`,
-      applyHref: card.mode === "online" ? `/visa/${matchingDbRow.slug}` : card.applyHref,
+      applyHref: card.mode === "online" ? `/visa/${matchingDbRow.slug}/apply` : card.applyHref,
     };
   });
 
@@ -248,8 +204,8 @@ export default async function VisaPage() {
             </p>
           </div>
 
-          {/* Cards Grid */}
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/* Cards Grid — exactly three retained visa categories */}
+          <div className="mx-auto mt-12 grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {displayedCards.map((card, idx) => {
               const Icon = card.icon;
               const isOnline = card.mode === "online";
@@ -428,10 +384,10 @@ export default async function VisaPage() {
               </span>
               <h3 className="mt-4 font-semibold text-masaar-black text-base">Secure Payment</h3>
               <p className="mt-0.5 text-[11px] font-medium text-deep-gold">
-                (For UAE, Saudi &amp; US Visas)
+                (For Saudi &amp; UAE Visas)
               </p>
               <p className="mt-1.5 text-xs leading-relaxed text-masaar-black/60">
-                Pay online securely for applicable visas.
+                Pay online securely with Card or Tabby Pay in 4.
               </p>
             </div>
 

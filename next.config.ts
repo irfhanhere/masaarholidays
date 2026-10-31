@@ -83,6 +83,77 @@ const nextConfig: NextConfig = {
         destination: "/visa/uae",
         permanent: true,
       },
+      // Retired Visa URLs redirect to relevant retained service or main /visa page
+      {
+        source: "/visa/umrah",
+        destination: "/visa/saudi-tourist",
+        permanent: true,
+      },
+      {
+        source: "/visa/umrah/apply",
+        destination: "/visa/saudi-tourist/apply",
+        permanent: true,
+      },
+      {
+        source: "/visa/saudi",
+        destination: "/visa/saudi-tourist",
+        permanent: true,
+      },
+      {
+        source: "/visa/saudi/apply",
+        destination: "/visa/saudi-tourist/apply",
+        permanent: true,
+      },
+      {
+        source: "/visa/golden-visa",
+        destination: "/visa/golden-visa-assistance",
+        permanent: true,
+      },
+      {
+        source: "/visa/uae-golden-visa",
+        destination: "/visa/golden-visa-assistance",
+        permanent: true,
+      },
+      {
+        source: "/visa/golden-visa-assistance/apply",
+        destination: "/visa/golden-visa-assistance#enquiry-form",
+        permanent: true,
+      },
+      {
+        source: "/visa/us",
+        destination: "/visa",
+        permanent: true,
+      },
+      {
+        source: "/visa/us/apply",
+        destination: "/visa",
+        permanent: true,
+      },
+      {
+        source: "/visa/us-visa",
+        destination: "/visa",
+        permanent: true,
+      },
+      {
+        source: "/visa/india",
+        destination: "/visa",
+        permanent: true,
+      },
+      {
+        source: "/visa/india/apply",
+        destination: "/visa",
+        permanent: true,
+      },
+      {
+        source: "/visa/global",
+        destination: "/visa",
+        permanent: true,
+      },
+      {
+        source: "/visa/global/apply",
+        destination: "/visa",
+        permanent: true,
+      },
       // 3. Umrah placeholder slugs -> clean tier URLs
       {
         source: "/umrah/umrah-essential-placeholder",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -28,8 +28,11 @@ import {
   updateVisaApplicationStatus,
   getDocumentSignedUrlAction,
   retryVisaNotificationAction,
+  saveInternalNotesAction,
+  requestMissingDocumentsAction,
+  getApplicationDetailsAction,
 } from "./actions";
-import type { VisaApplicationRow } from "@/lib/types/database";
+import type { VisaApplicationRow, VisaApplicantRow, VisaApplicationDocumentRow } from "@/lib/types/database";
 
 interface ApplicationItem {
   id: string;
@@ -391,6 +394,90 @@ export default function VisaApplicationsClient({
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
+  // Detailed application state loaded on drawer open
+  const [appDetails, setAppDetails] = useState<{
+    applicants: VisaApplicantRow[];
+    documents: VisaApplicationDocumentRow[];
+    timeline: any[];
+    internalNotes: string;
+  } | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState<boolean>(false);
+  const [internalNotesText, setInternalNotesText] = useState<string>("");
+  const [isSavingNotes, setIsSavingNotes] = useState<boolean>(false);
+  const [notesStatus, setNotesStatus] = useState<string | null>(null);
+  const [missingDocsText, setMissingDocsText] = useState<string>("");
+  const [isSendingMissingRequest, setIsSendingMissingRequest] = useState<boolean>(false);
+  const [missingRequestStatus, setMissingRequestStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedApp) {
+      setAppDetails(null);
+      setInternalNotesText("");
+      setMissingDocsText("");
+      setNotesStatus(null);
+      setMissingRequestStatus(null);
+      return;
+    }
+    let isMounted = true;
+    setIsLoadingDetails(true);
+    getApplicationDetailsAction(selectedApp.id).then((res) => {
+      if (isMounted && res.success) {
+        setAppDetails({
+          applicants: (res.applicants as VisaApplicantRow[]) || [],
+          documents: (res.documents as VisaApplicationDocumentRow[]) || [],
+          timeline: res.timeline || [],
+          internalNotes: res.internal_notes || "",
+        });
+        setInternalNotesText(res.internal_notes || "");
+      }
+      if (isMounted) setIsLoadingDetails(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedApp]);
+
+  const handleSaveInternalNotes = async () => {
+    if (!selectedApp) return;
+    setIsSavingNotes(true);
+    setNotesStatus(null);
+    try {
+      const res = await saveInternalNotesAction(selectedApp.id, internalNotesText);
+      if (res.success) {
+        setNotesStatus("Internal notes saved successfully.");
+      } else {
+        setNotesStatus(`Failed to save: ${res.error}`);
+      }
+    } catch {
+      setNotesStatus("Error saving notes.");
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleSendMissingDocumentsRequest = async () => {
+    if (!selectedApp) return;
+    if (!missingDocsText.trim()) {
+      alert("Please specify the documents or information required from the customer.");
+      return;
+    }
+    setIsSendingMissingRequest(true);
+    setMissingRequestStatus(null);
+    try {
+      const res = await requestMissingDocumentsAction(selectedApp.id, missingDocsText.trim());
+      if (res.success) {
+        setMissingRequestStatus("Missing document request dispatched to customer & status updated to Documents Required.");
+        handleStatusChange(selectedApp.id, "documents_required");
+      } else {
+        setMissingRequestStatus(`Failed: ${res.error}`);
+      }
+    } catch {
+      setMissingRequestStatus("Error sending document request.");
+    } finally {
+      setIsSendingMissingRequest(false);
+    }
+  };
+
   const handleRetryEmail = async (appId: string) => {
     setIsRetrying(true);
     setRetryStatus(null);
@@ -695,43 +782,133 @@ export default function VisaApplicationsClient({
 
           {/* Drawer Body */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* Applicant Details */}
-            <div className="rounded-xl border border-black/10 p-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                Applicant Details
-              </h4>
-              <div className="mt-3 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Name</span>
-                  <span className="font-semibold text-masaar-black">{selectedApp.applicant_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Email</span>
-                  <span className="font-medium text-masaar-black">{selectedApp.applicant_email}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Phone</span>
-                  <span className="font-medium text-masaar-black">{selectedApp.applicant_phone}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Nationality</span>
-                  <span className="font-semibold text-masaar-black">{selectedApp.nationality}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Passport No.</span>
-                  <span className="font-mono font-medium text-masaar-black">{selectedApp.passport_number}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Date of Birth</span>
-                  <span className="font-medium text-masaar-black">{selectedApp.dob}</span>
+            {/* Status Badges Header (Payment vs Visa Processing) */}
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-neutral-50/70 p-3">
+              <div className="flex-1 min-w-[120px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/50">
+                  Visa Processing Status
+                </span>
+                <div className="mt-1">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                      selectedApp.status === "approved"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : selectedApp.status === "under_review"
+                        ? "bg-amber-100 text-amber-800"
+                        : selectedApp.status === "submitted"
+                        ? "bg-blue-100 text-blue-800"
+                        : selectedApp.status === "documents_required"
+                        ? "bg-rose-100 text-rose-800"
+                        : selectedApp.status === "rejected"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-neutral-100 text-neutral-700"
+                    }`}
+                  >
+                    {selectedApp.status.replace(/_/g, " ").toUpperCase()}
+                  </span>
                 </div>
               </div>
+
+              <div className="flex-1 min-w-[120px] border-l border-black/10 pl-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/50">
+                  Payment Status
+                </span>
+                <div className="mt-1">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                      selectedApp.payment_status === "paid"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : selectedApp.payment_status === "refunded"
+                        ? "bg-purple-50 text-purple-700 border border-purple-200"
+                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        selectedApp.payment_status === "paid"
+                          ? "bg-emerald-600"
+                          : selectedApp.payment_status === "refunded"
+                          ? "bg-purple-600"
+                          : "bg-amber-600"
+                      }`}
+                    />
+                    {selectedApp.payment_status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Applicant Details (Single or Multi-Applicant) */}
+            <div className="rounded-xl border border-black/10 p-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
+                  Applicant Information {appDetails?.applicants && appDetails.applicants.length > 1 ? `(${appDetails.applicants.length} Travellers)` : ""}
+                </h4>
+                <span className="text-[11px] font-medium text-masaar-black/60">
+                  Primary Contact: {selectedApp.applicant_phone}
+                </span>
+              </div>
+
+              {isLoadingDetails ? (
+                <div className="py-4 text-center text-xs text-masaar-black/50">Loading applicants...</div>
+              ) : appDetails?.applicants && appDetails.applicants.length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {appDetails.applicants.map((appItem, idx) => (
+                    <div key={appItem.id || idx} className="rounded-lg border border-black/5 bg-neutral-50/60 p-3 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between border-b border-black/5 pb-1.5">
+                        <span className="font-bold text-masaar-black">
+                          Traveller {idx + 1}: {appItem.full_name}
+                        </span>
+                        <span className="font-mono text-[11px] text-masaar-black/70">
+                          {appItem.passport_number}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-masaar-black/70 text-[11px]">
+                        <div>Nationality: <span className="font-medium text-masaar-black">{appItem.nationality}</span></div>
+                        <div>DOB: <span className="font-medium text-masaar-black">{appItem.date_of_birth}</span></div>
+                        <div>Gender: <span className="font-medium text-masaar-black">{appItem.gender}</span></div>
+                        <div>Expiry: <span className="font-medium text-masaar-black">{appItem.passport_expiry_date}</span></div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="text-[11px] text-masaar-black/60 pt-1">
+                    Email updates sent to: <span className="font-medium text-masaar-black">{selectedApp.applicant_email}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Name</span>
+                    <span className="font-semibold text-masaar-black">{selectedApp.applicant_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Email</span>
+                    <span className="font-medium text-masaar-black">{selectedApp.applicant_email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Phone / WhatsApp</span>
+                    <span className="font-medium text-masaar-black">{selectedApp.applicant_phone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Nationality</span>
+                    <span className="font-semibold text-masaar-black">{selectedApp.nationality}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Passport No.</span>
+                    <span className="font-mono font-medium text-masaar-black">{selectedApp.passport_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Date of Birth</span>
+                    <span className="font-medium text-masaar-black">{selectedApp.dob}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Visa Details */}
             <div className="rounded-xl border border-black/10 p-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                Visa Details
+                Visa Package
               </h4>
               <div className="mt-3 flex items-center gap-3">
                 <div className="relative h-12 w-16 overflow-hidden rounded-md border border-black/10">
@@ -750,90 +927,163 @@ export default function VisaApplicationsClient({
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-black/5 pt-3 text-xs">
                 <div>
-                  <span className="text-masaar-black/50">Travel Date</span>
+                  <span className="text-masaar-black/50">Intended Travel Date</span>
                   <p className="font-semibold text-masaar-black">{selectedApp.travel_date}</p>
                 </div>
                 <div>
-                  <span className="text-masaar-black/50">No. of Travellers</span>
-                  <p className="font-semibold text-masaar-black">1 Traveller</p>
+                  <span className="text-masaar-black/50">Turnaround Expectation</span>
+                  <p className="font-semibold text-masaar-black">
+                    {selectedApp.visa_slug === "saudi-tourist" ? "1-3 Working Days" : "3-5 Working Days"}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Application Status & Action */}
+            {/* Application Processing Status Dropdown & Rule Caution */}
             <div className="rounded-xl border border-black/10 p-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                  Application Status
-                </h4>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
+                    Visa Processing Status
+                  </h4>
+                  <p className="text-[10px] text-masaar-black/60">Updates the applicant tracking portal</p>
+                </div>
                 <select
                   value={selectedApp.status}
                   onChange={(e) => handleStatusChange(selectedApp.id, e.target.value)}
-                  className="rounded-lg border border-black/15 bg-white px-2.5 py-1 text-xs font-semibold text-masaar-black focus:border-amber-600 focus:outline-none"
+                  className="rounded-lg border border-black/15 bg-white px-2.5 py-1.5 text-xs font-bold text-masaar-black focus:border-amber-600 focus:outline-none shadow-2xs"
                 >
+                  <option value="draft">Draft</option>
                   <option value="submitted">Submitted</option>
                   <option value="under_review">Under Review</option>
                   <option value="documents_required">Documents Required</option>
+                  <option value="submitted_to_authorities">Submitted to Authorities</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
               </div>
 
-              {/* Status Timeline */}
-              <div className="mt-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-white">
-                    <CheckCircle2 className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-masaar-black">Application Submitted</p>
-                    <p className="text-[10px] text-masaar-black/50">{selectedApp.submitted_on}</p>
-                  </div>
-                </div>
+              <div className="mt-3 rounded-md bg-amber-50 p-2.5 text-[11px] text-amber-800 border border-amber-200">
+                <span className="font-bold">Compliance Rule: </span>
+                Do not set status to &quot;Submitted to Authorities&quot; unless official filing with destination immigration has actually occurred.
+              </div>
 
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full ${
-                      selectedApp.status !== "submitted" && selectedApp.status !== "draft"
-                        ? "bg-amber-600 text-white"
-                        : "bg-black/10 text-black/40"
-                    }`}
-                  >
-                    <Clock className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-masaar-black">Under Review</p>
-                    <p className="text-[10px] text-masaar-black/50">
-                      {selectedApp.status === "under_review" ? "In progress" : "Pending verification"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full ${
-                      selectedApp.status === "approved"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-black/10 text-black/40"
-                    }`}
-                  >
-                    <CheckCircle2 className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-masaar-black">Visa Approval</p>
-                    <p className="text-[10px] text-masaar-black/50">
-                      {selectedApp.status === "approved" ? "Approved" : "Pending"}
-                    </p>
-                  </div>
+              {/* Status Timeline History */}
+              <div className="mt-4 border-t border-black/5 pt-3">
+                <h5 className="text-[11px] font-bold text-masaar-black/60 uppercase tracking-wider mb-2">
+                  Status History Timeline
+                </h5>
+                <div className="space-y-2.5">
+                  {(appDetails?.timeline && appDetails.timeline.length > 0
+                    ? appDetails.timeline
+                    : [
+                        { step: "Application Submitted", timestamp: selectedApp.submitted_on, status: "completed", note: "Application registered" },
+                        { step: selectedApp.status.replace(/_/g, " "), timestamp: "Current Status", status: "completed", note: "Active state" },
+                      ]
+                  ).map((tl: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2.5 text-xs">
+                      <div className="mt-1 size-2 rounded-full bg-emerald-600 shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-masaar-black capitalize">{tl.step?.replace(/_/g, " ")}</span>
+                          <span className="text-[10px] text-masaar-black/50">
+                            {tl.timestamp ? new Date(tl.timestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                          </span>
+                        </div>
+                        {tl.note && <p className="text-[11px] text-masaar-black/60 mt-0.5">{tl.note}</p>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Payment Information */}
+            {/* Internal Notes Editor */}
             <div className="rounded-xl border border-black/10 p-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                Payment & Pricing (5% Online Discount Applied)
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
+                    Internal Specialist Notes
+                  </h4>
+                  <p className="text-[10px] text-masaar-black/60">Visible to staff only — not shared with applicant</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveInternalNotes}
+                  disabled={isSavingNotes}
+                  className="rounded bg-masaar-black px-3 py-1 text-xs font-semibold text-white shadow-2xs hover:bg-black/80 disabled:opacity-50"
+                >
+                  {isSavingNotes ? "Saving..." : "Save Notes"}
+                </button>
+              </div>
+
+              <textarea
+                rows={3}
+                value={internalNotesText}
+                onChange={(e) => setInternalNotesText(e.target.value)}
+                placeholder="Add internal notes about document verification, reviewer checks, or authority follow-ups..."
+                className="mt-3 w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-amber-600 focus:outline-none"
+              />
+
+              {notesStatus && (
+                <p className="mt-2 text-[11px] font-medium text-emerald-700 bg-emerald-50 rounded p-1.5 border border-emerald-200">
+                  {notesStatus}
+                </p>
+              )}
+            </div>
+
+            {/* Missing-Document Request Dispatcher */}
+            <div className="rounded-xl border border-rose-200 bg-rose-50/30 p-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800">
+                Request Missing / Clearer Documents
               </h4>
+              <p className="mt-0.5 text-[11px] text-masaar-black/60">
+                Sends an email notification requesting the customer to upload required documents.
+              </p>
+
+              <textarea
+                rows={2}
+                value={missingDocsText}
+                onChange={(e) => setMissingDocsText(e.target.value)}
+                placeholder="e.g. Passport copy is blurry. Please provide a high-resolution colour scan of pages 1 and 2."
+                className="mt-3 w-full rounded-lg border border-rose-200 bg-white p-2.5 text-xs text-masaar-black focus:border-rose-500 focus:outline-none"
+              />
+
+              <div className="mt-2.5 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleSendMissingDocumentsRequest}
+                  disabled={isSendingMissingRequest || !missingDocsText.trim()}
+                  className="rounded bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-rose-800 disabled:opacity-50"
+                >
+                  {isSendingMissingRequest ? "Sending Request..." : "Send Document Request"}
+                </button>
+              </div>
+
+              {missingRequestStatus && (
+                <p className="mt-2 text-[11px] font-medium text-rose-800 bg-rose-100/70 rounded p-1.5 border border-rose-200">
+                  {missingRequestStatus}
+                </p>
+              )}
+            </div>
+
+            {/* Payment & Refund Information */}
+            <div className="rounded-xl border border-black/10 p-4">
+              <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
+                    Payment & Refund Records
+                  </h4>
+                  <p className="text-[10px] text-masaar-black/60">Independent from visa processing status</p>
+                </div>
+                <Link
+                  href="/admin/visa-payments"
+                  className="text-xs font-semibold text-amber-700 hover:underline"
+                >
+                  View Payments →
+                </Link>
+              </div>
+
               <div className="mt-3 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-masaar-black/60">Payment Status</span>
@@ -842,33 +1092,26 @@ export default function VisaApplicationsClient({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-masaar-black/60">Original Package Price</span>
-                  <span className="text-masaar-black line-through">
-                    USD {(selectedApp.total_amount / 0.95).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700 font-medium">5% Online Discount</span>
-                  <span className="text-emerald-700 font-semibold">
-                    -USD {((selectedApp.total_amount / 0.95) * 0.05).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-black/10 pt-2 font-bold">
-                  <span className="text-masaar-black">Total Charged</span>
-                  <span className="text-masaar-black">USD {selectedApp.total_amount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between pt-1">
                   <span className="text-masaar-black/60">Payment Method</span>
                   <span className="font-medium text-masaar-black">{selectedApp.payment_method}</span>
                 </div>
+                <div className="flex justify-between border-t border-black/5 pt-2">
+                  <span className="text-masaar-black/60">Charged Total</span>
+                  <span className="font-bold text-masaar-black">USD {selectedApp.total_amount.toFixed(2)}</span>
+                </div>
               </div>
 
-              {/* Notification Status & Retry */}
+              <div className="mt-3 rounded-md bg-neutral-50 p-2.5 text-[11px] text-masaar-black/70 border border-black/5">
+                <span className="font-bold text-masaar-black">Refund Permission & Policy: </span>
+                Once submitted to official destination authorities, visa government fees are strictly non-refundable. Refunds prior to submission must be processed via the payments ledger by an authorized administrator.
+              </div>
+
+              {/* Notification Retry */}
               <div className="mt-4 border-t border-black/10 pt-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-masaar-black">Customer Notification</p>
-                    <p className="text-[10px] text-masaar-black/60">Transactional email log & delivery</p>
+                    <p className="text-xs font-bold text-masaar-black">Customer Notification Email</p>
+                    <p className="text-[10px] text-masaar-black/60">Resend payment receipt and submission confirmation</p>
                   </div>
                   <button
                     disabled={isRetrying}
@@ -886,18 +1129,45 @@ export default function VisaApplicationsClient({
               </div>
             </div>
 
-            {/* Uploaded Documents */}
+            {/* Uploaded Documents with Restricted Access */}
             <div className="rounded-xl border border-black/10 p-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                  Documents ({selectedApp.documents.length})
-                </h4>
-                <span className="text-[10px] font-semibold text-amber-700">Private & Encrypted</span>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
+                    Uploaded Documents ({appDetails?.documents && appDetails.documents.length > 0 ? appDetails.documents.length : selectedApp.documents.length})
+                  </h4>
+                  <p className="text-[10px] text-amber-700">Restricted signed access · No public URLs</p>
+                </div>
               </div>
+
               <div className="mt-3 space-y-2">
-                {selectedApp.documents.length === 0 ? (
-                  <p className="text-xs text-masaar-black/50 italic">No documents uploaded for this record.</p>
-                ) : (
+                {appDetails?.documents && appDetails.documents.length > 0 ? (
+                  appDetails.documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between rounded-lg border border-black/10 bg-neutral-50/50 p-2.5"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FileCheck className="h-4 w-4 text-emerald-600" />
+                        <div>
+                          <p className="text-xs font-semibold text-masaar-black">{doc.document_type || doc.file_name}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-masaar-black/50">
+                            <span>{doc.file_name}</span>
+                            <span>•</span>
+                            <span>{doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : "Document"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDoc(doc.file_path)}
+                        className="rounded border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-masaar-black hover:bg-black/5"
+                      >
+                        View Securely
+                      </button>
+                    </div>
+                  ))
+                ) : selectedApp.documents.length > 0 ? (
                   selectedApp.documents.map((doc) => (
                     <div
                       key={doc.id}
@@ -913,6 +1183,7 @@ export default function VisaApplicationsClient({
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleOpenDoc(doc.file_path)}
                         className="rounded border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-masaar-black hover:bg-black/5"
                       >
@@ -920,6 +1191,8 @@ export default function VisaApplicationsClient({
                       </button>
                     </div>
                   ))
+                ) : (
+                  <p className="text-xs text-masaar-black/50 italic py-2">No uploaded documents on record.</p>
                 )}
               </div>
             </div>

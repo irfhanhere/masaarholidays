@@ -5,6 +5,8 @@ import { Container } from "@/components/site/Container";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CONTACT, buildWhatsAppLink } from "@/lib/contact";
+import { getTabbyPayment, captureTabbyPayment } from "@/lib/tabby";
+import { fulfilTransferBooking } from "@/lib/transfer-fulfilment";
 import type { TransferBookingRow } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +23,11 @@ export const metadata: Metadata = {
 export default async function TransferBookingSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; session_id?: string }>;
+  searchParams: Promise<{ token?: string; session_id?: string; payment_id?: string; tabby?: string }>;
 }) {
-  const { token, session_id } = await searchParams;
+  const { token, session_id, payment_id, tabby } = await searchParams;
 
-  if (!token && !session_id) {
+  if (!token && !session_id && !payment_id) {
     notFound();
   }
 
@@ -36,12 +38,44 @@ export default async function TransferBookingSuccessPage({
     query = query.eq("public_token", token);
   } else if (session_id) {
     query = query.eq("stripe_session_id", session_id);
+  } else if (payment_id) {
+    query = query.eq("stripe_payment_intent", payment_id);
   }
 
-  const { data: booking, error } = await query.maybeSingle<TransferBookingRow>();
+  let { data: booking, error } = await query.maybeSingle<TransferBookingRow>();
 
   if (error || !booking) {
     notFound();
+  }
+
+  // If returning from Tabby and booking is not marked paid yet, verify and capture payment server-side
+  if (booking.payment_status !== "paid" && payment_id) {
+    try {
+      const tabbyPayment = await getTabbyPayment(payment_id);
+      const status = (tabbyPayment.status || "").toUpperCase();
+      const amount = parseFloat(tabbyPayment.amount || "0");
+
+      if (status === "AUTHORIZED") {
+        await captureTabbyPayment(payment_id, amount, booking.booking_ref);
+        await fulfilTransferBooking(booking.id);
+        const { data: updated } = await supabase
+          .from("transfer_bookings")
+          .select("*")
+          .eq("id", booking.id)
+          .single<TransferBookingRow>();
+        if (updated) booking = updated;
+      } else if (status === "CLOSED") {
+        await fulfilTransferBooking(booking.id);
+        const { data: updated } = await supabase
+          .from("transfer_bookings")
+          .select("*")
+          .eq("id", booking.id)
+          .single<TransferBookingRow>();
+        if (updated) booking = updated;
+      }
+    } catch (tabbyErr) {
+      console.warn("[transfers-success] Tabby verification on return notice:", tabbyErr);
+    }
   }
 
   const isPaid = booking.payment_status === "paid";

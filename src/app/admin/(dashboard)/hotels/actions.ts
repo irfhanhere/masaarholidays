@@ -53,14 +53,58 @@ export async function saveHotel(
   const primaryGate = String(formData.get("primary_gate") ?? "").trim();
   const dataConfidence = String(formData.get("data_confidence") ?? "").trim();
 
-  const payload = {
+  // 1. Distance extraction, unit conversion & numeric validation
+  const rawDistMeters = formData.get("distance_from_haram_meters");
+  const rawDistValue = formData.get("distance_input_value");
+  const distanceUnit = String(formData.get("distance_unit") ?? "m").toLowerCase().trim() === "km" ? "km" : "m";
+
+  let distanceFromHaramMeters: number | null = null;
+  if (rawDistMeters !== null && rawDistMeters !== undefined && String(rawDistMeters).trim() !== "") {
+    const parsed = Number(rawDistMeters);
+    if (isNaN(parsed) || parsed < 0) {
+      return { status: "error", message: "Haram distance must be a valid positive number." };
+    }
+    distanceFromHaramMeters = Math.round(parsed);
+  } else if (rawDistValue !== null && rawDistValue !== undefined && String(rawDistValue).trim() !== "") {
+    const parsed = Number(rawDistValue);
+    if (isNaN(parsed) || parsed < 0) {
+      return { status: "error", message: "Haram distance must be a valid positive number." };
+    }
+    distanceFromHaramMeters = distanceUnit === "km" ? Math.round(parsed * 1000) : Math.round(parsed);
+  }
+
+  // 2. Walking time extraction & numeric validation
+  const rawWalkTime = formData.get("walk_time_minutes");
+  let walkTimeMinutes: number | null = null;
+  if (rawWalkTime !== null && rawWalkTime !== undefined && String(rawWalkTime).trim() !== "") {
+    const parsed = Number(rawWalkTime);
+    if (isNaN(parsed) || parsed < 0) {
+      return { status: "error", message: "Estimated walking time must be a valid positive number of minutes." };
+    }
+    walkTimeMinutes = Math.round(parsed);
+  }
+
+  const rawWalkTimeMax = formData.get("walk_time_minutes_max");
+  let walkTimeMinutesMax: number | null = null;
+  if (rawWalkTimeMax !== null && rawWalkTimeMax !== undefined && String(rawWalkTimeMax).trim() !== "") {
+    const parsed = Number(rawWalkTimeMax);
+    if (isNaN(parsed) || parsed < 0) {
+      return { status: "error", message: "Maximum walking time must be a valid positive number of minutes." };
+    }
+    walkTimeMinutesMax = Math.round(parsed);
+    if (walkTimeMinutes !== null && walkTimeMinutesMax < walkTimeMinutes) {
+      return { status: "error", message: "Maximum walking time cannot be less than estimated walking time." };
+    }
+  }
+
+  const payload: Record<string, any> = {
     name,
     city,
     category: textField("category"),
     star_rating: numberField("star_rating"),
-    distance_from_haram_meters: numberField("distance_from_haram_meters"),
-    walk_time_minutes: numberField("walk_time_minutes"),
-    walk_time_minutes_max: numberField("walk_time_minutes_max"),
+    distance_from_haram_meters: distanceFromHaramMeters,
+    walk_time_minutes: walkTimeMinutes,
+    walk_time_minutes_max: walkTimeMinutesMax,
     terrain_note: textField("terrain_note"),
     room_type: textField("room_type"),
     board_basis: textField("board_basis"),
@@ -100,8 +144,9 @@ export async function saveHotel(
     is_active: formData.get("is_active") === "on",
   };
 
-  // Optional verified fields per 0089 migration
+  // Optional verified fields per 0089 & 0096 migrations
   const verifiedPayload: Record<string, any> = {
+    distance_unit: distanceUnit,
     official_name: textField("official_name"),
     verified_address: textField("verified_address"),
     latitude: numberField("latitude"),
@@ -121,11 +166,11 @@ export async function saveHotel(
 
     if (hotelId) {
       // First attempt with verified fields
-      const { error } = await supabase.from("hotels").update({ ...payload, ...verifiedPayload }).eq("id", hotelId);
+      const { error } = await (supabase.from("hotels") as any).update({ ...payload, ...verifiedPayload }).eq("id", hotelId);
       if (error) {
-        // If 0089 columns aren't in remote schema yet, retry with base payload
+        // If 0089/0096 columns aren't in remote schema yet, retry with base payload
         if (error.message?.includes("column") || error.code === "42703") {
-          const { error: baseError } = await supabase.from("hotels").update(payload).eq("id", hotelId);
+          const { error: baseError } = await (supabase.from("hotels") as any).update(payload).eq("id", hotelId);
           if (baseError) return { status: "error", message: baseError.message };
         } else {
           return { status: "error", message: error.message };
@@ -133,10 +178,10 @@ export async function saveHotel(
       }
     } else {
       const slug = `${slugify(name)}-${Date.now().toString(36)}`;
-      const { error } = await supabase.from("hotels").insert({ ...payload, ...verifiedPayload, slug });
+      const { error } = await (supabase.from("hotels") as any).insert({ ...payload, ...verifiedPayload, slug });
       if (error) {
         if (error.message?.includes("column") || error.code === "42703") {
-          const { error: baseError } = await supabase.from("hotels").insert({ ...payload, slug });
+          const { error: baseError } = await (supabase.from("hotels") as any).insert({ ...payload, slug });
           if (baseError) return { status: "error", message: baseError.message };
         } else {
           return { status: "error", message: error.message };
@@ -145,6 +190,16 @@ export async function saveHotel(
     }
 
     revalidatePath("/admin/hotels");
+    if (hotelId) {
+      revalidatePath(`/admin/hotels/${hotelId}`);
+    }
+    revalidatePath("/hotels");
+    const hotelSlug = String(formData.get("slug") ?? "").trim();
+    if (hotelSlug) {
+      revalidatePath(`/hotels/${hotelSlug}`);
+    }
+    revalidatePath("/umrah");
+
     redirect("/admin/hotels");
   } catch (err: any) {
     if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {

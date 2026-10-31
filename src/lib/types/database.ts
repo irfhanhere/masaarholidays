@@ -175,6 +175,7 @@ type HotelRowShape = {
   category: string | null;
   star_rating: number | null;
   distance_from_haram_meters: number | null;
+  distance_unit?: string | null;
   walk_time_minutes: number | null;
   walk_time_minutes_max: number | null;
   terrain_note: string | null;
@@ -506,6 +507,11 @@ export type VisaApplicationRowShape = {
   currency: string;
   payment_status: VisaPaymentStatus;
   payment_method: string | null;
+  payment_gateway?: "stripe" | "tabby" | string;
+  tabby_payment_id?: string | null;
+  tabby_session_id?: string | null;
+  charged_currency?: string | null;
+  charged_amount?: number | null;
   stripe_session_id: string | null;
   stripe_payment_intent_id: string | null;
   application_status: VisaApplicationStatus;
@@ -564,12 +570,27 @@ export type VisaPaymentRowShape = {
   payment_status: VisaPaymentStatus;
   gateway: string;
   gateway_payment_id: string | null;
+  tabby_payment_id?: string | null;
+  tabby_capture_id?: string | null;
+  tabby_refund_id?: string | null;
+  error_message?: string | null;
   refund_status: string | null;
   refund_amount: number | null;
   refund_date: string | null;
   idempotency_key: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PaymentWebhookEventRowShape = {
+  id: string;
+  gateway: string;
+  external_id: string;
+  event_type: string;
+  payload: Record<string, unknown>;
+  processed: boolean;
+  error: string | null;
+  created_at: string;
 };
 
 export type EmailNotificationRowShape = {
@@ -1147,6 +1168,7 @@ export interface Database {
       visa_application_documents: Table<VisaApplicationDocumentRowShape, "application_id" | "document_type" | "file_path" | "file_name">;
       visa_payments: Table<VisaPaymentRowShape, "application_id" | "transaction_reference" | "amount">;
       email_notifications: Table<EmailNotificationRowShape, "idempotency_key" | "recipient" | "subject" | "template_type">;
+      payment_webhook_events: Table<PaymentWebhookEventRowShape, "gateway" | "external_id" | "event_type">;
     };
     Views: {
       transfer_route_available_vehicles: View<TransferRouteAvailableVehicleRowShape>;
@@ -1185,6 +1207,7 @@ export type VisaApplicationRow = Database["public"]["Tables"]["visa_applications
 export type VisaApplicantRow = Database["public"]["Tables"]["visa_applicants"]["Row"];
 export type VisaApplicationDocumentRow = Database["public"]["Tables"]["visa_application_documents"]["Row"];
 export type VisaPaymentRow = Database["public"]["Tables"]["visa_payments"]["Row"];
+export type PaymentWebhookEventRow = Database["public"]["Tables"]["payment_webhook_events"]["Row"];
 export type EmailNotificationRow = Database["public"]["Tables"]["email_notifications"]["Row"];
 export type VisaDocumentContextRow =
   Database["public"]["Tables"]["visa_document_contexts"]["Row"];

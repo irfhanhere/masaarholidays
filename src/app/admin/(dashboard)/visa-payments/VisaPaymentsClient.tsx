@@ -27,6 +27,7 @@ interface PaymentItem {
   variant: string;
   amount: number;
   currency: string;
+  payment_gateway: "stripe" | "tabby" | string;
   payment_method: string;
   transaction_ref: string;
   gateway_payment_id: string;
@@ -37,9 +38,49 @@ interface PaymentItem {
   refund_status?: string;
   refund_amount?: number;
   refund_date?: string;
+  charged_currency?: string;
+  charged_amount?: number;
 }
 
 const INITIAL_PAYMENTS: PaymentItem[] = [
+  {
+    id: "pay-tabby-1",
+    application_ref: "MH-SV-2026-001250",
+    applicant_name: "Sara Al-Harbi",
+    visa_type: "Saudi Tourist Visa",
+    variant: "90 Days – Multiple Entry",
+    amount: 220,
+    currency: "USD",
+    payment_gateway: "tabby",
+    payment_method: "Tabby (4 Installments)",
+    transaction_ref: "tabby_pay_99a81f",
+    gateway_payment_id: "tabby_pay_99a81f",
+    charged_currency: "SAR",
+    charged_amount: 825,
+    status: "success",
+    payment_date: "22 Oct 2026, 03:30 PM",
+    travel_date: "10 Dec 2026",
+    application_status: "Submitted",
+  },
+  {
+    id: "pay-tabby-2",
+    application_ref: "MH-UV-2026-001249",
+    applicant_name: "Tariq Mansoor",
+    visa_type: "UAE Visa",
+    variant: "30 Days – Single Entry",
+    amount: 120,
+    currency: "USD",
+    payment_gateway: "tabby",
+    payment_method: "Tabby (4 Installments)",
+    transaction_ref: "tabby_pay_88c72b",
+    gateway_payment_id: "tabby_pay_88c72b",
+    charged_currency: "AED",
+    charged_amount: 440.7,
+    status: "success",
+    payment_date: "21 Oct 2026, 01:15 PM",
+    travel_date: "18 Nov 2026",
+    application_status: "Under Review",
+  },
   {
     id: "pay-1",
     application_ref: "MH-UV-2026-001248",
@@ -48,6 +89,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "30 Days – Single Entry",
     amount: 120,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Mastercard •••• 3456",
     transaction_ref: "pi_3KJd9a2F8v9Q1",
     gateway_payment_id: "ch_3KJd9a2F8v9Q1",
@@ -64,6 +106,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "90 Days – Multiple Entry",
     amount: 220,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Visa •••• 1122",
     transaction_ref: "pi_3KJd9a2E8v9Q2",
     gateway_payment_id: "ch_3KJd9a2E8v9Q2",
@@ -80,6 +123,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "Work Visa (H1B)",
     amount: 245,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Visa •••• 9876",
     transaction_ref: "pi_3KJd9a2D8v9Q3",
     gateway_payment_id: "ch_3KJd9a2D8v9Q3",
@@ -96,6 +140,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "60 Days – Single Entry",
     amount: 180,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Apple Pay",
     transaction_ref: "pi_3KJd9a2C8v9Q4",
     gateway_payment_id: "ch_3KJd9a2C8v9Q4",
@@ -112,6 +157,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "30 Days – Single Entry",
     amount: 140,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Mastercard •••• 5544",
     transaction_ref: "pi_3KJd9a2B8v9Q5",
     gateway_payment_id: "ch_3KJd9a2B8v9Q5",
@@ -128,6 +174,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "30 Days – Single Entry",
     amount: 200,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Visa •••• 4433",
     transaction_ref: "pi_3KJd9a2A8v9Q6",
     gateway_payment_id: "ch_3KJd9a2A8v9Q6",
@@ -147,6 +194,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "Student Visa (F1)",
     amount: 225,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Amex •••• 1009",
     transaction_ref: "pi_3KJd9a298v9Q7",
     gateway_payment_id: "ch_3KJd9a298v9Q7",
@@ -163,6 +211,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "30 Days – Single Entry",
     amount: 120,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Visa •••• 2211",
     transaction_ref: "pi_3KJd9a288v9Q8",
     gateway_payment_id: "ch_3KJd9a288v9Q8",
@@ -179,6 +228,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "Family Visit Visa",
     amount: 250,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Mastercard •••• 7788",
     transaction_ref: "pi_3KJd9a278v9Q9",
     gateway_payment_id: "ch_3KJd9a278v9Q9",
@@ -195,6 +245,7 @@ const INITIAL_PAYMENTS: PaymentItem[] = [
     variant: "30 Days – Single Entry",
     amount: 120,
     currency: "USD",
+    payment_gateway: "stripe",
     payment_method: "Google Pay",
     transaction_ref: "pi_3KJd9a268v9Q0",
     gateway_payment_id: "ch_3KJd9a268v9Q0",
@@ -211,11 +262,12 @@ export default function VisaPaymentsClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [visaTypeFilter, setVisaTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [gatewayFilter, setGatewayFilter] = useState("all");
   const [isPending, startTransition] = useTransition();
 
   // Metrics matching A06
-  const totalCount = 224;
-  const successCount = 198;
+  const totalCount = 226;
+  const successCount = 200;
   const pendingCount = 12;
   const failedCount = 7;
   const refundedCount = 7;
@@ -233,7 +285,10 @@ export default function VisaPaymentsClient() {
     const matchesStatus =
       statusFilter === "all" || p.status === statusFilter;
 
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesGateway =
+      gatewayFilter === "all" || p.payment_gateway === gatewayFilter;
+
+    return matchesSearch && matchesType && matchesStatus && matchesGateway;
   });
 
   const handleRefund = (payment: PaymentItem) => {
@@ -382,11 +437,22 @@ export default function VisaPaymentsClient() {
             <option value="failed">Failed</option>
           </select>
 
+          <select
+            value={gatewayFilter}
+            onChange={(e) => setGatewayFilter(e.target.value)}
+            className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-medium text-masaar-black focus:border-amber-600 focus:outline-none"
+          >
+            <option value="all">All Gateways</option>
+            <option value="stripe">Stripe</option>
+            <option value="tabby">Tabby</option>
+          </select>
+
           <button
             onClick={() => {
               setSearchQuery("");
               setVisaTypeFilter("all");
               setStatusFilter("all");
+              setGatewayFilter("all");
             }}
             className="inline-flex items-center gap-1 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium text-masaar-black/70 hover:bg-black/5"
           >
@@ -406,6 +472,7 @@ export default function VisaPaymentsClient() {
                 <th className="px-4 py-3">Application Ref.</th>
                 <th className="px-4 py-3">Applicant Name</th>
                 <th className="px-4 py-3">Visa Type</th>
+                <th className="px-4 py-3">Gateway</th>
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Payment Method</th>
                 <th className="px-4 py-3">Transaction Ref.</th>
@@ -431,8 +498,25 @@ export default function VisaPaymentsClient() {
                   </td>
                   <td className="px-4 py-3.5 font-semibold text-masaar-black">{p.applicant_name}</td>
                   <td className="px-4 py-3.5 text-masaar-black/80">{p.visa_type}</td>
+                  <td className="px-4 py-3.5">
+                    {p.payment_gateway === "tabby" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#3EEDB4]/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-950">
+                        <span className="rounded bg-[#3EEDB4] px-1 py-0.2 text-[9px] font-black text-black">tabby</span>
+                        Tabby
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+                        Stripe
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3.5 font-bold text-masaar-black">
-                    {p.currency} {p.amount}
+                    <div>{p.currency} {p.amount}</div>
+                    {p.payment_gateway === "tabby" && p.charged_currency && p.charged_amount && (
+                      <div className="text-[10px] font-normal text-emerald-700">
+                        {p.charged_currency} {p.charged_amount}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-xs text-masaar-black/70">{p.payment_method}</td>
                   <td className="px-4 py-3.5 font-mono text-xs text-masaar-black/60">{p.transaction_ref}</td>
@@ -536,8 +620,18 @@ export default function VisaPaymentsClient() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-masaar-black/60">Gateway</span>
-                  <span className="font-semibold text-masaar-black">Stripe</span>
+                  <span className="font-semibold text-masaar-black">
+                    {selectedPayment.payment_gateway === "tabby" ? "Tabby (Split in 4)" : "Stripe (Card)"}
+                  </span>
                 </div>
+                {selectedPayment.payment_gateway === "tabby" && selectedPayment.charged_currency && selectedPayment.charged_amount && (
+                  <div className="flex justify-between">
+                    <span className="text-masaar-black/60">Charged Currency</span>
+                    <span className="font-bold text-emerald-800">
+                      {selectedPayment.charged_currency} {selectedPayment.charged_amount}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-masaar-black/60">Gateway Payment ID</span>
                   <span className="font-mono text-masaar-black/70">{selectedPayment.gateway_payment_id}</span>
@@ -591,7 +685,7 @@ export default function VisaPaymentsClient() {
                     onClick={() => handleRefund(selectedPayment)}
                     className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 transition"
                   >
-                    Order Refund
+                    Process Refund
                   </button>
                 )}
               </div>
@@ -639,7 +733,11 @@ export default function VisaPaymentsClient() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-masaar-black">Payment Successful</p>
-                    <p className="text-[10px] text-masaar-black/50">Stripe Webhook Verified</p>
+                    <p className="text-[10px] text-masaar-black/50">
+                      {selectedPayment.payment_gateway === "tabby"
+                        ? "Tabby Webhook Captured & Verified"
+                        : "Stripe Webhook Verified"}
+                    </p>
                   </div>
                 </div>
 

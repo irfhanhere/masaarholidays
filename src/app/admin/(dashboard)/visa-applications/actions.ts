@@ -121,6 +121,83 @@ export async function getVisaNotificationLogsAction(referenceNo: string) {
   }
 }
 
+export async function saveInternalNotesAction(applicationId: string, internalNotes: string) {
+  if (!isSupabaseConfigured()) {
+    return { success: true, message: "Demo mode: notes saved." };
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from("visa_applications")
+      .update({
+        internal_notes: internalNotes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", applicationId);
+
+    if (error) throw error;
+    revalidatePath("/admin/visa-applications");
+    return { success: true };
+  } catch (err: any) {
+    console.error("[saveInternalNotesAction] Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function requestMissingDocumentsAction(
+  applicationId: string,
+  requestedDocsNote: string
+) {
+  if (!isSupabaseConfigured()) {
+    return { success: true, message: "Demo mode: missing documents requested." };
+  }
+
+  return updateVisaApplicationStatus(
+    applicationId,
+    "documents_required",
+    requestedDocsNote || "Additional or clearer documents required for submission."
+  );
+}
+
+export async function getApplicationDetailsAction(applicationId: string) {
+  if (!isSupabaseConfigured()) {
+    return { success: true, applicants: [], documents: [], timeline: [] };
+  }
+
+  try {
+    const supabase = createAdminClient();
+
+    const [appRes, applicantsRes, docsRes] = await Promise.all([
+      supabase.from("visa_applications").select("*").eq("id", applicationId).maybeSingle(),
+      supabase
+        .from("visa_applicants")
+        .select("*")
+        .eq("application_id", applicationId)
+        .order("applicant_number", { ascending: true }),
+      supabase
+        .from("visa_application_documents")
+        .select("*")
+        .eq("application_id", applicationId)
+        .order("created_at", { ascending: true }),
+    ]);
+
+    if (appRes.error) throw appRes.error;
+
+    return {
+      success: true,
+      application: appRes.data,
+      applicants: applicantsRes.data || [],
+      documents: docsRes.data || [],
+      timeline: (appRes.data?.status_timeline as any[]) || [],
+      internal_notes: appRes.data?.internal_notes || "",
+    };
+  } catch (err: any) {
+    console.error("[getApplicationDetailsAction] Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function getDocumentSignedUrlAction(filePath: string) {
   try {
     const { signedUrl, error } = await getPrivateDocumentSignedUrl(filePath, 3600); // 1 hour link
@@ -132,3 +209,4 @@ export async function getDocumentSignedUrlAction(filePath: string) {
     return { success: false, error: err.message || "Failed to generate signed document URL" };
   }
 }
+

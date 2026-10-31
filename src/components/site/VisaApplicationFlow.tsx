@@ -33,9 +33,16 @@ interface UploadedDoc {
 interface VisaApplicationFlowProps {
   visaType: VisaTypeRow;
   products: VisaProductRow[];
+  tabbyEnabled?: boolean;
+  tabbySarAvailable?: boolean;
 }
 
-export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowProps) {
+export function VisaApplicationFlow({
+  visaType,
+  products,
+  tabbyEnabled = true,
+  tabbySarAvailable = false,
+}: VisaApplicationFlowProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialProductId = searchParams.get("product") || products[0]?.id || "";
@@ -82,7 +89,9 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Step 5: Payment & Terms
+  // Payment & Terms
+  const isThreeStep = visaType.slug === "saudi-tourist";
+  const [selectedGateway, setSelectedGateway] = useState<"stripe" | "tabby">("stripe");
   const [paymentMethod, setPaymentMethod] = useState<string>("card");
   const [sameBillingAddress, setSameBillingAddress] = useState<boolean>(true);
   const [termsAgreed, setTermsAgreed] = useState<boolean>(false);
@@ -138,15 +147,29 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
   const discountPerPerson = Math.round(originalPerPerson * discountRate * 100) / 100;
   const discountedPerPerson = Math.round((originalPerPerson - discountPerPerson) * 100) / 100;
 
+  // Tabby converted pegged currency calculations (AED for UAE, SAR for Saudi Tourist)
+  const tabbyCurrency: "AED" | "SAR" = visaType.slug === "saudi-tourist" ? "SAR" : "AED";
+  const tabbyRate = tabbyCurrency === "SAR" ? 3.75 : 3.6725;
+  const tabbyTotalAmount = Math.round(totalAmount * tabbyRate * 100) / 100;
+  const tabbyInstallmentAmount = Math.round((tabbyTotalAmount / 4) * 100) / 100;
+  const isTabbyEligible = tabbyCurrency === "SAR" ? (tabbyEnabled && tabbySarAvailable) : tabbyEnabled;
+
   // File upload handler
-  const handleFileUpload = async (documentType: string, title: string, file: File) => {
-    setUploadingDocType(documentType);
+  // File upload handler supporting applicant index
+  const handleFileUpload = async (
+    docKey: string,
+    title: string,
+    file: File,
+    applicantIdx: number = activeApplicantIndex
+  ) => {
+    const stateKey = isThreeStep || applicants.length > 1 ? `${applicantIdx}_${docKey}` : docKey;
+    setUploadingDocType(stateKey);
     setUploadError(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("documentType", documentType);
+      formData.append("documentType", `${docKey}_applicant_${applicantIdx + 1}`);
 
       const res = await fetch("/api/visa/upload-document", {
         method: "POST",
@@ -158,10 +181,12 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
         throw new Error(data.error || "Upload failed");
       }
 
+      const applicantName = applicants[applicantIdx]?.fullName || `Traveller ${applicantIdx + 1}`;
+
       setUploadedDocuments((prev) => ({
         ...prev,
-        [documentType]: {
-          documentType,
+        [stateKey]: {
+          documentType: isThreeStep || applicants.length > 1 ? `${applicantName} — ${title}` : title,
           title,
           filePath: data.filePath,
           fileName: data.fileName,
@@ -178,15 +203,83 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
     }
   };
 
-  const handleRemoveDoc = (docType: string) => {
+  const handleRemoveDoc = (stateKey: string) => {
     setUploadedDocuments((prev) => {
       const copy = { ...prev };
-      delete copy[docType];
+      delete copy[stateKey];
       return copy;
     });
   };
 
-  // Navigation validations
+  // 3-Step Validations (Saudi Tourist Visa)
+  const validateThreeStep1 = () => {
+    if (!intendedTravelDate) {
+      alert("Please select your intended date of travel.");
+      return false;
+    }
+    for (let i = 0; i < applicants.length; i++) {
+      const a = applicants[i];
+      if (!a.fullName || a.fullName.trim().length < 2) {
+        alert(`Please enter full name (as per passport) for Traveller ${i + 1}.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!a.nationality || a.nationality.trim().length < 2) {
+        alert(`Please enter nationality for Traveller ${i + 1}.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!a.dateOfBirth) {
+        alert(`Please enter date of birth for Traveller ${i + 1}.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!a.passportNumber || a.passportNumber.trim().length < 4) {
+        alert(`Please enter passport number for Traveller ${i + 1}.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!a.passportExpiryDate) {
+        alert(`Please enter passport expiry date for Traveller ${i + 1}.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+    }
+    if (!contactEmail || !contactEmail.includes("@")) {
+      alert("Please enter a valid email address for application updates.");
+      return false;
+    }
+    if (!contactPhone || contactPhone.trim().length < 6) {
+      alert("Please enter a valid WhatsApp or phone number.");
+      return false;
+    }
+    return true;
+  };
+
+  const validateThreeStep2 = () => {
+    const isTransit = selectedProduct?.id === "saudi-transit-96h";
+    for (let i = 0; i < applicants.length; i++) {
+      const appName = applicants[i].fullName || `Traveller ${i + 1}`;
+      if (!uploadedDocuments[`${i}_passport_front`]) {
+        alert(`Please upload Passport First Page copy for ${appName} to proceed.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!uploadedDocuments[`${i}_passport_photo`]) {
+        alert(`Please upload Passport Size Photo for ${appName} to proceed.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (isTransit && !uploadedDocuments[`${i}_flight_ticket`]) {
+        alert(`Please upload Confirmed Onward Flight Ticket for ${appName} to proceed.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // 5-Step Validations (UAE and Other Standard Visas)
   const validateStep1 = () => {
     if (!intendedTravelDate) {
       alert("Please select your intended travel date.");
@@ -236,14 +329,24 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
     return true;
   };
 
-  const handleNext = () => {
-    if (currentStep === 1 && !validateStep1()) return;
-    if (currentStep === 2 && !validateStep2()) return;
-    if (currentStep === 3 && !validateStep3()) return;
+  const maxSteps = isThreeStep ? 3 : 5;
 
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleNext = () => {
+    if (isThreeStep) {
+      if (currentStep === 1 && !validateThreeStep1()) return;
+      if (currentStep === 2 && !validateThreeStep2()) return;
+      if (currentStep < 3) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } else {
+      if (currentStep === 1 && !validateStep1()) return;
+      if (currentStep === 2 && !validateStep2()) return;
+      if (currentStep === 3 && !validateStep3()) return;
+      if (currentStep < 5) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
   };
 
@@ -256,7 +359,7 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
     }
   };
 
-  // Step 5: Proceed to Checkout
+  // Proceed to Checkout
   const handleProceedToPayment = async () => {
     if (!termsAgreed || !discretionAgreed) {
       alert("Please confirm that you agree to the terms and understand authority discretion.");
@@ -270,6 +373,7 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
       const payload = {
         visaSlug: visaType.slug,
         productId: selectedProduct?.id,
+        paymentGateway: isTabbyEligible ? selectedGateway : "stripe",
         nationality,
         countryOfResidence,
         travelDate: intendedTravelDate,
@@ -302,7 +406,6 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
       }
 
       if (data.url) {
-        // Redirect securely to Stripe Checkout
         window.location.href = data.url;
       } else {
         throw new Error("No payment session URL returned.");
@@ -314,13 +417,19 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
     }
   };
 
-  const stepsMeta = [
-    { num: 1, label: "Eligibility & Selection" },
-    { num: 2, label: "Applicant Details" },
-    { num: 3, label: "Document Upload" },
-    { num: 4, label: "Review & Payment" },
-    { num: 5, label: "Confirmation" },
-  ];
+  const stepsMeta = isThreeStep
+    ? [
+        { num: 1, label: "Package & Travellers" },
+        { num: 2, label: "Document Upload" },
+        { num: 3, label: "Review & Payment" },
+      ]
+    : [
+        { num: 1, label: "Eligibility & Selection" },
+        { num: 2, label: "Applicant Details" },
+        { num: 3, label: "Document Upload" },
+        { num: 4, label: "Review Application" },
+        { num: 5, label: "Secure Payment" },
+      ];
 
   return (
     <div className="min-h-screen bg-warm-ivory/30 pb-24 text-masaar-black">
@@ -346,18 +455,38 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
             — {visaType.name.toUpperCase()} APPLICATION —
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-display)] text-2xl font-semibold sm:text-4xl lg:text-5xl">
-            {currentStep === 1 && "Check Eligibility & Choose Your Visa"}
-            {currentStep === 2 && "Applicant Details"}
-            {currentStep === 3 && "Upload Your Documents"}
-            {currentStep === 4 && "Review Your Application"}
-            {currentStep === 5 && "Secure Payment"}
+            {isThreeStep ? (
+              <>
+                {currentStep === 1 && "Package Selection & Travellers Information"}
+                {currentStep === 2 && "Upload Your Documents"}
+                {currentStep === 3 && "Review & Secure Payment"}
+              </>
+            ) : (
+              <>
+                {currentStep === 1 && "Check Eligibility & Choose Your Visa"}
+                {currentStep === 2 && "Applicant Details"}
+                {currentStep === 3 && "Upload Your Documents"}
+                {currentStep === 4 && "Review Your Application"}
+                {currentStep === 5 && "Secure Payment"}
+              </>
+            )}
           </h1>
           <p className="mx-auto mt-2 max-w-xl text-xs text-white/70 sm:text-sm">
-            {currentStep === 1 && "Tell us a few details about your travel plans so we can configure the best visa options."}
-            {currentStep === 2 && "Please fill in each traveller's information exactly as it appears on their passport."}
-            {currentStep === 3 && "Please upload clear, valid documents according to the required checklist below."}
-            {currentStep === 4 && "Please verify all traveller details, documents, and pricing before proceeding to payment."}
-            {currentStep === 5 && "Complete your payment safely through 256-bit encrypted checkout to submit your application."}
+            {isThreeStep ? (
+              <>
+                {currentStep === 1 && "Select your Saudi visa duration and enter traveller details exactly as shown on passports."}
+                {currentStep === 2 && "Please upload clear, valid documents according to the required checklist below."}
+                {currentStep === 3 && "Verify your application details and choose to pay in full or in 4 installments with Tabby."}
+              </>
+            ) : (
+              <>
+                {currentStep === 1 && "Tell us a few details about your travel plans so we can configure the best visa options."}
+                {currentStep === 2 && "Please fill in each traveller's information exactly as it appears on their passport."}
+                {currentStep === 3 && "Please upload clear, valid documents according to the required checklist below."}
+                {currentStep === 4 && "Please verify all traveller details, documents, and pricing before proceeding to payment."}
+                {currentStep === 5 && "Complete your payment safely through 256-bit encrypted checkout to submit your application."}
+              </>
+            )}
           </p>
 
           {/* Stepper Progress Bar (V04 - V09) */}
@@ -414,8 +543,849 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           {/* LEFT: STEP CONTENT */}
           <div className="space-y-8">
-            {/* STEP 1: ELIGIBILITY & VISA SELECTION */}
-            {currentStep === 1 && (
+            {/* ========================================================================= */}
+            {/* 3-STEP FLOW: STEP 1 — PACKAGE SELECTION & TRAVELLER DETAILS */}
+            {/* ========================================================================= */}
+            {isThreeStep && currentStep === 1 && (
+              <div className="space-y-6">
+                {/* 1. Visa Package Selection */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-pure-gold text-xs font-bold text-masaar-black">
+                      1
+                    </span>
+                    <div>
+                      <h2 className="font-semibold text-masaar-black text-sm">Select Your Saudi Tourist Visa Package</h2>
+                      <p className="text-[11px] text-masaar-black/60">Choose your preferred validity and entry type.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {products.map((p) => {
+                      const isSelected = p.id === selectedProductId;
+                      const pDisc = Math.round(p.total_usd * 0.05 * 100) / 100;
+                      const pNet = Math.round((p.total_usd - pDisc) * 100) / 100;
+
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => setSelectedProductId(p.id)}
+                          className={`relative cursor-pointer rounded-xl border p-4 transition-all ${
+                            isSelected
+                              ? "border-pure-gold bg-pure-gold/5 shadow-sm ring-2 ring-pure-gold/30"
+                              : "border-black/10 bg-white hover:border-black/25"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`flex size-4 items-center justify-center rounded-full border ${
+                                  isSelected
+                                    ? "border-pure-gold bg-pure-gold"
+                                    : "border-black/30 bg-white"
+                                }`}
+                              >
+                                {isSelected && <span className="size-1.5 rounded-full bg-masaar-black" />}
+                              </span>
+                              <h3 className="font-semibold text-masaar-black text-xs sm:text-sm">{p.title}</h3>
+                            </div>
+                            {p.is_popular && (
+                              <span className="rounded bg-pure-gold/20 px-1.5 py-0.5 text-[9px] font-bold text-deep-gold uppercase">
+                                Popular
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-3 border-t border-black/5 pt-2">
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <span className="text-masaar-black/40 line-through">USD {p.total_usd}</span>
+                              <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700 border border-emerald-200">
+                                Save 5%
+                              </span>
+                            </div>
+                            <div className="mt-0.5 flex items-baseline gap-1">
+                              <span className="text-[11px] text-masaar-black/60">USD</span>
+                              <span className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
+                                {pNet}
+                              </span>
+                              <span className="text-[10px] text-masaar-black/50">/ person</span>
+                            </div>
+                          </div>
+
+                          <p className="mt-1 text-[11px] text-masaar-black/60">
+                            {p.duration} · {p.entry_type} Entry · {p.processing_time || "1-3 Working Days"}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Number of Travellers & Travel Dates */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-pure-gold text-xs font-bold text-masaar-black">
+                      2
+                    </span>
+                    <div>
+                      <h2 className="font-semibold text-masaar-black text-sm">Travel Details</h2>
+                      <p className="text-[11px] text-masaar-black/60">Select number of travellers and intended travel dates.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Number of Travellers <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={travellersCount}
+                        onChange={(e) => setTravellersCount(Number(e.target.value))}
+                        aria-label="Number of Travellers"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      >
+                        <option value={1}>1 Traveller (Solo)</option>
+                        <option value={2}>2 Travellers</option>
+                        <option value={3}>3 Travellers</option>
+                        <option value={4}>4 Travellers</option>
+                        <option value={5}>5 Travellers</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Intended Date of Travel <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={intendedTravelDate}
+                        onChange={(e) => setIntendedTravelDate(e.target.value)}
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Purpose of Visit <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={purposeOfVisit}
+                        onChange={(e) => setPurposeOfVisit(e.target.value)}
+                        aria-label="Purpose of Visit"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      >
+                        <option value="Tourism / Visit">Tourism / Leisure</option>
+                        <option value="Umrah">Umrah (Outside restricted Hajj period)</option>
+                        <option value="Family Visit">Visiting Family / Relatives</option>
+                        <option value="Events / Culture">Events / Concerts / Sports</option>
+                        <option value="Transit">Transit / Short Layover</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Primary Contact Information */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center gap-3 border-b border-black/5 pb-4">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-pure-gold text-xs font-bold text-masaar-black">
+                      3
+                    </span>
+                    <div>
+                      <h2 className="font-semibold text-masaar-black text-sm">Primary Contact (Order Updates & Delivery)</h2>
+                      <p className="text-[11px] text-masaar-black/60">We will deliver your electronic visa and real-time status updates here.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Email Address <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                        placeholder="e.g. yourname@example.com"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        WhatsApp Number <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1.5 flex gap-2">
+                        <select
+                          value={dialCode}
+                          onChange={(e) => setDialCode(e.target.value)}
+                          aria-label="Country Dial Code"
+                          className="w-24 rounded-md border border-black/15 bg-warm-ivory/20 px-2 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                        >
+                          <option value="+966">🇸🇦 +966</option>
+                          <option value="+971">🇦🇪 +971</option>
+                          <option value="+44">🇬🇧 +44</option>
+                          <option value="+1">🇺🇸 +1</option>
+                          <option value="+91">🇮🇳 +91</option>
+                          <option value="+92">🇵🇰 +92</option>
+                          <option value="+974">🇶🇦 +974</option>
+                          <option value="+965">🇰🇼 +965</option>
+                          <option value="+968">🇴🇲 +968</option>
+                          <option value="+973">🇧🇭 +973</option>
+                        </select>
+                        <input
+                          type="tel"
+                          required
+                          value={contactPhone}
+                          onChange={(e) => setContactPhone(e.target.value)}
+                          placeholder="50 123 4567"
+                          className="flex-1 rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Applicant Details (As Shown on Passport) */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-black/5 pb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-7 items-center justify-center rounded-full bg-pure-gold text-xs font-bold text-masaar-black">
+                        4
+                      </span>
+                      <div>
+                        <h2 className="font-semibold text-masaar-black text-sm">
+                          Traveller Details (Passport Information)
+                        </h2>
+                        <p className="text-[11px] text-masaar-black/60">
+                          Please enter details exactly as shown on the applicant&apos;s passport.
+                        </p>
+                      </div>
+                    </div>
+
+                    {applicants.length > 1 && (
+                      <span className="rounded bg-pure-gold/15 px-2 py-0.5 text-xs font-bold text-deep-gold">
+                        Traveller {activeApplicantIndex + 1} of {applicants.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Multi-traveller tabs */}
+                  {applicants.length > 1 && (
+                    <div className="mt-4 flex gap-2 overflow-x-auto border-b border-black/5 pb-2">
+                      {applicants.map((app, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveApplicantIndex(i)}
+                          className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                            activeApplicantIndex === i
+                              ? "bg-pure-gold text-masaar-black shadow-2xs"
+                              : "bg-warm-ivory/50 text-masaar-black/70 hover:bg-warm-ivory"
+                          }`}
+                        >
+                          Traveller {i + 1} {app.fullName ? `(${app.fullName.split(" ")[0]})` : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Full Name (as per passport) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={applicants[activeApplicantIndex].fullName}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "fullName", e.target.value)}
+                        placeholder="e.g. MOHAMMED AHMED ALI"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Nationality <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={applicants[activeApplicantIndex].nationality}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "nationality", e.target.value)}
+                        placeholder="e.g. British / Indian / American"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Date of Birth <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={applicants[activeApplicantIndex].dateOfBirth}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "dateOfBirth", e.target.value)}
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Gender <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={applicants[activeApplicantIndex].gender}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "gender", e.target.value)}
+                        aria-label="Gender"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Passport Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={applicants[activeApplicantIndex].passportNumber}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "passportNumber", e.target.value)}
+                        placeholder="e.g. A1234567"
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Passport Expiry Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={applicants[activeApplicantIndex].passportExpiryDate}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "passportExpiryDate", e.target.value)}
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                      <p className="mt-1 text-[10px] text-masaar-black/50">Must be valid for at least 6 months.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* 3-STEP FLOW: STEP 2 — UPLOAD DOCUMENTS */}
+            {/* ========================================================================= */}
+            {isThreeStep && currentStep === 2 && (
+              <div className="space-y-6">
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-black/5 pb-4">
+                    <div>
+                      <h2 className="font-semibold text-masaar-black text-sm">
+                        Upload Required Documents
+                      </h2>
+                      <p className="text-[11px] text-masaar-black/60">
+                        Accepted formats: JPG, PNG, PDF · Maximum 5 MB per document
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                      Encrypted & Private Storage
+                    </span>
+                  </div>
+
+                  {uploadError && (
+                    <div className="mt-4 rounded bg-red-50 p-3 text-xs text-red-600">
+                      {uploadError}
+                    </div>
+                  )}
+
+                  {/* Multi-applicant tabs in Step 2 */}
+                  {applicants.length > 1 && (
+                    <div className="mt-5 border-b border-black/10 pb-3">
+                      <p className="text-xs font-semibold text-masaar-black mb-2">Select Applicant:</p>
+                      <div className="flex gap-2 overflow-x-auto">
+                        {applicants.map((app, i) => {
+                          const isDone =
+                            !!uploadedDocuments[`${i}_passport_front`] &&
+                            !!uploadedDocuments[`${i}_passport_photo`] &&
+                            (selectedProduct?.id !== "saudi-transit-96h" || !!uploadedDocuments[`${i}_flight_ticket`]);
+
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setActiveApplicantIndex(i)}
+                              className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all ${
+                                activeApplicantIndex === i
+                                  ? "bg-pure-gold text-masaar-black shadow-xs ring-2 ring-pure-gold/30"
+                                  : "bg-warm-ivory/50 text-masaar-black/70 hover:bg-warm-ivory"
+                              }`}
+                            >
+                              <span>Traveller {i + 1} {app.fullName ? `(${app.fullName.split(" ")[0]})` : ""}</span>
+                              {isDone ? (
+                                <span className="rounded-full bg-emerald-600 text-white p-0.5">
+                                  <svg className="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </span>
+                              ) : (
+                                <span className="size-2 rounded-full bg-amber-500" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Document upload checklist for activeApplicantIndex */}
+                  <div className="mt-6 space-y-4">
+                    {[
+                      {
+                        key: "passport_front",
+                        title: "1. Passport First Page",
+                        desc: "Clear colour scan of passport bio-data page (minimum 6 months remaining validity).",
+                        required: true,
+                      },
+                      {
+                        key: "passport_photo",
+                        title: "2. Passport Size Photograph",
+                        desc: "Recent colour photo with white background taken within the last 6 months (JPG, PNG).",
+                        required: true,
+                      },
+                      ...(selectedProduct?.id === "saudi-transit-96h"
+                        ? [
+                            {
+                              key: "flight_ticket",
+                              title: "3. Confirmed Onward Flight Ticket",
+                              desc: "Confirmed flight booking showing transit / onward flight within 96 hours.",
+                              required: true,
+                            },
+                          ]
+                        : []),
+                      {
+                        key: "accommodation_proof",
+                        title: selectedProduct?.id === "saudi-transit-96h" ? "4. Hotel / Host Details" : "3. Accommodation / Host Address",
+                        desc: "Confirmed hotel reservation or residential address of host in Saudi Arabia.",
+                        required: false,
+                      },
+                    ].map((item) => {
+                      const stateKey = `${activeApplicantIndex}_${item.key}`;
+                      const uploaded = uploadedDocuments[stateKey];
+                      const isUploading = uploadingDocType === stateKey;
+
+                      return (
+                        <div
+                          key={item.key}
+                          className="flex flex-col gap-3 rounded-lg border border-black/10 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="max-w-md">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-masaar-black text-xs sm:text-sm">{item.title}</h3>
+                              {item.required ? (
+                                <span className="rounded bg-pure-gold/20 px-1.5 py-0.5 text-[9px] font-bold text-deep-gold">
+                                  Required
+                                </span>
+                              ) : (
+                                <span className="rounded bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-masaar-black/60">
+                                  Optional
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-[11px] text-masaar-black/60">{item.desc}</p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {uploaded ? (
+                              <div className="flex items-center gap-3">
+                                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  {uploaded.fileName.slice(0, 16)}...
+                                </span>
+                                <label className="cursor-pointer text-xs font-medium text-amber-700 hover:underline">
+                                  <input
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.pdf"
+                                    disabled={isUploading}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(item.key, item.title, f, activeApplicantIndex);
+                                    }}
+                                    className="hidden"
+                                  />
+                                  Replace
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveDoc(stateKey)}
+                                  className="text-xs text-red-500 hover:underline"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-pure-gold bg-warm-ivory/50 px-4 py-2.5 text-xs font-semibold text-masaar-black transition-all hover:bg-pure-gold/20">
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,.pdf"
+                                  disabled={isUploading}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleFileUpload(item.key, item.title, f, activeApplicantIndex);
+                                  }}
+                                  className="hidden"
+                                />
+                                {isUploading ? (
+                                  <span>Uploading...</span>
+                                ) : (
+                                  <>
+                                    <svg className="size-4 text-deep-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    <span>Upload Document</span>
+                                  </>
+                                )}
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-pure-gold/30 bg-warm-ivory p-4 text-xs text-masaar-black/75">
+                  <span className="font-semibold text-deep-gold">Data Privacy & Security: </span>
+                  All uploaded documents are stored in private encrypted storage. Access is strictly limited to authorized visa processing specialists and destination immigration authorities.
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* 3-STEP FLOW: STEP 3 — REVIEW & PAY */}
+            {/* ========================================================================= */}
+            {isThreeStep && currentStep === 3 && (
+              <div className="space-y-6">
+                {/* 1. Visa Package Summary */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-black/5 pb-3">
+                    <h2 className="font-semibold text-masaar-black text-sm">1. Selected Visa Package</h2>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="text-xs font-semibold text-deep-gold hover:underline"
+                    >
+                      Edit Package
+                    </button>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-semibold text-masaar-black">{selectedProduct?.title}</p>
+                      <p className="text-masaar-black/60">{selectedProduct?.duration} · {selectedProduct?.entry_type} Entry · Turnaround: {selectedProduct?.processing_time || "1-3 Working Days"}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center justify-end gap-1.5 text-[10px]">
+                        <span className="text-masaar-black/40 line-through">USD {originalPerPerson}</span>
+                        <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700">Save 5%</span>
+                      </div>
+                      <p className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+                        USD {discountedPerPerson} / person
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Travellers Information Summary */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-black/5 pb-3">
+                    <h2 className="font-semibold text-masaar-black text-sm">
+                      2. Traveller Information ({applicants.length} {applicants.length === 1 ? "Traveller" : "Travellers"})
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="text-xs font-semibold text-deep-gold hover:underline"
+                    >
+                      Edit Travellers
+                    </button>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {applicants.map((a, i) => (
+                      <div key={i} className="rounded border border-black/5 bg-warm-ivory/20 p-3 text-xs">
+                        <p className="font-semibold text-masaar-black">Traveller {i + 1}: {a.fullName}</p>
+                        <div className="mt-1 grid grid-cols-2 gap-2 text-masaar-black/70 sm:grid-cols-4">
+                          <p>Passport: <span className="font-mono font-bold text-masaar-black">{a.passportNumber}</span></p>
+                          <p>DOB: {a.dateOfBirth}</p>
+                          <p>Nationality: {a.nationality}</p>
+                          <p>Gender: {a.gender}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mt-2 text-xs text-masaar-black/70">
+                      <p>Lead Contact: <span className="font-medium text-masaar-black">{contactEmail}</span> · <span className="font-medium text-masaar-black">{dialCode} {contactPhone}</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Document Checklist Status */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-black/5 pb-3">
+                    <h2 className="font-semibold text-masaar-black text-sm">3. Uploaded Document Status</h2>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="text-xs font-semibold text-deep-gold hover:underline"
+                    >
+                      Edit Documents
+                    </button>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {applicants.map((a, idx) => (
+                      <div key={idx} className="rounded-lg border border-black/5 bg-neutral-50/50 p-3 text-xs">
+                        <p className="font-semibold text-masaar-black mb-1.5">
+                          Traveller {idx + 1}: {a.fullName || "Applicant"}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {uploadedDocuments[`${idx}_passport_front`] ? (
+                            <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                              ✓ Passport First Page ({uploadedDocuments[`${idx}_passport_front`].fileName})
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                              ✗ Passport First Page Missing
+                            </span>
+                          )}
+                          {uploadedDocuments[`${idx}_passport_photo`] ? (
+                            <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                              ✓ Passport Photograph ({uploadedDocuments[`${idx}_passport_photo`].fileName})
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                              ✗ Passport Photo Missing
+                            </span>
+                          )}
+                          {selectedProduct?.id === "saudi-transit-96h" && (
+                            uploadedDocuments[`${idx}_flight_ticket`] ? (
+                              <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                ✓ Flight Ticket ({uploadedDocuments[`${idx}_flight_ticket`].fileName})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                ✗ Onward Flight Ticket Missing
+                              </span>
+                            )
+                          )}
+                          {uploadedDocuments[`${idx}_accommodation_proof`] && (
+                            <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                              ✓ Accommodation ({uploadedDocuments[`${idx}_accommodation_proof`].fileName})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Select Payment Method */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold text-masaar-black text-sm">Select Payment Method</h2>
+                      <p className="text-[11px] text-masaar-black/60">
+                        Pay in full securely by Card, or split into 4 equal monthly installments with Tabby.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      Zero Extra Surcharges
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* Option 1: Credit / Debit Card (Stripe) */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGateway("stripe")}
+                      className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
+                        selectedGateway === "stripe"
+                          ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30 shadow-xs"
+                          : "border-black/10 hover:border-black/30"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className="text-xs font-bold text-masaar-black">Credit / Debit Card</span>
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-masaar-black/70">
+                          <span>Visa</span>
+                          <span>•</span>
+                          <span>MC</span>
+                          <span>•</span>
+                          <span>Amex</span>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-[11px] text-masaar-black/70">
+                        Secure 256-bit encrypted card checkout via Stripe.
+                      </p>
+                      <div className="mt-3 flex items-baseline gap-1 text-sm font-bold text-masaar-black">
+                        <span>Pay in Full:</span>
+                        <span className="text-deep-gold">USD {totalAmount}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700 font-medium">
+                        <span>✓ Instant confirmation</span>
+                        <span>•</span>
+                        <span>✓ Apple & Google Pay</span>
+                      </div>
+                    </button>
+
+                    {/* Option 2: Tabby (Pay in 4) */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGateway("tabby")}
+                      className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
+                        selectedGateway === "tabby"
+                          ? "border-[#3EEDB4] bg-[#3EEDB4]/5 ring-2 ring-[#3EEDB4]/40 shadow-xs"
+                          : "border-black/10 hover:border-black/30"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center rounded-md bg-[#3EEDB4] px-2 py-0.5 font-[family-name:var(--font-display)] text-xs font-black text-black">
+                            tabby
+                          </span>
+                          <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                        </div>
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                          0% Interest · Sharia-Compliant
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-masaar-black/70">
+                        4 monthly payments of {tabbyCurrency} {tabbyInstallmentAmount}. No hidden fees.
+                      </p>
+                      <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
+                        <span>Total:</span>
+                        <span className="text-emerald-700 font-bold">{tabbyCurrency} {tabbyTotalAmount}</span>
+                        <span className="text-[10px] text-masaar-black/50 font-normal">
+                          ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
+                        </span>
+                      </div>
+                      <div className="mt-2 text-[10px] text-emerald-700 font-medium">
+                        <span>✓ 25% today, remainder over 3 months</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Tabby breakdown schedule box when selected */}
+                  {selectedGateway === "tabby" && (
+                    <div className="mt-4 rounded-xl border border-[#3EEDB4]/40 bg-[#3EEDB4]/10 p-4 text-xs">
+                      <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#3EEDB4] text-[10px] font-bold text-black">
+                            4
+                          </span>
+                          <span className="font-semibold text-masaar-black">Your Tabby Payment Plan</span>
+                        </div>
+                        <span className="text-[11px] text-masaar-black/60 font-medium">
+                          Pegged Rate: 1 USD = {tabbyRate} {tabbyCurrency}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
+                        </div>
+                      </div>
+
+                      <p className="mt-2.5 text-[11px] text-masaar-black/70">
+                        You will be redirected securely to Tabby to verify with your mobile number and National ID.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. Terms, Privacy & Important Authority Discretion Disclaimer */}
+                <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm space-y-4">
+                  <h2 className="font-semibold text-masaar-black text-sm">Confirmation & Legal Acknowledgement</h2>
+
+                  {/* Prominent Alert Box */}
+                  <div className="rounded-lg border border-amber-300 bg-amber-50/80 p-3.5 text-xs text-amber-900 flex items-start gap-3">
+                    <span className="text-amber-600 text-base font-bold">⚠️</span>
+                    <div>
+                      <p className="font-bold">Important Visa Processing & Refund Notice:</p>
+                      <p className="mt-0.5 leading-relaxed">
+                        Payment of the visa application fee does not guarantee visa issuance. Final approval or rejection rests entirely with the Ministry of Foreign Affairs / destination immigration authorities. Once an application is submitted to authorities, all government fees and processing charges are strictly non-refundable.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-start gap-2.5 text-xs text-masaar-black/80 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={termsAgreed}
+                      onChange={(e) => setTermsAgreed(e.target.checked)}
+                      className="mt-0.5 text-pure-gold"
+                    />
+                    <span>
+                      I confirm that all provided details and uploaded documents match official passport records, and I accept the{" "}
+                      <Link href="/terms" target="_blank" className="text-deep-gold underline">
+                        Terms & Conditions
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/privacy" target="_blank" className="text-deep-gold underline">
+                        Privacy Policy
+                      </Link>
+                      .
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 text-xs text-masaar-black/80 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={discretionAgreed}
+                      onChange={(e) => setDiscretionAgreed(e.target.checked)}
+                      className="mt-0.5 text-pure-gold"
+                    />
+                    <span>
+                      I understand and agree that visa granting is at the sole discretion of the destination immigration authority, and payment does not guarantee approval. Fees are non-refundable once processed.
+                    </span>
+                  </label>
+                </div>
+
+                {checkoutError && (
+                  <div className="rounded-lg bg-red-50 p-4 text-xs text-red-600">
+                    {checkoutError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* 5-STEP FLOW: STEP 1 — ELIGIBILITY & VISA SELECTION */}
+            {/* ========================================================================= */}
+            {!isThreeStep && currentStep === 1 && (
               <div className="space-y-6">
                 {/* 1. Nationality & Residency */}
                 <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
@@ -647,8 +1617,10 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
               </div>
             )}
 
-            {/* STEP 2: APPLICANT DETAILS */}
-            {currentStep === 2 && (
+            {/* ========================================================================= */}
+            {/* 5-STEP FLOW: STEP 2 — APPLICANT DETAILS */}
+            {/* ========================================================================= */}
+            {!isThreeStep && currentStep === 2 && (
               <div className="space-y-6">
                 {/* Multi-applicant Tab Selector */}
                 {applicants.length > 1 && (
@@ -884,8 +1856,10 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
               </div>
             )}
 
-            {/* STEP 3: DOCUMENT UPLOAD */}
-            {currentStep === 3 && (
+            {/* ========================================================================= */}
+            {/* 5-STEP FLOW: STEP 3 — DOCUMENT UPLOAD */}
+            {/* ========================================================================= */}
+            {!isThreeStep && currentStep === 3 && (
               <div className="space-y-6">
                 <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between border-b border-black/5 pb-4">
@@ -1002,8 +1976,10 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
               </div>
             )}
 
-            {/* STEP 4: REVIEW & PRICING */}
-            {currentStep === 4 && (
+            {/* ========================================================================= */}
+            {/* 5-STEP FLOW: STEP 4 — REVIEW APPLICATION */}
+            {/* ========================================================================= */}
+            {!isThreeStep && currentStep === 4 && (
               <div className="space-y-6">
                 {/* 1. Visa Selection Summary */}
                 <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
@@ -1086,74 +2062,168 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
               </div>
             )}
 
-            {/* STEP 5: SECURE PAYMENT */}
-            {currentStep === 5 && (
+            {/* ========================================================================= */}
+            {/* 5-STEP FLOW: STEP 5 — SECURE PAYMENT */}
+            {/* ========================================================================= */}
+            {!isThreeStep && currentStep === 5 && (
               <div className="space-y-6">
-                {/* Payment Method */}
+                {/* Payment Gateway Selection */}
                 <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
-                  <h2 className="font-semibold text-masaar-black text-sm">1. Payment Method</h2>
-                  <p className="text-[11px] text-masaar-black/60">
-                    All transactions are encrypted and processed securely through Stripe.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold text-masaar-black text-sm">Select Payment Method</h2>
+                      <p className="text-[11px] text-masaar-black/60">
+                        Choose to pay in full securely by Card, or split into 4 equal monthly installments with Tabby.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      Zero Extra Surcharges
+                    </span>
+                  </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* Option 1: Credit / Debit Card (Stripe) */}
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod("card")}
-                      className={`flex flex-col items-center justify-center rounded-lg border p-3 text-xs font-semibold transition-all ${
-                        paymentMethod === "card"
-                          ? "border-pure-gold bg-pure-gold/10 ring-2 ring-pure-gold/20"
+                      onClick={() => setSelectedGateway("stripe")}
+                      className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
+                        selectedGateway === "stripe"
+                          ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30 shadow-xs"
                           : "border-black/10 hover:border-black/30"
                       }`}
                     >
-                      <span>Credit / Debit Card</span>
-                      <span className="mt-1 text-[10px] text-masaar-black/60">Visa, Mastercard</span>
+                      <div className="flex w-full items-center justify-between">
+                        <span className="text-xs font-bold text-masaar-black">Credit / Debit Card</span>
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-masaar-black/70">
+                          <span>Visa</span>
+                          <span>•</span>
+                          <span>MC</span>
+                          <span>•</span>
+                          <span>Amex</span>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-[11px] text-masaar-black/70">
+                        Secure 256-bit encrypted card checkout via Stripe.
+                      </p>
+                      <div className="mt-3 flex items-baseline gap-1 text-sm font-bold text-masaar-black">
+                        <span>Pay in Full:</span>
+                        <span className="text-deep-gold">USD {totalAmount}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700 font-medium">
+                        <span>✓ Instant confirmation</span>
+                        <span>•</span>
+                        <span>✓ Apple & Google Pay</span>
+                      </div>
                     </button>
 
+                    {/* Option 2: Tabby (Pay in 4) */}
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod("apple_pay")}
-                      className={`flex flex-col items-center justify-center rounded-lg border p-3 text-xs font-semibold transition-all ${
-                        paymentMethod === "apple_pay"
-                          ? "border-pure-gold bg-pure-gold/10 ring-2 ring-pure-gold/20"
+                      disabled={!isTabbyEligible}
+                      onClick={() => {
+                        if (isTabbyEligible) setSelectedGateway("tabby");
+                      }}
+                      className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
+                        !isTabbyEligible
+                          ? "border-black/10 bg-black/[0.02] opacity-75 cursor-not-allowed"
+                          : selectedGateway === "tabby"
+                          ? "border-[#3EEDB4] bg-[#3EEDB4]/5 ring-2 ring-[#3EEDB4]/40 shadow-xs"
                           : "border-black/10 hover:border-black/30"
                       }`}
                     >
-                      <span>Apple Pay</span>
-                      <span className="mt-1 text-[10px] text-masaar-black/60">One-touch checkout</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("google_pay")}
-                      className={`flex flex-col items-center justify-center rounded-lg border p-3 text-xs font-semibold transition-all ${
-                        paymentMethod === "google_pay"
-                          ? "border-pure-gold bg-pure-gold/10 ring-2 ring-pure-gold/20"
-                          : "border-black/10 hover:border-black/30"
-                      }`}
-                    >
-                      <span>Google Pay</span>
-                      <span className="mt-1 text-[10px] text-masaar-black/60">Quick payment</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("bank_transfer")}
-                      className={`flex flex-col items-center justify-center rounded-lg border p-3 text-xs font-semibold transition-all ${
-                        paymentMethod === "bank_transfer"
-                          ? "border-pure-gold bg-pure-gold/10 ring-2 ring-pure-gold/20"
-                          : "border-black/10 hover:border-black/30"
-                      }`}
-                    >
-                      <span>Bank Transfer</span>
-                      <span className="mt-1 text-[10px] text-masaar-black/60">Direct deposit</span>
+                      <div className="flex w-full items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center rounded-md bg-[#3EEDB4] px-2 py-0.5 font-[family-name:var(--font-display)] text-xs font-black text-black">
+                            tabby
+                          </span>
+                          <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                        </div>
+                        {!isTabbyEligible ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            {tabbyCurrency === "SAR" ? "SAR Pending Activation" : "Unavailable"}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                            0% Interest · Sharia-Compliant
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-masaar-black/70">
+                        {!isTabbyEligible
+                          ? tabbyCurrency === "SAR"
+                            ? "Tabby Pay in 4 (SAR) is currently pending regional KSA merchant account activation. Please select Card Payment to complete your application."
+                            : "Tabby Pay in 4 is currently offline. Please use card payment."
+                          : `4 monthly payments of ${tabbyCurrency} ${tabbyInstallmentAmount}. No hidden fees.`}
+                      </p>
+                      {isTabbyEligible ? (
+                        <>
+                          <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
+                            <span>Total:</span>
+                            <span className="text-emerald-700 font-bold">{tabbyCurrency} {tabbyTotalAmount}</span>
+                            <span className="text-[10px] text-masaar-black/50 font-normal">
+                              ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
+                            </span>
+                          </div>
+                          <div className="mt-2 text-[10px] text-emerald-700 font-medium">
+                            <span>✓ 25% today, remainder over 3 months</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-3 text-[10px] font-medium text-amber-800">
+                          Please select Card Payment to proceed.
+                        </div>
+                      )}
                     </button>
                   </div>
+
+                  {/* Tabby breakdown schedule box when selected */}
+                  {selectedGateway === "tabby" && isTabbyEligible && (
+                    <div className="mt-4 rounded-xl border border-[#3EEDB4]/40 bg-[#3EEDB4]/10 p-4 text-xs">
+                      <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#3EEDB4] text-[10px] font-bold text-black">
+                            4
+                          </span>
+                          <span className="font-semibold text-masaar-black">Your Tabby Payment Plan</span>
+                        </div>
+                        <span className="text-[11px] text-masaar-black/60 font-medium">
+                          Pegged Rate: 1 USD = {tabbyRate} {tabbyCurrency}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                          <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
+                        </div>
+                      </div>
+
+                      <p className="mt-2.5 text-[11px] text-masaar-black/70">
+                        You will be redirected securely to Tabby to verify with your mobile number and National ID / Emirates ID.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Billing Address Option */}
                 <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
-                  <h2 className="font-semibold text-masaar-black text-sm">2. Billing Address</h2>
+                  <h2 className="font-semibold text-masaar-black text-sm">Billing Address</h2>
                   <div className="mt-3 flex items-center gap-4">
                     <label className="flex items-center gap-2 text-xs font-medium text-masaar-black">
                       <input
@@ -1169,7 +2239,7 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
 
                 {/* Terms and Discretion Checkboxes */}
                 <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm space-y-3">
-                  <h2 className="font-semibold text-masaar-black text-sm">3. Confirmation & Terms</h2>
+                  <h2 className="font-semibold text-masaar-black text-sm">Confirmation & Terms</h2>
 
                   <label className="flex items-start gap-2.5 text-xs text-masaar-black/80">
                     <input
@@ -1223,13 +2293,13 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                 Back
               </button>
 
-              {currentStep < 5 ? (
+              {currentStep < (isThreeStep ? 3 : 5) ? (
                 <button
                   type="button"
                   onClick={handleNext}
                   className="rounded-md bg-pure-gold px-7 py-3 text-xs font-semibold text-masaar-black shadow-md transition-all hover:bg-light-gold active:scale-95"
                 >
-                  {currentStep === 4 ? "Continue to Payment →" : "Continue →"}
+                  {currentStep === (isThreeStep ? 2 : 4) ? "Continue to Payment →" : "Continue →"}
                 </button>
               ) : (
                 <button
@@ -1240,6 +2310,13 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                 >
                   {isSubmittingCheckout ? (
                     <span>Connecting to Secure Payment...</span>
+                  ) : selectedGateway === "tabby" && isTabbyEligible ? (
+                    <>
+                      <span className="inline-flex rounded-sm bg-black px-1.5 py-0.5 text-[10px] font-black text-[#3EEDB4]">
+                        tabby
+                      </span>
+                      <span>Pay {tabbyCurrency} {tabbyTotalAmount} in 4 Installments →</span>
+                    </>
                   ) : (
                     <>
                       <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1303,10 +2380,23 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                 </div>
                 <div className="flex justify-between border-t border-black/10 pt-3 text-sm font-bold text-masaar-black">
                   <span>Total Amount</span>
-                  <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
-                    USD {totalAmount}
-                  </span>
+                  <div className="text-right">
+                    <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
+                      USD {totalAmount}
+                    </span>
+                    {selectedGateway === "tabby" && (
+                      <div className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+                        = {tabbyCurrency} {tabbyTotalAmount} ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {selectedGateway === "tabby" && (
+                  <div className="rounded-md bg-emerald-50/70 p-2 text-[10px] text-emerald-800">
+                    <span className="font-semibold">Pegged Exchange Rate:</span> 1 USD = {tabbyRate} {tabbyCurrency}. No surcharge or interest applied.
+                  </div>
+                )}
               </div>
 
               {/* Guarantees */}
@@ -1322,6 +2412,10 @@ export function VisaApplicationFlow({ visaType, products }: VisaApplicationFlowP
                 <div className="flex items-center gap-2 text-emerald-700 font-medium">
                   <span>✓</span>
                   <span>Real-time email and tracking status</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-700 font-medium">
+                  <span>✓</span>
+                  <span>Tabby Pay in 4 installment option</span>
                 </div>
               </div>
 

@@ -25,6 +25,23 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
   const [makkahHotel, setMakkahHotel] = useState(packageData.makkah_hotel_name || "VOCO Makkah");
   const [madinahHotel, setMadinahHotel] = useState(packageData.madinah_hotel_name || "Zowar International");
 
+  const [isActive, setIsActive] = useState(packageData.is_active ?? true);
+  const [showOnWebsite, setShowOnWebsite] = useState(packageData.show_on_website ?? true);
+  const [startingPrice, setStartingPrice] = useState(
+    packageData.starting_price_aed ? String(packageData.starting_price_aed) : ""
+  );
+  const [routeLine, setRouteLine] = useState(
+    packageData.route_line || "Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport"
+  );
+  const [flightNote, setFlightNote] = useState(
+    packageData.flight_note || "International return flights from UAE arranged on request."
+  );
+  const [makkahHotelNote, setMakkahHotelNote] = useState(packageData.makkah_hotel_note || "");
+  const [madinahHotelNote, setMadinahHotelNote] = useState(packageData.madinah_hotel_note || "");
+
+  const publicSlug = packageData.slug.replace("-placeholder", "").replace("umrah-", "");
+  const previewUrl = `/umrah/${publicSlug}`;
+
   // Inclusions state
   const initialInclusions = packageData.inclusions_text
     ? packageData.inclusions_text.split("\n").filter(Boolean)
@@ -78,9 +95,11 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
       <input type="hidden" name="inclusions_text" value={inclusions.join("\n")} />
       <input type="hidden" name="default_addon_slugs" value={selectedAddonSlugs.join(",")} />
       {isFeatured && <input type="hidden" name="is_featured" value="on" />}
+      {isActive && <input type="hidden" name="is_active" value="on" />}
+      {showOnWebsite && <input type="hidden" name="show_on_website" value="on" />}
 
       {/* Header Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-masaar-black/50">
             <Link href="/admin/packages" className="hover:underline">Packages</Link>
@@ -90,10 +109,15 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
             <span className="font-semibold text-masaar-black">Edit {title}</span>
           </div>
           <h1 className="text-2xl font-bold text-masaar-black mt-1">Edit {title}</h1>
-          <p className="text-xs text-masaar-black/60">Update the details for this Umrah package tier.</p>
+          <p className="text-xs text-masaar-black/60">Configure approved hotels, pricing, mobility, and inclusions.</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+            <SecondaryButton type="button">
+              👁 Preview on Website
+            </SecondaryButton>
+          </a>
           <Link href="/admin/packages/umrah">
             <SecondaryButton type="button">Cancel</SecondaryButton>
           </Link>
@@ -104,11 +128,39 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Form Cards */}
         <div className="space-y-6 lg:col-span-2">
+          {/* Publishing & Visibility Card */}
+          <div className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🌐</span>
+              <h3 className="font-bold text-sm text-masaar-black">Publishing &amp; Visibility</h3>
+            </div>
+            <div className="flex flex-wrap gap-6 pt-1">
+              <label className="flex items-center gap-2 text-xs font-semibold text-masaar-black cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="rounded border-black/20 text-deep-gold focus:ring-deep-gold"
+                />
+                <span>Published &amp; Active</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-masaar-black cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showOnWebsite}
+                  onChange={(e) => setShowOnWebsite(e.target.checked)}
+                  className="rounded border-black/20 text-deep-gold focus:ring-deep-gold"
+                />
+                <span>Show on Public Website</span>
+              </label>
+            </div>
+          </div>
+
           {/* Basic Information Card */}
           <div className="rounded-xl border border-black/10 bg-white p-6 shadow-2xs space-y-4">
             <div className="flex items-center gap-2">
               <span className="text-lg">📜</span>
-              <h3 className="font-bold text-base text-masaar-black">Basic Information</h3>
+              <h3 className="font-bold text-base text-masaar-black">Basic Information &amp; Pricing</h3>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -122,7 +174,20 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
                 />
               </Field>
 
-              <Field label="Badge (Optional)" hint="Show a badge on package cards (e.g. Popular, Best Value).">
+              <Field label="Starting Price (AED)" hint="Indicative per-person base rate">
+                <input
+                  type="number"
+                  name="starting_price_aed"
+                  value={startingPrice}
+                  onChange={(e) => setStartingPrice(e.target.value)}
+                  placeholder="e.g. 1147"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Badge (Optional)" hint="Show a badge on package cards (e.g. Most Popular).">
                 <select
                   value={badgeLabel}
                   onChange={(e) => {
@@ -136,6 +201,16 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
                   <option value="Best Value">Best Value</option>
                   <option value="Popular">Popular</option>
                 </select>
+              </Field>
+
+              <Field label="Tagline" hint="Short positioning subtitle">
+                <input
+                  type="text"
+                  name="tagline"
+                  defaultValue={packageData.tagline || ""}
+                  placeholder="e.g. Comfort & Convenience"
+                  className={inputClass}
+                />
               </Field>
             </div>
 
@@ -152,6 +227,41 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
                 {shortDescription.length}/200
               </p>
             </Field>
+          </div>
+
+          {/* Transport & Flights Card */}
+          <div className="rounded-xl border border-black/10 bg-white p-6 shadow-2xs space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🚗</span>
+              <div>
+                <h3 className="font-bold text-base text-masaar-black">Transportation &amp; Flights</h3>
+                <p className="text-[11px] text-masaar-black/50">Manage route sequence, airport transfers, and return flights note.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Field label="Route Sequence Strip" hint="Display route line shown on package cards">
+                <input
+                  type="text"
+                  name="route_line"
+                  value={routeLine}
+                  onChange={(e) => setRouteLine(e.target.value)}
+                  placeholder="Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Return Flights Note" hint="Guidance for customer flight ticketing arrangements">
+                <textarea
+                  name="flight_note"
+                  rows={2}
+                  value={flightNote}
+                  onChange={(e) => setFlightNote(e.target.value)}
+                  placeholder="International return flights from UAE arranged on request."
+                  className={inputClass}
+                />
+              </Field>
+            </div>
           </div>
 
           {/* Default Hotels Card (2 Side-by-Side Cards) */}
@@ -178,6 +288,16 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
                   )}
                 </select>
               </Field>
+              <Field label="Proximity & Shuttle Note" hint="e.g. 24/7 complimentary shuttle / 4-min walk">
+                <input
+                  type="text"
+                  name="makkah_hotel_note"
+                  value={makkahHotelNote}
+                  onChange={(e) => setMakkahHotelNote(e.target.value)}
+                  placeholder="e.g. 8 mins via complimentary shuttle"
+                  className={inputClass}
+                />
+              </Field>
               <p className="text-[10px] text-masaar-black/50">This hotel will be shown as the default for this tier.</p>
             </div>
 
@@ -202,6 +322,17 @@ export function PackageTierForm({ packageData, hotels, addonsCatalog = [] }: Pro
                     <option value="Zowar International">Zowar International</option>
                   )}
                 </select>
+              </Field>
+
+              <Field label="Proximity & Walk Note" hint="e.g. 2-min direct walk to courtyard">
+                <input
+                  type="text"
+                  name="madinah_hotel_note"
+                  value={madinahHotelNote}
+                  onChange={(e) => setMadinahHotelNote(e.target.value)}
+                  placeholder="e.g. 2-min walk directly onto Northern Courtyard"
+                  className={inputClass}
+                />
               </Field>
               <p className="text-[10px] text-masaar-black/50">This hotel will be shown as the default for this tier.</p>
             </div>

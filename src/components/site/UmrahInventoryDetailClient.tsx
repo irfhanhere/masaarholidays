@@ -763,27 +763,166 @@ export function UmrahInventoryDetailClient({ pkg, tierConfigs, ziyaratData, depa
               </div>
             )}
 
-            {/* ── INCLUDED IN YOUR JOURNEY ──────────── */}
-            <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm">
-              <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
-                Included in Your Journey
-              </h2>
-              {inclusionsList.length > 0 ? (
-                <ul className="mt-4 space-y-2.5">
-                  {inclusionsList.map((line) => (
-                    <li key={line} className="flex items-start gap-2.5 text-sm text-masaar-black">
-                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-[11px] font-bold text-masaar-black">
-                        ✓
+            {/* ── FLIGHTS & TRANSPORTATION BREAKDOWN ──────────── */}
+            <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">✈️</span>
+                <div>
+                  <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
+                    Flights &amp; Mobility Arrangements
+                  </h2>
+                  <p className="text-xs text-masaar-black/60">
+                    Transparent transportation sequence and return flight ticket coordination from the UAE.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3 pt-2 text-xs">
+                {/* Return Flights */}
+                <div className="rounded-xl border border-black/10 bg-[#FAF7F2] p-4 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-masaar-black">
+                    <span>✈️</span>
+                    <span>Return Flight Tickets</span>
+                  </div>
+                  <p className="text-masaar-black/75 leading-relaxed">
+                    {pkg.flight_note ||
+                      "Return flight tickets from UAE airports (Dubai, Sharjah, Abu Dhabi to Jeddah/Madinah) are arranged on request with top regional airlines. Base land package covers all internal Saudi mobility."}
+                  </p>
+                </div>
+
+                {/* Airport Transfers */}
+                <div className="rounded-xl border border-black/10 bg-[#FAF7F2] p-4 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-masaar-black">
+                    <span>🚗</span>
+                    <span>Airport Transfers</span>
+                  </div>
+                  <p className="text-masaar-black/75 leading-relaxed">
+                    {pkg.tier === "exclusive"
+                      ? "VIP Luxury Vehicle transfers (GMC Yukon XL / Mercedes V-Class) across all airport arrivals and departures."
+                      : pkg.tier === "signature"
+                      ? "Complete private vehicle mobility sequence (Sedan / SUV) with dedicated luggage assistance."
+                      : "Private air-conditioned vehicle transfers (Jeddah Airport → Makkah Hotel → Madinah Hotel → Madinah Airport)."}
+                  </p>
+                </div>
+
+                {/* Makkah-Madinah Transport & Train */}
+                <div
+                  className={`rounded-xl border p-4 space-y-1.5 ${
+                    pkg.tier === "exclusive"
+                      ? "border-[#059669]/40 bg-[#ECFDF5]"
+                      : "border-black/10 bg-[#FAF7F2]"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-masaar-black">
+                    <span>🚄</span>
+                    <span>Makkah–Madinah Transfer</span>
+                    {pkg.tier === "exclusive" && (
+                      <span className="rounded bg-[#059669] px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+                        Included
                       </span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-4 text-sm text-masaar-black/60">
-                  Includes hotel accommodation, private intercity transfers, visa guidance, and guided support.
-                </p>
+                    )}
+                  </div>
+                  <p className="text-masaar-black/75 leading-relaxed">
+                    {pkg.tier === "exclusive"
+                      ? "Haramain High-Speed Train (Business Class) tickets included between Makkah and Madinah, complete with private station transfers at both ends."
+                      : "Comfortable air-conditioned private vehicle sequence across the Makkah–Madinah highway. Haramain High-Speed Train upgrade available upon request."}
+                  </p>
+                </div>
+              </div>
+
+              {pkg.route_line && (
+                <div className="rounded-lg bg-warm-ivory/50 px-3.5 py-2 text-xs text-masaar-black/75 flex items-center gap-2">
+                  <span className="font-bold text-masaar-black shrink-0">Route Sequence:</span>
+                  <span className="font-medium text-[#8B6E16]">{pkg.route_line}</span>
+                </div>
               )}
+            </div>
+
+            {/* ── INCLUSIONS & EXCLUSIONS ──────────── */}
+            <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm space-y-6">
+              <div>
+                <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-masaar-black">
+                  Inclusions &amp; Exclusions
+                </h2>
+                <p className="mt-1 text-xs text-masaar-black/60">
+                  Full transparency on confirmed services and exclusions for the {pkg.title} package.
+                </p>
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2">
+                {/* Confirmed Inclusions */}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5 space-y-3">
+                  <h3 className="font-bold text-sm text-emerald-900 flex items-center gap-2">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-white text-[10px] font-bold">
+                      ✓
+                    </span>
+                    <span>Confirmed Inclusions</span>
+                  </h3>
+                  <ul className="space-y-2 text-xs text-masaar-black">
+                    {inclusionsList.length > 0 ? (
+                      inclusionsList.map((line) => (
+                        <li key={line} className="flex items-start gap-2">
+                          <span className="text-emerald-700 font-bold mt-0.5">✓</span>
+                          <span>{line}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <>
+                        <li className="flex items-start gap-2">
+                          <span className="text-emerald-700 font-bold mt-0.5">✓</span>
+                          <span>Verified hotel accommodation in Makkah &amp; Madinah</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-emerald-700 font-bold mt-0.5">✓</span>
+                          <span>Private airport &amp; intercity ground transfers</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-emerald-700 font-bold mt-0.5">✓</span>
+                          <span>Umrah visa processing support &amp; 24/7 guest assistance</span>
+                        </li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Exclusions */}
+                <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-5 space-y-3">
+                  <h3 className="font-bold text-sm text-rose-900 flex items-center gap-2">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-bold">
+                      ✕
+                    </span>
+                    <span>Package Exclusions</span>
+                  </h3>
+                  <ul className="space-y-2 text-xs text-masaar-black/80">
+                    <li className="flex items-start gap-2">
+                      <span className="text-rose-600 font-bold mt-0.5">✕</span>
+                      <span>
+                        International flight tickets (booked separately on request from any UAE airport)
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-rose-600 font-bold mt-0.5">✕</span>
+                      <span>
+                        {pkg.tier === "exclusive" || pkg.tier === "signature"
+                          ? "Lunch and dinner meals (Daily gourmet buffet breakfast is included)"
+                          : "Daily meals (Room-only base; breakfast can be added upon request)"}
+                      </span>
+                    </li>
+                    {pkg.tier !== "exclusive" && (
+                      <li className="flex items-start gap-2">
+                        <span className="text-rose-600 font-bold mt-0.5">✕</span>
+                        <span>
+                          Haramain High-Speed Train tickets (highway vehicle transfer included; train upgrade available)
+                        </span>
+                      </li>
+                    )}
+                    <li className="flex items-start gap-2">
+                      <span className="text-rose-600 font-bold mt-0.5">✕</span>
+                      <span>Personal room service, telephone calls, laundry, and individual hotel incidentals</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
 

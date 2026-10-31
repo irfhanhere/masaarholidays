@@ -22,8 +22,8 @@ export interface AddonItem {
 const DEFAULT_ADDONS: AddonItem[] = [
   {
     id: "visa",
-    name: "Umrah Visa",
-    short_description: "We assist with your visa application and documentation.",
+    name: "Saudi Visa Assistance",
+    short_description: "We assist with your official Saudi tourist and visit visa documentation.",
     price_note: "Price on request",
     image_url: "/trips/visa-assistance-card-home.webp",
     icon: "🛂",

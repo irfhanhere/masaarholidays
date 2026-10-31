@@ -40,11 +40,29 @@ export default async function AdminUmrahPackagesPage() {
               <Badge tone={pkg.tier === "essential" ? "green" : pkg.tier === "signature" ? "amber" : "gold"}>
                 {pkg.tier.toUpperCase()}
               </Badge>
-              {pkg.is_featured && <span className="text-xs font-bold text-deep-gold">Most Chosen</span>}
+              <div className="flex items-center gap-2">
+                {pkg.is_active && pkg.show_on_website ? (
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    Published
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                    Draft / Hidden
+                  </span>
+                )}
+                {pkg.is_featured && <span className="text-xs font-bold text-deep-gold">Most Chosen</span>}
+              </div>
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-masaar-black">{pkg.title}</h3>
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-lg font-bold text-masaar-black">{pkg.title}</h3>
+                {pkg.starting_price_aed ? (
+                  <span className="text-sm font-semibold text-emerald-700">
+                    From AED {pkg.starting_price_aed.toLocaleString()}
+                  </span>
+                ) : null}
+              </div>
               <p className="text-xs text-masaar-black/60 line-clamp-2 mt-1">
                 {pkg.short_description || pkg.tagline || "Spiritual Umrah experience."}
               </p>
@@ -55,11 +73,20 @@ export default async function AdminUmrahPackagesPage() {
               <p><strong>Madinah Default:</strong> {pkg.madinah_hotel_name || "Zowar International"}</p>
             </div>
 
-            <div className="pt-2">
-              <Link href={`/admin/packages/umrah/${pkg.id}`}>
-                <PrimaryButton type="button" className="w-full">
+            <div className="pt-2 flex items-center gap-2">
+              <Link href={`/admin/packages/umrah/${pkg.id}`} className="flex-1">
+                <PrimaryButton type="button" className="w-full text-xs">
                   Edit Package Tier
                 </PrimaryButton>
+              </Link>
+              <Link
+                href={`/umrah/${pkg.slug.replace("umrah-", "").replace("-placeholder", "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <SecondaryButton type="button" className="text-xs whitespace-nowrap">
+                  👁 Preview
+                </SecondaryButton>
               </Link>
             </div>
           </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { CONTACT } from "@/lib/contact";
 import type {
@@ -26,6 +27,45 @@ export function VisaTrackingView({
   payments,
 }: VisaTrackingViewProps) {
   const [copied, setCopied] = useState(false);
+  const searchParams = useSearchParams();
+  const tabbyParam = searchParams.get("tabby");
+  const paymentIdParam = searchParams.get("payment_id");
+
+  const [paymentStatus, setPaymentStatus] = useState<string>(application.payment_status);
+  const [verifyingTabby, setVerifyingTabby] = useState<boolean>(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tabbyParam === "1" && paymentIdParam && paymentStatus !== "paid") {
+      setVerifyingTabby(true);
+      fetch("/api/tabby/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId: paymentIdParam,
+          trackingToken: application.tracking_token,
+          token: application.tracking_token,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "paid") {
+            setPaymentStatus("paid");
+          } else if (data.status) {
+            setPaymentStatus(data.status);
+          }
+          if (data.error && data.status !== "paid") {
+            setVerificationError(data.error);
+          }
+        })
+        .catch((err) => {
+          setVerificationError(err instanceof Error ? err.message : "Tabby verification error");
+        })
+        .finally(() => {
+          setVerifyingTabby(false);
+        });
+    }
+  }, [tabbyParam, paymentIdParam, paymentStatus, application.tracking_token]);
 
   const handleCopyRef = () => {
     navigator.clipboard.writeText(application.reference_no);
@@ -33,7 +73,7 @@ export function VisaTrackingView({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const isPaid = application.payment_status === "paid";
+  const isPaid = paymentStatus === "paid";
   const dateFormatted = new Date(application.created_at).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -111,6 +151,23 @@ export function VisaTrackingView({
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           {/* LEFT COLUMN */}
           <div className="space-y-6">
+            {/* Tabby Verification Feedback */}
+            {verifyingTabby && (
+              <div className="flex items-center gap-3 rounded-xl border border-[#3EEDB4]/50 bg-[#3EEDB4]/10 p-4 text-xs text-masaar-black">
+                <div className="size-4 animate-spin rounded-full border-2 border-masaar-black border-t-transparent" />
+                <span className="font-medium">
+                  Verifying your Tabby payment with the bank... Please wait a moment.
+                </span>
+              </div>
+            )}
+
+            {verificationError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
+                <p className="font-semibold">Payment Verification Alert:</p>
+                <p className="mt-0.5">{verificationError}</p>
+              </div>
+            )}
+
             {/* 1. Status Callout Header Card */}
             <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
@@ -315,9 +372,43 @@ export function VisaTrackingView({
                   <span className={`inline-block mt-0.5 rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
                     isPaid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                   }`}>
-                    {application.payment_status}
+                    {paymentStatus}
                   </span>
                 </div>
+
+                <div>
+                  <p className="text-[11px] text-masaar-black/60">Payment Gateway</p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    {application.payment_gateway === "tabby" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded bg-[#3EEDB4]/20 px-2.5 py-1 text-xs font-semibold text-emerald-900">
+                        <span className="rounded bg-[#3EEDB4] px-1.5 py-0.2 text-[9px] font-black text-black">tabby</span>
+                        Tabby (Split in 4)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                        Card (Stripe Checkout)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {application.payment_gateway === "tabby" && application.charged_currency && application.charged_amount && (
+                  <div>
+                    <p className="text-[11px] text-masaar-black/60">Tabby Charged Amount</p>
+                    <p className="font-semibold text-masaar-black">
+                      {application.charged_currency} {application.charged_amount}
+                    </p>
+                  </div>
+                )}
+
+                {(application.tabby_payment_id || application.stripe_payment_intent_id) && (
+                  <div>
+                    <p className="text-[11px] text-masaar-black/60">Transaction Reference</p>
+                    <p className="font-mono text-[11px] text-masaar-black break-all">
+                      {application.tabby_payment_id || application.stripe_payment_intent_id}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <p className="text-[11px] text-masaar-black/60">Submitted Date</p>
@@ -325,7 +416,7 @@ export function VisaTrackingView({
                 </div>
 
                 <div className="border-t border-black/5 pt-3">
-                  <p className="text-[11px] text-masaar-black/60">Total Paid</p>
+                  <p className="text-[11px] text-masaar-black/60">Total Amount</p>
                   <p className="font-[family-name:var(--font-display)] text-xl font-bold text-deep-gold">
                     {application.currency} {application.total_amount}
                   </p>

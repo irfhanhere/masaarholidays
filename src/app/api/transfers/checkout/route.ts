@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { getSiteOrigin } from "@/lib/site-url";
 import { getPublicTransferBySlug } from "@/lib/data/transfers";
+import { createTabbyCheckoutSession, isTabbyCheckoutEnabled } from "@/lib/tabby";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,10 @@ export async function POST(request: NextRequest) {
   const chargeCurrency = (ALLOWED_CHARGE_CURRENCIES as readonly string[]).includes(rawCurrency)
     ? rawCurrency
     : "AED";
+  const paymentGateway =
+    typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby"
+      ? "tabby"
+      : "stripe";
 
   // Validate required contact fields
   if (!fullName || fullName.length < 2) {
@@ -204,7 +209,76 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to initialize booking record." }, { status: 500 });
   }
 
-  // 6. Create Stripe Checkout Session
+  const passengerLabel = passengers === 0 ? "Luggage Transfer (0 Pax)" : `${passengers} Passenger${passengers > 1 ? "s" : ""}`;
+  const lineItemDescription = `${selectedVehicle.vehicleName} (${selectedVehicle.modelYear}) · ${travelDate} at ${pickupTime} · ${passengerLabel}`;
+
+  // 6. Tabby Payment Gateway Branch
+  if (paymentGateway === "tabby") {
+    if (!isTabbyCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tabby payment gateway is currently unavailable. Please select Credit / Debit Card." },
+        { status: 400 }
+      );
+    }
+
+    const tabbySuccessUrl = `${siteOrigin}/transfers/booking/success?token=${booking.public_token}&payment_id={payment_id}&tabby=1`;
+    const tabbyCancelUrl = `${siteOrigin}/transfers/${encodeURIComponent(route.slug)}?cancelled=1`;
+    const tabbyFailureUrl = `${siteOrigin}/transfers/${encodeURIComponent(route.slug)}?failed=1`;
+
+    try {
+      const tabbySession = await createTabbyCheckoutSession({
+        amount: priceAed,
+        currency: "AED",
+        description: `Masaar Transfers: ${route.route_name} (${bookingRef})`,
+        referenceId: bookingRef,
+        buyer: {
+          name: fullName,
+          email,
+          phone,
+        },
+        items: [
+          {
+            title: `Private Transfer: ${route.route_name}`,
+            description: lineItemDescription,
+            quantity: 1,
+            unitPrice: priceAed,
+            category: "Transport",
+            referenceId: route.slug,
+          },
+        ],
+        successUrl: tabbySuccessUrl,
+        cancelUrl: tabbyCancelUrl,
+        failureUrl: tabbyFailureUrl,
+        shippingAddress: {
+          city: "Dubai",
+          address: pickupLocation || "Pickup Location",
+          zip: "00000",
+        },
+      });
+
+      // Save session ID on booking record
+      await supabase
+        .from("transfer_bookings")
+        .update({ stripe_session_id: tabbySession.sessionId })
+        .eq("id", booking.id);
+
+      return NextResponse.json({
+        url: tabbySession.webUrl,
+        bookingRef,
+        token: booking.public_token,
+        paymentGateway: "tabby",
+        chargedAmount: priceAed,
+        chargedCurrency: "AED",
+        installmentAmount: Math.round((priceAed / 4) * 100) / 100,
+      });
+    } catch (tabbyErr: unknown) {
+      const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
+      console.error("[transfers-checkout] Tabby session creation failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
+  // 7. Create Stripe Checkout Session
   let stripe;
   try {
     stripe = getStripe();
@@ -215,8 +289,6 @@ export async function POST(request: NextRequest) {
 
   const successUrl = `${siteOrigin}/transfers/booking/success?token=${booking.public_token}&session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${siteOrigin}/transfers/${encodeURIComponent(route.slug)}`;
-  const passengerLabel = passengers === 0 ? "Luggage Transfer (0 Pax)" : `${passengers} Passenger${passengers > 1 ? "s" : ""}`;
-  const lineItemDescription = `${selectedVehicle.vehicleName} (${selectedVehicle.modelYear}) · ${travelDate} at ${pickupTime} · ${passengerLabel}`;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -259,6 +331,7 @@ export async function POST(request: NextRequest) {
       url: session.url,
       bookingRef,
       token: booking.public_token,
+      paymentGateway: "stripe",
     });
   } catch (stripeErr: unknown) {
     const msg = stripeErr instanceof Error ? stripeErr.message : "Stripe checkout session failed";

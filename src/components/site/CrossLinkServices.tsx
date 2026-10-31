@@ -61,7 +61,7 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
     title: "Visa Assistance",
     description: "Simple, reliable visa processing with dedicated support.",
     image: "/brand/Explore cards/explore-visa.jpg",
-    alt: "Saudi Arabia Umrah and tourist visa assistance",
+    alt: "Saudi Visa, UAE Visa and UAE Golden Visa assistance",
   },
   {
     key: "esim",

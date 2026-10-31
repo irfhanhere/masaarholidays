@@ -12,6 +12,7 @@ import { Container } from "./Container";
 import { CalendarIcon } from "./icons";
 import { UmrahHero } from "./UmrahHero";
 import { UmrahTierCards } from "./UmrahTierCards";
+import { UmrahPackageComparison } from "./UmrahPackageComparison";
 import { UmrahMakkahMadinahSection } from "./UmrahMakkahMadinahSection";
 import { UmrahExperienceStrip } from "./UmrahExperienceStrip";
 import { UmrahOptionalAddons, mergeAddons } from "./UmrahOptionalAddons";
@@ -95,6 +96,23 @@ export function UmrahLandingClient({
         packages={packages}
         inventoryConfigs={inventoryConfigs}
         onOpenEnquiry={openEnquiry}
+      />
+
+      {/* 2a. Side-by-Side Package Comparison Section */}
+      <UmrahPackageComparison
+        onOpenEnquiry={(pkgName, tier) =>
+          openEnquiry({
+            name: pkgName,
+            tier: tier.toUpperCase(),
+            destination: "Makkah & Madinah",
+            duration: "Custom / Group Departure",
+            hotelName: "Verified 4 & 5-Star Hotels",
+            hotelRating: "Inspected accommodation",
+            shuttleInfo: "Dedicated mobility & airport transfers",
+            imageUrl: "/brand/banners/umrah.webp",
+            shortDescription: `Custom enquiry for ${pkgName} package with Masaar Holidays.`,
+          })
+        }
       />
 
       {/* 2b. Browse Umrah by Departure Month (Direct Internal Links) */}

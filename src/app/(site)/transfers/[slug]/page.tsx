@@ -16,6 +16,7 @@ import {
 import { buildPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
 import { getCachedWhatsAppConfig } from "@/lib/data/public";
+import { isTabbyCheckoutEnabled } from "@/lib/tabby";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -156,6 +157,7 @@ export default async function TransferDetailPage({ params }: Props) {
           <TransferEnquiryFlow
             route={transfer}
             whatsappPhone={whatsappConfig?.phoneNumber}
+            tabbyEnabled={isTabbyCheckoutEnabled()}
           />
         </Container>
       </section>

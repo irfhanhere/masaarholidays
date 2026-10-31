@@ -33,16 +33,11 @@ export const MAIN_NAV: NavItem[] = [
   {
     label: "Visa",
     href: "/visa",
-    // The 6 confirmed visa/document types. Links to each type's own
-    // /visa/[slug] detail page (see visa_types.slug), not anchor
-    // fragments on the /visa landing page.
+    // Exactly three public visa categories: Saudi Visa, UAE Visa, UAE Golden Visa
     children: [
-      { label: "Umrah Visa", href: "/visa/umrah" },
+      { label: "Saudi Visa", href: "/visa/saudi-tourist" },
       { label: "UAE Visa", href: "/visa/uae" },
-      { label: "Global Visa", href: "/visa/global" },
-      { label: "Saudi Tourist Visa", href: "/visa/saudi-tourist" },
-      { label: "Golden Visa Assistance", href: "/visa/golden-visa-assistance" },
-      { label: "Indian Visa", href: "/visa/india" },
+      { label: "UAE Golden Visa", href: "/visa/golden-visa-assistance" },
     ],
   },
   { label: "eSIM", href: "/esim" },
@@ -61,10 +56,9 @@ export const FOOTER_ONLY_NAV: NavChild[] = [
 export const FOOTER_SERVICES_NAV: NavChild[] = [
   { label: "Umrah Packages", href: "/umrah" },
   { label: "Hajj Packages", href: "/hajj" },
-  { label: "Umrah Visa", href: "/visa/umrah" },
   { label: "Hotels", href: "/hotels" },
   { label: "Transfers", href: "/transfers" },
-  { label: "Visa", href: "/visa" },
+  { label: "Visa Services", href: "/visa" },
   { label: "Private Trips", href: "/private-trips" },
   { label: "eSIM", href: "/esim" },
 ];
