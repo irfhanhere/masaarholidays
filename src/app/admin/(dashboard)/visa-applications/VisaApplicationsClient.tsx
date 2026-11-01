@@ -27,6 +27,7 @@ import {
 import {
   updateVisaApplicationStatus,
   getDocumentSignedUrlAction,
+  updateDocumentVerificationStatusAction,
   retryVisaNotificationAction,
   saveInternalNotesAction,
   requestMissingDocumentsAction,
@@ -382,13 +383,78 @@ export default function VisaApplicationsClient({
     });
   };
 
-  const handleOpenDoc = async (filePath: string) => {
-    const res = await getDocumentSignedUrlAction(filePath);
-    if (res.success && res.url) {
-      window.open(res.url, "_blank");
-    } else {
-      alert("Opening document in preview mode (Demo / Test mode).");
+  const [previewDoc, setPreviewDoc] = useState<{
+    url: string;
+    fileName: string;
+    mimeType?: string;
+    documentType?: string;
+    applicantName?: string;
+  } | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
+  const [isDownloadingZip, setIsDownloadingZip] = useState<boolean>(false);
+
+  const formatDocTypeLabel = (type: string): string => {
+    const t = (type || "").toLowerCase();
+    if (t.includes("passport") && !t.includes("photo")) return "Passport Copy";
+    if (t.includes("residence") || (t.includes("uae") && t.includes("visa"))) return "UAE Residence Visa Copy";
+    if (t.includes("emirates_id_front") || (t.includes("emirates") && t.includes("front"))) return "Emirates ID Front";
+    if (t.includes("emirates_id_back") || (t.includes("emirates") && t.includes("back"))) return "Emirates ID Back";
+    if (t.includes("emirates")) return "Emirates ID Copy";
+    if (t.includes("photo")) return "Passport-Size Photograph";
+    return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const handleOpenDocPreview = async (doc: any, applicantName?: string) => {
+    setIsLoadingPreview(true);
+    try {
+      const res = await getDocumentSignedUrlAction(doc.file_path, doc.id, selectedApp?.id);
+      if (res.success && res.url) {
+        setPreviewDoc({
+          url: res.url,
+          fileName: doc.file_name || "document.pdf",
+          mimeType: doc.mime_type || "application/pdf",
+          documentType: formatDocTypeLabel(doc.document_type || ""),
+          applicantName: applicantName || selectedApp?.applicant_name,
+        });
+      } else {
+        alert(res.error || "Failed to generate preview URL.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Preview error");
+    } finally {
+      setIsLoadingPreview(false);
     }
+  };
+
+  const handleDownloadSingleDoc = (docId: string, appId: string) => {
+    window.open(
+      `/api/admin/visa-documents/download?documentId=${encodeURIComponent(docId)}&applicationId=${encodeURIComponent(appId)}`,
+      "_blank"
+    );
+  };
+
+  const handleDownloadAllZip = (appId: string) => {
+    setIsDownloadingZip(true);
+    window.location.href = `/api/admin/visa-documents/zip?applicationId=${encodeURIComponent(appId)}`;
+    setTimeout(() => setIsDownloadingZip(false), 2500);
+  };
+
+  const handleUpdateDocStatus = async (
+    docId: string,
+    appId: string,
+    newStatus: "verified" | "rejected" | "pending"
+  ) => {
+    if (!docId || !appId) return;
+    setAppDetails((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        documents: prev.documents.map((d) =>
+          d.id === docId ? { ...d, verification_status: newStatus } : d
+        ),
+      };
+    });
+    await updateDocumentVerificationStatusAction(docId, appId, newStatus);
   };
 
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
@@ -1129,49 +1195,198 @@ export default function VisaApplicationsClient({
               </div>
             </div>
 
-            {/* Uploaded Documents with Restricted Access */}
-            <div className="rounded-xl border border-black/10 p-4">
-              <div className="flex items-center justify-between">
+            {/* ── ENHANCED DOCUMENTS SECTION WITH ZIP & PREVIEWS ── */}
+            <div className="rounded-xl border border-black/10 bg-white p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-black/5 pb-3">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black/50">
-                    Uploaded Documents ({appDetails?.documents && appDetails.documents.length > 0 ? appDetails.documents.length : selectedApp.documents.length})
-                  </h4>
-                  <p className="text-[10px] text-amber-700">Restricted signed access · No public URLs</p>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-amber-700" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black">
+                      Visa Application Documents ({appDetails?.documents ? appDetails.documents.length : selectedApp.documents.length})
+                    </h4>
+                  </div>
+                  <p className="text-[11px] text-masaar-black/60 mt-0.5">
+                    Encrypted private storage · 15-minute signed links · Download audit logged
+                  </p>
+                </div>
+
+                {appDetails?.documents && appDetails.documents.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isDownloadingZip}
+                    onClick={() => handleDownloadAllZip(selectedApp.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-masaar-black hover:bg-black/85 text-white text-xs font-semibold px-3 py-1.5 transition shadow-sm disabled:opacity-50"
+                  >
+                    <Download className="h-3.5 w-3.5 text-gold" />
+                    <span>{isDownloadingZip ? "Preparing ZIP Archive..." : "Download All as ZIP"}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Required Documents Verification Checklist */}
+              <div className="rounded-lg bg-neutral-50/70 border border-black/5 p-3 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/60 block">
+                  Mandatory Document Verification Checklist
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                  {[
+                    { key: "passport", label: "Passport Copy" },
+                    { key: "residence", label: "UAE Residence Visa Copy" },
+                    { key: "emirates_id_front", label: "Emirates ID Front" },
+                    { key: "emirates_id_back", label: "Emirates ID Back" },
+                    { key: "photo", label: "Passport-Size Photograph" },
+                  ].map((req) => {
+                    const hasDoc = (appDetails?.documents || []).some((d) =>
+                      d.document_type?.toLowerCase().includes(req.key) ||
+                      (req.key === "emirates_id_front" && d.document_type?.toLowerCase().includes("emirates")) ||
+                      (req.key === "residence" && (d.document_type?.toLowerCase().includes("visa") || d.document_type?.toLowerCase().includes("residence")))
+                    );
+                    return (
+                      <div
+                        key={req.key}
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border text-[11px] ${
+                          hasDoc
+                            ? "bg-emerald-50/80 border-emerald-200 text-emerald-800"
+                            : "bg-amber-50/80 border-amber-200 text-amber-800"
+                        }`}
+                      >
+                        <span className="font-medium truncate mr-1.5">{req.label}</span>
+                        <span className="font-bold shrink-0">
+                          {hasDoc ? "✓ On File" : "Missing"}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="mt-3 space-y-2">
-                {appDetails?.documents && appDetails.documents.length > 0 ? (
-                  appDetails.documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between rounded-lg border border-black/10 bg-neutral-50/50 p-2.5"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <FileCheck className="h-4 w-4 text-emerald-600" />
-                        <div>
-                          <p className="text-xs font-semibold text-masaar-black">{doc.document_type || doc.file_name}</p>
-                          <div className="flex items-center gap-2 text-[10px] text-masaar-black/50">
-                            <span>{doc.file_name}</span>
-                            <span>•</span>
-                            <span>{doc.file_size ? `${Math.round(doc.file_size / 1024)} KB` : "Document"}</span>
+              {/* Uploaded Documents List */}
+              <div className="space-y-3 pt-1">
+                {isLoadingDetails ? (
+                  <div className="py-6 text-center text-xs text-masaar-black/50">
+                    Loading application documents from secure storage...
+                  </div>
+                ) : appDetails?.documents && appDetails.documents.length > 0 ? (
+                  appDetails.documents.map((doc) => {
+                    const applicantMatch = appDetails.applicants?.find(
+                      (a) => a.id === doc.applicant_id
+                    );
+                    const applicantName =
+                      applicantMatch?.full_name ||
+                      (doc.document_type?.includes("app")
+                        ? `Applicant ${doc.document_type.replace(/[^0-9]/g, "")}`
+                        : selectedApp.applicant_name);
+
+                    const uploadDate = doc.created_at
+                      ? new Date(doc.created_at).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Recent";
+
+                    const fileSizeDisplay = doc.file_size
+                      ? doc.file_size > 1048576
+                        ? `${(doc.file_size / 1048576).toFixed(1)} MB`
+                        : `${Math.round(doc.file_size / 1024)} KB`
+                      : "N/A";
+
+                    return (
+                      <div
+                        key={doc.id}
+                        className="rounded-xl border border-black/10 bg-white p-3.5 shadow-2xs hover:border-black/20 transition space-y-2.5"
+                      >
+                        {/* Top: Doc Type & Applicant Name & Status */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-black/5 pb-2">
+                          <div className="flex items-center gap-2">
+                            <FileCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-bold text-masaar-black">
+                              {formatDocTypeLabel(doc.document_type)}
+                            </span>
+                            <span className="text-[10px] font-medium bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full">
+                              Traveller: {applicantName}
+                            </span>
+                          </div>
+
+                          {/* Verification Status Selector */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] text-masaar-black/50 uppercase font-semibold">Status:</span>
+                            <select
+                              value={doc.verification_status || "pending"}
+                              onChange={(e) =>
+                                handleUpdateDocStatus(
+                                  doc.id,
+                                  selectedApp.id,
+                                  e.target.value as "verified" | "rejected" | "pending"
+                                )
+                              }
+                              className={`text-[11px] font-bold rounded px-2 py-0.5 border focus:outline-none ${
+                                doc.verification_status === "verified"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                  : doc.verification_status === "rejected"
+                                  ? "bg-red-50 text-red-800 border-red-300"
+                                  : "bg-amber-50 text-amber-800 border-amber-300"
+                              }`}
+                            >
+                              <option value="pending">Pending Review</option>
+                              <option value="verified">Verified ✓</option>
+                              <option value="rejected">Rejected ✗</option>
+                            </select>
                           </div>
                         </div>
+
+                        {/* Metadata row: Filename, Upload Date, File Size */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-masaar-black/70">
+                          <div>
+                            <span className="text-masaar-black/50 block text-[10px]">Original File</span>
+                            <span className="font-mono text-masaar-black truncate block" title={doc.file_name}>
+                              {doc.file_name}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-masaar-black/50 block text-[10px]">Upload Date</span>
+                            <span className="font-medium text-masaar-black">{uploadDate}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-masaar-black/50 block text-[10px]">File Size & Format</span>
+                            <span className="font-medium text-masaar-black">
+                              {fileSizeDisplay} · {doc.mime_type?.split("/")[1]?.toUpperCase() || "FILE"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action buttons: Safe Preview and Direct Download */}
+                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-black/5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocPreview(doc, applicantName)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-black/15 bg-white hover:bg-neutral-50 px-2.5 py-1 text-xs font-semibold text-masaar-black transition shadow-2xs"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-amber-700" />
+                            <span>Preview</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadSingleDoc(doc.id, selectedApp.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 text-xs font-semibold transition shadow-2xs"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            <span>Download</span>
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDoc(doc.file_path)}
-                        className="rounded border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-masaar-black hover:bg-black/5"
-                      >
-                        View Securely
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : selectedApp.documents.length > 0 ? (
                   selectedApp.documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between rounded-lg border border-black/10 bg-neutral-50/50 p-2.5"
+                      className="flex items-center justify-between rounded-lg border border-black/10 bg-neutral-50/50 p-3"
                     >
                       <div className="flex items-center gap-2.5">
                         <FileCheck className="h-4 w-4 text-emerald-600" />
@@ -1184,17 +1399,98 @@ export default function VisaApplicationsClient({
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleOpenDoc(doc.file_path)}
+                        onClick={() => handleOpenDocPreview(doc, selectedApp.applicant_name)}
                         className="rounded border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-masaar-black hover:bg-black/5"
                       >
-                        View Securely
+                        Preview Securely
                       </button>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-masaar-black/50 italic py-2">No uploaded documents on record.</p>
+                  <div className="py-6 text-center text-xs text-masaar-black/50 italic bg-neutral-50 rounded-lg border border-dashed border-black/10">
+                    No uploaded identity documents on record for this application.
+                  </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SAFE DOCUMENT PREVIEW MODAL ── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 sm:p-6">
+          <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-black/10 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-black/10 bg-neutral-50 px-5 py-3.5">
+              <div className="flex items-center gap-2.5">
+                <FileText className="h-5 w-5 text-amber-700" />
+                <div>
+                  <h3 className="text-sm font-bold text-masaar-black truncate max-w-md">
+                    {previewDoc.documentType}: {previewDoc.fileName}
+                  </h3>
+                  <p className="text-[11px] text-masaar-black/60">
+                    Applicant: <strong className="text-masaar-black">{previewDoc.applicantName}</strong> · Secure signed link (expires in 15 min)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewDoc.url}
+                  download={previewDoc.fileName}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 shadow-2xs transition"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Download</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  className="rounded-lg p-1.5 text-masaar-black/50 hover:bg-black/10 hover:text-masaar-black transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Render Image or PDF Preview */}
+            <div className="flex-1 overflow-auto p-4 bg-neutral-100/50 flex items-center justify-center min-h-[400px]">
+              {previewDoc.mimeType?.startsWith("image/") ? (
+                <div className="relative max-h-[75vh] flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.fileName}
+                    className="max-h-[75vh] w-auto max-w-full rounded-lg object-contain shadow-md border border-black/10 bg-white"
+                  />
+                </div>
+              ) : previewDoc.mimeType === "application/pdf" ? (
+                <iframe
+                  src={previewDoc.url}
+                  title={previewDoc.fileName}
+                  className="w-full h-[75vh] rounded-lg border border-black/15 bg-white shadow-sm"
+                />
+              ) : (
+                <div className="text-center p-8 bg-white rounded-xl border border-black/10 shadow-sm max-w-md space-y-3">
+                  <FileText className="h-10 w-10 text-amber-700 mx-auto" />
+                  <h4 className="text-sm font-bold text-masaar-black">{previewDoc.fileName}</h4>
+                  <p className="text-xs text-masaar-black/60">
+                    Preview not available directly in browser for this file format ({previewDoc.mimeType}).
+                  </p>
+                  <a
+                    href={previewDoc.url}
+                    download={previewDoc.fileName}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold px-4 py-2 hover:bg-amber-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Download File Directly</span>
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>

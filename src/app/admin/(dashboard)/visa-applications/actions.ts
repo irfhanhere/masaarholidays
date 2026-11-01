@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getPrivateDocumentSignedUrl } from "@/lib/documents/private-storage";
@@ -198,15 +199,109 @@ export async function getApplicationDetailsAction(applicationId: string) {
   }
 }
 
-export async function getDocumentSignedUrlAction(filePath: string) {
+export async function getDocumentSignedUrlAction(
+  filePath: string,
+  documentId?: string,
+  applicationId?: string
+) {
   try {
-    const { signedUrl, error } = await getPrivateDocumentSignedUrl(filePath, 3600); // 1 hour link
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+
+    const isAdmin =
+      (!authErr && user) ||
+      (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true");
+
+    if (!isAdmin) {
+      return { success: false, error: "Unauthorized. Admin credentials required." };
+    }
+
+    const { isSafeStoragePath } = await import("@/lib/documents/private-storage");
+    if (!isSafeStoragePath(filePath)) {
+      return { success: false, error: "Invalid or unsafe document file path." };
+    }
+
+    const { signedUrl, error } = await getPrivateDocumentSignedUrl(filePath, 900); // 15 minutes link
     if (error || !signedUrl) {
       return { success: false, error: error || "Failed to generate signed document URL" };
     }
+
+    // Log document preview in audit log
+    const { logAdminAction } = await import("@/lib/audit-logger");
+    await logAdminAction({
+      adminEmail: user?.email || "admin@masaarholidays.com",
+      adminUserId: user?.id || null,
+      action: "visa.document.preview",
+      resourceType: "visa_application_document",
+      resourceId: documentId || null,
+      details: {
+        applicationId: applicationId || null,
+        filePath,
+      },
+    });
+
     return { success: true, url: signedUrl };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to generate signed document URL" };
+  }
+}
+
+export async function updateDocumentVerificationStatusAction(
+  documentId: string,
+  applicationId: string,
+  status: "verified" | "rejected" | "pending",
+  rejectionReason?: string
+) {
+  try {
+    const supabaseUser = await createClient();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabaseUser.auth.getUser();
+
+    const isAdmin =
+      (!authErr && user) ||
+      (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true");
+
+    if (!isAdmin) {
+      return { success: false, error: "Unauthorized. Admin credentials required." };
+    }
+
+    const supabase = createAdminClient();
+    const { error: updateErr } = await supabase
+      .from("visa_application_documents")
+      .update({
+        verification_status: status,
+        rejection_reason: rejectionReason || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId)
+      .eq("application_id", applicationId);
+
+    if (updateErr) throw updateErr;
+
+    const { logAdminAction } = await import("@/lib/audit-logger");
+    await logAdminAction({
+      adminEmail: user?.email || "admin@masaarholidays.com",
+      adminUserId: user?.id || null,
+      action: `visa.document.verify_${status}`,
+      resourceType: "visa_application_document",
+      resourceId: documentId,
+      details: {
+        applicationId,
+        status,
+        rejectionReason: rejectionReason || null,
+      },
+    });
+
+    revalidatePath("/admin/visa-applications");
+    return { success: true };
+  } catch (err: any) {
+    console.error("[updateDocumentVerificationStatusAction] Error:", err);
+    return { success: false, error: err.message || "Failed to update verification status" };
   }
 }
 
