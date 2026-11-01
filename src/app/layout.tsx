@@ -1,27 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Script from "next/script";
-import { Montserrat, Cormorant_Garamond } from "next/font/google";
 import { LOCALE_DIR, getRequestLocale } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
-
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  preload: true,
-});
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  style: ["normal", "italic"],
-  display: "swap",
-  preload: true,
-});
 
 // Fallback shell only — every real page overrides title/description via
 // its own generateMetadata (see lib/i18n.ts#buildPageMetadata, which
@@ -63,8 +45,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={locale}
       dir={LOCALE_DIR[locale]}
-      className={`${montserrat.variable} ${cormorant.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Montserrat:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-warm-ivory text-masaar-black">
         {children}
         {gaId && !isAdminRoute && (

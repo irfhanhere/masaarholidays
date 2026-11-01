@@ -28,6 +28,9 @@
 
   --background: var(--color-warm-ivory);
   --foreground: var(--color-masaar-black);
+
+  --font-montserrat: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-cormorant: "Cormorant Garamond", Georgia, serif;
 }
 
 @theme inline {
