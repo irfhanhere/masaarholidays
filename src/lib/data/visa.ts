@@ -101,90 +101,33 @@ export const CANONICAL_ONLINE_VISA_PRODUCTS: Record<string, VisaProductRow[]> = 
   ],
   "saudi-tourist": [
     {
-      id: "saudi-30-single",
+      id: "c7f1a920-5a0d-4001-8b01-750000000001",
       visa_type_slug: "saudi-tourist",
-      title: "30 Days Single Entry",
-      subtitle: "Saudi Tourist e-Visa",
-      duration: "30 Days",
-      entry_type: "Single",
-      visa_fee_usd: 120,
-      service_fee_usd: 20,
-      processing_fee_usd: 10,
-      total_usd: 150,
-      currency: "USD",
-      validity_days: "30 Days",
-      processing_time: "1-3 Working Days",
-      is_popular: false,
-      is_active: true,
-      display_order: 1,
-      inclusions: ["Single entry", "Valid for 30 days", "Tourism / Leisure", "Fast digital issue"],
-      exclusions: ["Flight tickets", "Hotel bookings", "Separate mandatory medical insurance if applicable"],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "saudi-90-multi",
-      visa_type_slug: "saudi-tourist",
-      title: "90 Days Multiple Entry",
-      subtitle: "Multiple Entry Tourist Visa",
-      duration: "90 Days",
+      title: "Saudi 1-Year Multiple Entry Tourist Visa",
+      subtitle: "For UAE Residents (Indian & Pakistani Passports)",
+      duration: "1 Year",
       entry_type: "Multiple",
-      visa_fee_usd: 180,
-      service_fee_usd: 25,
-      processing_fee_usd: 15,
-      total_usd: 220,
-      currency: "USD",
+      visa_fee_usd: 500,
+      service_fee_usd: 150,
+      processing_fee_usd: 100,
+      total_usd: 750,
+      currency: "AED",
       validity_days: "365 Days",
-      processing_time: "1-3 Working Days",
+      processing_time: "2-3 Working Days",
       is_popular: true,
       is_active: true,
-      display_order: 2,
-      inclusions: ["Multiple entry", "Valid for 1 Year", "Up to 90 days stay per visit", "Fast processing"],
-      exclusions: ["Flight tickets", "Hotel bookings", "Overstay penalties"],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "saudi-transit-96h",
-      visa_type_slug: "saudi-tourist",
-      title: "Transit Visa (96 Hours)",
-      subtitle: "Stopover / Transit Visa",
-      duration: "96 Hours",
-      entry_type: "Single",
-      visa_fee_usd: 80,
-      service_fee_usd: 15,
-      processing_fee_usd: 10,
-      total_usd: 105,
-      currency: "USD",
-      validity_days: "96 Hours",
-      processing_time: "24-48 Hours",
-      is_popular: false,
-      is_active: true,
-      display_order: 3,
-      inclusions: ["Single entry", "Valid for 96 hours", "Transit / Short stop", "Quick turnaround"],
-      exclusions: ["Connecting flight ticket required"],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "saudi-family-visit",
-      visa_type_slug: "saudi-tourist",
-      title: "Family Visit Visa",
-      subtitle: "Family Visit (e-Visa)",
-      duration: "90 Days",
-      entry_type: "Multiple",
-      visa_fee_usd: 200,
-      service_fee_usd: 30,
-      processing_fee_usd: 20,
-      total_usd: 250,
-      currency: "USD",
-      validity_days: "90 Days",
-      processing_time: "3-5 Working Days",
-      is_popular: false,
-      is_active: true,
-      display_order: 4,
-      inclusions: ["Family invitation review", "Guidance on MOFA platform", "Document verification"],
-      exclusions: ["Flight tickets", "Accommodation"],
+      display_order: 1,
+      inclusions: [
+        "Multiple entry for 1 year",
+        "Up to 90 days stay per visit",
+        "Tourism & Umrah permitted",
+        "Fast digital document processing",
+      ],
+      exclusions: [
+        "Flight tickets & accommodation",
+        "Overstay penalties",
+        "Hajj travel (requires official Hajj permit/visa)",
+      ],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -324,6 +267,9 @@ export async function getVisaProductById(productId: string): Promise<VisaProduct
   }
 
   // Check in canonical catalogs
+  if (productId === "saudi-1y-multi") {
+    return CANONICAL_ONLINE_VISA_PRODUCTS["saudi-tourist"][0] || null;
+  }
   for (const list of Object.values(CANONICAL_ONLINE_VISA_PRODUCTS)) {
     const found = list.find((p) => p.id === productId);
     if (found) return found;
@@ -332,47 +278,8 @@ export async function getVisaProductById(productId: string): Promise<VisaProduct
   return null;
 }
 
-/**
- * Server-side trusted price calculation. Never trusts client-supplied sums.
- * Applies central 5% price reduction rule to customer-facing visa package price.
- */
-export function calculateVisaPricing(product: VisaProductRow, applicantCount: number) {
-  const count = Math.max(1, applicantCount);
-  const visaFeeTotal = product.visa_fee_usd * count;
-  const serviceFeeTotal = product.service_fee_usd * count;
-  const processingFeeTotal = product.processing_fee_usd * count;
-
-  const originalSubtotal = visaFeeTotal + serviceFeeTotal + processingFeeTotal;
-  const originalTotalPerPerson = product.total_usd;
-
-  // 5% reduction on Visa service package
-  const discountRate = 0.05;
-  const discountAmount = Math.round(originalSubtotal * discountRate * 100) / 100;
-  const totalAmount = Math.round((originalSubtotal - discountAmount) * 100) / 100;
-
-  const discountPerPerson = Math.round(originalTotalPerPerson * discountRate * 100) / 100;
-  const discountedTotalPerPerson = Math.round((originalTotalPerPerson - discountPerPerson) * 100) / 100;
-
-  return {
-    applicantCount: count,
-    visaFeePerPerson: product.visa_fee_usd,
-    serviceFeePerPerson: product.service_fee_usd,
-    processingFeePerPerson: product.processing_fee_usd,
-    originalTotalPerPerson,
-    discountPerPerson,
-    discountedTotalPerPerson,
-    totalPerPerson: discountedTotalPerPerson,
-    visaFeeTotal,
-    serviceFeeTotal,
-    processingFeeTotal,
-    subtotalAmount: originalSubtotal,
-    originalTotalAmount: originalSubtotal,
-    discountAmount,
-    discountPercent: 5,
-    totalAmount,
-    currency: product.currency || "USD",
-  };
-}
+export { calculateVisaPricing } from "@/lib/visa-pricing";
+export type { VisaPricingResult } from "@/lib/visa-pricing";
 
 /**
  * Fetch application details by tracking token for customer tracking screen.

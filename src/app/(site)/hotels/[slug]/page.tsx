@@ -7,6 +7,7 @@ import { ExternalImage } from "@/components/site/ExternalImage";
 import { HotelSchema } from "@/components/site/HotelSchema";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { HotelDetailGallery } from "@/components/site/HotelDetailGallery";
+import { Price } from "@/components/site/Price";
 import {
   formatDistance,
   formatLadiesGateWalkTime,
@@ -486,11 +487,6 @@ export default async function HotelDetailPage({
                 Choose from a range of comfortable rooms. Prices are indicative and may vary based on travel dates and season.
               </p>
             </div>
-
-            <div className="rounded-lg border border-black/15 bg-white p-1 text-xs font-bold text-masaar-black">
-              <span className="bg-[#C9A227] text-white px-3 py-1 rounded-md">AED</span>
-              <span className="px-3 py-1 text-masaar-black/60">USD</span>
-            </div>
           </div>
 
           {rooms.length > 0 ? (
@@ -545,7 +541,7 @@ export default async function HotelDetailPage({
                             <span className="text-[10px] uppercase font-bold text-masaar-black/40 block">From</span>
                             <div className="flex items-baseline gap-1">
                               <span className="text-lg font-bold font-mono text-masaar-black">
-                                AED {Number(roomPrice).toLocaleString()}
+                                <Price amountAed={Number(roomPrice)} />
                               </span>
                               <span className="text-[11px] text-masaar-black/50">/ room / night</span>
                             </div>

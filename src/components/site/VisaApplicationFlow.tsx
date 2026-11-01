@@ -6,6 +6,8 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { CONTACT } from "@/lib/contact";
+import { Price } from "@/components/site/Price";
+import { calculateVisaPricing } from "@/lib/visa-pricing";
 import type { VisaTypeRow, VisaProductRow } from "@/lib/types/database";
 
 interface ApplicantData {
@@ -133,26 +135,53 @@ export function VisaApplicationFlow({
 
   // Pricing calculations
   const count = Math.max(1, travellersCount);
-  const visaFeeTotal = (selectedProduct?.visa_fee_usd || 80) * count;
-  const serviceFeeTotal = (selectedProduct?.service_fee_usd || 20) * count;
-  const processingFeeTotal = (selectedProduct?.processing_fee_usd || 10) * count;
-  const subtotalAmount = visaFeeTotal + serviceFeeTotal + processingFeeTotal;
+  const isSaudi = isThreeStep || selectedProduct?.currency === "AED";
+  const pricing = selectedProduct
+    ? calculateVisaPricing(selectedProduct, count)
+    : {
+        applicantCount: count,
+        visaFeeTotal: isSaudi ? 500 * count : 120 * count,
+        serviceFeeTotal: isSaudi ? 150 * count : 30 * count,
+        processingFeeTotal: isSaudi ? 100 * count : 20 * count,
+        subtotalAmount: isSaudi ? 750 * count : 170 * count,
+        discountAmount: isSaudi ? 0 : 8.5 * count,
+        discountPercent: isSaudi ? 0 : 5,
+        totalAmount: isSaudi ? 750 * count : 161.5 * count,
+        currency: isSaudi ? "AED" : "USD",
+        originalTotalPerPerson: isSaudi ? 750 : 170,
+        discountPerPerson: isSaudi ? 0 : 8.5,
+        discountedTotalPerPerson: isSaudi ? 750 : 161.5,
+      };
 
-  // 5% reduction on customer-facing price
-  const discountRate = 0.05;
-  const discountAmount = Math.round(subtotalAmount * discountRate * 100) / 100;
-  const totalAmount = Math.round((subtotalAmount - discountAmount) * 100) / 100;
+  const {
+    visaFeeTotal,
+    serviceFeeTotal,
+    processingFeeTotal,
+    subtotalAmount,
+    discountAmount,
+    totalAmount,
+    currency: currencyCode,
+    originalTotalPerPerson: originalPerPerson,
+    discountedTotalPerPerson: discountedPerPerson,
+  } = pricing;
 
-  const originalPerPerson = selectedProduct?.total_usd || Math.round(subtotalAmount / count);
-  const discountPerPerson = Math.round(originalPerPerson * discountRate * 100) / 100;
-  const discountedPerPerson = Math.round((originalPerPerson - discountPerPerson) * 100) / 100;
-
-  // Tabby converted pegged currency calculations (AED for UAE, SAR for Saudi Tourist)
-  const tabbyCurrency: "AED" | "SAR" = visaType.slug === "saudi-tourist" ? "SAR" : "AED";
-  const tabbyRate = tabbyCurrency === "SAR" ? 3.75 : 3.6725;
-  const tabbyTotalAmount = Math.round(totalAmount * tabbyRate * 100) / 100;
+  // Tabby calculations: UAE AED merchant account mhae supports AED only (never send SAR)
+  const tabbyCurrency: "AED" = "AED";
+  const tabbyRate = 1;
+  const tabbyTotalAmount = isSaudi ? (750 * count) : Math.round(totalAmount * 3.6725 * 100) / 100;
   const tabbyInstallmentAmount = Math.round((tabbyTotalAmount / 4) * 100) / 100;
-  const isTabbyEligible = tabbyCurrency === "SAR" ? (tabbyEnabled && tabbySarAvailable) : tabbyEnabled;
+  const isTabbyEligible = tabbyEnabled;
+
+  // Saudi applicant eligibility checker: UAE residents holding Indian or Pakistani passports
+  const isSaudiApplicantEligible = (a: ApplicantData) => {
+    const nat = (a.nationality || "").trim().toLowerCase();
+    const isIndianOrPakistani = nat === "india" || nat === "pakistan" || nat === "indian" || nat === "pakistani";
+    const res = (a.countryOfResidence || "").trim().toLowerCase();
+    const isUaeResident = res === "united arab emirates" || res === "uae";
+    return isIndianOrPakistani && isUaeResident;
+  };
+
+  const hasIneligibleSaudiApplicant = isThreeStep && applicants.some((a) => !isSaudiApplicantEligible(a));
 
   // File upload handler
   // File upload handler supporting applicant index
@@ -224,8 +253,8 @@ export function VisaApplicationFlow({
         setActiveApplicantIndex(i);
         return false;
       }
-      if (!a.nationality || a.nationality.trim().length < 2) {
-        alert(`Please enter nationality for Traveller ${i + 1}.`);
+      if (!isSaudiApplicantEligible(a)) {
+        alert("Currently, this Saudi Visa service is available only to UAE residents holding Indian or Pakistani passports. Please contact our team to discuss other options.");
         setActiveApplicantIndex(i);
         return false;
       }
@@ -257,21 +286,25 @@ export function VisaApplicationFlow({
   };
 
   const validateThreeStep2 = () => {
-    const isTransit = selectedProduct?.id === "saudi-transit-96h";
     for (let i = 0; i < applicants.length; i++) {
       const appName = applicants[i].fullName || `Traveller ${i + 1}`;
       if (!uploadedDocuments[`${i}_passport_front`]) {
-        alert(`Please upload Passport First Page copy for ${appName} to proceed.`);
+        alert(`Please upload Passport Copy for ${appName} to proceed.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!uploadedDocuments[`${i}_uae_residence_visa`]) {
+        alert(`Please upload UAE Residence Visa Copy for ${appName} to proceed.`);
+        setActiveApplicantIndex(i);
+        return false;
+      }
+      if (!uploadedDocuments[`${i}_emirates_id`]) {
+        alert(`Please upload Emirates ID Copy for ${appName} to proceed.`);
         setActiveApplicantIndex(i);
         return false;
       }
       if (!uploadedDocuments[`${i}_passport_photo`]) {
         alert(`Please upload Passport Size Photo for ${appName} to proceed.`);
-        setActiveApplicantIndex(i);
-        return false;
-      }
-      if (isTransit && !uploadedDocuments[`${i}_flight_ticket`]) {
-        alert(`Please upload Confirmed Onward Flight Ticket for ${appName} to proceed.`);
         setActiveApplicantIndex(i);
         return false;
       }
@@ -555,69 +588,42 @@ export function VisaApplicationFlow({
                       1
                     </span>
                     <div>
-                      <h2 className="font-semibold text-masaar-black text-sm">Select Your Saudi Tourist Visa Package</h2>
-                      <p className="text-[11px] text-masaar-black/60">Choose your preferred validity and entry type.</p>
+                      <h2 className="font-semibold text-masaar-black text-sm">Saudi Tourist Visa Package</h2>
+                      <p className="text-[11px] text-masaar-black/60">Official single visa service for UAE residents holding Indian or Pakistani passports.</p>
                     </div>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    {products.map((p) => {
-                      const isSelected = p.id === selectedProductId;
-                      const pDisc = Math.round(p.total_usd * 0.05 * 100) / 100;
-                      const pNet = Math.round((p.total_usd - pDisc) * 100) / 100;
-
-                      return (
-                        <div
-                          key={p.id}
-                          onClick={() => setSelectedProductId(p.id)}
-                          className={`relative cursor-pointer rounded-xl border p-4 transition-all ${
-                            isSelected
-                              ? "border-pure-gold bg-pure-gold/5 shadow-sm ring-2 ring-pure-gold/30"
-                              : "border-black/10 bg-white hover:border-black/25"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`flex size-4 items-center justify-center rounded-full border ${
-                                  isSelected
-                                    ? "border-pure-gold bg-pure-gold"
-                                    : "border-black/30 bg-white"
-                                }`}
-                              >
-                                {isSelected && <span className="size-1.5 rounded-full bg-masaar-black" />}
-                              </span>
-                              <h3 className="font-semibold text-masaar-black text-xs sm:text-sm">{p.title}</h3>
-                            </div>
-                            {p.is_popular && (
-                              <span className="rounded bg-pure-gold/20 px-1.5 py-0.5 text-[9px] font-bold text-deep-gold uppercase">
-                                Popular
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="mt-3 border-t border-black/5 pt-2">
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                              <span className="text-masaar-black/40 line-through">USD {p.total_usd}</span>
-                              <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700 border border-emerald-200">
-                                Save 5%
-                              </span>
-                            </div>
-                            <div className="mt-0.5 flex items-baseline gap-1">
-                              <span className="text-[11px] text-masaar-black/60">USD</span>
-                              <span className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
-                                {pNet}
-                              </span>
-                              <span className="text-[10px] text-masaar-black/50">/ person</span>
-                            </div>
-                          </div>
-
-                          <p className="mt-1 text-[11px] text-masaar-black/60">
-                            {p.duration} · {p.entry_type} Entry · {p.processing_time || "1-3 Working Days"}
+                  <div className="mt-5 max-w-lg">
+                    <div className="relative rounded-xl border border-pure-gold bg-pure-gold/5 p-5 shadow-sm ring-2 ring-pure-gold/30">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="inline-flex items-center rounded-full bg-pure-gold px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black">
+                            Approved Product
+                          </span>
+                          <h3 className="mt-2 font-semibold text-masaar-black text-base">
+                            Saudi 1-Year Multiple Entry Tourist Visa
+                          </h3>
+                          <p className="mt-0.5 text-xs text-masaar-black/70">
+                            Exclusively for UAE Residents (Indian & Pakistani Passports)
                           </p>
                         </div>
-                      );
-                    })}
+                      </div>
+
+                      <div className="mt-4 border-t border-black/10 pt-3">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black">
+                            <Price amountAed={750} />
+                          </span>
+                          <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-masaar-black/60">
+                          1 Year Validity · Multiple Entry · Up to 90 Days / Visit · ~2–3 Working Days Processing
+                        </p>
+                        <p className="mt-2 rounded-md bg-white p-2 text-[11px] font-medium text-masaar-black/80 border border-black/5">
+                          💳 Or 4 monthly installments of <Price amountAed={187.5} /> with Tabby
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -808,16 +814,31 @@ export function VisaApplicationFlow({
 
                     <div>
                       <label className="block text-xs font-semibold text-masaar-black">
-                        Nationality <span className="text-red-500">*</span>
+                        Passport Nationality <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        required
+                      <select
                         value={applicants[activeApplicantIndex].nationality}
                         onChange={(e) => updateApplicantField(activeApplicantIndex, "nationality", e.target.value)}
-                        placeholder="e.g. British / Indian / American"
                         className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
+                      >
+                        <option value="India">🇮🇳 India (Indian Passport)</option>
+                        <option value="Pakistan">🇵🇰 Pakistan (Pakistani Passport)</option>
+                        <option value="Other">Other Nationality (Not Eligible)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Country of Residence <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={applicants[activeApplicantIndex].countryOfResidence}
+                        onChange={(e) => updateApplicantField(activeApplicantIndex, "countryOfResidence", e.target.value)}
+                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      >
+                        <option value="United Arab Emirates">🇦🇪 United Arab Emirates (UAE Resident)</option>
+                        <option value="Other">Other Country (Not Eligible)</option>
+                      </select>
                     </div>
 
                     <div>
@@ -877,6 +898,21 @@ export function VisaApplicationFlow({
                     </div>
                   </div>
                 </div>
+
+                {/* Eligibility Warning Alert if nationality/residence is ineligible */}
+                {hasIneligibleSaudiApplicant && (
+                  <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-900 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <span className="text-rose-600 text-base font-bold shrink-0">⚠️</span>
+                      <div>
+                        <p className="font-bold text-sm text-rose-800">Eligibility Notice</p>
+                        <p className="mt-1 leading-relaxed text-rose-900">
+                          Currently, this Saudi Visa service is available only to UAE residents holding Indian or Pakistani passports. Please contact our team to discuss other options.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -912,10 +948,14 @@ export function VisaApplicationFlow({
                       <p className="text-xs font-semibold text-masaar-black mb-2">Select Applicant:</p>
                       <div className="flex gap-2 overflow-x-auto">
                         {applicants.map((app, i) => {
-                          const isDone =
-                            !!uploadedDocuments[`${i}_passport_front`] &&
-                            !!uploadedDocuments[`${i}_passport_photo`] &&
-                            (selectedProduct?.id !== "saudi-transit-96h" || !!uploadedDocuments[`${i}_flight_ticket`]);
+                          const isDone = isSaudi
+                            ? !!uploadedDocuments[`${i}_passport_front`] &&
+                              !!uploadedDocuments[`${i}_uae_residence_visa`] &&
+                              !!uploadedDocuments[`${i}_emirates_id`] &&
+                              !!uploadedDocuments[`${i}_passport_photo`]
+                            : !!uploadedDocuments[`${i}_passport_front`] &&
+                              !!uploadedDocuments[`${i}_passport_photo`] &&
+                              (selectedProduct?.id !== "saudi-transit-96h" || !!uploadedDocuments[`${i}_flight_ticket`]);
 
                           return (
                             <button
@@ -947,36 +987,64 @@ export function VisaApplicationFlow({
 
                   {/* Document upload checklist for activeApplicantIndex */}
                   <div className="mt-6 space-y-4">
-                    {[
-                      {
-                        key: "passport_front",
-                        title: "1. Passport First Page",
-                        desc: "Clear colour scan of passport bio-data page (minimum 6 months remaining validity).",
-                        required: true,
-                      },
-                      {
-                        key: "passport_photo",
-                        title: "2. Passport Size Photograph",
-                        desc: "Recent colour photo with white background taken within the last 6 months (JPG, PNG).",
-                        required: true,
-                      },
-                      ...(selectedProduct?.id === "saudi-transit-96h"
-                        ? [
-                            {
-                              key: "flight_ticket",
-                              title: "3. Confirmed Onward Flight Ticket",
-                              desc: "Confirmed flight booking showing transit / onward flight within 96 hours.",
-                              required: true,
-                            },
-                          ]
-                        : []),
-                      {
-                        key: "accommodation_proof",
-                        title: selectedProduct?.id === "saudi-transit-96h" ? "4. Hotel / Host Details" : "3. Accommodation / Host Address",
-                        desc: "Confirmed hotel reservation or residential address of host in Saudi Arabia.",
-                        required: false,
-                      },
-                    ].map((item) => {
+                    {(isSaudi
+                      ? [
+                          {
+                            key: "passport_front",
+                            title: "1. Passport Copy (Bio-Data Page)",
+                            desc: "Clear colour scan of passport bio-data page (minimum 6 months remaining validity).",
+                            required: true,
+                          },
+                          {
+                            key: "uae_residence_visa",
+                            title: "2. UAE Residence Visa Copy",
+                            desc: "Valid UAE residence visa copy (minimum 3 months remaining validity).",
+                            required: true,
+                          },
+                          {
+                            key: "emirates_id",
+                            title: "3. Emirates ID Copy",
+                            desc: "Clear copy of front & back of Emirates ID (minimum 3 months remaining validity).",
+                            required: true,
+                          },
+                          {
+                            key: "passport_photo",
+                            title: "4. Passport-Size Photograph",
+                            desc: "Recent colour photo with white background taken within the last 6 months (JPG, PNG).",
+                            required: true,
+                          },
+                        ]
+                      : [
+                          {
+                            key: "passport_front",
+                            title: "1. Passport First Page",
+                            desc: "Clear colour scan of passport bio-data page (minimum 6 months remaining validity).",
+                            required: true,
+                          },
+                          {
+                            key: "passport_photo",
+                            title: "2. Passport Size Photograph",
+                            desc: "Recent colour photo with white background taken within the last 6 months (JPG, PNG).",
+                            required: true,
+                          },
+                          ...(selectedProduct?.id === "saudi-transit-96h"
+                            ? [
+                                {
+                                  key: "flight_ticket",
+                                  title: "3. Confirmed Onward Flight Ticket",
+                                  desc: "Confirmed flight booking showing transit / onward flight within 96 hours.",
+                                  required: true,
+                                },
+                              ]
+                            : []),
+                          {
+                            key: "accommodation_proof",
+                            title: selectedProduct?.id === "saudi-transit-96h" ? "4. Hotel / Host Details" : "3. Accommodation / Host Address",
+                            desc: "Confirmed hotel reservation or residential address of host in Saudi Arabia.",
+                            required: false,
+                          },
+                        ]
+                    ).map((item) => {
                       const stateKey = `${activeApplicantIndex}_${item.key}`;
                       const uploaded = uploadedDocuments[stateKey];
                       const isUploading = uploadingDocType === stateKey;
@@ -1093,13 +1161,26 @@ export function VisaApplicationFlow({
                       <p className="text-masaar-black/60">{selectedProduct?.duration} · {selectedProduct?.entry_type} Entry · Turnaround: {selectedProduct?.processing_time || "1-3 Working Days"}</p>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center justify-end gap-1.5 text-[10px]">
-                        <span className="text-masaar-black/40 line-through">USD {originalPerPerson}</span>
-                        <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700">Save 5%</span>
-                      </div>
-                      <p className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
-                        USD {discountedPerPerson} / person
-                      </p>
+                      {isSaudi ? (
+                        <div>
+                          <p className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+                            AED 750 / person
+                          </p>
+                          <p className="text-[11px] text-emerald-700 font-semibold">
+                            Fixed approved rate for UAE residents
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-end gap-1.5 text-[10px]">
+                            <span className="text-masaar-black/40 line-through">USD {originalPerPerson}</span>
+                            <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700">Save 5%</span>
+                          </div>
+                          <p className="font-[family-name:var(--font-display)] text-lg font-bold text-masaar-black">
+                            USD {discountedPerPerson} / person
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1126,7 +1207,11 @@ export function VisaApplicationFlow({
                           <p>Passport: <span className="font-mono font-bold text-masaar-black">{a.passportNumber}</span></p>
                           <p>DOB: {a.dateOfBirth}</p>
                           <p>Nationality: {a.nationality}</p>
-                          <p>Gender: {a.gender}</p>
+                          {isSaudi ? (
+                            <p>Residency: <span className="font-medium text-masaar-black">{a.countryOfResidence || "UAE"}</span></p>
+                          ) : (
+                            <p>Gender: {a.gender}</p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1155,39 +1240,82 @@ export function VisaApplicationFlow({
                           Traveller {idx + 1}: {a.fullName || "Applicant"}
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {uploadedDocuments[`${idx}_passport_front`] ? (
-                            <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
-                              ✓ Passport First Page ({uploadedDocuments[`${idx}_passport_front`].fileName})
-                            </span>
+                          {isSaudi ? (
+                            <>
+                              {uploadedDocuments[`${idx}_passport_front`] ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ Passport Copy ({uploadedDocuments[`${idx}_passport_front`].fileName})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                  ✗ Passport Copy Missing
+                                </span>
+                              )}
+                              {uploadedDocuments[`${idx}_uae_residence_visa`] ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ UAE Residence Visa ({uploadedDocuments[`${idx}_uae_residence_visa`].fileName})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                  ✗ UAE Residence Visa Missing
+                                </span>
+                              )}
+                              {uploadedDocuments[`${idx}_emirates_id`] ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ Emirates ID Copy ({uploadedDocuments[`${idx}_emirates_id`].fileName})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                  ✗ Emirates ID Copy Missing
+                                </span>
+                              )}
+                              {uploadedDocuments[`${idx}_passport_photo`] ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ Passport Photo ({uploadedDocuments[`${idx}_passport_photo`].fileName})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                  ✗ Passport Photo Missing
+                                </span>
+                              )}
+                            </>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
-                              ✗ Passport First Page Missing
-                            </span>
-                          )}
-                          {uploadedDocuments[`${idx}_passport_photo`] ? (
-                            <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
-                              ✓ Passport Photograph ({uploadedDocuments[`${idx}_passport_photo`].fileName})
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
-                              ✗ Passport Photo Missing
-                            </span>
-                          )}
-                          {selectedProduct?.id === "saudi-transit-96h" && (
-                            uploadedDocuments[`${idx}_flight_ticket`] ? (
-                              <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
-                                ✓ Flight Ticket ({uploadedDocuments[`${idx}_flight_ticket`].fileName})
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
-                                ✗ Onward Flight Ticket Missing
-                              </span>
-                            )
-                          )}
-                          {uploadedDocuments[`${idx}_accommodation_proof`] && (
-                            <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
-                              ✓ Accommodation ({uploadedDocuments[`${idx}_accommodation_proof`].fileName})
-                            </span>
+                            <>
+                              {uploadedDocuments[`${idx}_passport_front`] ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ Passport First Page ({uploadedDocuments[`${idx}_passport_front`].fileName})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                  ✗ Passport First Page Missing
+                                </span>
+                              )}
+                              {uploadedDocuments[`${idx}_passport_photo`] ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ Passport Photograph ({uploadedDocuments[`${idx}_passport_photo`].fileName})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                  ✗ Passport Photo Missing
+                                </span>
+                              )}
+                              {selectedProduct?.id === "saudi-transit-96h" && (
+                                uploadedDocuments[`${idx}_flight_ticket`] ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                    ✓ Flight Ticket ({uploadedDocuments[`${idx}_flight_ticket`].fileName})
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 border border-rose-200">
+                                    ✗ Onward Flight Ticket Missing
+                                  </span>
+                                )
+                              )}
+                              {uploadedDocuments[`${idx}_accommodation_proof`] && (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 border border-emerald-200">
+                                  ✓ Accommodation ({uploadedDocuments[`${idx}_accommodation_proof`].fileName})
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -1235,7 +1363,9 @@ export function VisaApplicationFlow({
                       </p>
                       <div className="mt-3 flex items-baseline gap-1 text-sm font-bold text-masaar-black">
                         <span>Pay in Full:</span>
-                        <span className="text-deep-gold">USD {totalAmount}</span>
+                        <span className="text-deep-gold">
+                          {isSaudi ? `AED ${totalAmount}` : `USD ${totalAmount}`}
+                        </span>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700 font-medium">
                         <span>✓ Instant confirmation</span>
@@ -1266,13 +1396,13 @@ export function VisaApplicationFlow({
                         </span>
                       </div>
                       <p className="mt-1 text-[11px] text-masaar-black/70">
-                        4 monthly payments of {tabbyCurrency} {tabbyInstallmentAmount}. No hidden fees.
+                        4 monthly payments of AED {tabbyInstallmentAmount}. No hidden fees.
                       </p>
                       <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
                         <span>Total:</span>
-                        <span className="text-emerald-700 font-bold">{tabbyCurrency} {tabbyTotalAmount}</span>
+                        <span className="text-emerald-700 font-bold">AED {tabbyTotalAmount}</span>
                         <span className="text-[10px] text-masaar-black/50 font-normal">
-                          ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
+                          (AED {tabbyInstallmentAmount}/mo)
                         </span>
                       </div>
                       <div className="mt-2 text-[10px] text-emerald-700 font-medium">
@@ -1292,29 +1422,29 @@ export function VisaApplicationFlow({
                           <span className="font-semibold text-masaar-black">Your Tabby Payment Plan</span>
                         </div>
                         <span className="text-[11px] text-masaar-black/60 font-medium">
-                          Pegged Rate: 1 USD = {tabbyRate} {tabbyCurrency}
+                          {isSaudi ? "Processed in AED (UAE Merchant Account)" : `Pegged Rate: 1 USD = ${tabbyRate} ${tabbyCurrency}`}
                         </span>
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
                         <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
                           <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
                           <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
                         </div>
                         <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
                           <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
                           <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
                         </div>
                         <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
                           <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
                           <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
                         </div>
                         <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
                           <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
+                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
                           <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
                         </div>
                       </div>
@@ -1324,6 +1454,20 @@ export function VisaApplicationFlow({
                       </p>
                     </div>
                   )}
+
+                  {/* Explicit Checkout Charge Currency Disclosure */}
+                  <div className="mt-4 rounded-lg border border-pure-gold/40 bg-pure-gold/10 p-3 text-xs text-masaar-black">
+                    <span className="font-semibold text-deep-gold">Payment Currency Disclosure: </span>
+                    {isSaudi ? (
+                      <span>
+                        Your transaction will be charged directly in <strong>AED (United Arab Emirates Dirham)</strong>. Total payable amount: <strong>AED {totalAmount}</strong> for {count} {count === 1 ? "applicant" : "applicants"}. No currency conversion markup applies.
+                      </span>
+                    ) : (
+                      <span>
+                        Your transaction will be charged in <strong>USD (US Dollars)</strong> at checkout. Total payable amount: <strong>USD {totalAmount}</strong>.
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* 5. Terms, Privacy & Important Authority Discretion Disclaimer */}
@@ -2140,7 +2284,7 @@ export function VisaApplicationFlow({
                         </div>
                         {!isTabbyEligible ? (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                            {tabbyCurrency === "SAR" ? "SAR Pending Activation" : "Unavailable"}
+                            Unavailable
                           </span>
                         ) : (
                           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
@@ -2150,9 +2294,7 @@ export function VisaApplicationFlow({
                       </div>
                       <p className="mt-1 text-[11px] text-masaar-black/70">
                         {!isTabbyEligible
-                          ? tabbyCurrency === "SAR"
-                            ? "Tabby Pay in 4 (SAR) is currently pending regional KSA merchant account activation. Please select Card Payment to complete your application."
-                            : "Tabby Pay in 4 is currently offline. Please use card payment."
+                          ? "Tabby Pay in 4 is currently offline. Please use card payment."
                           : `4 monthly payments of ${tabbyCurrency} ${tabbyInstallmentAmount}. No hidden fees.`}
                       </p>
                       {isTabbyEligible ? (
@@ -2297,7 +2439,8 @@ export function VisaApplicationFlow({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="rounded-md bg-pure-gold px-7 py-3 text-xs font-semibold text-masaar-black shadow-md transition-all hover:bg-light-gold active:scale-95"
+                  disabled={isSaudi && hasIneligibleSaudiApplicant}
+                  className="rounded-md bg-pure-gold px-7 py-3 text-xs font-semibold text-masaar-black shadow-md transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {currentStep === (isThreeStep ? 2 : 4) ? "Continue to Payment →" : "Continue →"}
                 </button>
@@ -2305,8 +2448,8 @@ export function VisaApplicationFlow({
                 <button
                   type="button"
                   onClick={handleProceedToPayment}
-                  disabled={isSubmittingCheckout || !termsAgreed || !discretionAgreed}
-                  className="flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50"
+                  disabled={isSubmittingCheckout || !termsAgreed || !discretionAgreed || (isSaudi && hasIneligibleSaudiApplicant)}
+                  className="flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmittingCheckout ? (
                     <span>Connecting to Secure Payment...</span>
@@ -2315,14 +2458,14 @@ export function VisaApplicationFlow({
                       <span className="inline-flex rounded-sm bg-black px-1.5 py-0.5 text-[10px] font-black text-[#3EEDB4]">
                         tabby
                       </span>
-                      <span>Pay {tabbyCurrency} {tabbyTotalAmount} in 4 Installments →</span>
+                      <span>Pay AED {tabbyTotalAmount} in 4 Installments →</span>
                     </>
                   ) : (
                     <>
                       <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
-                      <span>Pay USD {totalAmount} Securely →</span>
+                      <span>Pay {isSaudi ? `AED ${totalAmount}` : `USD ${totalAmount}`} Securely →</span>
                     </>
                   )}
                 </button>
@@ -2358,44 +2501,83 @@ export function VisaApplicationFlow({
 
               {/* Price Breakdown */}
               <div className="mt-6 space-y-2.5 border-t border-black/5 pt-4 text-xs">
-                <div className="flex justify-between text-masaar-black/70">
-                  <span>Visa Fee ({count}x)</span>
-                  <span>USD {visaFeeTotal}</span>
-                </div>
-                <div className="flex justify-between text-masaar-black/70">
-                  <span>Service Fee</span>
-                  <span>USD {serviceFeeTotal}</span>
-                </div>
-                <div className="flex justify-between text-masaar-black/70">
-                  <span>Processing Fee</span>
-                  <span>USD {processingFeeTotal}</span>
-                </div>
-                <div className="flex justify-between text-masaar-black/60 border-t border-black/5 pt-2">
-                  <span>Subtotal</span>
-                  <span>USD {subtotalAmount}</span>
-                </div>
-                <div className="flex justify-between font-medium text-emerald-700">
-                  <span>5% Online Discount</span>
-                  <span>-USD {discountAmount}</span>
-                </div>
-                <div className="flex justify-between border-t border-black/10 pt-3 text-sm font-bold text-masaar-black">
-                  <span>Total Amount</span>
-                  <div className="text-right">
-                    <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
-                      USD {totalAmount}
-                    </span>
+                {isSaudi ? (
+                  <>
+                    <div className="flex justify-between text-masaar-black/70">
+                      <span>Saudi Tourist Visa ({count}x)</span>
+                      <span>AED {500 * count}</span>
+                    </div>
+                    <div className="flex justify-between text-masaar-black/70">
+                      <span>Service Fee</span>
+                      <span>AED {150 * count}</span>
+                    </div>
+                    <div className="flex justify-between text-masaar-black/70">
+                      <span>Processing Fee</span>
+                      <span>AED {100 * count}</span>
+                    </div>
+                    <div className="flex justify-between text-masaar-black/60 border-t border-black/5 pt-2">
+                      <span>Subtotal</span>
+                      <span>AED {750 * count}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-black/10 pt-3 text-sm font-bold text-masaar-black">
+                      <span>Total Amount</span>
+                      <div className="text-right">
+                        <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
+                          AED {totalAmount}
+                        </span>
+                        {selectedGateway === "tabby" && (
+                          <div className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+                            = AED {tabbyTotalAmount} (AED {tabbyInstallmentAmount}/mo)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-warm-ivory p-2 text-[10px] text-masaar-black/70">
+                      <span className="font-semibold text-deep-gold">Charge Currency:</span> AED (United Arab Emirates Dirham). Stored base rate: AED 750 / applicant.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-masaar-black/70">
+                      <span>Visa Fee ({count}x)</span>
+                      <span>USD {visaFeeTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-masaar-black/70">
+                      <span>Service Fee</span>
+                      <span>USD {serviceFeeTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-masaar-black/70">
+                      <span>Processing Fee</span>
+                      <span>USD {processingFeeTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-masaar-black/60 border-t border-black/5 pt-2">
+                      <span>Subtotal</span>
+                      <span>USD {subtotalAmount}</span>
+                    </div>
+                    <div className="flex justify-between font-medium text-emerald-700">
+                      <span>5% Online Discount</span>
+                      <span>-USD {discountAmount}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-black/10 pt-3 text-sm font-bold text-masaar-black">
+                      <span>Total Amount</span>
+                      <div className="text-right">
+                        <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
+                          USD {totalAmount}
+                        </span>
+                        {selectedGateway === "tabby" && (
+                          <div className="mt-0.5 text-[11px] font-semibold text-emerald-700">
+                            = {tabbyCurrency} {tabbyTotalAmount} ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {selectedGateway === "tabby" && (
-                      <div className="mt-0.5 text-[11px] font-semibold text-emerald-700">
-                        = {tabbyCurrency} {tabbyTotalAmount} ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
+                      <div className="rounded-md bg-emerald-50/70 p-2 text-[10px] text-emerald-800">
+                        <span className="font-semibold">Pegged Exchange Rate:</span> 1 USD = {tabbyRate} {tabbyCurrency}. No surcharge or interest applied.
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {selectedGateway === "tabby" && (
-                  <div className="rounded-md bg-emerald-50/70 p-2 text-[10px] text-emerald-800">
-                    <span className="font-semibold">Pegged Exchange Rate:</span> 1 USD = {tabbyRate} {tabbyCurrency}. No surcharge or interest applied.
-                  </div>
+                  </>
                 )}
               </div>
 

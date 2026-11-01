@@ -39,9 +39,10 @@ export function convertFromAed(
   return amountAed * rate;
 }
 
-export function formatCurrency(amount: number, currency: CurrencyCode): string {
-  const rounded = Math.round(amount).toLocaleString();
-  return `${CURRENCY_PREFIX[currency]} ${rounded}`;
+export function formatCurrency(amount: number, currency: CurrencyCode, decimals?: number): string {
+  const rounded = decimals != null ? amount.toFixed(decimals) : Math.round(amount).toLocaleString();
+  const prefix = CURRENCY_PREFIX[currency] ?? currency;
+  return `${prefix} ${rounded}`;
 }
 
 /**

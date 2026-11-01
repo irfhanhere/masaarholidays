@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { CONTACT } from "@/lib/contact";
+import { Price } from "@/components/site/Price";
 import type { VisaDocumentRow, VisaTypeRow, VisaProductRow } from "@/lib/types/database";
 
 interface VisaDetailTemplateProps {
@@ -116,7 +117,38 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
       ];
 
   // Specific FAQs for this visa type
-  const faqs = isOnlineMode
+  const faqs = visaType.slug === "saudi-tourist"
+    ? [
+        {
+          q: "Who is eligible for this Saudi Tourist Visa service?",
+          a: "This specific service is available exclusively to UAE residents holding Indian or Pakistani passports. Applicants must hold a valid UAE residence visa (minimum 3 months validity remaining) and a passport with at least 6 months validity.",
+        },
+        {
+          q: "What is the validity and permitted stay of the visa?",
+          a: "The Saudi Tourist Visa is valid for 1 year from the date of issuance with multiple entries permitted. You may stay up to 90 days per visit across the Kingdom.",
+        },
+        {
+          q: "What documents do I need to apply?",
+          a: "You need 4 documents: (1) Clear color copy of your passport bio page (min 6 months validity), (2) Copy of your valid UAE residence visa (min 3 months validity), (3) Copy of your valid Emirates ID (front & back, min 3 months validity), and (4) Recent passport-size photograph with a white background.",
+        },
+        {
+          q: "How long does the application process take?",
+          a: "Processing typically takes approximately 2 to 3 working days once all required documents are verified and submitted. Please note that processing times are subject to official Saudi immigration authorities.",
+        },
+        {
+          q: "Can I perform Umrah on this visa?",
+          a: "Yes! The 1-Year Multiple Entry Saudi Tourist Visa permits performing Umrah throughout the year, with the exception of the designated restricted Hajj period.",
+        },
+        {
+          q: "What is the price and what payment options are accepted?",
+          a: "The approved commercial price is AED 750 per applicant. You can pay securely online via Debit/Credit Card or split your payment into 4 interest-free monthly installments of AED 187.50 using Tabby.",
+        },
+        {
+          q: "Does applying through Masaar Holidays guarantee visa approval?",
+          a: "No. While Masaar Holidays meticulously verifies your documentation to meet all official standards, final visa issuance and approval decisions rest solely with official Saudi immigration authorities.",
+        },
+      ]
+    : isOnlineMode
     ? [
         {
           q: `How long does the ${visaType.name} process take?`,
@@ -215,7 +247,14 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
 
             {/* Headline */}
             <h1 className="mt-4 font-[family-name:var(--font-display)] text-3xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {isOnlineMode ? (
+              {visaType.slug === "saudi-tourist" ? (
+                <>
+                  Saudi 1-Year Multiple Entry <br className="hidden sm:inline" />
+                  <span className="font-[family-name:var(--font-display)] italic text-pure-gold text-2xl sm:text-4xl">
+                    Tourist Visa for UAE Residents
+                  </span>
+                </>
+              ) : isOnlineMode ? (
                 <>
                   Apply for Your <br className="hidden sm:inline" />
                   <span className="text-white">{visaType.name} Online</span>
@@ -233,6 +272,24 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
                 </>
               )}
             </h1>
+
+            {/* Saudi specific highlights badge pill bar */}
+            {visaType.slug === "saudi-tourist" && (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                <span className="inline-flex items-center rounded-full border border-pure-gold/40 bg-pure-gold/15 px-3 py-1 text-xs font-semibold text-pure-gold">
+                  Price: <Price amountAed={750} className="ml-1" /> / applicant
+                </span>
+                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                  Validity: 1 Year (Multiple Entry)
+                </span>
+                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                  Stay: Up to 90 Days / Visit
+                </span>
+                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                  UAE Residents (Indian & Pakistani Passports)
+                </span>
+              </div>
+            )}
 
             {/* Intro text */}
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
@@ -477,95 +534,121 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
             <Container>
               <div className="text-center">
                 <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-4xl">
-                  Choose Your {visaType.name} Package
+                  {visaType.slug === "saudi-tourist"
+                    ? "Saudi 1-Year Multiple Entry Tourist Visa"
+                    : `Choose Your ${visaType.name} Package`}
                 </h2>
                 <p className="mx-auto mt-2 max-w-xl text-xs text-masaar-black/60 sm:text-sm">
-                  Select the option that best fits your travel plans. All prices are in USD and calculated from verified rate records.
+                  {visaType.slug === "saudi-tourist"
+                    ? "Approved single visa package for UAE residents holding Indian or Pakistani passports. Fixed price AED 750 per applicant."
+                    : "Select the option that best fits your travel plans. All prices are calculated from verified rate records."}
                 </p>
               </div>
 
-              {/* 4-column cards grid */}
-              <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {products.map((product) => (
-                  <div
-                    key={product.id}
-                    className={`relative flex flex-col justify-between rounded-xl border bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${
-                      product.is_popular
-                        ? "border-pure-gold ring-2 ring-pure-gold/20"
-                        : "border-black/10"
-                    }`}
-                  >
-                    {product.is_popular && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pure-gold px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black shadow-sm">
-                        Most Popular
-                      </span>
-                    )}
+              {/* Cards layout: centered single card for Saudi / single product, grid for multi */}
+              <div
+                className={`mt-12 ${
+                  visaType.slug === "saudi-tourist" || products.length === 1
+                    ? "mx-auto max-w-lg"
+                    : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+                }`}
+              >
+                {products.map((product) => {
+                  const isSaudi = product.visa_type_slug === "saudi-tourist" || product.currency === "AED";
+                  const originalPrice = product.total_usd;
+                  const discount = isSaudi ? 0 : Math.round(originalPrice * 0.05 * 100) / 100;
+                  const finalPrice = isSaudi ? 750 : Math.round((originalPrice - discount) * 100) / 100;
 
-                    <div>
-                      <h3 className="font-semibold text-masaar-black sm:text-base">
-                        {product.title}
-                      </h3>
-                      {product.subtitle && (
-                        <p className="mt-1 text-xs text-masaar-black/60">
-                          {product.subtitle}
-                        </p>
+                  return (
+                    <div
+                      key={product.id}
+                      className={`relative flex flex-col justify-between rounded-xl border bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${
+                        product.is_popular || isSaudi
+                          ? "border-pure-gold ring-2 ring-pure-gold/20"
+                          : "border-black/10"
+                      }`}
+                    >
+                      {(product.is_popular || isSaudi) && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pure-gold px-3.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black shadow-sm">
+                          {isSaudi ? "Approved Single Product" : "Most Popular"}
+                        </span>
                       )}
 
-                      {/* Price Section with 5% Discount */}
-                      {(() => {
-                        const originalPrice = product.total_usd;
-                        const discount = Math.round(originalPrice * 0.05 * 100) / 100;
-                        const discountedPrice = Math.round((originalPrice - discount) * 100) / 100;
+                      <div>
+                        <h3 className="font-semibold text-masaar-black sm:text-base">
+                          {product.title}
+                        </h3>
+                        {product.subtitle && (
+                          <p className="mt-1 text-xs text-masaar-black/60">
+                            {product.subtitle}
+                          </p>
+                        )}
 
-                        return (
+                        {/* Price Section */}
+                        {isSaudi ? (
+                          <div className="mt-4 border-b border-black/5 pb-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-masaar-black/70">
+                                Official Rate
+                              </span>
+                              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                                Fixed Price
+                              </span>
+                            </div>
+                            <div className="mt-2 flex items-baseline gap-1.5">
+                              <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black sm:text-4xl">
+                                <Price amountAed={750} />
+                              </span>
+                              <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
+                            </div>
+                            <p className="mt-2 rounded-md bg-warm-ivory px-2.5 py-1 text-[11px] font-medium text-masaar-black/75 border border-black/5">
+                              💳 Or 4 interest-free payments of <Price amountAed={187.5} /> with Tabby
+                            </p>
+                          </div>
+                        ) : (
                           <div className="mt-4 border-b border-black/5 pb-4">
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-masaar-black/50 line-through">
-                                USD {originalPrice}
+                                <Price amountUsd={originalPrice} />
                               </span>
                               <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                                 Save 5%
                               </span>
                             </div>
                             <div className="mt-1 flex items-baseline gap-1">
-                              <span className="text-xs font-semibold text-masaar-black/60">USD</span>
                               <span className="font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black sm:text-4xl">
-                                {discountedPrice}
+                                <Price amountUsd={finalPrice} />
                               </span>
                             </div>
                           </div>
-                        );
-                      })()}
+                        )}
 
-                      {/* Checklist */}
-                      <ul className="mt-4 space-y-2.5 text-xs text-masaar-black/80">
-                        {product.inclusions.map((inc, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
-                              <svg className="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </span>
-                            <span>{inc}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                        {/* Checklist */}
+                        <ul className="mt-4 space-y-2.5 text-xs text-masaar-black/80">
+                          {product.inclusions.map((inc, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                                <svg className="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </span>
+                              <span>{inc}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
 
-                    <div className="mt-6 pt-4">
-                      <Link
-                        href={`/visa/${visaType.slug}/apply?product=${product.id}`}
-                        className={`inline-flex w-full items-center justify-center rounded-md px-4 py-3 text-xs font-semibold transition-all active:scale-95 ${
-                          product.is_popular
-                            ? "bg-pure-gold text-masaar-black shadow hover:bg-light-gold"
-                            : "border border-pure-gold text-masaar-black hover:bg-pure-gold/15"
-                        }`}
-                      >
-                        Apply Now →
-                      </Link>
+                      <div className="mt-6 pt-4">
+                        <Link
+                          href={`/visa/${visaType.slug}/apply?product=${product.id}`}
+                          className="inline-flex w-full items-center justify-center rounded-md bg-pure-gold py-3 px-4 text-xs font-semibold text-masaar-black shadow transition-all hover:bg-light-gold active:scale-95"
+                        >
+                          Apply Online Now →
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Price & Eligibility Warning Banner */}
@@ -740,8 +823,13 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
           <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-black/10 bg-white/95 p-3.5 backdrop-blur-md sm:hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold text-masaar-black">{visaType.name}</p>
-                <p className="text-[10px] text-masaar-black/60">From USD {products[0]?.total_usd || 110}</p>
+                <p className="text-[10px] text-masaar-black/60">
+                  {products[0]?.currency === "AED" || visaType.slug === "saudi-tourist" ? (
+                    <>From <Price amountAed={products[0]?.total_usd || 750} /></>
+                  ) : (
+                    <>From <Price amountUsd={products[0]?.total_usd || 120} /></>
+                  )}
+                </p>
               </div>
               <button
                 onClick={() => scrollTo("packages")}

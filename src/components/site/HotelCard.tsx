@@ -7,6 +7,7 @@ import {
 } from "@/lib/hotel-format";
 import { ExternalImage } from "./ExternalImage";
 import { WhatsAppButton } from "./WhatsAppButton";
+import { Price } from "@/components/site/Price";
 
 export function HotelCard({
   hotel,
@@ -95,7 +96,9 @@ export function HotelCard({
               {priceAed != null && (
                 <div className="text-right">
                   <span className="text-[10px] uppercase font-bold text-masaar-black/40 block">From</span>
-                  <span className="text-xl font-bold font-mono text-masaar-black">AED {Number(priceAed).toLocaleString()}</span>
+                  <span className="text-xl font-bold font-mono text-masaar-black">
+                    <Price amountAed={Number(priceAed)} />
+                  </span>
                   <span className="text-[11px] text-masaar-black/50 block">/ room / night</span>
                 </div>
               )}
@@ -272,7 +275,7 @@ export function HotelCard({
               {priceAed != null ? (
                 <>
                   <span className="text-lg font-bold font-mono text-masaar-black">
-                    AED {Number(priceAed).toLocaleString()}
+                    <Price amountAed={Number(priceAed)} />
                   </span>
                   <span className="text-[11px] text-masaar-black/50">/ room / night</span>
                 </>

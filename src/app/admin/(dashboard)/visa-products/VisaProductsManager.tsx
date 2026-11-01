@@ -332,7 +332,7 @@ export default function VisaProductsManager({ initialProducts }: VisaProductsMan
                     <th className="px-4 py-3">Visa Fee</th>
                     <th className="px-4 py-3">Service Fee</th>
                     <th className="px-4 py-3">Processing Fee</th>
-                    <th className="px-4 py-3 font-bold text-masaar-black">Total (USD)</th>
+                    <th className="px-4 py-3 font-bold text-masaar-black">Total Price</th>
                     <th className="px-4 py-3 text-center">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -368,10 +368,10 @@ export default function VisaProductsManager({ initialProducts }: VisaProductsMan
                       </td>
                       <td className="px-4 py-3.5 font-medium text-masaar-black/80">{p.duration}</td>
                       <td className="px-4 py-3.5 text-masaar-black/70">{p.entry_type}</td>
-                      <td className="px-4 py-3.5 text-masaar-black/70">${p.visa_fee_usd}</td>
-                      <td className="px-4 py-3.5 text-masaar-black/70">${p.service_fee_usd}</td>
-                      <td className="px-4 py-3.5 text-masaar-black/70">${p.processing_fee_usd}</td>
-                      <td className="px-4 py-3.5 font-bold text-masaar-black">${p.total_usd}</td>
+                      <td className="px-4 py-3.5 text-masaar-black/70">{p.currency || "USD"} {p.visa_fee_usd}</td>
+                      <td className="px-4 py-3.5 text-masaar-black/70">{p.currency || "USD"} {p.service_fee_usd}</td>
+                      <td className="px-4 py-3.5 text-masaar-black/70">{p.currency || "USD"} {p.processing_fee_usd}</td>
+                      <td className="px-4 py-3.5 font-bold text-masaar-black">{p.currency || "USD"} {p.total_usd}</td>
                       <td className="px-4 py-3.5 text-center">
                         <button
                           onClick={() => handleToggleActive(p)}

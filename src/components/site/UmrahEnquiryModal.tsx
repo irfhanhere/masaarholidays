@@ -125,20 +125,20 @@ const DEFAULT_MADINAH_HOTELS = [
 ];
 
 const ESIM_PLANS = [
-  { id: "sa-5gb-15d", name: "Saudi Arabia 5 GB · 15 Days", price: "USD 12 (AED 44)" },
-  { id: "sa-10gb-30d", name: "Saudi Arabia 10 GB · 30 Days", price: "USD 18 (AED 66)" },
-  { id: "sa-unlim-7d", name: "Saudi Arabia Unlimited · 7 Days", price: "USD 22 (AED 81)" },
-  { id: "sa-unlim-15d", name: "Saudi Arabia Unlimited · 15 Days", price: "USD 35 (AED 129)" },
-  { id: "sa-unlim-30d", name: "Saudi Arabia Unlimited · 30 Days", price: "USD 55 (AED 202)" },
-  { id: "ae-5gb-15d", name: "UAE 5 GB · 15 Days", price: "USD 14 (AED 51)" },
-  { id: "assistance-only", name: "eSIM Setup Assistance Required", price: "Complimentary" },
+  { id: "sa-5gb-15d", name: "Saudi Arabia 5 GB · 15 Days", priceAed: 44 },
+  { id: "sa-10gb-30d", name: "Saudi Arabia 10 GB · 30 Days", priceAed: 66 },
+  { id: "sa-unlim-7d", name: "Saudi Arabia Unlimited · 7 Days", priceAed: 81 },
+  { id: "sa-unlim-15d", name: "Saudi Arabia Unlimited · 15 Days", priceAed: 129 },
+  { id: "sa-unlim-30d", name: "Saudi Arabia Unlimited · 30 Days", priceAed: 202 },
+  { id: "ae-5gb-15d", name: "UAE 5 GB · 15 Days", priceAed: 51 },
+  { id: "assistance-only", name: "eSIM Setup Assistance Required", priceAed: null },
 ];
 
 const VISA_OPTIONS = [
-  { id: "tourist-multiple-1y", name: "1-Year Saudi Tourist / Umrah Visa (Multiple Entry)", price: "AED 650 / person" },
-  { id: "electronic-umrah", name: "Electronic Umrah Visa (Official Single Entry)", price: "AED 650 / person" },
-  { id: "saudi-tourist-evisa", name: "Saudi Tourist eVisa Assistance", price: "AED 550 / person" },
-  { id: "uae-transit-visit", name: "UAE Transit & Stopover Visa Assistance", price: "On Request" },
+  { id: "tourist-multiple-1y", name: "Saudi 1-Year Multiple Entry Tourist Visa (UAE Residents)", priceAed: 750 },
+  { id: "electronic-umrah", name: "Electronic Umrah Visa (Official Single Entry)", priceAed: 650 },
+  { id: "saudi-tourist-evisa", name: "Saudi Tourist eVisa Assistance", priceAed: 550 },
+  { id: "uae-transit-visit", name: "UAE Transit & Stopover Visa Assistance", priceAed: null },
 ];
 
 export function UmrahEnquiryModal({
@@ -175,7 +175,7 @@ export function UmrahEnquiryModal({
   const [transferTime, setTransferTime] = useState<string>("");
 
   const [visaStatus, setVisaStatus] = useState<ServiceStatus>("none");
-  const [visaType, setVisaType] = useState<string>("1-Year Saudi Tourist / Umrah Visa (Multiple Entry)");
+  const [visaType, setVisaType] = useState<string>("Saudi 1-Year Multiple Entry Tourist Visa (UAE Residents)");
   const [visaTravellers, setVisaTravellers] = useState<number | string>(2);
 
   const [esimStatus, setEsimStatus] = useState<ServiceStatus>("none");
@@ -891,11 +891,21 @@ export function UmrahEnquiryModal({
                             onChange={(e) => setVisaType(e.target.value)}
                             className="w-full rounded-lg border border-black/15 bg-[#FAF7F2] p-2 text-xs text-[#0A0A08] focus:border-[#C9A227] focus:outline-none"
                           >
-                            {VISA_OPTIONS.map((v) => (
-                              <option key={v.id} value={v.name}>
-                                {v.name} ({v.price})
-                              </option>
-                            ))}
+                            {VISA_OPTIONS.map((v) => {
+                              const pAed = v.priceAed;
+                              let priceLabel = "On Request";
+                              if (typeof pAed === "number") {
+                                const converted = convertFromAed(pAed, currency, rates);
+                                const displayAmount = converted ?? pAed;
+                                const displayCurrency = converted != null ? currency : "AED";
+                                priceLabel = `${formatCurrency(displayAmount, displayCurrency)} / person`;
+                              }
+                              return (
+                                <option key={v.id} value={v.name}>
+                                  {v.name} ({priceLabel})
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
                         <div>
@@ -946,7 +956,7 @@ export function UmrahEnquiryModal({
                           onClick={() => setEsimStatus(esimStatus === "choose_now" ? "none" : "choose_now")}
                           className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                             esimStatus === "choose_now"
-                              ? "bg-[#C9A227] text-[#0A0A08]"
+                               ? "bg-[#C9A227] text-[#0A0A08]"
                               : "border border-black/15 bg-white text-[#0A0A08] hover:border-[#C9A227]"
                           }`}
                         >
@@ -978,11 +988,21 @@ export function UmrahEnquiryModal({
                             onChange={(e) => setEsimPlan(e.target.value)}
                             className="w-full rounded-lg border border-black/15 bg-[#FAF7F2] p-2 text-xs text-[#0A0A08] focus:border-[#C9A227] focus:outline-none"
                           >
-                            {ESIM_PLANS.map((p) => (
-                              <option key={p.id} value={p.name}>
-                                {p.name} — {p.price}
-                              </option>
-                            ))}
+                            {ESIM_PLANS.map((p) => {
+                              const pAed = p.priceAed;
+                              let priceLabel = "Complimentary";
+                              if (typeof pAed === "number") {
+                                const converted = convertFromAed(pAed, currency, rates);
+                                const displayAmount = converted ?? pAed;
+                                const displayCurrency = converted != null ? currency : "AED";
+                                priceLabel = formatCurrency(displayAmount, displayCurrency);
+                              }
+                              return (
+                                <option key={p.id} value={p.name}>
+                                  {p.name} — {priceLabel}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
                         <div>

@@ -107,19 +107,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please provide a valid phone or WhatsApp number." }, { status: 400 });
   }
 
-  // 1. Server-side product price retrieval
-  const product = await getVisaProductById(productId);
+  // 1. Eligibility validation for Saudi Tourist Visa
+  if (visaSlug === "saudi-tourist") {
+    for (let i = 0; i < rawApplicants.length; i++) {
+      const app = rawApplicants[i];
+      const appNat = (typeof app?.nationality === "string" ? app.nationality : nationality).trim().toLowerCase();
+      const appRes = (typeof app?.countryOfResidence === "string" ? app.countryOfResidence : countryOfResidence).trim().toLowerCase();
+
+      const isIndianOrPakistani = appNat === "india" || appNat === "pakistan" || appNat === "indian" || appNat === "pakistani";
+      const isUaeResident = appRes === "united arab emirates" || appRes === "uae";
+
+      if (!isIndianOrPakistani || !isUaeResident) {
+        return NextResponse.json(
+          {
+            error:
+              "Currently, this Saudi Visa service is available only to UAE residents holding Indian or Pakistani passports. Please contact our team to discuss other options.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
+  // 2. Server-side product price retrieval & single product enforcement
+  let product = await getVisaProductById(productId);
+  if (visaSlug === "saudi-tourist") {
+    // Strictly enforce the single approved Saudi Tourist Visa product
+    if (!product || !product.is_active || product.visa_type_slug !== "saudi-tourist") {
+      product = await getVisaProductById("c7f1a920-5a0d-4001-8b01-750000000001");
+    }
+  }
   if (!product || !product.is_active) {
     return NextResponse.json({ error: "Selected visa package is unavailable." }, { status: 404 });
   }
 
-  // 2. Strict Server-Side Price Calculation
+  // 3. Strict Server-Side Price Calculation
   const pricing = calculateVisaPricing(product, rawApplicants.length);
+  const isSaudi = visaSlug === "saudi-tourist" || product.currency === "AED";
+  const checkoutCurrency = isSaudi ? "AED" : "USD";
   const chargedAmountMinor = Math.round(pricing.totalAmount * 100);
 
-  // Tabby converted pegged currency calculations (AED for UAE, SAR for Saudi Tourist)
-  const tabbyTargetCurrency: "AED" | "SAR" = visaSlug === "saudi-tourist" ? "SAR" : "AED";
-  const tabbyConverted = convertUsdToTabbyCurrency(pricing.totalAmount, tabbyTargetCurrency);
+  // Tabby uses UAE merchant account mhae (AED only; never send SAR)
+  const tabbyTargetCurrency: "AED" = "AED";
+  const tabbyConverted = isSaudi
+    ? {
+        amount: pricing.totalAmount, // AED 750 * applicants
+        currency: "AED" as const,
+        rate: 1,
+        installmentAmount: Math.round((pricing.totalAmount / 4) * 100) / 100,
+      }
+    : convertUsdToTabbyCurrency(pricing.totalAmount, "AED");
 
   const referenceNo = generateReferenceNo(visaSlug);
   const trackingToken = crypto.randomBytes(24).toString("hex");
@@ -195,7 +232,7 @@ export async function POST(request: NextRequest) {
         total_amount: pricing.totalAmount,
         currency: pricing.currency,
         payment_gateway: paymentGateway,
-        charged_currency: paymentGateway === "tabby" ? tabbyTargetCurrency : "USD",
+        charged_currency: paymentGateway === "tabby" ? "AED" : checkoutCurrency,
         charged_amount: paymentGateway === "tabby" ? tabbyConverted.amount : pricing.totalAmount,
         payment_status: "pending",
         application_status: "draft",
@@ -267,17 +304,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tabbyConfig = getTabbyConfig();
-    if (tabbyTargetCurrency === "SAR" && !tabbyConfig.isSarAvailable) {
-      return NextResponse.json(
-        {
-          error:
-            "Tabby Pay in 4 in SAR is currently unavailable pending regional merchant account activation. Please select Card Payment to complete your application.",
-        },
-        { status: 400 }
-      );
-    }
-
     const successUrl = `${siteOrigin}/visa/application/${trackingToken}?payment_id={payment_id}&tabby=1`;
     const cancelUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&cancelled=1`;
     const failureUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&failed=1`;
@@ -308,7 +334,7 @@ export async function POST(request: NextRequest) {
         cancelUrl,
         failureUrl,
         shippingAddress: {
-          city: residentialAddress.city || (tabbyTargetCurrency === "SAR" ? "Riyadh" : "Dubai"),
+          city: residentialAddress.city || "Dubai",
           address: residentialAddress.street || "Customer Residence",
           zip: residentialAddress.postalCode || "00000",
         },
@@ -358,7 +384,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      currency: "usd",
+      currency: checkoutCurrency.toLowerCase(),
       customer_email: email,
       client_reference_id: applicationId,
       metadata: {
@@ -373,7 +399,7 @@ export async function POST(request: NextRequest) {
         {
           quantity: 1,
           price_data: {
-            currency: "usd",
+            currency: checkoutCurrency.toLowerCase(),
             unit_amount: chargedAmountMinor,
             product_data: {
               name: `Masaar Holidays: ${product.title}`,
@@ -402,7 +428,7 @@ export async function POST(request: NextRequest) {
       trackingToken,
       paymentGateway: "stripe",
       chargedAmount: pricing.totalAmount,
-      chargedCurrency: "USD",
+      chargedCurrency: checkoutCurrency,
     });
   } catch (stripeErr: unknown) {
     const msg = stripeErr instanceof Error ? stripeErr.message : "Stripe checkout session failed";

@@ -169,7 +169,9 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
                       Essential
                     </span>
                     <p className="text-lg font-bold">Essential Umrah</p>
-                    <p className="text-xs text-masaar-black/60 font-normal">From AED 489 / person</p>
+                    <p className="text-xs text-masaar-black/60 font-normal">
+                      From <Price amountAed={489} /> / person
+                    </p>
                   </div>
                 </th>
                 <th className="p-5 text-sm font-bold text-masaar-black w-1/4 bg-[#FAF3DE]/70 border-x border-[#C9A227]/30">
@@ -183,7 +185,9 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
                       </span>
                     </div>
                     <p className="text-lg font-bold text-masaar-black">Signature Umrah</p>
-                    <p className="text-xs text-masaar-black/60 font-normal">From AED 1,147 / person</p>
+                    <p className="text-xs text-masaar-black/60 font-normal">
+                      From <Price amountAed={1147} /> / person
+                    </p>
                   </div>
                 </th>
                 <th className="p-5 text-sm font-bold text-masaar-black w-1/4">
@@ -192,7 +196,9 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
                       Exclusive
                     </span>
                     <p className="text-lg font-bold">Exclusive Umrah</p>
-                    <p className="text-xs text-masaar-black/60 font-normal">From AED 1,847 / person</p>
+                    <p className="text-xs text-masaar-black/60 font-normal">
+                      From <Price amountAed={1847} /> / person
+                    </p>
                   </div>
                 </th>
               </tr>
@@ -291,7 +297,7 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
               title: "Essential Umrah",
               category: "Smart & Budget-Friendly",
               badgeTone: "bg-[#4A5568]",
-              price: "From AED 489 / person",
+              priceAed: 489,
               hotelMakkah: "VOCO Makkah (1,400m — 24/7 free shuttle, 8 min ride)",
               hotelMadinah: "Zowar International (250m — 4-min flat walk)",
               transport: "Private air-conditioned transfers across all legs",
@@ -308,7 +314,7 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
               category: "Comfort & Walking Access — Most Chosen",
               badgeTone: "bg-[#78350F]",
               isFeatured: true,
-              price: "From AED 1,147 / person",
+              priceAed: 1147,
               hotelMakkah: "Jabal Omar Marriott (350m — 4-min easy flat walk)",
               hotelMadinah: "Millennium Taiba (150m — 2-min direct courtyard walk)",
               transport: "Complete private vehicle sequence (Sedan / SUV)",
@@ -324,7 +330,7 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
               title: "Exclusive Umrah",
               category: "Front-Row Luxury & VIP Care",
               badgeTone: "bg-[#111827]",
-              price: "From AED 1,847 / person",
+              priceAed: 1847,
               hotelMakkah: "InterContinental Dar Al Tawhid (50m — 1-min courtyard step-out, zero steps)",
               hotelMadinah: "InterContinental Dar Al Hijra (50m — 1-min flat walk)",
               transport: "VIP Luxury Vehicle (GMC Yukon XL / Mercedes V-Class)",
@@ -356,7 +362,9 @@ export function UmrahPackageComparison({ onOpenEnquiry }: Props) {
               <div>
                 <h3 className="text-xl font-bold text-masaar-black">{card.title}</h3>
                 <p className="text-xs text-masaar-black/60 font-medium">{card.category}</p>
-                <p className="mt-1 text-sm font-bold text-[#A87F12]">{card.price}</p>
+                <p className="mt-1 text-sm font-bold text-[#A87F12]">
+                  From <Price amountAed={card.priceAed} /> / person
+                </p>
               </div>
 
               <div className="space-y-2.5 border-t border-black/10 pt-3 text-xs text-masaar-black/80">

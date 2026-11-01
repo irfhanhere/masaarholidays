@@ -51,12 +51,12 @@ interface VisaCardConfig {
 const VISA_CARDS_CATALOG: VisaCardConfig[] = [
   {
     slug: "saudi-tourist",
-    name: "Saudi Visa",
+    name: "Saudi Tourist Visa",
     mode: "online",
     image: "/brand/banners/umrah.webp",
     icon: PassportIcon,
-    description: "Explore Saudi Arabia with ease. Apply online for your tourist e-Visa with transparent pricing and full guidance.",
-    bullets: ["Multiple entry options", "Online tracking & document review", "Pay with Card or Tabby (Split in 4)"],
+    description: "1-Year Multiple Entry Visa for UAE residents holding Indian or Pakistani passports.",
+    bullets: ["1-Year Multiple Entry (AED 750)", "UAE Residents (Indian & Pakistani)", "Pay with Card or Tabby (Split in 4)"],
     applyHref: "/visa/saudi-tourist/apply",
     detailHref: "/visa/saudi-tourist",
   },
