@@ -317,8 +317,32 @@ export async function POST(request: NextRequest) {
 
       case "payment_intent.payment_failed": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const visaAppId = (paymentIntent.metadata?.application_id as string) || (paymentIntent.metadata?.type === "visa" ? (paymentIntent.metadata?.client_reference_id as string) : null);
         const orderId = (paymentIntent.metadata?.order_id as string) || null;
 
+        // 1. Handle Visa application payment failure
+        if (visaAppId || paymentIntent.metadata?.type === "visa") {
+          let vQuery = supabase.from("visa_applications").select("id");
+          if (visaAppId) {
+            vQuery = vQuery.eq("id", visaAppId);
+          } else {
+            vQuery = vQuery.eq("stripe_payment_intent_id", paymentIntent.id);
+          }
+
+          const { data: vApp } = await vQuery.maybeSingle();
+          if (vApp) {
+            await supabase
+              .from("visa_applications")
+              .update({
+                payment_status: "failed",
+                internal_notes: `Payment failed: ${paymentIntent.last_payment_error?.message || "Payment intent failed"}`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", vApp.id);
+          }
+        }
+
+        // 2. Handle eSIM order payment failure
         let query = supabase.from("esim_orders").select("id");
         if (orderId) {
           query = query.eq("id", orderId);

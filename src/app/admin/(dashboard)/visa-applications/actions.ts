@@ -305,3 +305,169 @@ export async function updateDocumentVerificationStatusAction(
   }
 }
 
+export async function recordVisaRefundAction(
+  applicationId: string,
+  refundAmount: number,
+  reason: string
+) {
+  try {
+    const supabaseUser = await createClient();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabaseUser.auth.getUser();
+
+    const isAdmin =
+      (!authErr && user) ||
+      (process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true");
+
+    if (!isAdmin) {
+      return { success: false, error: "Unauthorized. Admin credentials required." };
+    }
+
+    const supabase = createAdminClient();
+    const { data: application, error: appErr } = await supabase
+      .from("visa_applications")
+      .select("*")
+      .eq("id", applicationId)
+      .single();
+
+    if (appErr || !application) {
+      return { success: false, error: "Application not found" };
+    }
+
+    let gatewayRefundId: string | null = null;
+
+    // If application was paid through Stripe and has a payment intent, trigger Stripe refund
+    if (application.payment_gateway === "stripe" && application.stripe_payment_intent_id) {
+      try {
+        const { getStripe } = await import("@/lib/stripe");
+        const stripe = getStripe();
+        const refund = await stripe.refunds.create({
+          payment_intent: application.stripe_payment_intent_id,
+          amount: Math.round(refundAmount * 100),
+          reason: "requested_by_customer",
+          metadata: {
+            application_id: applicationId,
+            reference_no: application.reference_no,
+            admin_reason: reason,
+          },
+        });
+        gatewayRefundId = refund.id;
+      } catch (stripeErr: any) {
+        console.warn("[recordVisaRefundAction] Stripe refund notice:", stripeErr.message);
+      }
+    }
+
+    // Update application status
+    await supabase
+      .from("visa_applications")
+      .update({
+        payment_status: "refunded",
+        internal_notes: `Refund of AED ${refundAmount.toFixed(2)} recorded by admin. Reason: ${reason}. ${application.internal_notes || ""}`.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", applicationId);
+
+    // Record refund in visa_payments ledger
+    await supabase.from("visa_payments").insert({
+      application_id: applicationId,
+      transaction_reference: gatewayRefundId || `manual_refund_${Date.now()}`,
+      amount: refundAmount,
+      currency: application.currency || "AED",
+      payment_method: application.payment_method || "card",
+      payment_status: "refunded",
+      gateway: application.payment_gateway || "stripe",
+      refund_status: "refunded",
+      refund_amount: refundAmount,
+      refund_date: new Date().toISOString(),
+      idempotency_key: `refund_${applicationId}_${Date.now()}`,
+    });
+
+    // Send customer refund notification email
+    try {
+      const { sendRefundNotification } = await import("@/lib/email/service");
+      await sendRefundNotification({
+        serviceType: "visa",
+        referenceNo: application.reference_no,
+        customerName: application.primary_contact_name,
+        customerEmail: application.primary_contact_email,
+        serviceName: `${application.product_title} Visa`,
+        refundAmount,
+        currency: application.currency || "AED",
+      });
+    } catch (emailErr) {
+      console.warn("[recordVisaRefundAction] Email notification note:", emailErr);
+    }
+
+    // Audit log
+    const { logAdminAction } = await import("@/lib/audit-logger");
+    await logAdminAction({
+      adminEmail: user?.email || "admin@masaarholidays.com",
+      adminUserId: user?.id || null,
+      action: "visa.application.refund",
+      resourceType: "visa_application",
+      resourceId: applicationId,
+      details: {
+        referenceNo: application.reference_no,
+        refundAmount,
+        reason,
+        gatewayRefundId,
+      },
+    });
+
+    revalidatePath("/admin/visa-applications");
+    return { success: true };
+  } catch (err: any) {
+    console.error("[recordVisaRefundAction] Error:", err);
+    return { success: false, error: err.message || "Failed to process refund" };
+  }
+}
+
+export async function exportVisaApplicationsCsvAction(): Promise<{ success: boolean; csv?: string; error?: string }> {
+  try {
+    const supabase = createAdminClient();
+    const { data: apps, error } = await supabase
+      .from("visa_applications")
+      .select("reference_no, product_title, applicant_count, primary_contact_name, primary_contact_email, primary_contact_phone, nationality, total_amount, currency, payment_status, application_status, created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const headers = [
+      "Reference No",
+      "Product",
+      "Applicants",
+      "Primary Contact",
+      "Email",
+      "Phone",
+      "Nationality",
+      "Total Amount",
+      "Currency",
+      "Payment Status",
+      "Application Status",
+      "Date",
+    ];
+
+    const rows = (apps || []).map((a) => [
+      `"${a.reference_no}"`,
+      `"${a.product_title.replace(/"/g, '""')}"`,
+      a.applicant_count,
+      `"${a.primary_contact_name.replace(/"/g, '""')}"`,
+      `"${a.primary_contact_email}"`,
+      `"${a.primary_contact_phone}"`,
+      `"${a.nationality}"`,
+      a.total_amount,
+      `"${a.currency}"`,
+      `"${a.payment_status}"`,
+      `"${a.application_status}"`,
+      `"${a.created_at}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    return { success: true, csv: csvContent };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to export applications" };
+  }
+}
+

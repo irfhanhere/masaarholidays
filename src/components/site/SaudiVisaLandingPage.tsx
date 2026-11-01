@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useId } from "react";
+import React, { useState, useEffect, useTransition, useId } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -30,6 +30,7 @@ import {
   DEFAULT_SAUDI_VISA_SETTINGS,
   calculateSaudiVisaPricing,
   isNationalityApproved,
+  validateApplicantEligibility,
   getSaudiVisaWhatsAppLink,
   SAUDI_VISA_FAQS,
   type PricingBreakdown,
@@ -55,6 +56,8 @@ interface ApplicantFormData {
   passportIssueDate: string;
   passportExpiryDate: string;
   residenceExpiryDate: string;
+  emiratesIdNumber: string;
+  emiratesIdExpiryDate: string;
 }
 
 const EMPTY_APPLICANT: ApplicantFormData = {
@@ -66,6 +69,8 @@ const EMPTY_APPLICANT: ApplicantFormData = {
   passportIssueDate: "",
   passportExpiryDate: "",
   residenceExpiryDate: "",
+  emiratesIdNumber: "",
+  emiratesIdExpiryDate: "",
 };
 
 export function SaudiVisaLandingPage() {
@@ -98,6 +103,7 @@ export function SaudiVisaLandingPage() {
   // Terms and gateway
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby">("stripe");
+  const [isTabbyAvailable, setIsTabbyAvailable] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, startSubmission] = useTransition();
 
@@ -107,6 +113,29 @@ export function SaudiVisaLandingPage() {
   // Pricing calculation
   const effectiveCount = applicationType === "individual" ? 1 : Math.max(3, applicantCount);
   const pricing: PricingBreakdown = calculateSaudiVisaPricing(effectiveCount, applicationType);
+
+  // Fire ViewContent on page mount and probe Tabby availability
+  useEffect(() => {
+    trackMetaPixel("ViewContent", {
+      content_name: "Saudi 1-Year Multiple Entry Tourist Visa",
+      content_category: "Saudi Visa Landing",
+      value: 750,
+      currency: "AED",
+    });
+
+    fetch("/api/tabby/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.enabled) {
+          setIsTabbyAvailable(true);
+        } else {
+          setPaymentGateway("stripe");
+        }
+      })
+      .catch(() => {
+        setPaymentGateway("stripe");
+      });
+  }, []);
 
   // Handlers for switching application type
   const handleSelectIndividual = () => {
@@ -1083,25 +1112,27 @@ export function SaudiVisaLandingPage() {
                   </label>
                 </div>
 
-                {/* Nationality Warning If not approved */}
+                {/* Nationality Warning / Manual Verification Option */}
                 {!isEligibleNationality && (
                   <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-xs text-amber-800 space-y-2">
                     <div className="flex items-start gap-2 font-bold">
                       <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600 mt-0.5" />
-                      <span>Additional Eligibility Verification Required</span>
+                      <span>Manual Eligibility Verification Option</span>
                     </div>
                     <p>
-                      Your nationality requires additional eligibility verification. Please contact our visa team before proceeding.
+                      Your nationality ({eligibilityNationality}) requires manual verification by our visa processing team. You can enquire directly on WhatsApp for guidance, or proceed with your application for review.
                     </p>
-                    <a
-                      href={heroWhatsAppUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 font-bold text-amber-900 underline mt-1"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      Contact Visa Team on WhatsApp
-                    </a>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <a
+                        href={heroWhatsAppUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 font-bold text-amber-900 bg-amber-200/60 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Enquire on WhatsApp</span>
+                      </a>
+                    </div>
                   </div>
                 )}
 
@@ -1116,17 +1147,18 @@ export function SaudiVisaLandingPage() {
 
                   <button
                     type="button"
-                    disabled={!isEligibleNationality || !isUaeResident || !passportValidMonths || !residenceValidMonths}
+                    disabled={!isUaeResident || !passportValidMonths || !residenceValidMonths}
                     onClick={() => {
                       trackMetaPixel("EligibilityCheck", {
                         nationality: eligibilityNationality,
-                        eligible: true,
+                        eligible: isEligibleNationality,
+                        manual_review: !isEligibleNationality,
                       });
                       setCurrentStep(3);
                     }}
                     className="bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <span>Confirm & Enter Details</span>
+                    <span>{isEligibleNationality ? "Confirm & Enter Details" : "Proceed with Manual Review"}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -1263,12 +1295,17 @@ export function SaudiVisaLandingPage() {
                           <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
                             Passport Nationality *
                           </label>
-                          <input
-                            type="text"
-                            disabled
+                          <select
                             value={currentApp.nationality}
-                            className="w-full bg-warm-ivory/50 border border-masaar-black/10 rounded-xl px-4 py-2.5 text-xs text-masaar-black/70 cursor-not-allowed"
-                          />
+                            onChange={(e) =>
+                              handleApplicantChange(activeApplicantIndex, "nationality", e.target.value)
+                            }
+                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
+                          >
+                            <option value="India">India</option>
+                            <option value="Pakistan">Pakistan</option>
+                            <option value="Other">Other (Requires Manual Review)</option>
+                          </select>
                         </div>
 
                         <div>
@@ -1301,6 +1338,72 @@ export function SaudiVisaLandingPage() {
                             className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
                           />
                         </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
+                            UAE Residence Permit Expiry Date * (Min. 3 Months Validity)
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={currentApp.residenceExpiryDate}
+                            onChange={(e) =>
+                              handleApplicantChange(activeApplicantIndex, "residenceExpiryDate", e.target.value)
+                            }
+                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
+                            Emirates ID Expiry Date *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={currentApp.emiratesIdExpiryDate}
+                            onChange={(e) =>
+                              handleApplicantChange(activeApplicantIndex, "emiratesIdExpiryDate", e.target.value)
+                            }
+                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
+                            Emirates ID Number (e.g. 784-1990-1234567-1)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="784-XXXX-XXXXXXX-X"
+                            value={currentApp.emiratesIdNumber}
+                            onChange={(e) =>
+                              handleApplicantChange(activeApplicantIndex, "emiratesIdNumber", e.target.value)
+                            }
+                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
+                          />
+                        </div>
+
+                        {/* Individual applicant validation notice */}
+                        {(() => {
+                          const val = validateApplicantEligibility(currentApp);
+                          if (!val.eligible) {
+                            return (
+                              <div className="sm:col-span-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl">
+                                <strong>Applicant #{activeApplicantIndex + 1} requirement:</strong> {val.issues.join("; ")}
+                              </div>
+                            );
+                          }
+                          if (val.manualReviewRequired) {
+                            return (
+                              <div className="sm:col-span-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center gap-2">
+                                <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                                <span>Applicant #{activeApplicantIndex + 1}'s nationality will undergo manual eligibility review by our processing team.</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   );
@@ -1568,27 +1671,38 @@ export function SaudiVisaLandingPage() {
 
                   {/* Tabby Pay in 4 */}
                   <div
-                    onClick={() => setPaymentGateway("tabby")}
-                    className={`cursor-pointer p-5 rounded-2xl border-2 transition-all flex flex-col justify-between ${
-                      paymentGateway === "tabby"
-                        ? "border-emerald-600 bg-white ring-2 ring-emerald-500/20 shadow-md"
-                        : "border-masaar-black/10 bg-white/60 hover:bg-white"
+                    onClick={() => {
+                      if (isTabbyAvailable) {
+                        setPaymentGateway("tabby");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border-2 transition-all flex flex-col justify-between ${
+                      !isTabbyAvailable
+                        ? "border-masaar-black/10 bg-white/40 opacity-70 cursor-not-allowed"
+                        : paymentGateway === "tabby"
+                        ? "border-emerald-600 bg-white ring-2 ring-emerald-500/20 shadow-md cursor-pointer"
+                        : "border-masaar-black/10 bg-white/60 hover:bg-white cursor-pointer"
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-bold text-sm text-masaar-black">Tabby: Pay in 4</span>
-                        <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">
-                          Zero Interest
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
+                          isTabbyAvailable ? "bg-emerald-100 text-emerald-800" : "bg-neutral-100 text-neutral-600"
+                        }`}>
+                          {isTabbyAvailable ? "Zero Interest" : "Merchant Activation Pending"}
                         </span>
                       </div>
                       <p className="text-xs text-masaar-black/60">
-                        Split your application into 4 equal monthly installments of AED{" "}
-                        {(pricing.finalPayableAmount / 4).toFixed(2)}.
+                        {isTabbyAvailable
+                          ? `Split your application into 4 equal monthly installments of AED ${(pricing.finalPayableAmount / 4).toFixed(2)}.`
+                          : "Tabby Pay in 4 is awaiting merchant credentials. Please complete your application using Credit / Debit card."}
                       </p>
                     </div>
                     <span className="text-xs font-bold text-emerald-700 mt-4 block">
-                      4 × AED {(pricing.finalPayableAmount / 4).toFixed(2)} / month
+                      {isTabbyAvailable
+                        ? `4 × AED ${(pricing.finalPayableAmount / 4).toFixed(2)} / month`
+                        : "Available upon launch · Use card payment"}
                     </span>
                   </div>
                 </div>

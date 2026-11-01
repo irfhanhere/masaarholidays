@@ -9,7 +9,9 @@ export interface SaudiVisaSettings {
   validityRequirements: {
     passportMinMonths: number;
     residenceMinMonths: number;
+    emiratesIdMinMonths: number;
   };
+  allowUnknownNationalitiesManualReview: boolean;
 }
 
 export const DEFAULT_SAUDI_VISA_SETTINGS: SaudiVisaSettings = {
@@ -23,7 +25,9 @@ export const DEFAULT_SAUDI_VISA_SETTINGS: SaudiVisaSettings = {
   validityRequirements: {
     passportMinMonths: 6,
     residenceMinMonths: 3,
+    emiratesIdMinMonths: 3,
   },
+  allowUnknownNationalitiesManualReview: true,
 };
 
 export interface PricingBreakdown {
@@ -88,6 +92,85 @@ export function isNationalityApproved(
   if (!nationality) return false;
   const clean = nationality.trim().toLowerCase();
   return approvedList.some((n) => n.trim().toLowerCase() === clean);
+}
+
+export interface ApplicantValidationInput {
+  fullName?: string;
+  nationality?: string;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  residenceExpiryDate?: string;
+  emiratesIdExpiryDate?: string;
+  emiratesIdNumber?: string;
+}
+
+export interface ApplicantValidationResult {
+  eligible: boolean;
+  manualReviewRequired: boolean;
+  issues: string[];
+}
+
+/**
+ * Independently validates an individual applicant's eligibility and validity periods.
+ * Distinguishes UAE residence permit validity from Emirates ID validity.
+ */
+export function validateApplicantEligibility(
+  applicant: ApplicantValidationInput,
+  settings: SaudiVisaSettings = DEFAULT_SAUDI_VISA_SETTINGS,
+  referenceDate: Date = new Date()
+): ApplicantValidationResult {
+  const issues: string[] = [];
+  let manualReviewRequired = false;
+
+  const nationality = (applicant.nationality || "").trim();
+  if (!nationality) {
+    issues.push("Passport nationality is required.");
+  } else if (!isNationalityApproved(nationality, settings.approvedNationalities)) {
+    if (settings.allowUnknownNationalitiesManualReview) {
+      manualReviewRequired = true;
+    } else {
+      issues.push(`Nationality (${nationality}) is not on the pre-approved list.`);
+    }
+  }
+
+  if (applicant.passportExpiryDate) {
+    const pExp = new Date(applicant.passportExpiryDate);
+    const minPassDate = new Date(referenceDate);
+    minPassDate.setMonth(minPassDate.getMonth() + settings.validityRequirements.passportMinMonths);
+    if (pExp < minPassDate) {
+      issues.push(
+        `Passport must be valid for at least ${settings.validityRequirements.passportMinMonths} months from today.`
+      );
+    }
+  }
+
+  if (applicant.residenceExpiryDate) {
+    const rExp = new Date(applicant.residenceExpiryDate);
+    const minResDate = new Date(referenceDate);
+    minResDate.setMonth(minResDate.getMonth() + settings.validityRequirements.residenceMinMonths);
+    if (rExp < minResDate) {
+      issues.push(
+        `UAE Residence Permit must have at least ${settings.validityRequirements.residenceMinMonths} months remaining validity.`
+      );
+    }
+  }
+
+  if (applicant.emiratesIdExpiryDate) {
+    const eExp = new Date(applicant.emiratesIdExpiryDate);
+    const minEidDate = new Date(referenceDate);
+    minEidDate.setMonth(minEidDate.getMonth() + settings.validityRequirements.emiratesIdMinMonths);
+    if (eExp < minEidDate) {
+      issues.push(
+        `Emirates ID must have at least ${settings.validityRequirements.emiratesIdMinMonths} months remaining validity.`
+      );
+    }
+  }
+
+  return {
+    eligible: issues.length === 0,
+    manualReviewRequired,
+    issues,
+  };
 }
 
 /**

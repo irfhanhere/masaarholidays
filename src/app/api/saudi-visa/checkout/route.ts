@@ -10,8 +10,10 @@ import { getSiteOrigin } from "@/lib/site-url";
 import {
   calculateSaudiVisaPricing,
   isNationalityApproved,
+  validateApplicantEligibility,
   DEFAULT_SAUDI_VISA_SETTINGS,
 } from "@/lib/data/saudi-visa-settings";
+import { getSaudiVisaSettings } from "@/lib/data/saudi-visa-settings-server";
 
 export const dynamic = "force-dynamic";
 
@@ -104,10 +106,11 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Strict Server-Side Pricing Calculation
-  const pricing = calculateSaudiVisaPricing(rawApplicants.length, applicationType);
+  const settings = await getSaudiVisaSettings();
+  const pricing = calculateSaudiVisaPricing(rawApplicants.length, applicationType, settings);
 
   // 3. Validate Each Applicant Independently
-  const today = new Date();
+  const manualReviewNationalities: string[] = [];
   for (let i = 0; i < rawApplicants.length; i++) {
     const a = rawApplicants[i] as Record<string, unknown>;
     const applicantIndex = i + 1;
@@ -127,15 +130,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isNationalityApproved(nationality)) {
-      return NextResponse.json(
-        {
-          error: `Applicant #${applicantIndex} (${nationality}): Your nationality requires additional eligibility verification. Please contact our visa team before proceeding.`,
-        },
-        { status: 400 }
-      );
-    }
-
     const passportNumber = typeof a.passportNumber === "string" ? a.passportNumber.trim() : "";
     if (!passportNumber || passportNumber.length < 5) {
       return NextResponse.json(
@@ -144,36 +138,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check passport expiry validity (minimum 6 months)
-    const passportExpiryStr = typeof a.passportExpiryDate === "string" ? a.passportExpiryDate.trim() : "";
-    if (passportExpiryStr) {
-      const pExp = new Date(passportExpiryStr);
-      const sixMonthsFromNow = new Date(today);
-      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + DEFAULT_SAUDI_VISA_SETTINGS.validityRequirements.passportMinMonths);
-      if (pExp < sixMonthsFromNow) {
-        return NextResponse.json(
-          {
-            error: `Applicant #${applicantIndex}: Passport must be valid for at least ${DEFAULT_SAUDI_VISA_SETTINGS.validityRequirements.passportMinMonths} months from today.`,
-          },
-          { status: 400 }
-        );
-      }
+    const validation = validateApplicantEligibility(
+      {
+        fullName,
+        nationality,
+        passportNumber,
+        passportExpiryDate: typeof a.passportExpiryDate === "string" ? a.passportExpiryDate.trim() : "",
+        residenceExpiryDate: typeof a.residenceExpiryDate === "string" ? a.residenceExpiryDate.trim() : "",
+        emiratesIdExpiryDate: typeof a.emiratesIdExpiryDate === "string" ? a.emiratesIdExpiryDate.trim() : "",
+        emiratesIdNumber: typeof a.emiratesIdNumber === "string" ? a.emiratesIdNumber.trim() : "",
+      },
+      settings
+    );
+
+    if (validation.manualReviewRequired) {
+      manualReviewNationalities.push(`Applicant #${applicantIndex} (${nationality})`);
     }
 
-    // Check UAE residence permit expiry validity (minimum 3 months)
-    const resExpiryStr = typeof a.residenceExpiryDate === "string" ? a.residenceExpiryDate.trim() : "";
-    if (resExpiryStr) {
-      const rExp = new Date(resExpiryStr);
-      const threeMonthsFromNow = new Date(today);
-      threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + DEFAULT_SAUDI_VISA_SETTINGS.validityRequirements.residenceMinMonths);
-      if (rExp < threeMonthsFromNow) {
-        return NextResponse.json(
-          {
-            error: `Applicant #${applicantIndex}: UAE Residence permit must have at least ${DEFAULT_SAUDI_VISA_SETTINGS.validityRequirements.residenceMinMonths} months remaining validity.`,
-          },
-          { status: 400 }
-        );
-      }
+    if (!validation.eligible) {
+      return NextResponse.json(
+        { error: `Applicant #${applicantIndex}: ${validation.issues.join("; ")}` },
+        { status: 400 }
+      );
     }
   }
 
@@ -265,6 +251,7 @@ export async function POST(request: NextRequest) {
         charged_amount: pricing.finalPayableAmount,
         payment_status: "pending",
         application_status: "draft",
+        internal_notes: manualReviewNationalities.length > 0 ? `Manual verification requested: ${manualReviewNationalities.join("; ")}` : null,
         status_timeline: initialTimeline,
       })
       .select("id")

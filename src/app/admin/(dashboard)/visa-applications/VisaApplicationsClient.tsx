@@ -32,6 +32,8 @@ import {
   saveInternalNotesAction,
   requestMissingDocumentsAction,
   getApplicationDetailsAction,
+  recordVisaRefundAction,
+  exportVisaApplicationsCsvAction,
 } from "./actions";
 import type { VisaApplicationRow, VisaApplicantRow, VisaApplicationDocumentRow } from "@/lib/types/database";
 
@@ -561,6 +563,50 @@ export default function VisaApplicationsClient({
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      const res = await exportVisaApplicationsCsvAction();
+      if (res.success && res.csv) {
+        const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `visa_applications_${new Date().toISOString().split("T")[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert(res.error || "Failed to export applications.");
+      }
+    } catch {
+      alert("Failed to export applications CSV.");
+    }
+  };
+
+  const handleRecordRefund = async (appId: string, currentAmount: number) => {
+    const amountStr = prompt(`Enter refund amount in AED (Max: ${currentAmount}):`, String(currentAmount));
+    if (!amountStr) return;
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0 || amount > currentAmount) {
+      alert("Invalid refund amount.");
+      return;
+    }
+    const reason = prompt("Enter reason for refund (e.g. Visa authority rejection, customer cancellation):", "Visa application rejected by authorities");
+    if (!reason) return;
+
+    try {
+      const res = await recordVisaRefundAction(appId, amount, reason);
+      if (res.success) {
+        alert(`Refund of AED ${amount.toFixed(2)} recorded successfully.`);
+        window.location.reload();
+      } else {
+        alert(`Failed: ${res.error || "Error recording refund"}`);
+      }
+    } catch {
+      alert("Failed to record refund.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -571,12 +617,21 @@ export default function VisaApplicationsClient({
             View and manage all submitted visa applications, applicants, documents and current status.
           </p>
         </div>
-        <button
-          onClick={() => alert("To submit a new application, use the customer flow or direct enquiry.")}
-          className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 transition"
-        >
-          + Add Application
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-2 rounded-lg border border-black/15 bg-white px-3.5 py-2 text-sm font-semibold text-masaar-black shadow-xs hover:bg-neutral-50 transition"
+          >
+            <Download className="h-4 w-4 text-amber-700" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            onClick={() => alert("To submit a new application, use the customer flow or direct enquiry.")}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 transition"
+          >
+            + Add Application
+          </button>
+        </div>
       </div>
 
       {/* 6 Metric Cards */}
@@ -876,9 +931,20 @@ export default function VisaApplicationsClient({
               </div>
 
               <div className="flex-1 min-w-[120px] border-l border-black/10 pl-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/50">
-                  Payment Status
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/50">
+                    Payment Status
+                  </span>
+                  {selectedApp.payment_status === "paid" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRecordRefund(selectedApp.id, selectedApp.total_amount)}
+                      className="text-[10px] font-semibold text-rose-700 hover:text-rose-900 underline"
+                    >
+                      Issue Refund
+                    </button>
+                  )}
+                </div>
                 <div className="mt-1">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${

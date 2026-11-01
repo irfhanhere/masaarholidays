@@ -21,6 +21,16 @@ export function SaudiVisaConfirmationClient({ application, applicants, payments 
   const paymentRef = latestPayment?.transaction_reference || application.stripe_payment_intent_id || application.tabby_payment_id || "Confirmed";
 
   useEffect(() => {
+    // Only fire after verified successful payment
+    if (application.payment_status !== "paid") return;
+
+    // Prevent duplicate Purchase events on page refresh
+    const storageKey = `meta_purchase_${application.reference_no}`;
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      if (window.sessionStorage.getItem(storageKey)) return;
+      window.sessionStorage.setItem(storageKey, "1");
+    }
+
     trackMetaPixel("Purchase", {
       content_name: "Saudi 1-Year Multiple Entry Tourist Visa",
       content_category: "Saudi Visa",
@@ -29,7 +39,7 @@ export function SaudiVisaConfirmationClient({ application, applicants, payments 
       applicant_count: application.applicant_count,
       application_type: isFamily ? "family" : "individual",
     });
-  }, [application.total_amount, application.currency, application.applicant_count, isFamily]);
+  }, [application.total_amount, application.currency, application.applicant_count, application.payment_status, application.reference_no, isFamily]);
 
   const whatsappMessage = encodeURIComponent(
     `Hello Masaar Holidays, I have submitted my Saudi Visa application (Reference: ${application.reference_no}) for ${application.applicant_count} applicant(s). Please confirm the review status.`
