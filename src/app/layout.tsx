@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const h = await headers();
   const isAdminRoute = (h.get("x-pathname") ?? "").startsWith("/admin");
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
+  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID || process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID || "2858744757858574";
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID || "GTM-M558K96T";
 
   return (
@@ -65,6 +65,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               height="0"
               width="0"
               style={{ display: "none", visibility: "hidden" }}
+            />
+          </noscript>
+        )}
+        {metaPixelId && !isAdminRoute && (
+          <noscript>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              height="1"
+              width="1"
+              style={{ display: "none" }}
+              src={`https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1`}
+              alt=""
             />
           </noscript>
         )}
@@ -108,6 +120,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               s.parentNode.insertBefore(t,s)}(window, document,'script',
               'https://connect.facebook.net/en_US/fbevents.js');
               fbq('init', '${metaPixelId}');
+              fbq('track', 'PageView');
             `}
           </Script>
         )}
