@@ -35,8 +35,10 @@ export interface PricingBreakdown {
   applicantCount: number;
   pricePerApplicant: number;
   originalTotal: number;
+  subtotal: number;
   familyDiscountPercentage: number;
   familyDiscountAmount: number;
+  discountAmount: number;
   finalPayableAmount: number;
   currency: string;
   isFamilyDiscountApplied: boolean;
@@ -74,8 +76,10 @@ export function calculateSaudiVisaPricing(
     applicantCount: count,
     pricePerApplicant: basePrice,
     originalTotal,
+    subtotal: originalTotal,
     familyDiscountPercentage: isFamily ? discountPct : 0,
     familyDiscountAmount,
+    discountAmount: familyDiscountAmount,
     finalPayableAmount,
     currency,
     isFamilyDiscountApplied: isFamily,

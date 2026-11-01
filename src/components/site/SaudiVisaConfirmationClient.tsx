@@ -48,25 +48,19 @@ export function SaudiVisaConfirmationClient({ application, applicants, payments 
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${whatsappMessage}`;
 
   return (
-    <div className="min-h-screen bg-warm-ivory text-masaar-black flex flex-col font-sans">
-      {/* Top Bar with Masaar Logo */}
-      <header className="bg-masaar-black text-white py-4 px-6 border-b border-gold/30">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/brand/masaar-logo.png"
-              alt="Masaar Holidays Logo"
-              width={160}
-              height={44}
-              className="h-9 w-auto object-contain"
-              priority
-            />
-          </Link>
-          <span className="text-xs tracking-widest text-gold uppercase font-semibold hidden sm:inline-block">
-            Curated Umrah With Care
-          </span>
+    <div className="min-h-screen bg-warm-ivory/30 text-masaar-black flex flex-col font-sans">
+      {/* Breadcrumbs */}
+      <div className="bg-warm-ivory/60 border-b border-black/5 py-2.5">
+        <div className="max-w-4xl mx-auto px-4">
+          <p className="text-xs text-masaar-black/60">
+            <Link href="/" className="hover:text-deep-gold">Home</Link>
+            <span className="mx-2">/</span>
+            <Link href="/visa" className="hover:text-deep-gold">Visa</Link>
+            <span className="mx-2">/</span>
+            <span className="text-masaar-black font-medium">Application Received</span>
+          </p>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-12">
@@ -199,11 +193,6 @@ export function SaudiVisaConfirmationClient({ application, applicants, payments 
           </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="py-6 px-4 text-center text-xs text-masaar-black/60 border-t border-masaar-black/10">
-        <p>© {new Date().getFullYear()} Masaar Holidays. All rights reserved. Curated Umrah With Care.</p>
-      </footer>
     </div>
   );
 }

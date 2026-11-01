@@ -1,38 +1,33 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useId } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { Container } from "@/components/site/Container";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { Price } from "@/components/site/Price";
+import { CONTACT } from "@/lib/contact";
 import {
-  Calendar,
-  Clock,
   FileCheck,
   ShieldCheck,
-  Check,
-  Users,
-  User,
+  Clock,
+  Lock,
+  AlertCircle,
   Plus,
   Minus,
   Upload,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Lock,
-  ArrowRight,
-  MessageCircle,
-  FileText,
-  CreditCard,
   CheckCircle2,
   Trash2,
-  Info,
+  User,
+  Users,
+  Check,
 } from "./saudi-visa-icons";
 import {
-  DEFAULT_SAUDI_VISA_SETTINGS,
   calculateSaudiVisaPricing,
   isNationalityApproved,
   validateApplicantEligibility,
   getSaudiVisaWhatsAppLink,
-  SAUDI_VISA_FAQS,
   type PricingBreakdown,
 } from "@/lib/data/saudi-visa-settings";
 import { trackMetaPixel } from "@/lib/analytics/meta-pixel";
@@ -77,7 +72,7 @@ export function SaudiVisaLandingPage() {
   const [applicationType, setApplicationType] = useState<"individual" | "family">("individual");
   const [applicantCount, setApplicantCount] = useState<number>(1);
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Eligibility state
   const [eligibilityNationality, setEligibilityNationality] = useState<string>("India");
@@ -143,7 +138,7 @@ export function SaudiVisaLandingPage() {
     setApplicantCount(1);
     setApplicants((prev) => [prev[0] || { ...EMPTY_APPLICANT, nationality: eligibilityNationality }]);
     trackMetaPixel("ApplicationStarted", { application_type: "individual", applicant_count: 1 });
-    scrollToSection("apply-flow");
+    setCurrentStep(2);
   };
 
   const handleSelectFamily = () => {
@@ -158,7 +153,7 @@ export function SaudiVisaLandingPage() {
       return next.slice(0, count);
     });
     trackMetaPixel("ApplicationStarted", { application_type: "family", applicant_count: count });
-    scrollToSection("apply-flow");
+    setCurrentStep(2);
   };
 
   const handleUpdateFamilyCount = (newCount: number) => {
@@ -241,7 +236,6 @@ export function SaudiVisaLandingPage() {
   const handleSubmitCheckout = () => {
     setSubmissionError(null);
 
-    // Validation
     if (!contactEmail || !contactPhone) {
       setSubmissionError("Please provide your contact email and UAE phone number in Step 3.");
       setCurrentStep(3);
@@ -251,13 +245,13 @@ export function SaudiVisaLandingPage() {
     for (let i = 0; i < applicants.length; i++) {
       const app = applicants[i];
       if (!app.fullName.trim() || app.fullName.trim().length < 2) {
-        setSubmissionError(`Applicant #${i + 1}: Please enter the full legal name shown on the passport.`);
+        setSubmissionError(`Traveller #${i + 1}: Please enter the full legal name shown on the passport.`);
         setActiveApplicantIndex(i);
         setCurrentStep(3);
         return;
       }
       if (!app.passportNumber.trim()) {
-        setSubmissionError(`Applicant #${i + 1}: Please enter the passport number.`);
+        setSubmissionError(`Traveller #${i + 1}: Please enter the passport number.`);
         setActiveApplicantIndex(i);
         setCurrentStep(3);
         return;
@@ -342,1571 +336,1497 @@ export function SaudiVisaLandingPage() {
   const heroWhatsAppUrl = getSaudiVisaWhatsAppLink("individual", 1);
   const familyWhatsAppUrl = getSaudiVisaWhatsAppLink("family", 3);
 
+  // Exact Saudi Tourist FAQs matching Image 2
+  const faqs = [
+    {
+      q: "Who is eligible for this Saudi Tourist Visa service?",
+      a: "This service is specifically catered for UAE residents holding Indian or Pakistani passports. Applicants must hold a valid UAE residence visa (minimum 3 months validity remaining) and a passport with at least 6 months validity. Other nationalities can also submit their details for manual review by our visa processing desk.",
+    },
+    {
+      q: "What is the validity and permitted stay of the visa?",
+      a: "The Saudi Tourist Visa is valid for 1 full year from the date of issuance with multiple entries permitted. You may stay up to 90 days per visit across the Kingdom of Saudi Arabia.",
+    },
+    {
+      q: "What documents do I need to apply?",
+      a: "You need 4 simple documents: (1) Clear colour copy of your passport bio-data page (minimum 6 months validity), (2) Copy of your valid UAE residence visa (minimum 3 months validity), (3) Copy of your Emirates ID (front & back, minimum 3 months validity), and (4) Recent passport-size photograph with a white background.",
+    },
+    {
+      q: "How long does the application process take?",
+      a: "Processing typically takes approximately 2 to 3 working days once all required documents are verified and submitted. Please note that processing times are subject to official Saudi immigration authorities.",
+    },
+    {
+      q: "Can I perform Umrah on this visa?",
+      a: "Yes! The 1-Year Multiple Entry Saudi Tourist Visa permits performing Umrah throughout the year, with the exception of the designated restricted Hajj period.",
+    },
+    {
+      q: "How does the 5% Family Discount work?",
+      a: "When 3 or more family members apply together in a single application, an automatic 5% discount is applied to each applicant's fee. For example, 3 applicants pay AED 2,137.50 instead of AED 2,250.00 (saving AED 112.50).",
+    },
+    {
+      q: "What payment options are accepted?",
+      a: "You can pay securely online via Debit/Credit Card (Visa, Mastercard, Amex) through encrypted Stripe checkout. When available, you can also split your payment into 4 interest-free monthly installments using Tabby.",
+    },
+    {
+      q: "Does applying through Masaar Holidays guarantee visa approval?",
+      a: "While Masaar Holidays meticulously verifies your documentation to meet all official standards, final visa issuance and approval decisions rest solely with official Saudi immigration authorities.",
+    },
+  ];
+
+  const displayDocuments = [
+    {
+      title: "Valid Passport",
+      description: "Minimum 6 months validity from intended travel date. Clear coloured bio-data page.",
+    },
+    {
+      title: "UAE Residence Visa",
+      description: "Valid UAE residence permit with at least 3 months remaining validity.",
+    },
+    {
+      title: "Emirates ID",
+      description: "Clear copy of front & back of your valid Emirates ID card (min 3 months validity).",
+    },
+    {
+      title: "Passport Photo",
+      description: "Recent passport-size photograph with white background taken within the last 6 months.",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-warm-ivory text-masaar-black font-sans selection:bg-gold/20">
+    <div className="min-h-screen bg-warm-ivory/20 text-masaar-black">
       {/* ─────────────────────────────────────────────────────────
-          DEDICATED LANDING PAGE HEADER
+          1. BREADCRUMBS (Matches Image 2)
       ───────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-masaar-black/95 backdrop-blur-md border-b border-gold/25 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
-            <Image
-              src="/brand/masaar-logo.png"
-              alt="Masaar Holidays Logo"
-              width={170}
-              height={46}
-              className="h-10 w-auto object-contain transition-transform group-hover:scale-[1.02]"
-              priority
-            />
-          </Link>
-
-          {/* Minimal Navigation */}
-          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold tracking-wider uppercase">
-            <Link href="/" className="text-white/70 hover:text-gold transition-colors">
-              Home
-            </Link>
-            <Link href="/umrah" className="text-white/70 hover:text-gold transition-colors">
-              Umrah
-            </Link>
-            <Link href="/hajj" className="text-white/70 hover:text-gold transition-colors">
-              Hajj
-            </Link>
-            <Link href="/hotels" className="text-white/70 hover:text-gold transition-colors">
-              Hotels
-            </Link>
-            <span className="text-gold border-b-2 border-gold pb-1 font-bold">
-              Saudi Visa
-            </span>
-            <Link href="/contact" className="text-white/70 hover:text-gold transition-colors">
-              Contact
-            </Link>
-          </nav>
-
-          {/* Header WhatsApp Button */}
-          <a
-            href={heroWhatsAppUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-[#C9A227] hover:bg-[#b08d20] text-masaar-black text-xs font-bold px-4 py-2.5 rounded-lg transition-all shadow-md hover:shadow-gold/20"
-          >
-            <MessageCircle className="w-4 h-4 fill-masaar-black" />
-            <span>Enquire on WhatsApp</span>
-          </a>
-        </div>
-      </header>
+      <div className="bg-warm-ivory/60 border-b border-black/5 py-2.5">
+        <Container>
+          <Breadcrumbs
+            items={[
+              { label: "Visa", href: "/visa" },
+              { label: "Saudi Tourist Visa" },
+            ]}
+          />
+        </Container>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────
-          SECTION 1 — HERO
+          2. HERO SECTION (Matches Image 2)
       ───────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#0A0A08] via-[#141410] to-[#1E1E18] text-white pt-10 pb-16 lg:py-20 border-b border-gold/20">
-        {/* Subtle Path motif background accent */}
-        <div className="absolute inset-0 pointer-events-none opacity-10">
-          <svg className="w-full h-full" viewBox="0 0 1440 800" fill="none">
-            <path
-              d="M-100 400 C 300 200, 800 600, 1540 300"
-              stroke="#C9A227"
-              strokeWidth="2"
-              strokeDasharray="8 8"
-            />
-          </svg>
+      <section className="relative overflow-hidden bg-masaar-black py-16 text-white sm:py-24">
+        {/* Background Image with Dark Atmospheric Overlay */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/trips/package-detail-hero-1.webp"
+            alt="Saudi Tourist Visa"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-masaar-black via-masaar-black/80 to-transparent" />
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            {/* Left Content Column */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* Tag */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold tracking-[0.2em] uppercase text-gold">
-                  Saudi Tourist Visa
+        <Container className="relative z-10">
+          <div className="mx-auto max-w-3xl text-center">
+            {/* Eyebrow */}
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-pure-gold">
+              — SAUDI TOURIST VISA —
+            </p>
+
+            {/* Headline */}
+            <h1 className="mt-4 font-[family-name:var(--font-display)] text-3xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
+              Saudi 1-Year Multiple Entry <br className="hidden sm:inline" />
+              <span className="font-[family-name:var(--font-display)] italic text-pure-gold text-2xl sm:text-4xl">
+                Tourist Visa for UAE Residents
+              </span>
+            </h1>
+
+            {/* 4 Highlight Badges */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+              <span className="inline-flex items-center rounded-full border border-pure-gold/40 bg-pure-gold/15 px-3 py-1 text-xs font-semibold text-pure-gold">
+                Price: AED 750 / applicant
+              </span>
+              <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                Validity: 1 Year (Multiple Entry)
+              </span>
+              <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                Stay: Up to 90 Days / Visit
+              </span>
+              <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                UAE Residents (Indian & Pakistani Passports)
+              </span>
+            </div>
+
+            {/* Intro text */}
+            <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
+              Obtain your 1-Year Multiple Entry Saudi Tourist Visa effortlessly. Specially catered for UAE residents holding Indian or Pakistani passports. Fast ~2-3 working days processing with dedicated expert guidance.
+            </p>
+
+            {/* CTAs */}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+              <button
+                onClick={() => scrollToSection("packages")}
+                className="inline-flex items-center justify-center rounded-md bg-pure-gold px-7 py-3.5 text-sm font-semibold text-masaar-black shadow-lg transition-all hover:bg-light-gold active:scale-95 cursor-pointer"
+              >
+                Apply Now →
+              </button>
+              <a
+                href={heroWhatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
+              >
+                Talk to Our Team
+              </a>
+            </div>
+
+            {/* 3 Trust Badges */}
+            <div className="mt-12 grid grid-cols-1 gap-4 border-t border-white/15 pt-8 sm:grid-cols-3">
+              <div className="flex items-center justify-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-pure-gold">
+                  <ShieldCheck className="size-5" />
                 </span>
-                <div className="h-[1px] w-16 bg-gold/50" />
-              </div>
-
-              {/* Main Headline */}
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white font-sans leading-[1.15]">
-                Your Journey to <br className="hidden sm:inline" />
-                <span className="text-gold font-serif italic">Makkah</span> Starts Here.
-              </h1>
-
-              {/* Subheading */}
-              <p className="text-base sm:text-lg text-white/80 max-w-xl font-normal leading-relaxed">
-                Discover Saudi Arabia and plan your eligible Umrah journey with a{" "}
-                <strong className="text-white font-semibold">1-Year Multiple-Entry Saudi Tourist Visa</strong>.
-              </p>
-
-              {/* Price & Features Badge Box */}
-              <div className="flex flex-wrap items-center gap-4 pt-2">
-                <div className="bg-[#EBDFA8]/20 border border-gold/40 rounded-xl px-5 py-3 flex items-center gap-3 backdrop-blur-sm">
-                  <span className="text-xs font-semibold text-gold tracking-wide uppercase">AED</span>
-                  <span className="text-3xl font-extrabold text-white">750</span>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-gold/15 flex items-center justify-center text-gold">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">1-Year Multiple-Entry Visa</span>
-                    <span className="text-[11px] text-white/60">Fast ~2 working days processing</span>
-                  </div>
+                <div className="text-left">
+                  <p className="text-xs font-semibold text-white">Trusted Guidance</p>
+                  <p className="text-[11px] text-white/60">From application to approval</p>
                 </div>
               </div>
 
-              {/* Dual CTAs */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => scrollToSection("choose-application")}
-                  className="inline-flex items-center justify-center gap-2 bg-[#C9A227] hover:bg-[#b58f1e] text-masaar-black font-bold text-sm uppercase tracking-wider px-7 py-4 rounded-xl transition-all shadow-lg shadow-gold/25 hover:shadow-gold/40 group"
-                >
-                  <span>Apply for Your Visa</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </button>
-
-                <a
-                  href={heroWhatsAppUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 bg-transparent hover:bg-white/10 text-white border border-white/25 font-semibold text-sm px-6 py-4 rounded-xl transition-all"
-                >
-                  <MessageCircle className="w-4 h-4 text-emerald-400" />
-                  <span>Enquire on WhatsApp</span>
-                </a>
+              <div className="flex items-center justify-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-pure-gold">
+                  <Lock className="size-5" />
+                </span>
+                <div className="text-left">
+                  <p className="text-xs font-semibold text-white">Secure Online Payment</p>
+                  <p className="text-[11px] text-white/60">Safe & 256-bit encrypted</p>
+                </div>
               </div>
 
-              {/* Eligibility & Disclaimer Note */}
-              <p className="text-xs text-white/60 leading-relaxed max-w-xl pt-2">
-                For eligible UAE residents holding approved passport nationalities. Visa issuance is subject to Saudi authorities and applicable regulations.
-              </p>
+              <div className="flex items-center justify-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-pure-gold">
+                  <Clock className="size-5" />
+                </span>
+                <div className="text-left">
+                  <p className="text-xs font-semibold text-white">Dedicated Support</p>
+                  <p className="text-[11px] text-white/60">Our team is always here to help</p>
+                </div>
+              </div>
             </div>
+          </div>
+        </Container>
+      </section>
 
-            {/* Right Kaaba Photograph Arch Column */}
-            <div className="lg:col-span-5 relative flex justify-center lg:justify-end">
-              <div className="relative w-full max-w-md aspect-[4/5] rounded-t-[140px] rounded-b-2xl overflow-hidden border-2 border-gold/40 shadow-2xl shadow-gold/10">
-                <Image
-                  src="/brand/saudi-visa-kaaba-hero.jpg"
-                  alt="Holy Kaaba at Masjid al-Haram, Makkah"
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="(max-width: 768px) 100vw, 450px"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-masaar-black/70 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 text-center">
-                  <span className="text-[11px] font-medium tracking-widest uppercase text-gold/90 bg-masaar-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-gold/30">
-                    Masjid al-Haram · Makkah
+      {/* ─────────────────────────────────────────────────────────
+          3. STICKY IN-PAGE NAVIGATION (Matches Image 2)
+      ───────────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-30 border-b border-black/10 bg-white/95 backdrop-blur-md">
+        <Container>
+          <div className="flex items-center justify-center gap-2 overflow-x-auto py-3 sm:gap-4 scrollbar-none">
+            <button
+              onClick={() => scrollToSection("overview")}
+              className="rounded-full px-4 py-1.5 text-xs font-medium text-masaar-black/80 hover:bg-warm-ivory hover:text-masaar-black cursor-pointer"
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => scrollToSection("packages")}
+              className="rounded-full bg-pure-gold/15 px-4 py-1.5 text-xs font-semibold text-deep-gold hover:bg-pure-gold/25 cursor-pointer"
+            >
+              Visa Options
+            </button>
+            <button
+              onClick={() => scrollToSection("apply-flow")}
+              className="rounded-full px-4 py-1.5 text-xs font-medium text-masaar-black/80 hover:bg-warm-ivory hover:text-masaar-black cursor-pointer"
+            >
+              Apply Online
+            </button>
+            <button
+              onClick={() => scrollToSection("documents")}
+              className="rounded-full px-4 py-1.5 text-xs font-medium text-masaar-black/80 hover:bg-warm-ivory hover:text-masaar-black cursor-pointer"
+            >
+              Documents
+            </button>
+            <button
+              onClick={() => scrollToSection("how-it-works")}
+              className="rounded-full px-4 py-1.5 text-xs font-medium text-masaar-black/80 hover:bg-warm-ivory hover:text-masaar-black cursor-pointer"
+            >
+              How It Works
+            </button>
+            <button
+              onClick={() => scrollToSection("important-info")}
+              className="rounded-full px-4 py-1.5 text-xs font-medium text-masaar-black/80 hover:bg-warm-ivory hover:text-masaar-black cursor-pointer"
+            >
+              Important Info
+            </button>
+            <button
+              onClick={() => scrollToSection("faqs")}
+              className="rounded-full px-4 py-1.5 text-xs font-medium text-masaar-black/80 hover:bg-warm-ivory hover:text-masaar-black cursor-pointer"
+            >
+              FAQs
+            </button>
+          </div>
+        </Container>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────
+          4. ABOUT SECTION (Matches Image 2)
+      ───────────────────────────────────────────────────────── */}
+      <section id="overview" className="scroll-mt-16 py-16 sm:py-20">
+        <Container>
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
+                — ABOUT SAUDI TOURIST VISA —
+              </p>
+              <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
+                About Saudi Tourist Visa
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-masaar-black/75 sm:text-base">
+                We help you apply for your 1-Year Multiple Entry Saudi Tourist Visa online with a smooth, reliable and transparent process. Specially designed for UAE residents holding Indian or Pakistani passports, ensuring accurate documentation and timely submission to authorities.
+              </p>
+
+              {/* 2x2 Feature Pills Grid */}
+              <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                    <FileCheck className="size-5" />
                   </span>
+                  <div>
+                    <p className="text-xs font-semibold text-masaar-black">1 Year Multiple Entry</p>
+                    <p className="text-[11px] text-masaar-black/60">Stay up to 90 days per visit</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                    <Clock className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-masaar-black">Fast processing</p>
+                    <p className="text-[11px] text-masaar-black/60">~2-3 working days turnaround</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                    <ShieldCheck className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-masaar-black">Expert review</p>
+                    <p className="text-[11px] text-masaar-black/60">Documents checked by specialists</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                    <CheckCircle2 className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-masaar-black">Umrah & Tourism</p>
+                    <p className="text-[11px] text-masaar-black/60">Perform Umrah throughout the year</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right side guide card matching Image 2 */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-masaar-black shadow-lg">
+              <Image
+                src="/trips/package-detail-hero-1.webp"
+                alt="Saudi Tourist Visa Guide"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover opacity-80"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="flex size-16 items-center justify-center rounded-full bg-white/90 text-pure-gold shadow-xl backdrop-blur-md transition-transform hover:scale-110">
+                  <svg className="ml-1 size-7 fill-current" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                <div>
+                  <p className="text-xs font-semibold">Saudi Tourist Visa Guidance</p>
+                  <p className="text-[10px] text-white/70">Watch our step-by-step application walkthrough</p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* ─────────────────────────────────────────────────────────
-          SECTION 2 — VISA BENEFITS (4 ELEGANT CARDS)
+          5. VISA OPTIONS & DISCOUNT (Matches Image 2)
       ───────────────────────────────────────────────────────── */}
-      <section className="py-12 bg-white border-b border-masaar-black/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Benefit 1 */}
-            <div className="bg-warm-ivory/40 hover:bg-warm-ivory/70 border border-gold/25 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-              <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold mb-4">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-masaar-black mb-1.5 font-sans">
-                1-Year Multiple Entry
-              </h3>
-              <p className="text-xs text-masaar-black/70 leading-relaxed">
-                Apply for a multiple-entry tourist visa with validity subject to official visa conditions.
-              </p>
-            </div>
-
-            {/* Benefit 2 */}
-            <div className="bg-warm-ivory/40 hover:bg-warm-ivory/70 border border-gold/25 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-              <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold mb-4">
-                <Clock className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-masaar-black mb-1.5 font-sans">
-                ≈ 2 Working Days
-              </h3>
-              <p className="text-xs text-masaar-black/70 leading-relaxed">
-                Estimated processing time after complete documents, payment and verification.
-              </p>
-            </div>
-
-            {/* Benefit 3 */}
-            <div className="bg-warm-ivory/40 hover:bg-warm-ivory/70 border border-gold/25 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-              <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold mb-4">
-                <FileCheck className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-masaar-black mb-1.5 font-sans">
-                Simple Documentation
-              </h3>
-              <p className="text-xs text-masaar-black/70 leading-relaxed">
-                A straightforward application process with three initial document requirements.
-              </p>
-            </div>
-
-            {/* Benefit 4 */}
-            <div className="bg-warm-ivory/40 hover:bg-warm-ivory/70 border border-gold/25 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
-              <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold mb-4">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-masaar-black mb-1.5 font-sans">
-                Refund Assurance
-              </h3>
-              <p className="text-xs text-masaar-black/70 leading-relaxed">
-                Masaar's stated refund policy if the application is rejected, subject to published terms.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────
-          SECTION 3 — CHOOSE YOUR APPLICATION
-      ───────────────────────────────────────────────────────── */}
-      <section id="choose-application" className="py-16 sm:py-20 bg-warm-ivory relative">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Section Header */}
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-masaar-black font-sans tracking-tight">
-              Choose the Right Application for Your Journey.
+      <section id="packages" className="scroll-mt-16 bg-white py-16 sm:py-24">
+        <Container>
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-pure-gold">
+              Choose Your Application Type
+            </p>
+            <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-4xl">
+              Saudi 1-Year Multiple Entry Tourist Visa
             </h2>
-            <div className="w-20 h-1 bg-gold mx-auto mt-4 rounded-full" />
-            <p className="text-sm text-masaar-black/70 mt-4">
-              Apply individually or save with our family application discount for 3 or more travellers.
+            <p className="mx-auto mt-2 max-w-xl text-xs text-masaar-black/60 sm:text-sm">
+              Approved visa packages for UAE residents holding Indian or Pakistani passports. Select individual or apply together as a family to enjoy 5% savings.
             </p>
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-            {/* OPTION A: INDIVIDUAL APPLICATION */}
+          <div className="mt-12 mx-auto grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
+            {/* Individual Card */}
             <div
-              className={`bg-white rounded-3xl p-8 border-2 transition-all flex flex-col justify-between shadow-lg ${
+              className={`relative flex flex-col justify-between rounded-xl border bg-white p-7 shadow-sm transition-all hover:shadow-md ${
                 applicationType === "individual"
-                  ? "border-masaar-black ring-4 ring-gold/20"
-                  : "border-masaar-black/10 hover:border-gold/50"
+                  ? "border-pure-gold ring-2 ring-pure-gold/25"
+                  : "border-black/10"
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-warm-ivory flex items-center justify-center text-gold border border-gold/30">
-                    <User className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-masaar-black/60 bg-warm-ivory px-3 py-1 rounded-full">
-                    Solo Traveller
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-bold text-masaar-black">Individual Saudi Visa</h3>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-xs font-semibold text-masaar-black/60">AED</span>
-                  <span className="text-3xl font-extrabold text-masaar-black">750</span>
-                  <span className="text-xs text-masaar-black/60">/ applicant</span>
-                </div>
-                <p className="text-xs text-masaar-black/70 mt-1">For one eligible applicant.</p>
-
-                <div className="h-[1px] bg-masaar-black/10 my-6" />
-
-                <ul className="space-y-3 text-xs text-masaar-black/80">
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>One applicant</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>1-Year Multiple-Entry Saudi Tourist Visa</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>≈ 2 working days estimated processing</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>Three initial documents</span>
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>Refund assurance subject to terms</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-8 space-y-3">
-                <button
-                  type="button"
-                  onClick={handleSelectIndividual}
-                  className="w-full bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md group"
-                >
-                  <span>Apply Individually</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </button>
-                <a
-                  href={heroWhatsAppUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full block text-center text-xs font-semibold text-masaar-black/70 hover:text-gold transition-colors py-1"
-                >
-                  Enquire via WhatsApp instead
-                </a>
-              </div>
-            </div>
-
-            {/* OPTION B: FAMILY APPLICATION (5% OFF) */}
-            <div
-              className={`bg-white rounded-3xl p-8 border-2 relative transition-all flex flex-col justify-between shadow-xl ${
-                applicationType === "family"
-                  ? "border-gold ring-4 ring-gold/25"
-                  : "border-gold/40 hover:border-gold"
-              }`}
-            >
-              {/* Discount Ribbon Badge */}
-              <div className="absolute -top-3.5 right-6 bg-[#C9A227] text-masaar-black text-xs font-extrabold uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-md">
-                5% OFF
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#C9A227]/15 flex items-center justify-center text-gold border border-gold/40">
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gold bg-gold/10 px-3 py-1 rounded-full">
-                    Family Group Offer
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-bold text-masaar-black">Family Visa Application</h3>
-                <p className="text-xs text-masaar-black/70 mt-1">
-                  Apply together and enjoy a family application discount.
+                <span className="rounded-full bg-black/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-masaar-black/70">
+                  Individual Application
+                </span>
+                <h3 className="mt-4 font-semibold text-masaar-black text-lg">
+                  Individual Saudi Tourist Visa
+                </h3>
+                <p className="mt-1 text-xs text-masaar-black/60">
+                  For solo travellers applying with their own UAE residency documents.
                 </p>
 
-                <div className="h-[1px] bg-masaar-black/10 my-6" />
+                <div className="mt-5 border-b border-black/5 pb-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-masaar-black/70">Approved Rate</span>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                      Fixed Price
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="font-[family-name:var(--font-display)] text-4xl font-bold text-masaar-black">
+                      AED 750
+                    </span>
+                    <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
+                  </div>
+                  <p className="mt-2 rounded-md bg-warm-ivory px-2.5 py-1 text-[11px] font-medium text-masaar-black/75 border border-black/5">
+                    💳 Or 4 interest-free payments of AED 187.50 with Tabby
+                  </p>
+                </div>
 
-                <ul className="space-y-3 text-xs text-masaar-black/80 mb-6">
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>Minimum 3 applicants in one application</span>
+                <ul className="mt-5 space-y-2.5 text-xs text-masaar-black/80">
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>1 Year validity with multiple entries</span>
                   </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>5% discount applied per applicant</span>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Up to 90 days stay per visit</span>
                   </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>All applicants included in the same application</span>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Valid for Tourism & Umrah</span>
                   </li>
-                  <li className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                    <span>Each applicant independently meets eligibility</span>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Fast 2-3 working days processing</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Dedicated visa specialist review</span>
                   </li>
                 </ul>
-
-                {/* Price Example Box */}
-                <div className="bg-warm-ivory/60 border border-gold/30 rounded-2xl p-4 text-xs space-y-2">
-                  <span className="font-bold text-[11px] uppercase tracking-wider text-masaar-black/80 block">
-                    Price Example
-                  </span>
-                  <div className="flex justify-between items-center text-masaar-black/80">
-                    <span>3 Applicants:</span>
-                    <span className="line-through text-masaar-black/50">AED 2,250</span>
-                    <span className="font-bold text-gold">AED 2,137.50 (5% OFF)</span>
-                  </div>
-                  <div className="flex justify-between items-center text-masaar-black/80">
-                    <span>4 Applicants:</span>
-                    <span className="line-through text-masaar-black/50">AED 3,000</span>
-                    <span className="font-bold text-gold">AED 2,850.00 (5% OFF)</span>
-                  </div>
-                </div>
               </div>
 
-              <div className="pt-8 space-y-3">
+              <div className="mt-8 pt-4">
                 <button
-                  type="button"
-                  onClick={handleSelectFamily}
-                  className="w-full bg-[#C9A227] hover:bg-[#b58f1e] text-masaar-black font-bold text-xs uppercase tracking-wider py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md group"
+                  onClick={() => {
+                    handleSelectIndividual();
+                    scrollToSection("apply-flow");
+                  }}
+                  className="inline-flex w-full items-center justify-center rounded-md bg-masaar-black py-3.5 px-4 text-xs font-semibold text-white shadow transition-all hover:bg-black/90 active:scale-95 cursor-pointer"
                 >
-                  <span>Apply as a Family</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  Apply Individual (AED 750) →
                 </button>
-                <a
-                  href={familyWhatsAppUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full block text-center text-xs font-semibold text-masaar-black/70 hover:text-gold transition-colors py-1"
+              </div>
+            </div>
+
+            {/* Family Card */}
+            <div
+              className={`relative flex flex-col justify-between rounded-xl border bg-white p-7 shadow-sm transition-all hover:shadow-md ${
+                applicationType === "family"
+                  ? "border-pure-gold ring-2 ring-pure-gold/40"
+                  : "border-black/10"
+              }`}
+            >
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pure-gold px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-masaar-black shadow-sm">
+                5% Family Discount (3+ Applicants)
+              </span>
+
+              <div>
+                <span className="rounded-full bg-pure-gold/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-deep-gold">
+                  Family & Group Application
+                </span>
+                <h3 className="mt-4 font-semibold text-masaar-black text-lg">
+                  Family Saudi Tourist Visa
+                </h3>
+                <p className="mt-1 text-xs text-masaar-black/60">
+                  Apply together for 3 or more travellers and save 5% on each applicant.
+                </p>
+
+                <div className="mt-5 border-b border-black/5 pb-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-masaar-black/70">Discounted Rate</span>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                      Save 5%
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="font-[family-name:var(--font-display)] text-4xl font-bold text-masaar-black">
+                      AED 712.50
+                    </span>
+                    <span className="text-xs text-masaar-black/60 font-medium">/ applicant (effective)</span>
+                  </div>
+                  <p className="mt-2 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-900 border border-emerald-200">
+                    🏷️ 3 Applicants: AED 2,137.50 total (Save AED 112.50)
+                  </p>
+                </div>
+
+                <ul className="mt-5 space-y-2.5 text-xs text-masaar-black/80">
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>All 1-Year Multiple Entry benefits included</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Automatic 5% discount for 3 or more travellers</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Single consolidated tracking reference number</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>Dedicated family documentation review coordinator</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-pure-gold/20 text-deep-gold">
+                      ✓
+                    </span>
+                    <span>One unified checkout and payment</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-8 pt-4">
+                <button
+                  onClick={() => {
+                    handleSelectFamily();
+                    scrollToSection("apply-flow");
+                  }}
+                  className="inline-flex w-full items-center justify-center rounded-md bg-pure-gold py-3.5 px-4 text-xs font-semibold text-masaar-black shadow transition-all hover:bg-light-gold active:scale-95 cursor-pointer"
                 >
-                  Enquire about family discount on WhatsApp
-                </a>
+                  Apply as Family (Save 5%) →
+                </button>
               </div>
             </div>
           </div>
-        </div>
+
+          {/* Price & Eligibility Notice matching Image 2 */}
+          <div className="mt-12 rounded-xl border border-pure-gold/30 bg-warm-ivory p-5 sm:p-6 max-w-4xl mx-auto">
+            <div className="flex items-start gap-4">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-deep-gold shadow-sm">
+                <AlertCircle className="size-5" />
+              </span>
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-deep-gold">
+                  Price & Eligibility Notice
+                </h4>
+                <p className="mt-1 text-xs leading-relaxed text-masaar-black/75">
+                  This service is exclusively available for UAE residents holding Indian or Pakistani passports (with minimum 3 months UAE residence and 6 months passport validity). Transparent fees are shown before checkout. Other nationalities can submit for manual verification.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Container>
       </section>
 
       {/* ─────────────────────────────────────────────────────────
-          SECTION 4 — A SIMPLE APPLICATION PROCESS (6-STEP TIMELINE)
+          6. INTERACTIVE APPLICATION FORM (#apply-flow)
+          (Housed in a luxury Masaar card container)
       ───────────────────────────────────────────────────────── */}
-      <section className="py-14 bg-white border-y border-masaar-black/5">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-masaar-black font-sans">
-              A Simple Application Process
-            </h2>
-            <div className="w-16 h-1 bg-gold mx-auto mt-3 rounded-full" />
-          </div>
-
-          {/* 6 Step Circles */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-6 relative">
-            {[
-              { num: 1, title: "1. Check Eligibility", icon: CheckCircle2 },
-              { num: 2, title: "2. Choose Application Type", icon: Users },
-              { num: 3, title: "3. Enter Applicant Details", icon: User },
-              { num: 4, title: "4. Upload Documents", icon: Upload },
-              { num: 5, title: "5. Make Payment", icon: CreditCard },
-              { num: 6, title: "6. Get Confirmation", icon: Check },
-            ].map((step, idx) => {
-              const Icon = step.icon;
-              return (
-                <div key={step.num} className="flex flex-col items-center text-center group">
-                  <div className="w-14 h-14 rounded-full bg-warm-ivory border-2 border-gold/40 flex items-center justify-center text-gold mb-3 transition-transform group-hover:scale-105 shadow-sm">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <span className="text-xs font-bold text-masaar-black leading-tight max-w-[120px]">
-                    {step.title}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────
-          SECTION 5 — NEED ASSISTANCE BANNER
-      ───────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="relative rounded-3xl overflow-hidden border border-gold/30 shadow-xl bg-masaar-black text-white">
-          <Image
-            src="/brand/saudi-visa-madinah-banner.jpg"
-            alt="Prophet's Mosque in Madinah"
-            fill
-            className="object-cover opacity-35"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-masaar-black/90 via-masaar-black/75 to-transparent" />
-
-          <div className="relative z-10 p-8 sm:p-12 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center md:text-left">
-              <h3 className="text-2xl sm:text-3xl font-extrabold font-sans text-white">
-                Need Assistance?
-              </h3>
-              <p className="text-xs sm:text-sm text-warm-ivory/80 max-w-lg">
-                Speak directly with Masaar's visa team for eligibility, documents or application support.
+      <section id="apply-flow" className="scroll-mt-16 py-16 sm:py-20 bg-warm-ivory/40 border-y border-black/5">
+        <Container>
+          <div className="mx-auto max-w-3xl">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-deep-gold">
+                Online Application Portal
+              </p>
+              <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
+                {applicationType === "family"
+                  ? `Family Visa Application (${applicantCount} Travellers)`
+                  : "Individual Visa Application"}
+              </h2>
+              <p className="mt-1 text-xs text-masaar-black/60">
+                Complete your application details below in 4 easy steps.
               </p>
             </div>
 
-            <a
-              href={heroWhatsAppUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2.5 bg-white text-masaar-black hover:bg-gold transition-all font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-lg flex-shrink-0"
-            >
-              <MessageCircle className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-              <span>Enquire on WhatsApp</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────
-          SECTION 6 — SHARED MULTI-STEP VISA APPLICATION SYSTEM
-      ───────────────────────────────────────────────────────── */}
-      <section id="apply-flow" className="py-16 bg-white border-t border-masaar-black/10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <span className="text-xs font-bold uppercase tracking-widest text-gold block">
-              Application Portal
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-masaar-black font-sans mt-1">
-              {applicationType === "family" ? "Family Visa Application" : "Individual Visa Application"}
-            </h2>
-            <p className="text-xs text-masaar-black/60 mt-1">
-              Complete your application in 6 structured steps with secure verification.
-            </p>
-          </div>
-
-          {/* Stepper Progress Bar */}
-          <div className="flex items-center justify-between mb-10 overflow-x-auto pb-2">
-            {[
-              { step: 1, label: "Type" },
-              { step: 2, label: "Eligibility" },
-              { step: 3, label: "Details" },
-              { step: 4, label: "Documents" },
-              { step: 5, label: "Pricing" },
-              { step: 6, label: "Payment" },
-            ].map((s) => (
-              <button
-                key={s.step}
-                type="button"
-                onClick={() => setCurrentStep(s.step)}
-                className="flex items-center gap-2 group flex-shrink-0"
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                    currentStep === s.step
-                      ? "bg-masaar-black text-gold ring-2 ring-gold"
-                      : currentStep > s.step
-                      ? "bg-gold text-masaar-black"
-                      : "bg-warm-ivory text-masaar-black/50 border border-masaar-black/15"
+            {/* Step Progress Pills */}
+            <div className="mb-8 grid grid-cols-4 gap-2 text-center text-xs">
+              {[
+                { num: 1, label: "Eligibility" },
+                { num: 2, label: "Plan & Travellers" },
+                { num: 3, label: "Documents" },
+                { num: 4, label: "Payment" },
+              ].map((s) => (
+                <button
+                  key={s.num}
+                  type="button"
+                  onClick={() => s.num < currentStep && setCurrentStep(s.num)}
+                  className={`rounded-lg py-2.5 px-2 transition-all cursor-pointer ${
+                    currentStep === s.num
+                      ? "bg-masaar-black text-white font-bold shadow-sm"
+                      : currentStep > s.num
+                      ? "bg-pure-gold/20 text-deep-gold font-semibold"
+                      : "bg-white text-masaar-black/40 border border-black/5"
                   }`}
                 >
-                  {currentStep > s.step ? <Check className="w-4 h-4" /> : s.step}
-                </div>
-                <span
-                  className={`text-xs font-semibold hidden sm:inline ${
-                    currentStep === s.step ? "text-masaar-black font-bold" : "text-masaar-black/50"
-                  }`}
-                >
-                  {s.label}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Error Banner */}
-          {submissionError && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500 mt-0.5" />
-              <div>
-                <strong className="font-bold block">Please review the following:</strong>
-                <p>{submissionError}</p>
-              </div>
+                  <span className="block text-[11px] font-mono">Step {s.num}</span>
+                  <span className="truncate block font-medium">{s.label}</span>
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Step Container Box */}
-          <div className="bg-warm-ivory/30 border border-masaar-black/10 rounded-3xl p-6 sm:p-10 shadow-sm">
-            {/* ── STEP 1: APPLICATION TYPE ── */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-bold text-masaar-black flex items-center gap-2">
-                  <Users className="w-5 h-5 text-gold" />
-                  Step 1: Select Your Application Type
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Individual Option */}
-                  <div
-                    onClick={() => {
-                      setApplicationType("individual");
-                      setApplicantCount(1);
-                      setApplicants((prev) => [prev[0] || { ...EMPTY_APPLICANT, nationality: eligibilityNationality }]);
-                    }}
-                    className={`cursor-pointer p-5 rounded-2xl border-2 transition-all ${
-                      applicationType === "individual"
-                        ? "border-masaar-black bg-white shadow-md ring-2 ring-gold/30"
-                        : "border-masaar-black/10 bg-white/60 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm text-masaar-black">Individual Application</span>
-                      <span className="text-xs font-bold text-gold">AED 750</span>
-                    </div>
-                    <p className="text-xs text-masaar-black/60">
-                      Standard application for 1 traveller.
-                    </p>
-                  </div>
-
-                  {/* Family Option */}
-                  <div
-                    onClick={() => {
-                      setApplicationType("family");
-                      if (applicantCount < 3) {
-                        handleUpdateFamilyCount(3);
-                      }
-                    }}
-                    className={`cursor-pointer p-5 rounded-2xl border-2 relative transition-all ${
-                      applicationType === "family"
-                        ? "border-gold bg-white shadow-md ring-2 ring-gold/30"
-                        : "border-masaar-black/10 bg-white/60 hover:bg-white"
-                    }`}
-                  >
-                    <div className="absolute -top-2.5 right-4 bg-gold text-masaar-black text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
-                      5% OFF
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm text-masaar-black">Family Application</span>
-                      <span className="text-xs font-bold text-gold">5% Discount</span>
-                    </div>
-                    <p className="text-xs text-masaar-black/60">
-                      Minimum 3 applicants required to unlock discount.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Family Counter Controls */}
-                {applicationType === "family" && (
-                  <div className="bg-white p-5 rounded-2xl border border-gold/30 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-xs uppercase text-masaar-black block">
-                          Number of Family Applicants
-                        </span>
-                        <span className="text-[11px] text-masaar-black/60">
-                          Minimum 3 applicants in one application
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateFamilyCount(applicantCount - 1)}
-                          disabled={applicantCount <= 3}
-                          className="w-9 h-9 rounded-xl border border-masaar-black/20 flex items-center justify-center text-masaar-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-warm-ivory"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-
-                        <span className="text-lg font-bold text-masaar-black w-6 text-center">
-                          {applicantCount}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateFamilyCount(applicantCount + 1)}
-                          className="w-9 h-9 rounded-xl border border-masaar-black/20 flex items-center justify-center text-masaar-black hover:bg-warm-ivory"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Live Price Preview */}
-                    <div className="border-t border-masaar-black/10 pt-3 flex items-center justify-between text-xs">
-                      <span className="text-masaar-black/70">Calculated Family Total:</span>
-                      <div className="text-right">
-                        <span className="line-through text-masaar-black/40 mr-2">
-                          AED {pricing.originalTotal}
-                        </span>
-                        <span className="font-extrabold text-gold text-base">
-                          AED {pricing.finalPayableAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-end pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(2)}
-                    className="bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl flex items-center gap-2"
-                  >
-                    <span>Proceed to Eligibility Check</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
+            {/* Submission Error Banner */}
+            {submissionError && (
+              <div className="mb-6 rounded-lg bg-rose-50 border border-rose-200 p-4 text-xs text-rose-800 flex items-start gap-3">
+                <AlertCircle className="size-5 shrink-0 text-rose-600 mt-0.5" />
+                <p className="flex-1">{submissionError}</p>
               </div>
             )}
 
-            {/* ── STEP 2: ELIGIBILITY CHECK ── */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-bold text-masaar-black flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-gold" />
-                  Step 2: Eligibility Verification
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Nationality */}
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-masaar-black/80 block mb-1.5">
-                      Passport Nationality
-                    </label>
-                    <select
-                      value={eligibilityNationality}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEligibilityNationality(val);
-                        setApplicants((prev) => prev.map((a) => ({ ...a, nationality: val })));
-                      }}
-                      className="w-full bg-white border border-masaar-black/20 rounded-xl px-4 py-3 text-xs font-medium text-masaar-black focus:outline-none focus:border-gold"
-                    >
-                      <option value="India">Indian Passport (Approved)</option>
-                      <option value="Pakistan">Pakistani Passport (Approved)</option>
-                      <option value="Other">Other Nationality (Manual Review)</option>
-                    </select>
-                  </div>
-
-                  {/* UAE Residency */}
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-masaar-black/80 block mb-1.5">
-                      Current Residence
-                    </label>
-                    <select
-                      value={isUaeResident ? "yes" : "no"}
-                      onChange={(e) => setIsUaeResident(e.target.value === "yes")}
-                      className="w-full bg-white border border-masaar-black/20 rounded-xl px-4 py-3 text-xs font-medium text-masaar-black focus:outline-none focus:border-gold"
-                    >
-                      <option value="yes">UAE Resident (Holds Valid Residence Visa)</option>
-                      <option value="no">Non-UAE Resident</option>
-                    </select>
-                  </div>
-
-                  {/* Travel Purpose */}
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-masaar-black/80 block mb-1.5">
-                      Purpose of Travel
-                    </label>
-                    <select
-                      value={travelPurpose}
-                      onChange={(e) => setTravelPurpose(e.target.value)}
-                      className="w-full bg-white border border-masaar-black/20 rounded-xl px-4 py-3 text-xs font-medium text-masaar-black focus:outline-none focus:border-gold"
-                    >
-                      <option value="Umrah">Umrah & Tourism</option>
-                      <option value="Tourism">Leisure / Tourism</option>
-                      <option value="Family Visit">Visiting Family / Relatives</option>
-                    </select>
-                  </div>
-
-                  {/* Intended Travel Date */}
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-masaar-black/80 block mb-1.5">
-                      Intended Travel Date
-                    </label>
-                    <input
-                      type="date"
-                      value={travelDate}
-                      onChange={(e) => setTravelDate(e.target.value)}
-                      className="w-full bg-white border border-masaar-black/20 rounded-xl px-4 py-3 text-xs font-medium text-masaar-black focus:outline-none focus:border-gold"
-                    />
-                  </div>
-                </div>
-
-                {/* Validity Confirmations */}
-                <div className="bg-white p-4 rounded-xl border border-masaar-black/10 space-y-3">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={passportValidMonths}
-                      onChange={(e) => setPassportValidMonths(e.target.checked)}
-                      className="mt-0.5 rounded text-gold focus:ring-gold"
-                    />
-                    <span className="text-xs text-masaar-black/80">
-                      Passport has at least <strong>6 months remaining validity</strong> from intended date of entry.
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={residenceValidMonths}
-                      onChange={(e) => setResidenceValidMonths(e.target.checked)}
-                      className="mt-0.5 rounded text-gold focus:ring-gold"
-                    />
-                    <span className="text-xs text-masaar-black/80">
-                      UAE Residence Visa has at least <strong>3 months remaining validity</strong>.
-                    </span>
-                  </label>
-                </div>
-
-                {/* Nationality Warning / Manual Verification Option */}
-                {!isEligibleNationality && (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-xs text-amber-800 space-y-2">
-                    <div className="flex items-start gap-2 font-bold">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600 mt-0.5" />
-                      <span>Manual Eligibility Verification Option</span>
-                    </div>
-                    <p>
-                      Your nationality ({eligibilityNationality}) requires manual verification by our visa processing team. You can enquire directly on WhatsApp for guidance, or proceed with your application for review.
+            {/* Card Form Wrapper */}
+            <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-10 shadow-sm">
+              {/* STEP 1: ELIGIBILITY CHECK */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <div className="border-b border-black/5 pb-4">
+                    <h3 className="font-semibold text-masaar-black text-base">
+                      Step 1: Verify Your Eligibility
+                    </h3>
+                    <p className="text-xs text-masaar-black/60 mt-0.5">
+                      Confirm passport and UAE residency requirements before proceeding.
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 pt-1">
-                      <a
-                        href={heroWhatsAppUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 font-bold text-amber-900 bg-amber-200/60 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Enquire on WhatsApp</span>
-                      </a>
-                    </div>
                   </div>
-                )}
 
-                <div className="flex justify-between pt-4 border-t border-masaar-black/10">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black"
-                  >
-                    Back to Step 1
-                  </button>
+                  {/* Nationality selector */}
+                  <div>
+                    <label className="block text-xs font-semibold text-masaar-black mb-2">
+                      Applicant Passport Nationality
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {["India", "Pakistan", "Other"].map((nat) => (
+                        <button
+                          key={nat}
+                          type="button"
+                          onClick={() => {
+                            setEligibilityNationality(nat);
+                            trackMetaPixel("EligibilityCheck", { nationality: nat });
+                          }}
+                          className={`rounded-lg border p-3 text-xs font-semibold transition-all cursor-pointer ${
+                            eligibilityNationality === nat
+                              ? "border-pure-gold bg-pure-gold/15 text-masaar-black ring-1 ring-pure-gold"
+                              : "border-black/10 bg-white text-masaar-black/70 hover:border-black/30"
+                          }`}
+                        >
+                          {nat === "India" ? "🇮🇳 Indian" : nat === "Pakistan" ? "🇵🇰 Pakistani" : "🌍 Other"}
+                        </button>
+                      ))}
+                    </div>
 
-                  <button
-                    type="button"
-                    disabled={!isUaeResident || !passportValidMonths || !residenceValidMonths}
-                    onClick={() => {
-                      trackMetaPixel("EligibilityCheck", {
-                        nationality: eligibilityNationality,
-                        eligible: isEligibleNationality,
-                        manual_review: !isEligibleNationality,
-                      });
-                      setCurrentStep(3);
-                    }}
-                    className="bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <span>{isEligibleNationality ? "Confirm & Enter Details" : "Proceed with Manual Review"}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+                    {eligibilityNationality === "Other" && (
+                      <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                        <p className="font-bold">Manual Verification Option:</p>
+                        <p className="mt-1 text-[11px] text-amber-800">
+                          Non-Indian/Pakistani nationalities require manual desk evaluation. You may submit your application for review, or message our specialist directly.
+                        </p>
+                        <a
+                          href={heroWhatsAppUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 underline"
+                        >
+                          Chat on WhatsApp for instant evaluation →
+                        </a>
+                      </div>
+                    )}
+                  </div>
 
-            {/* ── STEP 3: APPLICANT DETAILS ── */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-masaar-black flex items-center gap-2">
-                    <User className="w-5 h-5 text-gold" />
-                    Step 3: Applicant Details ({applicants.length} Total)
-                  </h3>
-                </div>
+                  {/* UAE Residency checklist */}
+                  <div className="space-y-3 pt-2">
+                    <label className="flex items-start gap-3 rounded-lg border border-black/10 p-3.5 hover:bg-neutral-50/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isUaeResident}
+                        onChange={(e) => setIsUaeResident(e.target.checked)}
+                        className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
+                      />
+                      <div className="text-xs">
+                        <p className="font-semibold text-masaar-black">Currently Residing in the UAE</p>
+                        <p className="text-masaar-black/60 text-[11px]">Hold a valid UAE residency status with Emirates ID.</p>
+                      </div>
+                    </label>
 
-                {/* Primary Contact Information */}
-                <div className="bg-white p-5 rounded-2xl border border-masaar-black/10 space-y-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-masaar-black block">
-                    Primary Contact Information (For Visa Delivery & Updates)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="flex items-start gap-3 rounded-lg border border-black/10 p-3.5 hover:bg-neutral-50/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={residenceValidMonths}
+                        onChange={(e) => setResidenceValidMonths(e.target.checked)}
+                        className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
+                      />
+                      <div className="text-xs">
+                        <p className="font-semibold text-masaar-black">UAE Residence & Emirates ID Validity (3+ Months)</p>
+                        <p className="text-masaar-black/60 text-[11px]">Both documents must have at least 3 months validity from today.</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 rounded-lg border border-black/10 p-3.5 hover:bg-neutral-50/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={passportValidMonths}
+                        onChange={(e) => setPassportValidMonths(e.target.checked)}
+                        className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
+                      />
+                      <div className="text-xs">
+                        <p className="font-semibold text-masaar-black">Passport Validity (6+ Months)</p>
+                        <p className="text-masaar-black/60 text-[11px]">Original passport must have at least 6 months validity from intended travel.</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Travel details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                     <div>
-                      <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                        Email Address *
+                      <label className="block text-xs font-semibold text-masaar-black mb-1">
+                        Purpose of Travel
+                      </label>
+                      <select
+                        value={travelPurpose}
+                        onChange={(e) => setTravelPurpose(e.target.value)}
+                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      >
+                        <option value="Umrah">Umrah Pilgrimage</option>
+                        <option value="Tourism">Tourism & Sightseeing</option>
+                        <option value="Family Visit">Visiting Family / Friends</option>
+                        <option value="Business">Business / Conference</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black mb-1">
+                        Intended Travel Date
+                      </label>
+                      <input
+                        type="date"
+                        value={travelDate}
+                        onChange={(e) => setTravelDate(e.target.value)}
+                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={!isUaeResident || !passportValidMonths || !residenceValidMonths}
+                      onClick={() => setCurrentStep(2)}
+                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-3 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold disabled:opacity-50 cursor-pointer"
+                    >
+                      Continue to Step 2 →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: CHOOSE APPLICATION OPTION & APPLICANTS COUNT */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <div className="border-b border-black/5 pb-4">
+                    <h3 className="font-semibold text-masaar-black text-base">
+                      Step 2: Select Application Option
+                    </h3>
+                    <p className="text-xs text-masaar-black/60 mt-0.5">
+                      Choose individual or family application. Applying for 3 or more travellers automatically applies a 5% discount.
+                    </p>
+                  </div>
+
+                  {/* Type buttons */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={handleSelectIndividual}
+                      className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                        applicationType === "individual"
+                          ? "border-pure-gold bg-pure-gold/15 ring-2 ring-pure-gold/30"
+                          : "border-black/10 hover:border-black/30"
+                      }`}
+                    >
+                      <User className="size-5 text-deep-gold mb-2" />
+                      <p className="text-xs font-bold text-masaar-black">Individual</p>
+                      <p className="text-[11px] text-masaar-black/60 mt-0.5">1 Applicant · AED 750</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSelectFamily}
+                      className={`relative rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                        applicationType === "family"
+                          ? "border-pure-gold bg-pure-gold/15 ring-2 ring-pure-gold/30"
+                          : "border-black/10 hover:border-black/30"
+                      }`}
+                    >
+                      <span className="absolute -top-2 right-2 rounded-full bg-pure-gold px-2 py-0.5 text-[9px] font-bold uppercase text-masaar-black">
+                        Save 5%
+                      </span>
+                      <Users className="size-5 text-deep-gold mb-2" />
+                      <p className="text-xs font-bold text-masaar-black">Family / Group</p>
+                      <p className="text-[11px] text-masaar-black/60 mt-0.5">3+ Travellers · 5% Discount</p>
+                    </button>
+                  </div>
+
+                  {/* Family applicant count stepper */}
+                  {applicationType === "family" && (
+                    <div className="rounded-xl border border-pure-gold/30 bg-warm-ivory/60 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-masaar-black">Number of Travellers</p>
+                          <p className="text-[11px] text-masaar-black/60">Minimum 3 applicants for family discount</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFamilyCount(applicantCount - 1)}
+                            disabled={applicantCount <= 3}
+                            className="size-8 rounded-full border border-black/20 bg-white flex items-center justify-center text-masaar-black disabled:opacity-30 cursor-pointer"
+                          >
+                            <Minus className="size-3.5" />
+                          </button>
+                          <span className="font-bold text-sm w-4 text-center">{applicantCount}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFamilyCount(applicantCount + 1)}
+                            disabled={applicantCount >= 10}
+                            className="size-8 rounded-full border border-black/20 bg-white flex items-center justify-center text-masaar-black disabled:opacity-30 cursor-pointer"
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 border-t border-black/10 pt-3 flex items-center justify-between text-xs">
+                        <span className="text-masaar-black/70">5% Family Discount:</span>
+                        <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          -AED {pricing.discountAmount.toFixed(2)} applied
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live Price Summary Bar */}
+                  <div className="rounded-xl bg-neutral-50 p-4 border border-black/5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] text-masaar-black/60 uppercase tracking-wider font-semibold">
+                        Payable Amount ({effectiveCount} {effectiveCount === 1 ? "Applicant" : "Applicants"})
+                      </p>
+                      <p className="text-xl font-bold font-[family-name:var(--font-display)] text-masaar-black">
+                        AED {pricing.finalPayableAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    {pricing.discountAmount > 0 && (
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                        You save AED {pricing.discountAmount.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pt-4 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-2.5 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold cursor-pointer"
+                    >
+                      Continue to Documents →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: TRAVELLER DETAILS & DOCUMENT UPLOAD */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="border-b border-black/5 pb-4">
+                    <h3 className="font-semibold text-masaar-black text-base">
+                      Step 3: Traveller Details & Documents
+                    </h3>
+                    <p className="text-xs text-masaar-black/60 mt-0.5">
+                      Enter passport data and upload clear copies of passport, UAE residence visa, and Emirates ID.
+                    </p>
+                  </div>
+
+                  {/* Primary contact */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl bg-warm-ivory/50 p-4 border border-black/5">
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black mb-1">
+                        Primary Contact Email *
                       </label>
                       <input
                         type="email"
                         required
-                        placeholder="e.g. name@example.com"
                         value={contactEmail}
                         onChange={(e) => setContactEmail(e.target.value)}
-                        className="w-full bg-warm-ivory/30 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
+                        placeholder="you@email.com"
+                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
+                      <label className="block text-xs font-semibold text-masaar-black mb-1">
                         UAE Mobile Number (WhatsApp) *
                       </label>
                       <input
                         type="tel"
                         required
-                        placeholder="e.g. +971 50 123 4567"
                         value={contactPhone}
                         onChange={(e) => setContactPhone(e.target.value)}
-                        className="w-full bg-warm-ivory/30 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
+                        placeholder="+971 50 123 4567"
+                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Applicant Tabs for Family */}
-                {applicants.length > 1 && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    {applicants.map((_, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setActiveApplicantIndex(idx)}
-                        className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
-                          activeApplicantIndex === idx
-                            ? "bg-masaar-black text-gold border border-gold"
-                            : "bg-white text-masaar-black/70 border border-masaar-black/10 hover:bg-warm-ivory"
-                        }`}
-                      >
-                        {idx === 0 ? "Applicant 1 (Primary)" : `Applicant ${idx + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Current Active Applicant Form */}
-                {(() => {
-                  const currentApp = applicants[activeApplicantIndex] || EMPTY_APPLICANT;
-                  return (
-                    <div className="bg-white p-6 rounded-2xl border border-masaar-black/10 space-y-4">
-                      <div className="flex items-center justify-between pb-2 border-b border-masaar-black/5">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gold">
-                          {activeApplicantIndex === 0
-                            ? "Applicant 1 — Primary Applicant"
-                            : `Applicant ${activeApplicantIndex + 1} — Family Member`}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Full Name (Exactly as shown on Passport) *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. MOHAMMED AHMED ALI"
-                            value={currentApp.fullName}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "fullName", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Date of Birth *
-                          </label>
-                          <input
-                            type="date"
-                            required
-                            value={currentApp.dateOfBirth}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "dateOfBirth", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Gender *
-                          </label>
-                          <select
-                            value={currentApp.gender}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "gender", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          >
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Passport Nationality *
-                          </label>
-                          <select
-                            value={currentApp.nationality}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "nationality", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          >
-                            <option value="India">India</option>
-                            <option value="Pakistan">Pakistan</option>
-                            <option value="Other">Other (Requires Manual Review)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Passport Number *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Z1234567"
-                            value={currentApp.passportNumber}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "passportNumber", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold uppercase"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Passport Expiry Date * (Min. 6 Months Validity)
-                          </label>
-                          <input
-                            type="date"
-                            required
-                            value={currentApp.passportExpiryDate}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "passportExpiryDate", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            UAE Residence Permit Expiry Date * (Min. 3 Months Validity)
-                          </label>
-                          <input
-                            type="date"
-                            required
-                            value={currentApp.residenceExpiryDate}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "residenceExpiryDate", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Emirates ID Expiry Date *
-                          </label>
-                          <input
-                            type="date"
-                            required
-                            value={currentApp.emiratesIdExpiryDate}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "emiratesIdExpiryDate", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-masaar-black/70 block mb-1">
-                            Emirates ID Number (e.g. 784-1990-1234567-1)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="784-XXXX-XXXXXXX-X"
-                            value={currentApp.emiratesIdNumber}
-                            onChange={(e) =>
-                              handleApplicantChange(activeApplicantIndex, "emiratesIdNumber", e.target.value)
-                            }
-                            className="w-full bg-warm-ivory/20 border border-masaar-black/20 rounded-xl px-4 py-2.5 text-xs text-masaar-black focus:outline-none focus:border-gold"
-                          />
-                        </div>
-
-                        {/* Individual applicant validation notice */}
-                        {(() => {
-                          const val = validateApplicantEligibility(currentApp);
-                          if (!val.eligible) {
-                            return (
-                              <div className="sm:col-span-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl">
-                                <strong>Applicant #{activeApplicantIndex + 1} requirement:</strong> {val.issues.join("; ")}
-                              </div>
-                            );
-                          }
-                          if (val.manualReviewRequired) {
-                            return (
-                              <div className="sm:col-span-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center gap-2">
-                                <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                                <span>Applicant #{activeApplicantIndex + 1}'s nationality will undergo manual eligibility review by our processing team.</span>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
+                  {/* Traveller tabs (if multi) */}
+                  {applicants.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                      {applicants.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setActiveApplicantIndex(idx)}
+                          className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                            activeApplicantIndex === idx
+                              ? "bg-masaar-black text-white shadow-xs"
+                              : "bg-neutral-100 text-masaar-black/70 hover:bg-neutral-200"
+                          }`}
+                        >
+                          Traveller {idx + 1} {idx === 0 ? "(Lead)" : ""}
+                        </button>
+                      ))}
                     </div>
-                  );
-                })()}
+                  )}
 
-                <div className="flex justify-between pt-4 border-t border-masaar-black/10">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(2)}
-                    className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black"
-                  >
-                    Back to Eligibility
-                  </button>
+                  {/* Active traveller inputs */}
+                  {applicants[activeApplicantIndex] && (() => {
+                    const app = applicants[activeApplicantIndex];
+                    const idx = activeApplicantIndex;
+                    const passDoc = uploadedDocs.find((d) => d.applicantIndex === idx && d.documentType === "passport");
+                    const photoDoc = uploadedDocs.find((d) => d.applicantIndex === idx && d.documentType === "photo");
+                    const eidDoc = uploadedDocs.find((d) => d.applicantIndex === idx && d.documentType === "emirates_id");
 
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(4)}
-                    className="bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl flex items-center gap-2"
-                  >
-                    <span>Proceed to Document Upload</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+                    return (
+                      <div className="space-y-4 rounded-xl border border-black/10 p-4">
+                        <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                          <span className="text-xs font-bold text-masaar-black">
+                            Traveller {idx + 1} Personal Information
+                          </span>
+                          <span className="text-[11px] text-masaar-black/50">
+                            Must match passport bio page exactly
+                          </span>
+                        </div>
 
-            {/* ── STEP 4: DOCUMENT UPLOAD ── */}
-            {currentStep === 4 && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-masaar-black flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-gold" />
-                    Step 4: Secure Document Upload
-                  </h3>
-                  <span className="text-xs text-masaar-black/60">PDF, JPG, JPEG, PNG (Max 5MB)</span>
-                </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Full Name (As on Passport) *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={app.fullName}
+                              onChange={(e) => handleApplicantChange(idx, "fullName", e.target.value)}
+                              placeholder="e.g. MOHAMMED AHMAD"
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
+                            />
+                          </div>
 
-                <div className="bg-gold/10 border border-gold/30 rounded-xl p-3.5 text-xs text-masaar-black/80 flex items-start gap-2.5">
-                  <Lock className="w-4 h-4 text-gold flex-shrink-0 mt-0.5" />
-                  <span>
-                    Your documents are encrypted and uploaded directly to secure private storage. They will only be accessed by authorized Masaar visa specialists.
-                  </span>
-                </div>
-
-                {/* Upload Slots For Each Applicant */}
-                <div className="space-y-6">
-                  {applicants.map((app, appIdx) => (
-                    <div key={appIdx} className="bg-white p-5 rounded-2xl border border-masaar-black/10 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-gold text-masaar-black text-xs font-bold flex items-center justify-center">
-                          {appIdx + 1}
-                        </span>
-                        <span className="font-bold text-sm text-masaar-black">
-                          {app.fullName.trim() ? app.fullName : `Applicant ${appIdx + 1}`}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {(["passport", "photo", "emirates_id"] as const).map((docType) => {
-                          const slotKey = `${appIdx}_${docType}`;
-                          const isUploading = !!uploadingSlots[slotKey];
-                          const uploaded = uploadedDocs.find(
-                            (d) => d.applicantIndex === appIdx && d.documentType === docType
-                          );
-
-                          const labelMap = {
-                            passport: "Passport Copy",
-                            photo: "Passport Size Photo",
-                            emirates_id: "Emirates ID Copy",
-                          };
-
-                          return (
-                            <div
-                              key={docType}
-                              className={`p-4 rounded-xl border-2 transition-all flex flex-col justify-between ${
-                                uploaded
-                                  ? "bg-emerald-50/60 border-emerald-300"
-                                  : "bg-warm-ivory/20 border-dashed border-masaar-black/20 hover:border-gold"
-                              }`}
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Nationality *
+                            </label>
+                            <select
+                              value={app.nationality}
+                              onChange={(e) => handleApplicantChange(idx, "nationality", e.target.value)}
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
                             >
-                              <div>
-                                <span className="text-xs font-bold text-masaar-black block mb-1">
-                                  {labelMap[docType]}
-                                </span>
-                                {uploaded ? (
-                                  <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-semibold mt-1">
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span className="truncate max-w-[130px]" title={uploaded.fileName}>
-                                      {uploaded.fileName}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-[11px] text-masaar-black/50 block">
-                                    Required document
-                                  </span>
-                                )}
-                              </div>
+                              <option value="India">India</option>
+                              <option value="Pakistan">Pakistan</option>
+                              <option value="United Kingdom">United Kingdom</option>
+                              <option value="United States">United States</option>
+                              <option value="Canada">Canada</option>
+                              <option value="Other">Other (Manual Review)</option>
+                            </select>
+                          </div>
 
-                              <div className="mt-3">
-                                <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 w-full bg-white hover:bg-warm-ivory text-masaar-black border border-masaar-black/20 text-[11px] font-bold py-2 px-3 rounded-lg shadow-sm">
-                                  <Upload className="w-3.5 h-3.5 text-gold" />
-                                  <span>{isUploading ? "Uploading..." : uploaded ? "Replace" : "Upload File"}</span>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Date of Birth *
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={app.dateOfBirth}
+                              onChange={(e) => handleApplicantChange(idx, "dateOfBirth", e.target.value)}
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Gender
+                            </label>
+                            <select
+                              value={app.gender}
+                              onChange={(e) => handleApplicantChange(idx, "gender", e.target.value)}
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                            >
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Passport Number *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={app.passportNumber}
+                              onChange={(e) => handleApplicantChange(idx, "passportNumber", e.target.value)}
+                              placeholder="e.g. Z1234567"
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs uppercase font-mono text-masaar-black focus:border-pure-gold focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Passport Expiry Date *
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={app.passportExpiryDate}
+                              onChange={(e) => handleApplicantChange(idx, "passportExpiryDate", e.target.value)}
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              UAE Residence Expiry *
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={app.residenceExpiryDate}
+                              onChange={(e) => handleApplicantChange(idx, "residenceExpiryDate", e.target.value)}
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
+                              Emirates ID Expiry Date *
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={app.emiratesIdExpiryDate}
+                              onChange={(e) => handleApplicantChange(idx, "emiratesIdExpiryDate", e.target.value)}
+                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Document Uploads for this traveller */}
+                        <div className="pt-3 border-t border-black/5">
+                          <p className="text-xs font-bold text-masaar-black mb-2">
+                            Upload Documents for Traveller {idx + 1}
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Passport */}
+                            <div className="rounded-lg border border-dashed border-black/20 p-3 text-center bg-neutral-50/50">
+                              <span className="block text-[11px] font-semibold text-masaar-black">Passport Copy</span>
+                              <span className="block text-[10px] text-masaar-black/50 mb-2">PDF / JPG (Max 10MB)</span>
+                              {passDoc ? (
+                                <p className="text-[11px] text-emerald-700 font-semibold flex items-center justify-center gap-1">
+                                  <Check className="size-3.5" /> Uploaded
+                                </p>
+                              ) : (
+                                <label className="inline-block cursor-pointer rounded bg-white border border-black/15 px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-100">
+                                  {uploadingSlots[`${idx}_passport`] ? "Uploading..." : "Select File"}
                                   <input
                                     type="file"
-                                    accept=".pdf,image/jpeg,image/png,image/webp"
-                                    disabled={isUploading}
+                                    accept=".pdf,.jpg,.jpeg,.png"
                                     className="hidden"
                                     onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) handleFileUpload(appIdx, docType, file);
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(idx, "passport", f);
                                     }}
                                   />
                                 </label>
-                              </div>
+                              )}
                             </div>
-                          );
-                        })}
+
+                            {/* Photo */}
+                            <div className="rounded-lg border border-dashed border-black/20 p-3 text-center bg-neutral-50/50">
+                              <span className="block text-[11px] font-semibold text-masaar-black">Passport Photo</span>
+                              <span className="block text-[10px] text-masaar-black/50 mb-2">White Background</span>
+                              {photoDoc ? (
+                                <p className="text-[11px] text-emerald-700 font-semibold flex items-center justify-center gap-1">
+                                  <Check className="size-3.5" /> Uploaded
+                                </p>
+                              ) : (
+                                <label className="inline-block cursor-pointer rounded bg-white border border-black/15 px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-100">
+                                  {uploadingSlots[`${idx}_photo`] ? "Uploading..." : "Select File"}
+                                  <input
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(idx, "photo", f);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+
+                            {/* Emirates ID */}
+                            <div className="rounded-lg border border-dashed border-black/20 p-3 text-center bg-neutral-50/50">
+                              <span className="block text-[11px] font-semibold text-masaar-black">Emirates ID</span>
+                              <span className="block text-[10px] text-masaar-black/50 mb-2">Front & Back</span>
+                              {eidDoc ? (
+                                <p className="text-[11px] text-emerald-700 font-semibold flex items-center justify-center gap-1">
+                                  <Check className="size-3.5" /> Uploaded
+                                </p>
+                              ) : (
+                                <label className="inline-block cursor-pointer rounded bg-white border border-black/15 px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-100">
+                                  {uploadingSlots[`${idx}_emirates_id`] ? "Uploading..." : "Select File"}
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(idx, "emirates_id", f);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                    );
+                  })()}
+
+                  <div className="pt-4 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(4)}
+                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-2.5 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold cursor-pointer"
+                    >
+                      Review & Checkout →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: REVIEW & PAYMENT */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <div className="border-b border-black/5 pb-4">
+                    <h3 className="font-semibold text-masaar-black text-base">
+                      Step 4: Review Application & Secure Checkout
+                    </h3>
+                    <p className="text-xs text-masaar-black/60 mt-0.5">
+                      Confirm order breakdown and proceed to encrypted payment processing.
+                    </p>
+                  </div>
+
+                  {/* Summary table */}
+                  <div className="rounded-xl border border-black/10 divide-y divide-black/5 text-xs">
+                    <div className="p-3.5 flex justify-between">
+                      <span className="text-masaar-black/70">Application Type</span>
+                      <span className="font-semibold text-masaar-black capitalize">{applicationType}</span>
                     </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-between pt-4 border-t border-masaar-black/10">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(3)}
-                    className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black"
-                  >
-                    Back to Applicant Details
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(5)}
-                    className="bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl flex items-center gap-2"
-                  >
-                    <span>Review Price & Terms</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 5: PRICE SUMMARY & REFUND TERMS ── */}
-            {currentStep === 5 && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-bold text-masaar-black flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-gold" />
-                  Step 5: Price Summary & Terms Acceptance
-                </h3>
-
-                {/* Price Breakdown Table */}
-                <div className="bg-white rounded-2xl p-6 border border-masaar-black/10 space-y-3">
-                  <div className="flex justify-between text-xs py-1.5 border-b border-masaar-black/5">
-                    <span className="text-masaar-black/70">Application Type</span>
-                    <span className="font-bold text-masaar-black capitalize">
-                      {pricing.applicationType} Application
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-xs py-1.5 border-b border-masaar-black/5">
-                    <span className="text-masaar-black/70">Number of Applicants</span>
-                    <span className="font-bold text-masaar-black">{pricing.applicantCount}</span>
-                  </div>
-
-                  <div className="flex justify-between text-xs py-1.5 border-b border-masaar-black/5">
-                    <span className="text-masaar-black/70">Price Per Applicant</span>
-                    <span className="font-semibold text-masaar-black">AED {pricing.pricePerApplicant}</span>
-                  </div>
-
-                  <div className="flex justify-between text-xs py-1.5 border-b border-masaar-black/5">
-                    <span className="text-masaar-black/70">Original Total</span>
-                    <span className="font-semibold text-masaar-black">AED {pricing.originalTotal}</span>
-                  </div>
-
-                  {pricing.isFamilyDiscountApplied && (
-                    <div className="flex justify-between text-xs py-1.5 border-b border-masaar-black/5 text-emerald-700 bg-emerald-50 px-3 rounded-lg">
-                      <span className="font-bold">5% Family Application Discount</span>
-                      <span className="font-bold">- AED {pricing.familyDiscountAmount.toFixed(2)}</span>
+                    <div className="p-3.5 flex justify-between">
+                      <span className="text-masaar-black/70">Number of Travellers</span>
+                      <span className="font-semibold text-masaar-black">{effectiveCount}</span>
                     </div>
-                  )}
-
-                  <div className="flex justify-between text-sm pt-2 font-bold">
-                    <span className="text-masaar-black">Final Payable Amount</span>
-                    <span className="text-gold text-lg">
-                      AED {pricing.finalPayableAmount.toFixed(2)}
-                    </span>
+                    <div className="p-3.5 flex justify-between">
+                      <span className="text-masaar-black/70">Base Price ({effectiveCount} × AED 750)</span>
+                      <span className="font-semibold text-masaar-black">AED {pricing.subtotal.toFixed(2)}</span>
+                    </div>
+                    {pricing.discountAmount > 0 && (
+                      <div className="p-3.5 flex justify-between bg-emerald-50/60 text-emerald-800">
+                        <span className="font-semibold">5% Family Discount Savings</span>
+                        <span className="font-bold">-AED {pricing.discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="p-3.5 flex justify-between bg-neutral-50 text-sm">
+                      <span className="font-bold text-masaar-black">Total Amount Payable</span>
+                      <span className="font-bold font-[family-name:var(--font-display)] text-lg text-masaar-black">
+                        AED {pricing.finalPayableAmount.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Refund Terms and Consent Checkbox */}
-                <div className="bg-gold/10 border border-gold/30 rounded-2xl p-5 space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black">
-                    Masaar Refund Assurance & Conditions
-                  </h4>
-                  <p className="text-xs text-masaar-black/70 leading-relaxed">
-                    Masaar Holidays offers refund assurance if your visa application is rejected by the authorities, subject to our published refund policy terms. Government immigration fees, where non-refundable by official decree, may be excluded.
-                  </p>
-                  <label className="flex items-start gap-3 cursor-pointer pt-2">
+                  {/* Payment option */}
+                  <div>
+                    <label className="block text-xs font-semibold text-masaar-black mb-2">
+                      Payment Method
+                    </label>
+                    <div className="rounded-xl border border-pure-gold bg-pure-gold/5 p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="size-9 rounded-lg bg-pure-gold/20 flex items-center justify-center text-deep-gold">
+                          <Lock className="size-4" />
+                        </span>
+                        <div>
+                          <p className="text-xs font-bold text-masaar-black">Credit / Debit Card (Stripe)</p>
+                          <p className="text-[11px] text-masaar-black/60">Encrypted 256-bit checkout via Visa, Mastercard, Amex</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                        Secure
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Terms acceptance */}
+                  <label className="flex items-start gap-3 pt-2 cursor-pointer">
                     <input
                       type="checkbox"
+                      required
                       checked={termsAccepted}
                       onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-0.5 rounded text-gold focus:ring-gold"
+                      className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
                     />
-                    <span className="text-xs text-masaar-black font-semibold">
-                      I have read, understood and agree to Masaar's Terms & Conditions, Refund Policy, and certify that all applicant details provided are accurate.
+                    <span className="text-[11px] text-masaar-black/75 leading-relaxed">
+                      I agree to the{" "}
+                      <Link href="/terms-conditions" target="_blank" className="font-semibold text-deep-gold underline">
+                        Terms & Conditions
+                      </Link>
+                      ,{" "}
+                      <Link href="/privacy-policy" target="_blank" className="font-semibold text-deep-gold underline">
+                        Privacy Policy
+                      </Link>
+                      , and understand that visa approval decisions rest solely with official immigration authorities.
                     </span>
                   </label>
-                </div>
 
-                <div className="flex justify-between pt-4 border-t border-masaar-black/10">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(4)}
-                    className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black"
-                  >
-                    Back to Documents
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={!termsAccepted}
-                    onClick={() => setCurrentStep(6)}
-                    className="bg-masaar-black hover:bg-masaar-black/90 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <span>Proceed to Payment</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 6: ONLINE PAYMENT ── */}
-            {currentStep === 6 && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-bold text-masaar-black flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-gold" />
-                  Step 6: Complete Online Payment (AED {pricing.finalPayableAmount.toFixed(2)})
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Stripe Card Payment */}
-                  <div
-                    onClick={() => setPaymentGateway("stripe")}
-                    className={`cursor-pointer p-5 rounded-2xl border-2 transition-all flex flex-col justify-between ${
-                      paymentGateway === "stripe"
-                        ? "border-masaar-black bg-white ring-2 ring-gold/30 shadow-md"
-                        : "border-masaar-black/10 bg-white/60 hover:bg-white"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-sm text-masaar-black">Credit / Debit Card</span>
-                        <CreditCard className="w-5 h-5 text-gold" />
-                      </div>
-                      <p className="text-xs text-masaar-black/60">
-                        Visa, Mastercard, Apple Pay, Google Pay secured by Stripe.
-                      </p>
-                    </div>
-                    <span className="text-xs font-bold text-gold mt-4 block">
-                      Pay AED {pricing.finalPayableAmount.toFixed(2)} in full
-                    </span>
-                  </div>
-
-                  {/* Tabby Pay in 4 */}
-                  <div
-                    onClick={() => {
-                      if (isTabbyAvailable) {
-                        setPaymentGateway("tabby");
-                      }
-                    }}
-                    className={`p-5 rounded-2xl border-2 transition-all flex flex-col justify-between ${
-                      !isTabbyAvailable
-                        ? "border-masaar-black/10 bg-white/40 opacity-70 cursor-not-allowed"
-                        : paymentGateway === "tabby"
-                        ? "border-emerald-600 bg-white ring-2 ring-emerald-500/20 shadow-md cursor-pointer"
-                        : "border-masaar-black/10 bg-white/60 hover:bg-white cursor-pointer"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-sm text-masaar-black">Tabby: Pay in 4</span>
-                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
-                          isTabbyAvailable ? "bg-emerald-100 text-emerald-800" : "bg-neutral-100 text-neutral-600"
-                        }`}>
-                          {isTabbyAvailable ? "Zero Interest" : "Merchant Activation Pending"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-masaar-black/60">
-                        {isTabbyAvailable
-                          ? `Split your application into 4 equal monthly installments of AED ${(pricing.finalPayableAmount / 4).toFixed(2)}.`
-                          : "Tabby Pay in 4 is awaiting merchant credentials. Please complete your application using Credit / Debit card."}
-                      </p>
-                    </div>
-                    <span className="text-xs font-bold text-emerald-700 mt-4 block">
-                      {isTabbyAvailable
-                        ? `4 × AED ${(pricing.finalPayableAmount / 4).toFixed(2)} / month`
-                        : "Available upon launch · Use card payment"}
-                    </span>
+                  <div className="pt-4 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting || !termsAccepted}
+                      onClick={handleSubmitCheckout}
+                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg hover:bg-light-gold disabled:opacity-50 cursor-pointer"
+                    >
+                      <Lock className="size-4" />
+                      {isSubmitting ? "Initiating Secure Checkout..." : `Pay AED ${pricing.finalPayableAmount.toFixed(2)} →`}
+                    </button>
                   </div>
                 </div>
-
-                {/* Submit Checkout Button */}
-                <div className="pt-4 space-y-3">
-                  <button
-                    type="button"
-                    disabled={isSubmitting || !termsAccepted}
-                    onClick={handleSubmitCheckout}
-                    className="w-full bg-[#C9A227] hover:bg-[#b58f1e] text-masaar-black font-extrabold text-sm uppercase tracking-wider py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-xl disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <span>Connecting to Secure Checkout...</span>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4" />
-                        <span>
-                          Pay AED {pricing.finalPayableAmount.toFixed(2)} & Complete Application
-                        </span>
-                      </>
-                    )}
-                  </button>
-
-                  <p className="text-center text-[11px] text-masaar-black/60">
-                    256-bit encrypted checkout. No card numbers are stored on Masaar servers.
-                  </p>
-                </div>
-
-                <div className="flex justify-between pt-4 border-t border-masaar-black/10">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(5)}
-                    className="text-xs font-semibold text-masaar-black/60 hover:text-masaar-black"
-                  >
-                    Back to Price Summary
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* ─────────────────────────────────────────────────────────
-          SECTION 7 — REFUND POLICY & PEACE OF MIND
+          7. DOCUMENTS REQUIRED SECTION (Matches Image 2)
       ───────────────────────────────────────────────────────── */}
-      <section className="py-16 bg-warm-ivory border-t border-masaar-black/5">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-3xl p-8 sm:p-10 border border-gold/30 shadow-lg space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gold/15 flex items-center justify-center text-gold">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-gold block">
-                  Trust & Transparency
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold text-masaar-black font-sans">
-                  Apply With Added Peace of Mind.
-                </h3>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-masaar-black/80 leading-relaxed">
-              Masaar Holidays offers a refund assurance if your Saudi visa application is rejected, subject to the published terms and conditions.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-masaar-black/80 pt-2">
-              <div className="bg-warm-ivory/50 p-4 rounded-xl border border-masaar-black/5">
-                <strong className="text-masaar-black block mb-1">Clear Terms:</strong>
-                Masaar refund rules clearly stipulate what portion of the AED 750 service fee is refundable and the processing timelines involved.
-              </div>
-              <div className="bg-warm-ivory/50 p-4 rounded-xl border border-masaar-black/5">
-                <strong className="text-masaar-black block mb-1">Family Calculations:</strong>
-                For group family applications, refunds are calculated per individual applicant outcome without forfeiting the remaining eligible visas.
-              </div>
-            </div>
-
-            <p className="text-[11px] text-masaar-black/60 italic leading-relaxed pt-2">
-              Note: Visa decisions remain under the sovereign authority of the Saudi Ministry of Foreign Affairs and relevant authorities. Masaar Holidays does not make misleading 100% approval guarantees.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────
-          SECTION 8 — FAQ ACCORDION (16 QUESTIONS)
-      ───────────────────────────────────────────────────────── */}
-      <section className="py-16 bg-white border-t border-masaar-black/5">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-masaar-black font-sans">
-              Frequently Asked Questions
+      <section id="documents" className="scroll-mt-16 py-16 sm:py-20">
+        <Container>
+          <div className="text-center">
+            <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
+              Documents Required
             </h2>
-            <div className="w-16 h-1 bg-gold mx-auto mt-3 rounded-full" />
-            <p className="text-xs sm:text-sm text-masaar-black/70 mt-3">
-              Everything you need to know about the Saudi 1-Year Multiple Entry Tourist Visa.
+            <p className="mx-auto mt-2 max-w-xl text-xs text-masaar-black/60 sm:text-sm">
+              Prepare the following documents to complete your Saudi Tourist Visa online application.
             </p>
           </div>
 
-          <div className="space-y-3">
-            {SAUDI_VISA_FAQS.map((faq, idx) => {
-              const isOpen = activeFaqIndex === idx;
-              return (
-                <div
-                  key={idx}
-                  className="bg-warm-ivory/40 border border-masaar-black/10 rounded-2xl overflow-hidden transition-all"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveFaqIndex(isOpen ? null : idx)}
-                    className="w-full text-left p-5 flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-masaar-black hover:text-gold transition-colors"
-                  >
-                    <span>{faq.question}</span>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-gold flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-masaar-black/40 flex-shrink-0" />
-                    )}
-                  </button>
-
-                  {isOpen && (
-                    <div className="px-5 pb-5 text-xs text-masaar-black/75 leading-relaxed border-t border-masaar-black/5 pt-3">
-                      {faq.answer}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {displayDocuments.map((doc, idx) => (
+              <div key={idx} className="rounded-xl border border-black/10 bg-white p-6 shadow-xs">
+                <span className="flex size-11 items-center justify-center rounded-lg bg-warm-ivory text-deep-gold">
+                  <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </span>
+                <h3 className="mt-4 font-semibold text-masaar-black text-sm">{doc.title}</h3>
+                <p className="mt-1 text-xs leading-relaxed text-masaar-black/60">{doc.description}</p>
+              </div>
+            ))}
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* ─────────────────────────────────────────────────────────
-          SECTION 9 — DEDICATED LANDING FOOTER
+          8. HOW IT WORKS SECTION (Matches Image 2)
       ───────────────────────────────────────────────────────── */}
-      <footer className="bg-masaar-black text-white pt-16 pb-12 border-t border-gold/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/10">
-            <div className="space-y-2 text-center md:text-left">
-              <Link href="/">
-                <Image
-                  src="/brand/masaar-logo.png"
-                  alt="Masaar Holidays Logo"
-                  width={160}
-                  height={44}
-                  className="h-9 w-auto object-contain mx-auto md:mx-0"
-                />
-              </Link>
-              <p className="text-xs text-gold tracking-widest uppercase font-semibold">
-                Curated Umrah With Care
-              </p>
+      <section id="how-it-works" className="scroll-mt-16 bg-white py-16 sm:py-20">
+        <Container>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-pure-gold">
+              A Simple and Transparent Process
+            </p>
+            <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
+              How It Works
+            </h2>
+            <p className="mt-1 text-xs text-masaar-black/60">
+              Apply for your Saudi 1-Year Multiple Entry Tourist Visa in a few easy steps.
+            </p>
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="relative text-center">
+              <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-pure-gold text-sm font-bold text-masaar-black shadow-md">
+                1
+              </span>
+              <h3 className="mt-4 font-semibold text-masaar-black text-sm">Choose Your Package</h3>
+              <p className="mt-1 text-xs text-masaar-black/60">Select individual or family application (5% off).</p>
             </div>
 
-            <div className="flex items-center gap-6 text-xs text-white/70">
-              <Link href="/privacy" className="hover:text-gold transition-colors">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="hover:text-gold transition-colors">
-                Terms and Conditions
-              </Link>
-              <Link href="/refund-policy" className="hover:text-gold transition-colors">
-                Refund Policy
-              </Link>
-              <a
-                href={heroWhatsAppUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-gold transition-colors flex items-center gap-1 text-emerald-400 font-semibold"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                WhatsApp Visa Help
-              </a>
+            <div className="relative text-center">
+              <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-pure-gold text-sm font-bold text-masaar-black shadow-md">
+                2
+              </span>
+              <h3 className="mt-4 font-semibold text-masaar-black text-sm">Fill in the Details</h3>
+              <p className="mt-1 text-xs text-masaar-black/60">Complete traveller details and upload required documents.</p>
+            </div>
+
+            <div className="relative text-center">
+              <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-pure-gold text-sm font-bold text-masaar-black shadow-md">
+                3
+              </span>
+              <h3 className="mt-4 font-semibold text-masaar-black text-sm">Secure Payment</h3>
+              <p className="mt-1 text-xs text-masaar-black/60">Pay online safely via 256-bit encrypted card checkout.</p>
+            </div>
+
+            <div className="relative text-center">
+              <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-pure-gold text-sm font-bold text-masaar-black shadow-md">
+                4
+              </span>
+              <h3 className="mt-4 font-semibold text-masaar-black text-sm">Get Updates</h3>
+              <p className="mt-1 text-xs text-masaar-black/60">We review and submit your visa, keeping you informed.</p>
             </div>
           </div>
-
-          {/* Mandatory Visa Disclaimer */}
-          <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-[11px] text-white/60 leading-relaxed">
-            <strong className="text-white block mb-1">Official Visa & Umrah Disclaimer:</strong>
-            Visa eligibility, issuance, validity and permitted stay are subject to Saudi Arabian government regulations and approval by the relevant authorities. Processing timelines are estimates and may vary. Umrah travel is subject to applicable regulations and restrictions. This service does not provide Hajj authorisation.
-          </div>
-
-          <div className="text-center text-xs text-white/40">
-            <p>© {new Date().getFullYear()} Masaar Holidays. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+        </Container>
+      </section>
 
       {/* ─────────────────────────────────────────────────────────
-          FLOATING WHATSAPP BUTTON
+          9. IMPORTANT INFORMATION SECTION (Matches Image 2)
       ───────────────────────────────────────────────────────── */}
-      <a
-        href={applicationType === "family" ? familyWhatsAppUrl : heroWhatsAppUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Enquire on WhatsApp"
-        className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#20ba5a] text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-110 group border-2 border-white/30"
-      >
-        <MessageCircle className="w-7 h-7 fill-white" />
-        <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 text-xs font-bold pl-0 group-hover:pl-2">
-          Chat with Visa Specialist
-        </span>
-      </a>
+      <section id="important-info" className="scroll-mt-16 py-12">
+        <Container>
+          <div className="rounded-xl border border-pure-gold/30 bg-warm-ivory p-6 sm:p-8">
+            <div className="flex items-start gap-4">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-deep-gold shadow-sm">
+                <AlertCircle className="size-5" />
+              </span>
+              <div>
+                <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-deep-gold">
+                  Important Information
+                </h3>
+                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-masaar-black/75 sm:text-sm">
+                  <li className="flex items-start gap-2">
+                    <span className="text-pure-gold">•</span>
+                    <span>Visa requirements, processing times and government fees are subject to official immigration regulations.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-pure-gold">•</span>
+                    <span>Holders of this visa may perform Umrah throughout the year except during the restricted Hajj period.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-pure-gold">•</span>
+                    <span>Masaar Holidays facilitates your visa application with expert document verification, but final approval rests solely with Saudi authorities.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────
+          10. FREQUENTLY ASKED QUESTIONS (Matches Image 2)
+      ───────────────────────────────────────────────────────── */}
+      <section id="faqs" className="scroll-mt-16 bg-white py-16 sm:py-20">
+        <Container>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-pure-gold">
+              Frequently Asked Questions
+            </p>
+            <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
+              Your Questions, Our Guidance
+            </h2>
+            <p className="mt-1 text-xs text-masaar-black/60">
+              Find clear answers to common questions about Saudi Tourist Visa applications.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-10 max-w-4xl divide-y divide-black/5">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="py-4">
+                <button
+                  type="button"
+                  onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
+                  className="flex w-full items-center justify-between text-left font-semibold text-masaar-black text-sm transition-colors hover:text-deep-gold cursor-pointer"
+                >
+                  <span>{faq.q}</span>
+                  <span className="ml-4 text-pure-gold text-lg font-bold">
+                    {openFaqIndex === idx ? "−" : "+"}
+                  </span>
+                </button>
+                {openFaqIndex === idx && (
+                  <p className="mt-2 text-xs leading-relaxed text-masaar-black/70 sm:text-sm">
+                    {faq.a}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────
+          11. SPEAK TO OUR VISA EXPERTS (Matches Image 2)
+      ───────────────────────────────────────────────────────── */}
+      <section className="bg-white border-t border-black/5 py-16 sm:py-20">
+        <Container>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-warm-ivory via-white to-warm-ivory p-8 sm:p-12 lg:p-14 border border-black/10 shadow-xs">
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
+                  Need Assistance?
+                </p>
+                <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-4xl">
+                  Speak to Our Visa Experts
+                </h3>
+                <p className="mt-3 text-xs leading-relaxed text-masaar-black/70 sm:text-sm">
+                  Have questions or need personalised guidance? Our team is here to help you with the right information for your travel plans.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-4">
+                  <a
+                    href={heroWhatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-3.5 text-xs font-semibold text-masaar-black shadow-md transition-all hover:bg-light-gold active:scale-95"
+                  >
+                    <svg className="size-4 fill-current" viewBox="0 0 24 24">
+                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86.174.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.043.073.043.419-.101.824z" />
+                    </svg>
+                    Chat on WhatsApp
+                  </a>
+                  <a
+                    href={`tel:+${CONTACT.whatsappPhoneIntl}`}
+                    className="inline-flex items-center gap-2 rounded-md border border-black/15 bg-white px-6 py-3.5 text-xs font-semibold text-masaar-black transition-all hover:bg-black/5"
+                  >
+                    Call {CONTACT.phoneDisplay}
+                  </a>
+                </div>
+              </div>
+
+              <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-black/10 shadow-inner">
+                <Image
+                  src="/trips/visa-assistance-card-home.webp"
+                  alt="Masaar Visa Assistance"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────
+          12. THOUGHTFUL SERVICES FOR EVERY PART OF YOUR JOURNEY
+          (Matches Image 2)
+      ───────────────────────────────────────────────────────── */}
+      <CrossLinkServices exclude="visa" />
+
+      {/* ─────────────────────────────────────────────────────────
+          13. STICKY MOBILE CTA BAR (Matches Image 2)
+      ───────────────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-black/10 bg-white/95 p-3.5 backdrop-blur-md sm:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] text-masaar-black/60">From</p>
+            <p className="text-sm font-bold text-masaar-black">AED 750 <span className="text-[10px] font-normal text-masaar-black/60">/ applicant</span></p>
+          </div>
+          <button
+            onClick={() => scrollToSection("packages")}
+            className="rounded-md bg-pure-gold px-5 py-2.5 text-xs font-semibold text-masaar-black shadow-md hover:bg-light-gold cursor-pointer"
+          >
+            Apply Online
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
