@@ -567,87 +567,60 @@ export function SaudiVisaLandingPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────
-          4. ABOUT SECTION (Matches Image 2)
+          4. ABOUT SECTION
       ───────────────────────────────────────────────────────── */}
       <section id="overview" className="scroll-mt-16 py-16 sm:py-20">
         <Container>
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
-                — ABOUT SAUDI TOURIST VISA —
-              </p>
-              <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
-                About Saudi Tourist Visa
-              </h2>
-              <p className="mt-4 text-sm leading-relaxed text-masaar-black/75 sm:text-base">
-                We help you apply for your 1-Year Multiple Entry Saudi Tourist Visa online with a smooth, reliable and transparent process. Specially designed for UAE residents holding Indian or Pakistani passports, ensuring accurate documentation and timely submission to authorities.
-              </p>
+          <div className="mx-auto max-w-4xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-deep-gold">
+              — ABOUT SAUDI TOURIST VISA —
+            </p>
+            <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl lg:text-4xl">
+              About Saudi Tourist Visa
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-masaar-black/75 sm:text-base">
+              We help you apply for your 1-Year Multiple Entry Saudi Tourist Visa online with a smooth, reliable and transparent process. Specially designed for UAE residents holding Indian or Pakistani passports, ensuring accurate documentation and timely submission to authorities.
+            </p>
 
-              {/* 2x2 Feature Pills Grid */}
-              <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
-                    <FileCheck className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold text-masaar-black">1 Year Multiple Entry</p>
-                    <p className="text-[11px] text-masaar-black/60">Stay up to 90 days per visit</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
-                    <Clock className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold text-masaar-black">Fast processing</p>
-                    <p className="text-[11px] text-masaar-black/60">~2-3 working days turnaround</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
-                    <ShieldCheck className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold text-masaar-black">Expert review</p>
-                    <p className="text-[11px] text-masaar-black/60">Documents checked by specialists</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-lg border border-black/5 bg-white p-4 shadow-xs">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
-                    <CheckCircle2 className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold text-masaar-black">Umrah & Tourism</p>
-                    <p className="text-[11px] text-masaar-black/60">Perform Umrah throughout the year</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right side guide card matching Image 2 */}
-            <div className="relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-masaar-black shadow-lg">
-              <Image
-                src="/trips/package-detail-hero-1.webp"
-                alt="Saudi Tourist Visa Guide"
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover opacity-80"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="flex size-16 items-center justify-center rounded-full bg-white/90 text-pure-gold shadow-xl backdrop-blur-md transition-transform hover:scale-110">
-                  <svg className="ml-1 size-7 fill-current" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+            {/* 4 Feature Pills Grid */}
+            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 text-left">
+              <div className="flex items-start gap-3 rounded-xl border border-black/5 bg-white p-5 shadow-xs">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                  <FileCheck className="size-5" />
                 </span>
-              </div>
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
                 <div>
-                  <p className="text-xs font-semibold">Saudi Tourist Visa Guidance</p>
-                  <p className="text-[10px] text-white/70">Watch our step-by-step application walkthrough</p>
+                  <p className="text-xs font-bold text-masaar-black">1 Year Multiple Entry</p>
+                  <p className="text-[11px] text-masaar-black/60 mt-0.5">Stay up to 90 days per visit</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-xl border border-black/5 bg-white p-5 shadow-xs">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                  <Clock className="size-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-masaar-black">Fast processing</p>
+                  <p className="text-[11px] text-masaar-black/60 mt-0.5">~2-3 working days turnaround</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-xl border border-black/5 bg-white p-5 shadow-xs">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-masaar-black">Expert review</p>
+                  <p className="text-[11px] text-masaar-black/60 mt-0.5">Documents checked by specialists</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-xl border border-black/5 bg-white p-5 shadow-xs">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pure-gold/15 text-deep-gold">
+                  <CheckCircle2 className="size-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-masaar-black">Umrah & Tourism</p>
+                  <p className="text-[11px] text-masaar-black/60 mt-0.5">Perform Umrah throughout the year</p>
                 </div>
               </div>
             </div>
