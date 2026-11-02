@@ -31,11 +31,15 @@ async function run() {
 
   const isSecure = port === 465;
 
+  const fromAddress = configuredFrom.includes("<")
+    ? configuredFrom
+    : `Masaar Holidays <${configuredFrom}>`;
+
   console.log(`• Host: ${host}`);
   console.log(`• Port: ${port}`);
   console.log(`• Secure (SSL): ${isSecure} (STARTTLS mode: ${!isSecure})`);
   console.log(`• Auth User: ${user}`);
-  console.log(`• From: Masaar Holidays <${configuredFrom}>`);
+  console.log(`• From: ${fromAddress}`);
   console.log(`• Recipients (STAFF_ALERT_EMAIL): ${staffEmails.join(", ")}`);
   console.log("------------------------------------------------------------------");
   console.log("Connecting and sending test message...");
@@ -64,7 +68,7 @@ async function run() {
 
   try {
     const info = await transporter.sendMail({
-      from: `Masaar Holidays <${configuredFrom}>`,
+      from: fromAddress,
       to: staffEmails.join(", "),
       subject,
       html,

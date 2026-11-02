@@ -47,8 +47,8 @@ export function getStaffRecipientEmail(): string {
 function getTransporter(): Transporter {
   if (cachedTransporter) return cachedTransporter;
 
-  const port = Number(process.env.SMTP_PORT) || 465;
-  const isSecure = process.env.SMTP_SECURE === "true" || port === 465;
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const isSecure = process.env.SMTP_SECURE === "true" || (port === 465 && process.env.SMTP_SECURE !== "false");
 
   cachedTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.hostinger.com",

@@ -544,6 +544,9 @@ export async function exportVisaApplicationsCsvAction(): Promise<{ success: bool
 }
 
 export async function getDefaultVisaOperationsEmailAction(): Promise<string> {
+  if (process.env.VISA_OPERATIONS_EMAIL && process.env.VISA_OPERATIONS_EMAIL.trim()) {
+    return process.env.VISA_OPERATIONS_EMAIL.trim();
+  }
   const { getStaffRecipientEmail } = await import("@/lib/email/client");
   return getStaffRecipientEmail();
 }
