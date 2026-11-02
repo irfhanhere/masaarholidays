@@ -34,6 +34,37 @@ export function VisaTrackingView({
   const [paymentStatus, setPaymentStatus] = useState<string>(application.payment_status);
   const [verifyingTabby, setVerifyingTabby] = useState<boolean>(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+
+  const formatDocTypeName = (type: string): string => {
+    const t = (type || "").toLowerCase();
+    if (t.includes("passport") && !t.includes("photo")) return "Passport Copy";
+    if (t.includes("photo")) return "Passport Photograph";
+    if (t.includes("emirates_id") || t.includes("eid")) return "Emirates ID";
+    if (t.includes("residence")) return "UAE Residence Visa";
+    return type
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const handleCustomerDocDownload = async (documentId: string, fileName: string) => {
+    try {
+      setDownloadingDocId(documentId);
+      const res = await fetch(
+        `/api/visa/customer-document?token=${encodeURIComponent(application.tracking_token)}&documentId=${encodeURIComponent(documentId)}`
+      );
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        alert(data.error || "Failed to retrieve secure document link.");
+        return;
+      }
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch {
+      alert("Failed to access document. Please try again or contact support.");
+    } finally {
+      setDownloadingDocId(null);
+    }
+  };
 
   useEffect(() => {
     if (tabbyParam === "1" && paymentIdParam && paymentStatus !== "paid") {
@@ -286,7 +317,144 @@ export function VisaTrackingView({
               </div>
             </div>
 
-            {/* 3. What Happens Next? (4 cards) */}
+            {/* 3. Customer Uploaded Documents Section */}
+            <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
+              <div className="border-b border-black/5 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-masaar-black text-sm sm:text-base">
+                      Uploaded Documents & Verification
+                    </h3>
+                    <p className="text-xs text-masaar-black/60">
+                      View the verification status of your uploaded identity documents and files.
+                    </p>
+                  </div>
+                  <span className="rounded bg-warm-ivory px-2.5 py-1 text-xs font-semibold text-deep-gold">
+                    {documents.length} File{documents.length === 1 ? "" : "s"} Attached
+                  </span>
+                </div>
+              </div>
+
+              {application.application_status === "documents_required" && (
+                <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base">⚠️</span>
+                    <div>
+                      <p className="font-bold">Additional Documents Required</p>
+                      <p className="mt-1 text-amber-800">
+                        Our visa verification team requires additional or updated documents to proceed with immigration submission.
+                        Please check the notes below or send high-resolution copies via WhatsApp.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 space-y-3">
+                {documents.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-black/15 bg-warm-ivory/20 p-6 text-center text-xs text-masaar-black/60">
+                    <p className="font-medium text-masaar-black">No uploaded documents on record</p>
+                    <p className="mt-1 text-[11px]">
+                      If you applied through an enquiry or need to submit documents, please share them with our team on WhatsApp.
+                    </p>
+                  </div>
+                ) : (
+                  documents.map((doc) => {
+                    const applicant = applicants.find((a) => a.id === doc.applicant_id);
+                    const isVerified = doc.verification_status === "verified";
+                    const isRejected = doc.verification_status === "rejected";
+
+                    return (
+                      <div
+                        key={doc.id}
+                        className={`rounded-lg border p-4 transition-all ${
+                          isRejected
+                            ? "border-red-200 bg-red-50/30"
+                            : isVerified
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : "border-black/10 bg-warm-ivory/20"
+                        }`}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`flex size-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                                isVerified
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : isRejected
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-pure-gold/20 text-deep-gold"
+                              }`}
+                            >
+                              📄
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-semibold text-masaar-black text-xs sm:text-sm">
+                                  {formatDocTypeName(doc.document_type)}
+                                </h4>
+                                {applicant && (
+                                  <span className="rounded bg-black/5 px-2 py-0.5 text-[10px] font-medium text-masaar-black/70">
+                                    {applicant.full_name}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 truncate text-[11px] text-masaar-black/60 font-mono">
+                                {doc.file_name} {doc.file_size ? `· ${(doc.file_size / 1024).toFixed(0)} KB` : ""}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-start sm:self-center">
+                            <span
+                              className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                                isVerified
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : isRejected
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {isVerified ? "✓ Verified" : isRejected ? "⚠️ Action Required" : "⏳ Under Review"}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCustomerDocDownload(doc.id, doc.file_name)}
+                              disabled={downloadingDocId === doc.id}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-masaar-black shadow-sm transition hover:bg-black/5 disabled:opacity-50"
+                            >
+                              {downloadingDocId === doc.id ? (
+                                <>
+                                  <span className="size-3 animate-spin rounded-full border border-masaar-black border-t-transparent" />
+                                  Loading...
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Download
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isRejected && doc.rejection_reason && (
+                          <div className="mt-3 rounded border border-red-200 bg-red-100/60 p-2.5 text-xs text-red-800">
+                            <span className="font-semibold">Reviewer Note: </span>
+                            {doc.rejection_reason}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 4. What Happens Next? (4 cards) */}
             <div className="rounded-xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
               <h3 className="font-semibold text-masaar-black text-sm sm:text-base">What Happens Next?</h3>
               <p className="text-xs text-masaar-black/60">Here is the procedure following your submission.</p>

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   // 1. Verify tracking token ownership
   const { data: application, error: appErr } = await supabase
     .from("visa_applications")
-    .select("id, reference_no, tracking_token")
+    .select("id, reference_no, tracking_token, primary_contact_email")
     .eq("tracking_token", token)
     .maybeSingle();
 
@@ -59,6 +59,24 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // 4. Audit log customer document access
+  const { logAdminAction } = await import("@/lib/audit-logger");
+  await logAdminAction({
+    adminEmail: `customer:${application.primary_contact_email || "client"}`,
+    adminUserId: null,
+    action: "visa.customer.document.download",
+    resourceType: "visa_application_document",
+    resourceId: doc.id,
+    details: {
+      applicationId: application.id,
+      referenceNo: application.reference_no,
+      documentType: doc.document_type,
+      fileName: doc.file_name,
+    },
+    ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
+    userAgent: request.headers.get("user-agent") || null,
+  });
 
   return NextResponse.json({
     success: true,
