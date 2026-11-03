@@ -33,16 +33,28 @@ export async function GET(request: NextRequest) {
   const { applicationId, docIds } = tokenVerification.payload;
   const supabase = createAdminClient();
 
-  // 1. Fetch application details
-  const { data: app, error: appErr } = await supabase
+  // 1. Fetch application details (supports both UUID id and reference_no)
+  let { data: app, error: appErr } = await supabase
     .from("visa_applications")
     .select("id, reference_no, primary_contact_name, product_title")
     .eq("id", applicationId)
     .maybeSingle();
 
-  if (appErr || !app) {
+  if (!app) {
+    const { data: appByRef } = await supabase
+      .from("visa_applications")
+      .select("id, reference_no, primary_contact_name, product_title")
+      .eq("reference_no", applicationId)
+      .maybeSingle();
+    app = appByRef;
+  }
+
+  if (!app) {
     return new NextResponse(
-      renderHtmlMessage("Application Not Found", "The visa application associated with this package could not be found."),
+      renderHtmlMessage(
+        "Application Not Found",
+        `The visa application (${applicationId}) associated with this secure document package could not be found or may have been archived.`
+      ),
       { status: 404, headers: { "Content-Type": "text/html" } }
     );
   }
@@ -51,7 +63,7 @@ export async function GET(request: NextRequest) {
   const { data: applicants } = await supabase
     .from("visa_applicants")
     .select("id, full_name, applicant_number")
-    .eq("application_id", applicationId);
+    .eq("application_id", app.id);
 
   const applicantMap = new Map<string, string>();
   (applicants || []).forEach((a) => {
@@ -62,7 +74,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("visa_application_documents")
     .select("*")
-    .eq("application_id", applicationId);
+    .eq("application_id", app.id);
 
   if (docIds && docIds.length > 0) {
     query = query.in("id", docIds);

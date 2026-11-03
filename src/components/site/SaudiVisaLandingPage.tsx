@@ -28,6 +28,7 @@ import {
   isNationalityApproved,
   validateApplicantEligibility,
   getSaudiVisaWhatsAppLink,
+  CONFIRMED_10_NATIONALITIES,
   type PricingBreakdown,
 } from "@/lib/data/saudi-visa-settings";
 import { trackMetaPixel } from "@/lib/analytics/meta-pixel";
@@ -252,6 +253,14 @@ export function SaudiVisaLandingPage() {
       }
       if (!app.passportNumber.trim()) {
         setSubmissionError(`Traveller #${i + 1}: Please enter the passport number.`);
+        setActiveApplicantIndex(i);
+        setCurrentStep(3);
+        return;
+      }
+      if (!app.nationality || !isNationalityApproved(app.nationality)) {
+        setSubmissionError(
+          `Traveller #${i + 1} (${app.nationality || "Unspecified"}): Your nationality is not listed for instant automated online checkout. Please contact our team on WhatsApp for an eligibility check; we do not accept unverified online payments.`
+        );
         setActiveApplicantIndex(i);
         setCurrentStep(3);
         return;
@@ -635,13 +644,13 @@ export function SaudiVisaLandingPage() {
         <Container>
           <div className="text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-pure-gold">
-              Choose Your Application Type
+              Single Transparent Product
             </p>
             <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-4xl">
               Saudi 1-Year Multiple Entry Tourist Visa
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-xs text-masaar-black/60 sm:text-sm">
-              Approved visa packages for UAE residents holding Indian or Pakistani passports. Select individual or apply together as a family to enjoy 5% savings.
+            <p className="mx-auto mt-2 max-w-2xl text-xs text-masaar-black/60 sm:text-sm">
+              Official Saudi 1-Year Multiple Entry Tourist Visa (AED 750) for eligible UAE residents holding Indian, Pakistani, British, American, Australian, Bangladeshi, Filipino, Nepali, Sri Lankan, or Egyptian passports. Select individual application or apply together as a family to enjoy 5% savings.
             </p>
           </div>
 
@@ -910,43 +919,56 @@ export function SaudiVisaLandingPage() {
 
                   {/* Nationality selector */}
                   <div>
-                    <label className="block text-xs font-semibold text-masaar-black mb-2">
-                      Applicant Passport Nationality
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {["India", "Pakistan", "Other"].map((nat) => (
-                        <button
-                          key={nat}
-                          type="button"
-                          onClick={() => {
-                            setEligibilityNationality(nat);
-                            trackMetaPixel("EligibilityCheck", { nationality: nat });
-                          }}
-                          className={`rounded-lg border p-3 text-xs font-semibold transition-all cursor-pointer ${
-                            eligibilityNationality === nat
-                              ? "border-pure-gold bg-pure-gold/15 text-masaar-black ring-1 ring-pure-gold"
-                              : "border-black/10 bg-white text-masaar-black/70 hover:border-black/30"
-                          }`}
-                        >
-                          {nat === "India" ? "🇮🇳 Indian" : nat === "Pakistan" ? "🇵🇰 Pakistani" : "🌍 Other"}
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-semibold text-masaar-black">
+                        Applicant Passport Nationality *
+                      </label>
+                      <span className="text-[10px] text-pure-gold font-bold uppercase tracking-wider">
+                        10 Confirmed Nationalities
+                      </span>
                     </div>
 
+                    <select
+                      value={eligibilityNationality}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEligibilityNationality(val);
+                        trackMetaPixel("EligibilityCheck", { nationality: val });
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-3 text-xs text-masaar-black font-medium focus:border-pure-gold focus:outline-none"
+                    >
+                      <option value="" disabled>Select your passport nationality...</option>
+                      {CONFIRMED_10_NATIONALITIES.map((nat) => (
+                        <option key={nat.country} value={nat.country}>
+                          {nat.flag} {nat.name} ({nat.country})
+                        </option>
+                      ))}
+                      <option value="Other">🌍 Other / Unlisted Nationality</option>
+                    </select>
+
                     {eligibilityNationality === "Other" && (
-                      <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-                        <p className="font-bold">Manual Verification Option:</p>
-                        <p className="mt-1 text-[11px] text-amber-800">
-                          Non-Indian/Pakistani nationalities require manual desk evaluation. You may submit your application for review, or message our specialist directly.
-                        </p>
-                        <a
-                          href={heroWhatsAppUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 underline"
-                        >
-                          Chat on WhatsApp for instant evaluation →
-                        </a>
+                      <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900">
+                        <div className="flex items-start gap-2.5">
+                          <AlertCircle className="size-4 shrink-0 mt-0.5 text-amber-700" />
+                          <div>
+                            <p className="font-bold text-amber-950">
+                              Your nationality is not listed? Contact our team for an eligibility check.
+                            </p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+                              Instant online checkout is reserved for our 10 confirmed nationalities with valid UAE residency. We do not accept unverified online payments for unlisted nationalities. Our specialists will manually verify your passport requirements on WhatsApp.
+                            </p>
+                            <a
+                              href={`https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
+                                "Hello Masaar Holidays, my nationality is not on the 10 approved Saudi tourist visa list. Could you please check my eligibility?"
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-850"
+                            >
+                              Chat on WhatsApp for Eligibility Check →
+                            </a>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1027,7 +1049,13 @@ export function SaudiVisaLandingPage() {
                   <div className="pt-4 flex justify-end">
                     <button
                       type="button"
-                      disabled={!isUaeResident || !passportValidMonths || !residenceValidMonths}
+                      disabled={
+                        !isUaeResident ||
+                        !passportValidMonths ||
+                        !residenceValidMonths ||
+                        !eligibilityNationality ||
+                        eligibilityNationality === "Other"
+                      }
                       onClick={() => setCurrentStep(2)}
                       className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-3 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold disabled:opacity-50 cursor-pointer"
                     >
@@ -1262,13 +1290,31 @@ export function SaudiVisaLandingPage() {
                               onChange={(e) => handleApplicantChange(idx, "nationality", e.target.value)}
                               className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
                             >
-                              <option value="India">India</option>
-                              <option value="Pakistan">Pakistan</option>
-                              <option value="United Kingdom">United Kingdom</option>
-                              <option value="United States">United States</option>
-                              <option value="Canada">Canada</option>
-                              <option value="Other">Other (Manual Review)</option>
+                              {CONFIRMED_10_NATIONALITIES.map((nat) => (
+                                <option key={nat.country} value={nat.country}>
+                                  {nat.flag} {nat.name} ({nat.country})
+                                </option>
+                              ))}
+                              <option value="Other">🌍 Other / Unlisted (WhatsApp Check)</option>
                             </select>
+                            {app.nationality === "Other" && (
+                              <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 text-[10px] text-amber-900 leading-tight">
+                                <p className="font-bold">Your nationality is not listed?</p>
+                                <p className="mt-0.5 text-amber-800">
+                                  We do not accept unverified online payments. Please contact our team on WhatsApp for an eligibility check.
+                                </p>
+                                <a
+                                  href={`https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
+                                    `Hello Masaar Holidays, I need an eligibility check for Traveller ${idx + 1} with an unlisted nationality.`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-1.5 inline-block font-bold text-amber-950 underline"
+                                >
+                                  WhatsApp Eligibility Check →
+                                </a>
+                              </div>
+                            )}
                           </div>
 
                           <div>
@@ -1445,7 +1491,19 @@ export function SaudiVisaLandingPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCurrentStep(4)}
+                      onClick={() => {
+                        const hasUnapproved = applicants.some(
+                          (a) => a.nationality === "Other" || !isNationalityApproved(a.nationality)
+                        );
+                        if (hasUnapproved) {
+                          setSubmissionError(
+                            "One or more travellers have an unlisted nationality. Please contact our team on WhatsApp for an eligibility check; we do not accept unverified online payments."
+                          );
+                          return;
+                        }
+                        setSubmissionError(null);
+                        setCurrentStep(4);
+                      }}
                       className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-2.5 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold cursor-pointer"
                     >
                       Review & Checkout →

@@ -28,6 +28,7 @@ import {
 import { HomePrivateTrips } from "@/components/site/HomePrivateTrips";
 import { WhyMasaar } from "@/components/site/WhyMasaar";
 import { TabbyPromoBanner } from "@/components/site/TabbyPromoBanner";
+import { MasaarPremiumUmrahSpotlight } from "@/components/site/MasaarPremiumUmrahSpotlight";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
 import type { PackageTier } from "@/lib/types/database";
@@ -169,6 +170,8 @@ export default async function HomePage() {
         <Container>
           <SectionHeading eyebrow="Featured Umrah Packages" title="Choose a Package That Suits Your Journey" />
           <div className="mt-10">
+            {/* Spotlight: Masaar Premium Umrah Package (6 Days / 5 Nights) */}
+            <MasaarPremiumUmrahSpotlight />
             {featuredConfigs.length > 0 ? (
               <div className="space-y-6">
                 {featuredConfigs.map((config) => (

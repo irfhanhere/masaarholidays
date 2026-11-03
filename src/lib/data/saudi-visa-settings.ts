@@ -14,6 +14,39 @@ export interface SaudiVisaSettings {
   allowUnknownNationalitiesManualReview: boolean;
 }
 
+export interface ConfirmedNationality {
+  name: string;
+  country: string;
+  flag: string;
+  code: string;
+}
+
+export const CONFIRMED_10_NATIONALITIES: ConfirmedNationality[] = [
+  { name: "Indian", country: "India", flag: "🇮🇳", code: "IN" },
+  { name: "Pakistani", country: "Pakistan", flag: "🇵🇰", code: "PK" },
+  { name: "British", country: "United Kingdom", flag: "🇬🇧", code: "GB" },
+  { name: "American", country: "United States", flag: "🇺🇸", code: "US" },
+  { name: "Australian", country: "Australia", flag: "🇦🇺", code: "AU" },
+  { name: "Bangladeshi", country: "Bangladesh", flag: "🇧🇩", code: "BD" },
+  { name: "Filipino", country: "Philippines", flag: "🇵🇭", code: "PH" },
+  { name: "Nepali", country: "Nepal", flag: "🇳🇵", code: "NP" },
+  { name: "Sri Lankan", country: "Sri Lanka", flag: "🇱🇰", code: "LK" },
+  { name: "Egyptian", country: "Egypt", flag: "🇪🇬", code: "EG" },
+];
+
+export const ALL_APPROVED_NATIONALITY_NAMES: string[] = [
+  "India", "Indian",
+  "Pakistan", "Pakistani",
+  "United Kingdom", "British", "UK", "Great Britain",
+  "United States", "American", "USA", "US",
+  "Australia", "Australian",
+  "Bangladesh", "Bangladeshi",
+  "Philippines", "Filipino",
+  "Nepal", "Nepali", "Nepalese",
+  "Sri Lanka", "Sri Lankan",
+  "Egypt", "Egyptian",
+];
+
 export const DEFAULT_SAUDI_VISA_SETTINGS: SaudiVisaSettings = {
   basePrice: 750,
   familyDiscountPercentage: 5,
@@ -21,13 +54,13 @@ export const DEFAULT_SAUDI_VISA_SETTINGS: SaudiVisaSettings = {
   currency: "AED",
   processingEstimate: "Approximately 2 Working Days",
   whatsappNumber: "+971 55 732 9320",
-  approvedNationalities: ["India", "Pakistan"],
+  approvedNationalities: ALL_APPROVED_NATIONALITY_NAMES,
   validityRequirements: {
     passportMinMonths: 6,
     residenceMinMonths: 3,
     emiratesIdMinMonths: 3,
   },
-  allowUnknownNationalitiesManualReview: true,
+  allowUnknownNationalitiesManualReview: false,
 };
 
 export interface PricingBreakdown {
@@ -87,7 +120,7 @@ export function calculateSaudiVisaPricing(
 }
 
 /**
- * Validates if a nationality is on the approved list.
+ * Validates if a nationality is on the approved list of 10 confirmed nationalities.
  */
 export function isNationalityApproved(
   nationality: string,
@@ -95,7 +128,18 @@ export function isNationalityApproved(
 ): boolean {
   if (!nationality) return false;
   const clean = nationality.trim().toLowerCase();
-  return approvedList.some((n) => n.trim().toLowerCase() === clean);
+  if (clean === "other" || clean === "unlisted") return false;
+
+  if (approvedList.some((n) => n.trim().toLowerCase() === clean)) {
+    return true;
+  }
+
+  return CONFIRMED_10_NATIONALITIES.some(
+    (cn) =>
+      cn.country.toLowerCase() === clean ||
+      cn.name.toLowerCase() === clean ||
+      cn.code.toLowerCase() === clean
+  );
 }
 
 export interface ApplicantValidationInput {
@@ -117,6 +161,7 @@ export interface ApplicantValidationResult {
 /**
  * Independently validates an individual applicant's eligibility and validity periods.
  * Distinguishes UAE residence permit validity from Emirates ID validity.
+ * Strictly prevents automated checkout for unverified nationalities.
  */
 export function validateApplicantEligibility(
   applicant: ApplicantValidationInput,
@@ -130,11 +175,10 @@ export function validateApplicantEligibility(
   if (!nationality) {
     issues.push("Passport nationality is required.");
   } else if (!isNationalityApproved(nationality, settings.approvedNationalities)) {
-    if (settings.allowUnknownNationalitiesManualReview) {
-      manualReviewRequired = true;
-    } else {
-      issues.push(`Nationality (${nationality}) is not on the pre-approved list.`);
-    }
+    manualReviewRequired = true;
+    issues.push(
+      `Your nationality (${nationality}) is not listed for instant automated online checkout. Contact our team on WhatsApp for an eligibility check.`
+    );
   }
 
   if (applicant.passportExpiryDate) {

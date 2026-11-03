@@ -73,7 +73,7 @@ function baseLayout(title: string, bodyContent: string): string {
               <p style="margin: 4px 0 0; font-size: 11px; color: #666660;">Dubai &amp; Sharjah, United Arab Emirates</p>
               <p style="margin: 8px 0 0; font-size: 11px; color: #666660;">
                 Support: <a href="mailto:care@masaarholidays.com" style="color: #997A15; text-decoration: none; font-weight: 600;">care@masaarholidays.com</a> &nbsp;|&nbsp;
-                WhatsApp: <a href="https://wa.me/971501234567" style="color: #997A15; text-decoration: none; font-weight: 600;">+971 50 123 4567</a>
+                WhatsApp: <a href="https://wa.me/971557329320" style="color: #997A15; text-decoration: none; font-weight: 600;">+971 55 732 9320</a>
               </p>
               <p style="margin: 14px 0 0; font-size: 10px; color: #999990;">
                 &copy; ${new Date().getFullYear()} Masaar Holidays. All rights reserved.

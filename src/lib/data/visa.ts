@@ -283,6 +283,7 @@ export type { VisaPricingResult } from "@/lib/visa-pricing";
 
 /**
  * Fetch application details by tracking token for customer tracking screen.
+ * Robustly matches by tracking_token, reference_no, or application ID.
  */
 export async function getVisaApplicationByToken(trackingToken: string): Promise<{
   application: VisaApplicationRow | null;
@@ -292,13 +293,40 @@ export async function getVisaApplicationByToken(trackingToken: string): Promise<
 }> {
   try {
     const supabase = createAdminClient();
-    const { data: application, error: appErr } = await supabase
+    const cleanToken = (trackingToken || "").trim();
+
+    if (!cleanToken) {
+      return { application: null, applicants: [], documents: [], payments: [] };
+    }
+
+    // 1. Try matching by tracking_token
+    let { data: application } = await supabase
       .from("visa_applications")
       .select("*")
-      .eq("tracking_token", trackingToken)
+      .eq("tracking_token", cleanToken)
       .maybeSingle();
 
-    if (appErr || !application) {
+    // 2. Fallback: match by reference_no (e.g. MH-SV-2026-...)
+    if (!application) {
+      const { data: appByRef } = await supabase
+        .from("visa_applications")
+        .select("*")
+        .eq("reference_no", cleanToken)
+        .maybeSingle();
+      application = appByRef;
+    }
+
+    // 3. Fallback: match by UUID id
+    if (!application && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanToken)) {
+      const { data: appById } = await supabase
+        .from("visa_applications")
+        .select("*")
+        .eq("id", cleanToken)
+        .maybeSingle();
+      application = appById;
+    }
+
+    if (!application) {
       return { application: null, applicants: [], documents: [], payments: [] };
     }
 

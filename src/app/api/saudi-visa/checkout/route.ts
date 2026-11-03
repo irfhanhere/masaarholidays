@@ -151,13 +151,14 @@ export async function POST(request: NextRequest) {
       settings
     );
 
-    if (validation.manualReviewRequired) {
-      manualReviewNationalities.push(`Applicant #${applicantIndex} (${nationality})`);
-    }
-
-    if (!validation.eligible) {
+    if (validation.manualReviewRequired || !validation.eligible) {
       return NextResponse.json(
-        { error: `Applicant #${applicantIndex}: ${validation.issues.join("; ")}` },
+        {
+          error:
+            validation.issues.length > 0
+              ? `Applicant #${applicantIndex}: ${validation.issues.join("; ")}`
+              : `Applicant #${applicantIndex} (${nationality}): Your nationality is not listed for automated checkout. Please contact our team on WhatsApp for an eligibility check before payment.`,
+        },
         { status: 400 }
       );
     }

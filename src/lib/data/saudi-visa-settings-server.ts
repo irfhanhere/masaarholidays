@@ -34,9 +34,10 @@ export async function getSaudiVisaSettings(): Promise<SaudiVisaSettings> {
       currency: row.currency || DEFAULT_SAUDI_VISA_SETTINGS.currency,
       processingEstimate: row.processing_estimate || DEFAULT_SAUDI_VISA_SETTINGS.processingEstimate,
       whatsappNumber: row.whatsapp_number || DEFAULT_SAUDI_VISA_SETTINGS.whatsappNumber,
-      approvedNationalities: Array.isArray(row.approved_nationalities)
-        ? row.approved_nationalities
-        : DEFAULT_SAUDI_VISA_SETTINGS.approvedNationalities,
+      approvedNationalities:
+        Array.isArray(row.approved_nationalities) && row.approved_nationalities.length >= 10
+          ? row.approved_nationalities
+          : DEFAULT_SAUDI_VISA_SETTINGS.approvedNationalities,
       validityRequirements: {
         passportMinMonths: Number(row.validity_requirements?.passportMinMonths) || 6,
         residenceMinMonths: Number(row.validity_requirements?.residenceMinMonths) || 3,
