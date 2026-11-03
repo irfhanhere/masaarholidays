@@ -12,7 +12,8 @@ export const REQUIRED_PROD_ENV_VARS = [
   "MEGAESIM_WEBHOOK_SECRET",
   "CRON_SECRET",
   "STAFF_ALERT_EMAIL",
-  // SMTP variables read by lib/documents/mailer.ts
+  "VISA_OPERATIONS_EMAIL",
+  // SMTP variables read by lib/documents/mailer.ts and lib/email/client.ts
   "SMTP_HOST",
   "SMTP_PORT",
   "SMTP_USER",

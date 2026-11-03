@@ -133,6 +133,8 @@ export async function POST(request: NextRequest) {
         // 2. Handle Visa application payment
         if (session.metadata?.type === "visa" || session.metadata?.reference_no?.startsWith("MH-")) {
           const applicationId = (session.metadata?.application_id as string) || session.client_reference_id;
+          const sessionRefNo = session.metadata?.reference_no as string | undefined;
+
           let visaQuery = supabase.from("visa_applications").select("*");
           if (applicationId) {
             visaQuery = visaQuery.eq("id", applicationId);
@@ -141,11 +143,24 @@ export async function POST(request: NextRequest) {
           }
 
           const { data: application, error: appErr } = await visaQuery.maybeSingle();
-          if (appErr) {
-            console.warn(`[stripe-webhook] Error querying visa_applications for session ${session.id}:`, appErr.message);
+          if (appErr || !application) {
+            console.warn(`[stripe-webhook] Visa application not found for session ${session.id}:`, appErr?.message);
+            break;
           }
 
-          if (application && session.payment_status === "paid") {
+          // Idempotency: Prevent duplicate processing if application was already confirmed paid
+          if (application.payment_status === "paid") {
+            console.log(`[stripe-webhook] Visa application ${application.reference_no} already marked paid. Suppressing duplicate.`);
+            break;
+          }
+
+          const isPaymentPaid = session.payment_status === "paid";
+          const expectedAmountMinor = Math.round(Number(application.total_amount) * 100);
+          const isAmountMatch = session.amount_total === expectedAmountMinor;
+          const isCurrencyMatch = session.currency?.toLowerCase() === (application.currency || "aed").toLowerCase();
+          const isRefMatch = !sessionRefNo || sessionRefNo === application.reference_no;
+
+          if (isPaymentPaid && isAmountMatch && isCurrencyMatch && isRefMatch) {
             const paymentIntentId =
               typeof session.payment_intent === "string" ? session.payment_intent : null;
 
@@ -174,24 +189,29 @@ export async function POST(request: NextRequest) {
                 application_status: "submitted",
                 stripe_payment_intent_id: paymentIntentId,
                 payment_method: session.payment_method_types?.[0] || "card",
+                charged_amount: (session.amount_total ?? 0) / 100,
+                charged_currency: (session.currency?.toUpperCase() || application.currency || "AED"),
                 status_timeline: updatedTimeline,
                 updated_at: new Date().toISOString(),
               })
               .eq("id", application.id);
 
-            // Record payment in visa_payments
+            // Record payment in visa_payments ledger with idempotency
             try {
-              await supabase.from("visa_payments").insert({
-                application_id: application.id,
-                transaction_reference: paymentIntentId || session.id,
-                stripe_session_id: session.id,
-                amount: (session.amount_total ?? 0) / 100,
-                currency: (session.currency?.toUpperCase() || "USD"),
-                payment_method: session.payment_method_types?.[0] || "card",
-                payment_status: "paid",
-                gateway: "stripe",
-                idempotency_key: `visa_pay_${event.id}`,
-              });
+              await supabase.from("visa_payments").upsert(
+                {
+                  application_id: application.id,
+                  transaction_reference: paymentIntentId || session.id,
+                  stripe_session_id: session.id,
+                  amount: (session.amount_total ?? 0) / 100,
+                  currency: (session.currency?.toUpperCase() || application.currency || "AED"),
+                  payment_method: session.payment_method_types?.[0] || "card",
+                  payment_status: "paid",
+                  gateway: "stripe",
+                  idempotency_key: `visa_pay_${application.id}_${session.id}`,
+                },
+                { onConflict: "idempotency_key" }
+              );
             } catch (payInsertErr) {
               console.warn("[stripe-webhook] Error recording visa payment ledger:", payInsertErr);
             }
@@ -204,6 +224,21 @@ export async function POST(request: NextRequest) {
                 console.error("[stripe-webhook] Error dispatching visa confirmation emails:", emailErr);
               }
             });
+          } else {
+            console.error(
+              `[stripe-webhook] Payment verification mismatch on visa application ${application.reference_no}: ` +
+                `status=${session.payment_status}, amount=${session.amount_total} (expected ${expectedAmountMinor}), ` +
+                `currency=${session.currency} (expected ${application.currency}), refMatch=${isRefMatch}`
+            );
+
+            await supabase
+              .from("visa_applications")
+              .update({
+                payment_status: "failed",
+                internal_notes: `Payment verification mismatch: received ${session.amount_total} ${session.currency}, expected ${expectedAmountMinor} ${application.currency}`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", application.id);
           }
           break;
         }
@@ -294,6 +329,30 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const orderId = session.client_reference_id || (session.metadata?.order_id as string);
 
+        // 1. Handle Visa checkout session expiration
+        if (session.metadata?.type === "visa" || session.metadata?.application_id || session.metadata?.reference_no?.startsWith("MH-")) {
+          const visaAppId = (session.metadata?.application_id as string) || session.client_reference_id;
+          let vQuery = supabase.from("visa_applications").select("id, payment_status");
+          if (visaAppId) {
+            vQuery = vQuery.eq("id", visaAppId);
+          } else if (session.id) {
+            vQuery = vQuery.eq("stripe_session_id", session.id);
+          }
+
+          const { data: vApp } = await vQuery.maybeSingle();
+          if (vApp && vApp.payment_status === "pending") {
+            await supabase
+              .from("visa_applications")
+              .update({
+                payment_status: "failed",
+                internal_notes: "Stripe checkout session expired before payment completion.",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", vApp.id);
+          }
+        }
+
+        // 2. Handle eSIM checkout session expiration
         let query = supabase.from("esim_orders").select("id, payment_status");
         if (orderId) {
           query = query.eq("id", orderId);

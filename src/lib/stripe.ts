@@ -17,7 +17,7 @@ export function getStripe(): Stripe {
     stripeInstance = new Stripe(secretKey, {
       typescript: true,
       appInfo: {
-        name: "Masaar Holidays eSIM",
+        name: "Masaar Holidays",
         version: "1.0.0",
       },
     });

@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteOrigin } from "@/lib/site-url";
+import { generateSecurePackageToken } from "@/lib/documents/secure-token";
 import { sendIdempotentEmail, getStaffRecipientEmail } from "./client";
 import {
   renderPaymentConfirmationEmail,
@@ -11,10 +12,15 @@ import {
   renderStatusUpdateEmail,
   renderRefundConfirmedEmail,
   renderInternalOpsAlertEmail,
+  renderCustomerVisaPaymentConfirmedEmail,
+  renderInternalPaidVisaApplicationEmail,
+  type ApplicantDocReviewItem,
 } from "./templates";
 import type {
   VisaApplicationRow,
   VisaApplicantRow,
+  VisaApplicationDocumentRow,
+  VisaPaymentRow,
   TransferBookingRow,
 } from "@/lib/types/database";
 
@@ -27,6 +33,9 @@ import type {
 
 /**
  * 1. Visa Payment & Application Submission Notifications
+ *
+ * Strictly adheres to Section 5 (Internal Operations Alert to care@masaarholidays.com)
+ * and Section 6 (Customer Payment Confirmation) with per-application idempotency.
  */
 export async function sendVisaPaymentAndSubmissionEmails(applicationId: string): Promise<void> {
   const supabase = createAdminClient();
@@ -43,15 +52,29 @@ export async function sendVisaPaymentAndSubmissionEmails(applicationId: string):
     return;
   }
 
-  const { data: applicants } = await supabase
-    .from("visa_applicants")
-    .select("*")
-    .eq("application_id", applicationId)
-    .order("applicant_order", { ascending: true });
+  const [applicantsRes, docsRes, paymentsRes] = await Promise.all([
+    supabase
+      .from("visa_applicants")
+      .select("*")
+      .eq("application_id", applicationId)
+      .order("applicant_number", { ascending: true }),
+    supabase
+      .from("visa_application_documents")
+      .select("*")
+      .eq("application_id", applicationId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("visa_payments")
+      .select("*")
+      .eq("application_id", applicationId)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const applicantNames = (applicants || []).map(
-    (a: VisaApplicantRow) => a.full_name || "Applicant"
-  );
+  const applicants: VisaApplicantRow[] = applicantsRes.data || [];
+  const documents: VisaApplicationDocumentRow[] = docsRes.data || [];
+  const payments: VisaPaymentRow[] = paymentsRes.data || [];
+
+  const applicantNames = applicants.map((a) => a.full_name || "Applicant");
   if (applicantNames.length === 0) {
     applicantNames.push(application.primary_contact_name);
   }
@@ -59,75 +82,121 @@ export async function sendVisaPaymentAndSubmissionEmails(applicationId: string):
   const trackingUrl = `${siteOrigin}/visa/application/${application.tracking_token}`;
   const adminUrl = `${siteOrigin}/admin/visa-applications`;
 
-  // A. Customer Payment Confirmation
-  const paymentTpl = renderPaymentConfirmationEmail({
+  // Generate 48-hour expiring secure token link for document review
+  let secureDocumentsUrl: string | undefined = undefined;
+  try {
+    if (documents.length > 0) {
+      const secureToken = generateSecurePackageToken(application.id, undefined, 48);
+      secureDocumentsUrl = `${siteOrigin}/api/visa/secure-package?token=${secureToken}`;
+    }
+  } catch (tokenErr) {
+    console.warn("[email-service] Failed to generate secure document package token:", tokenErr);
+  }
+
+  // Build applicant-wise document checklist
+  const applicantDocItems: ApplicantDocReviewItem[] = applicants.map((appItem, idx) => {
+    const docs = documents.filter(
+      (d) => d.applicant_id === appItem.id || (!d.applicant_id && idx === 0)
+    );
+    return {
+      applicantNumber: appItem.applicant_number || idx + 1,
+      applicantName: appItem.full_name,
+      passportNumber: appItem.passport_number,
+      documents: docs.map((d) => ({
+        documentType: d.document_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        fileName: d.file_name,
+        verificationStatus: (d.verification_status as "pending" | "verified" | "rejected") || "pending",
+      })),
+    };
+  });
+
+  // If no individual applicants rows exist, build single primary item
+  if (applicantDocItems.length === 0) {
+    applicantDocItems.push({
+      applicantNumber: 1,
+      applicantName: application.primary_contact_name,
+      documents: documents.map((d) => ({
+        documentType: d.document_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        fileName: d.file_name,
+        verificationStatus: (d.verification_status as "pending" | "verified" | "rejected") || "pending",
+      })),
+    });
+  }
+
+  const stripePaymentRef =
+    application.stripe_payment_intent_id ||
+    payments[0]?.transaction_reference ||
+    application.stripe_session_id ||
+    "Confirmed via Stripe Live";
+
+  const paymentDateTime =
+    new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Dubai",
+      dateStyle: "medium",
+      timeStyle: "short",
+    }) + " GST";
+
+  // A. Customer Payment Confirmation Email (Section 6)
+  const custTpl = renderCustomerVisaPaymentConfirmedEmail({
     customerName: application.primary_contact_name,
-    serviceName: `${application.product_title} Visa Assistance`,
     referenceNo: application.reference_no,
+    productTitle: application.product_title,
     amountPaid: application.total_amount,
-    currency: application.currency || "USD",
-    paymentMethod: application.payment_method || "Card",
+    currency: application.currency || "AED",
+    applicantCount: application.applicant_count,
     trackingUrl,
-    nextSteps:
-      "Our visa specialists have received your application and will review all documents before filing with destination immigration authorities. You can track progress in real time using your reference number.",
   });
 
   await sendIdempotentEmail({
     to: application.primary_contact_email,
-    subject: paymentTpl.subject,
-    html: paymentTpl.html,
-    idempotencyKey: `visa_pay_confirm_${application.id}`,
-    templateType: "payment_confirmation",
+    subject: custTpl.subject,
+    html: custTpl.html,
+    idempotencyKey: `visa_cust_pay_confirm_${application.id}`,
+    templateType: "visa_customer_payment_confirmed",
     referenceId: application.reference_no,
     serviceType: "visa",
+    metadata: {
+      applicationId: application.id,
+      amount: application.total_amount,
+      currency: application.currency || "AED",
+      stripeRef: stripePaymentRef,
+    },
   });
 
-  // B. Customer Visa Application Received
-  const receiptTpl = renderVisaApplicationReceivedEmail({
-    customerName: application.primary_contact_name,
+  // B. Internal Operations Notification Email (Section 5 -> care@masaarholidays.com)
+  const opsTpl = renderInternalPaidVisaApplicationEmail({
     referenceNo: application.reference_no,
-    visaType: application.product_title,
-    applicantNames,
-    trackingUrl,
-    reviewTimeline: "3 to 5 working days",
-  });
-
-  await sendIdempotentEmail({
-    to: application.primary_contact_email,
-    subject: receiptTpl.subject,
-    html: receiptTpl.html,
-    idempotencyKey: `visa_app_received_${application.id}`,
-    templateType: "visa_application_received",
-    referenceId: application.reference_no,
-    serviceType: "visa",
-  });
-
-  // C. Internal Ops Alert to Staff
-  const opsTpl = renderInternalOpsAlertEmail({
-    eventType: "New Paid Visa Application",
-    referenceNo: application.reference_no,
+    paymentStatus: "Paid & Confirmed (Stripe Live)",
+    amount: application.total_amount,
+    currency: application.currency || "AED",
+    stripePaymentRef,
+    paymentDateTime,
     customerName: application.primary_contact_name,
     customerEmail: application.primary_contact_email,
     customerPhone: application.primary_contact_phone,
-    serviceType: "Visa",
-    amount: application.total_amount,
-    currency: application.currency || "USD",
+    applicantCount: application.applicant_count,
+    applicantNames,
+    applicantDocItems,
     adminUrl,
-    extraDetails: {
-      "Visa Package": application.product_title,
-      "Travellers Count": String(application.applicant_count),
-      "Destination": application.visa_type_slug.toUpperCase(),
-    },
+    secureDocumentsUrl,
+    productTitle: application.product_title,
+    visaSlug: application.visa_type_slug,
   });
 
   await sendIdempotentEmail({
     to: getStaffRecipientEmail(),
     subject: opsTpl.subject,
     html: opsTpl.html,
-    idempotencyKey: `visa_ops_alert_${application.id}`,
-    templateType: "internal_ops_alert",
+    idempotencyKey: `visa_internal_paid_ops_${application.id}`,
+    templateType: "visa_internal_paid_ops",
     referenceId: application.reference_no,
     serviceType: "visa",
+    metadata: {
+      applicationId: application.id,
+      amount: application.total_amount,
+      currency: application.currency || "AED",
+      stripeRef: stripePaymentRef,
+    },
   });
 }
 

@@ -649,6 +649,335 @@ export function renderInternalOpsAlertEmail(params: {
   };
 }
 
+/**
+ * 9. Customer Payment Confirmation Email (Strict Section 6 Specification)
+ */
+export interface CustomerVisaPaymentConfirmedParams {
+  customerName: string;
+  referenceNo: string;
+  productTitle: string;
+  amountPaid: number | string;
+  currency: string;
+  applicantCount: number;
+  trackingUrl: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  supportWhatsapp?: string;
+}
+
+export function renderCustomerVisaPaymentConfirmedEmail(
+  params: CustomerVisaPaymentConfirmedParams
+): { subject: string; html: string } {
+  const safeName = escapeHtml(params.customerName || "Valued Customer");
+  const safeRef = escapeHtml(params.referenceNo);
+  const safeProduct = escapeHtml(params.productTitle || "Saudi 1-Year Multiple Entry Tourist Visa");
+  const safeAmount =
+    typeof params.amountPaid === "number"
+      ? params.amountPaid.toFixed(2)
+      : escapeHtml(params.amountPaid);
+  const safeCurrency = escapeHtml((params.currency || "AED").toUpperCase());
+  const safeCount = params.applicantCount || 1;
+  const safeTrackingUrl = escapeHtml(params.trackingUrl);
+  const safeEmail = escapeHtml(params.supportEmail || "care@masaarholidays.com");
+  const safePhone = escapeHtml(params.supportPhone || "+971 4 456 7890");
+  const safeWhatsapp = escapeHtml(params.supportWhatsapp || "+971 50 123 4567");
+
+  const content = `
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #0A0A08;">Payment Confirmed</h1>
+    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.6; color: #333330;">
+      Assalamu Alaikum <strong>${safeName}</strong>,
+    </p>
+    <p style="margin: 0 0 22px; font-size: 14px; line-height: 1.6; color: #333330;">
+      Thank you for choosing Masaar Holidays. We confirm that your payment for the <strong>${safeProduct}</strong> application has been successfully received and verified.
+    </p>
+
+    <!-- Payment & Application Details Box -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F7F4ED; border: 1px solid #E5E0D5; border-radius: 10px; margin-bottom: 24px;">
+      <tr>
+        <td style="padding: 22px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #333330;">
+            <tr>
+              <td style="padding-bottom: 9px; color: #666660; width: 42%;">Application Reference:</td>
+              <td align="right" style="padding-bottom: 9px; font-weight: 700; color: #0A0A08; font-family: monospace; font-size: 14px;">${safeRef}</td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 9px; color: #666660;">Visa Product:</td>
+              <td align="right" style="padding-bottom: 9px; font-weight: 600; color: #0A0A08;">${safeProduct}</td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 9px; color: #666660;">Number of Applicants:</td>
+              <td align="right" style="padding-bottom: 9px; font-weight: 600; color: #0A0A08;">${safeCount} Traveller${safeCount > 1 ? "s" : ""}</td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 9px; color: #666660;">Payment Status:</td>
+              <td align="right" style="padding-bottom: 9px;">
+                <span style="display: inline-block; background-color: #DCFCE7; color: #166534; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 4px; text-transform: uppercase;">Payment Received</span>
+              </td>
+            </tr>
+            <tr style="border-top: 1px solid #D5CEBE;">
+              <td style="padding-top: 12px; font-size: 14px; font-weight: 700; color: #0A0A08;">Amount Paid:</td>
+              <td align="right" style="padding-top: 12px; font-size: 17px; font-weight: 700; color: #997A15;">${safeCurrency} ${safeAmount}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Important Notice: Payment vs Approval -->
+    <div style="background-color: #FFFFFF; border: 1px solid #E5E0D5; border-left: 4px solid #C9A227; border-radius: 6px; padding: 16px; margin-bottom: 24px; font-size: 13px; line-height: 1.6; color: #333330;">
+      <p style="margin: 0; font-weight: 700; color: #0A0A08;">Important Application Information:</p>
+      <p style="margin: 6px 0 0; color: #555550;">
+        Please note that this payment confirmation verifies receipt of your application fees and documents. It <strong>does not mean your visa has been approved or issued</strong>.
+      </p>
+      <p style="margin: 6px 0 0; color: #555550;">
+        Our visa specialist team is now conducting a thorough document compliance review before filing with official immigration authorities. Government visa decisions and final issuance remain at the sole discretion of destination authorities.
+      </p>
+    </div>
+
+    <!-- Track Application Action -->
+    <div style="text-align: center; margin: 28px 0 24px;">
+      <a href="${safeTrackingUrl}" style="display: inline-block; background-color: #C9A227; color: #0A0A08; font-weight: 700; font-size: 13px; padding: 13px 32px; border-radius: 6px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+        Track Application &amp; View Documents &rarr;
+      </a>
+      <p style="margin: 10px 0 0; font-size: 12px; color: #777770;">
+        You can check live verification status and upload additional documents anytime using your secure tracking link.
+      </p>
+    </div>
+
+    <!-- Customer Support Contact Box -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #FAFAF7; border: 1px solid #EFECE4; border-radius: 8px; margin-top: 24px; padding: 16px;">
+      <tr>
+        <td style="font-size: 12px; color: #555550; line-height: 1.6;">
+          <strong style="color: #0A0A08;">Masaar Holidays Customer Care:</strong><br>
+          Email: <a href="mailto:${safeEmail}" style="color: #997A15; text-decoration: none; font-weight: 600;">${safeEmail}</a> &nbsp;|&nbsp;
+          WhatsApp: <a href="https://wa.me/${safeWhatsapp.replace(/[^0-9]/g, "")}" style="color: #997A15; text-decoration: none; font-weight: 600;">${safeWhatsapp}</a> &nbsp;|&nbsp;
+          Phone: ${safePhone}
+        </td>
+      </tr>
+    </table>
+  `;
+
+  return {
+    subject: "Masaar Holidays — Your Visa Application Payment Is Confirmed",
+    html: baseLayout("Payment Confirmed", content),
+  };
+}
+
+/**
+ * 10. Internal Operations Paid Visa Application Email (Strict Section 5 Specification)
+ */
+export interface ApplicantDocReviewItem {
+  applicantNumber: number;
+  applicantName: string;
+  passportNumber?: string;
+  documents: Array<{
+    documentType: string;
+    fileName: string;
+    verificationStatus: "pending" | "verified" | "rejected" | "missing";
+  }>;
+}
+
+export interface InternalPaidVisaApplicationEmailParams {
+  referenceNo: string;
+  paymentStatus: string;
+  amount: number | string;
+  currency: string;
+  stripePaymentRef: string;
+  paymentDateTime: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  applicantCount: number;
+  applicantNames: string[];
+  applicantDocItems: ApplicantDocReviewItem[];
+  adminUrl: string;
+  secureDocumentsUrl?: string;
+  productTitle: string;
+  visaSlug?: string;
+}
+
+export function renderInternalPaidVisaApplicationEmail(
+  params: InternalPaidVisaApplicationEmailParams
+): { subject: string; html: string } {
+  const safeRef = escapeHtml(params.referenceNo);
+  const safeName = escapeHtml(params.customerName || "Customer");
+  const safeEmail = escapeHtml(params.customerEmail);
+  const safePhone = escapeHtml(params.customerPhone || "Not provided");
+  const safeProduct = escapeHtml(params.productTitle || "Saudi Tourist Visa");
+  const safeAmount =
+    typeof params.amount === "number" ? params.amount.toFixed(2) : escapeHtml(params.amount);
+  const safeCurrency = escapeHtml((params.currency || "AED").toUpperCase());
+  const safeStripeRef = escapeHtml(params.stripePaymentRef || "Verified");
+  const safePaymentDate = escapeHtml(params.paymentDateTime);
+  const safeAdminUrl = escapeHtml(params.adminUrl);
+  const safeSecureDocsUrl = params.secureDocumentsUrl ? escapeHtml(params.secureDocumentsUrl) : null;
+  const count = params.applicantCount || 1;
+
+  const namesList =
+    params.applicantNames && params.applicantNames.length > 0
+      ? params.applicantNames.map((n) => `<li><strong>${escapeHtml(n)}</strong></li>`).join("")
+      : `<li>${safeName}</li>`;
+
+  // Applicant-wise document checklist table rows
+  const applicantRows = (params.applicantDocItems || []).map((item) => {
+    const docRows = (item.documents || []).map((d) => {
+      let statusBadge = `<span style="background: #FEF3C7; color: #92400E; font-size: 11px; padding: 2px 6px; border-radius: 3px; font-weight: 600;">Pending Review</span>`;
+      if (d.verificationStatus === "verified") {
+        statusBadge = `<span style="background: #DCFCE7; color: #166534; font-size: 11px; padding: 2px 6px; border-radius: 3px; font-weight: 600;">Verified</span>`;
+      } else if (d.verificationStatus === "rejected") {
+        statusBadge = `<span style="background: #FEE2E2; color: #991B1B; font-size: 11px; padding: 2px 6px; border-radius: 3px; font-weight: 600;">Rejected</span>`;
+      } else if (d.verificationStatus === "missing") {
+        statusBadge = `<span style="background: #F3F4F6; color: #4B5563; font-size: 11px; padding: 2px 6px; border-radius: 3px; font-weight: 600;">Missing</span>`;
+      }
+
+      return `
+        <tr style="border-bottom: 1px solid #F0EEE6; font-size: 12px;">
+          <td style="padding: 6px 8px; color: #444440;">${escapeHtml(d.documentType)}</td>
+          <td style="padding: 6px 8px; font-family: monospace; color: #666660; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(d.fileName)}</td>
+          <td align="right" style="padding: 6px 8px;">${statusBadge}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <div style="background: #FFFFFF; border: 1px solid #E5E0D5; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+        <div style="font-size: 13px; font-weight: 700; color: #0A0A08; margin-bottom: 8px; border-bottom: 1px solid #EFECE4; padding-bottom: 6px;">
+          Applicant #${item.applicantNumber}: ${escapeHtml(item.applicantName)}
+          ${item.passportNumber ? `<span style="font-weight: normal; font-size: 11px; color: #666660; font-family: monospace; margin-left: 8px;">(Passport: ${escapeHtml(item.passportNumber)})</span>` : ""}
+        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <thead>
+            <tr style="font-size: 11px; color: #888880; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #EFECE4;">
+              <th align="left" style="padding: 4px 8px;">Document</th>
+              <th align="left" style="padding: 4px 8px;">File</th>
+              <th align="right" style="padding: 4px 8px;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${docRows || '<tr><td colspan="3" style="padding: 8px; font-size: 12px; color: #888880; text-align: center;">No documents uploaded yet</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }).join("");
+
+  const content = `
+    <div style="background-color: #FEF3C7; border: 1px solid #FDE68A; border-radius: 6px; padding: 10px 14px; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 12px; font-weight: 700; color: #92400E; text-transform: uppercase; letter-spacing: 0.5px;">
+        ⚡ Internal Operations Notification · Visa Department
+      </p>
+    </div>
+
+    <h1 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #0A0A08;">New Paid Visa Application</h1>
+    <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #333330;">
+      A new verified customer payment has been processed via Stripe Live. Please review the applicant details and uploaded identity documents below:
+    </p>
+
+    <!-- Application & Payment Overview Table -->
+    <div style="background-color: #F7F4ED; border: 1px solid #E5E0D5; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #333330;">
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px; width: 40%;">Application Reference:</td>
+          <td align="right" style="font-weight: 700; color: #0A0A08; font-family: monospace; font-size: 14px; padding-bottom: 7px;">${safeRef}</td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Payment Confirmation:</td>
+          <td align="right" style="padding-bottom: 7px;">
+            <span style="background: #DCFCE7; color: #166534; font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">Paid (Stripe Live)</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Amount Paid:</td>
+          <td align="right" style="font-weight: 700; color: #997A15; font-size: 15px; padding-bottom: 7px;">${safeCurrency} ${safeAmount}</td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Stripe Payment Ref:</td>
+          <td align="right" style="font-family: monospace; font-size: 12px; color: #0A0A08; padding-bottom: 7px;">${safeStripeRef}</td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Payment Date &amp; Time:</td>
+          <td align="right" style="font-size: 12px; padding-bottom: 7px;">${safePaymentDate}</td>
+        </tr>
+        <tr style="border-top: 1px solid #E5E0D5;">
+          <td style="color: #666660; padding-top: 8px; padding-bottom: 7px;">Customer Name:</td>
+          <td align="right" style="font-weight: 600; padding-top: 8px; padding-bottom: 7px;">${safeName}</td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Customer Email:</td>
+          <td align="right" style="padding-bottom: 7px;"><a href="mailto:${safeEmail}" style="color: #997A15; text-decoration: none;">${safeEmail}</a></td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Contact Number:</td>
+          <td align="right" style="padding-bottom: 7px;">${safePhone}</td>
+        </tr>
+        <tr>
+          <td style="color: #666660; padding-bottom: 7px;">Visa Package:</td>
+          <td align="right" style="font-weight: 600; padding-bottom: 7px;">${safeProduct}</td>
+        </tr>
+        <tr>
+          <td style="color: #666660;">Number of Applicants:</td>
+          <td align="right" style="font-weight: 700; color: #0A0A08;">${count}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Applicant Names List -->
+    <div style="background-color: #FFFFFF; border: 1px solid #E5E0D5; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 10px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #997A15;">
+        Registered Applicants (${count})
+      </h3>
+      <ol style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #0A0A08;">
+        ${namesList}
+      </ol>
+    </div>
+
+    <!-- Applicant-wise Document Checklist -->
+    <h3 style="margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #0A0A08;">
+      Applicant-wise Document Checklist &amp; Review Status
+    </h3>
+    ${applicantRows || '<p style="font-size: 13px; color: #666660;">No document records available for this application.</p>'}
+
+    <!-- Secure Document Access (48-Hour Token Link) -->
+    ${
+      safeSecureDocsUrl
+        ? `
+    <div style="background-color: #FEFCE8; border: 1px solid #FEF08A; border-radius: 8px; padding: 18px; margin: 24px 0; text-align: center;">
+      <p style="margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #0A0A08;">
+        Secure Direct Document Access (Staff Package)
+      </p>
+      <a href="${safeSecureDocsUrl}" style="display: inline-block; background-color: #0A0A08; color: #C9A227; font-weight: 700; font-size: 12px; padding: 11px 24px; border-radius: 6px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">
+        Download All Documents Package (.ZIP) &rarr;
+      </a>
+      <p style="margin: 10px 0 0; font-size: 11px; color: #78716C;">
+        🔒 Secure token-protected link. Valid for 48 hours. Documents are stored in secure private storage; sensitive identity documents are not sent as unencrypted email attachments.
+      </p>
+    </div>`
+        : ""
+    }
+
+    <!-- Admin Portal Button -->
+    <div style="text-align: center; margin-top: 24px;">
+      <a href="${safeAdminUrl}" style="display: inline-block; background-color: #C9A227; color: #0A0A08; font-weight: 700; font-size: 13px; padding: 12px 28px; border-radius: 6px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">
+        Open in Masaar Admin Portal &rarr;
+      </a>
+    </div>
+  `;
+
+  const isSaudi =
+    params.visaSlug === "saudi-tourist" ||
+    params.productTitle?.toLowerCase().includes("saudi") ||
+    params.referenceNo?.startsWith("MH-SV-");
+
+  const emailSubject = isSaudi
+    ? `New Paid Saudi Visa Application — ${params.referenceNo}`
+    : `New Paid Visa Application — ${params.referenceNo}`;
+
+  return {
+    subject: emailSubject,
+    html: baseLayout("Operations Alert: New Paid Visa Application", content),
+  };
+}
+
 export {
   renderTransportBookingConfirmedEmail as renderTransportConfirmationEmail,
   renderEsimOrderConfirmedEmail as renderEsimOrderConfirmationEmail,

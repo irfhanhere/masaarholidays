@@ -38,7 +38,7 @@ export function getMasaarFromEmail(): string {
 }
 
 export function getStaffRecipientEmail(): string {
-  return process.env.STAFF_ALERT_EMAIL || "care@masaarholidays.com";
+  return process.env.VISA_OPERATIONS_EMAIL || process.env.STAFF_ALERT_EMAIL || "care@masaarholidays.com";
 }
 
 /**
@@ -47,7 +47,7 @@ export function getStaffRecipientEmail(): string {
 function getTransporter(): Transporter {
   if (cachedTransporter) return cachedTransporter;
 
-  const port = Number(process.env.SMTP_PORT) || 587;
+  const port = Number(process.env.SMTP_PORT) || 465;
   const isSecure = process.env.SMTP_SECURE === "true" || (port === 465 && process.env.SMTP_SECURE !== "false");
 
   cachedTransporter = nodemailer.createTransport({
@@ -108,6 +108,7 @@ export interface SendMailOptions {
 export interface SendMailResult {
   success: boolean;
   messageId?: string;
+  providerResponse?: string;
   skipped?: boolean;
   error?: string;
 }
@@ -116,6 +117,18 @@ export interface SendMailResult {
  * Sends a transactional email. If SMTP is unconfigured, skips safely.
  */
 export async function sendEmail(options: SendMailOptions): Promise<SendMailResult> {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const toList = Array.isArray(options.to) ? options.to : [options.to];
+  for (const recipient of toList) {
+    if (!recipient || !emailRegex.test(recipient.trim())) {
+      console.warn(`[SMTP] Delivery rejected: Invalid recipient email format "${recipient}"`);
+      return {
+        success: false,
+        error: `Invalid recipient email address format: "${recipient}"`,
+      };
+    }
+  }
+
   if (!isSmtpConfigured()) {
     console.warn(
       `[SMTP] Delivery skipped for "${options.subject}" to ${Array.isArray(options.to) ? options.to.join(",") : options.to}. Reason: SMTP_PASS is not configured.`
@@ -142,6 +155,7 @@ export async function sendEmail(options: SendMailOptions): Promise<SendMailResul
     return {
       success: true,
       messageId: info.messageId,
+      providerResponse: typeof info.response === "string" ? info.response : undefined,
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -172,16 +186,20 @@ export async function sendIdempotentEmail(
   const recipient = Array.isArray(options.to) ? options.to.join(", ") : options.to;
 
   // 1. Check if already delivered
+  let existingRecord: { id: string; status: string; attempt_count?: number } | null = null;
   try {
     const { data: existing } = await supabase
       .from("email_notifications")
-      .select("id, status")
+      .select("id, status, attempt_count")
       .eq("idempotency_key", options.idempotencyKey)
       .maybeSingle();
 
-    if (existing && existing.status === "sent") {
-      console.log(`[SMTP-Idempotency] Duplicate suppressed for key: ${options.idempotencyKey}`);
-      return { success: true, duplicate: true };
+    if (existing) {
+      existingRecord = existing;
+      if (existing.status === "sent") {
+        console.log(`[SMTP-Idempotency] Duplicate suppressed for key: ${options.idempotencyKey}`);
+        return { success: true, duplicate: true };
+      }
     }
   } catch (checkErr) {
     console.warn("[SMTP-Idempotency] Note: Check error, proceeding to attempt send:", checkErr);
@@ -207,8 +225,14 @@ export async function sendIdempotentEmail(
         reference_id: options.referenceId || null,
         service_type: options.serviceType || "general",
         status: notificationStatus,
+        attempt_count: (existingRecord?.attempt_count || 0) + 1,
         error_message: sendResult.error || null,
-        metadata: options.metadata || {},
+        metadata: {
+          ...(options.metadata || {}),
+          messageId: sendResult.messageId || null,
+          providerResponse: sendResult.providerResponse || null,
+          attemptedAt: new Date().toISOString(),
+        },
         sent_at: sendResult.success ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       },
