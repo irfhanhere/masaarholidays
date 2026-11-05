@@ -127,48 +127,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const nationality = typeof a.nationality === "string" ? a.nationality.trim() : "";
-    if (!nationality) {
-      return NextResponse.json(
-        { error: `Applicant #${applicantIndex}: Passport nationality is required.` },
-        { status: 400 }
-      );
-    }
+    const nationality =
+      typeof a.nationality === "string" && a.nationality.trim()
+        ? a.nationality.trim()
+        : "India";
 
     const emiratesIdExpiryDate =
-      typeof a.emiratesIdExpiryDate === "string" ? a.emiratesIdExpiryDate.trim() : "";
-    if (!emiratesIdExpiryDate) {
-      return NextResponse.json(
-        { error: `Applicant #${applicantIndex}: Emirates ID expiry date is required.` },
-        { status: 400 }
-      );
-    }
+      typeof a.emiratesIdExpiryDate === "string" && a.emiratesIdExpiryDate.trim()
+        ? a.emiratesIdExpiryDate.trim()
+        : "SEE_ATTACHED_EMIRATES_ID";
 
     const passportNumber =
       typeof a.passportNumber === "string" && a.passportNumber.trim()
         ? a.passportNumber.trim()
         : "SEE_ATTACHED_PASSPORT";
 
-    const validation = validateApplicantEligibility(
-      {
-        fullName,
-        nationality,
-        passportNumber,
-        passportExpiryDate: typeof a.passportExpiryDate === "string" ? a.passportExpiryDate.trim() : "",
-        residenceExpiryDate: typeof a.residenceExpiryDate === "string" ? a.residenceExpiryDate.trim() : "",
-        emiratesIdExpiryDate,
-        emiratesIdNumber: typeof a.emiratesIdNumber === "string" ? a.emiratesIdNumber.trim() : "",
-      },
-      settings
-    );
-
-    if (validation.manualReviewRequired || !validation.eligible) {
+    if (nationality === "Other") {
       return NextResponse.json(
         {
-          error:
-            validation.issues.length > 0
-              ? `Applicant #${applicantIndex}: ${validation.issues.join("; ")}`
-              : `Applicant #${applicantIndex} (${nationality}): Your nationality is not listed for automated checkout. Please contact our team on WhatsApp for an eligibility check before payment.`,
+          error: `Applicant #${applicantIndex}: Instant online checkout is reserved for eligible UAE residents. Please contact our concierge team on WhatsApp for manual review.`,
         },
         { status: 400 }
       );

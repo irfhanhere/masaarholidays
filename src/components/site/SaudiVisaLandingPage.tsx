@@ -78,42 +78,42 @@ const DOCUMENT_SLOTS: Array<{
   description: string;
   accept: string;
 }> = [
-  {
-    type: "passport",
-    title: "Passport Copy",
-    mandatory: true,
-    description: "Clear full-page color copy of passport bio-data page (minimum 6 months validity).",
-    accept: ".jpg,.jpeg,.png,.webp,.pdf",
-  },
-  {
-    type: "emirates_id_front",
-    title: "Emirates ID — Front",
-    mandatory: true,
-    description: "Color photo or scan of the front of your valid Emirates ID card.",
-    accept: ".jpg,.jpeg,.png,.webp,.pdf",
-  },
-  {
-    type: "emirates_id_back",
-    title: "Emirates ID — Back",
-    mandatory: true,
-    description: "Color photo or scan of the back of your valid Emirates ID card.",
-    accept: ".jpg,.jpeg,.png,.webp,.pdf",
-  },
-  {
-    type: "photo",
-    title: "Passport-size Photo",
-    mandatory: true,
-    description: "Recent color photograph with a white background taken within last 6 months.",
-    accept: ".jpg,.jpeg,.png,.webp",
-  },
-  {
-    type: "additional",
-    title: "Additional Documents",
-    mandatory: false,
-    description: "Optional: Flight ticket, hotel booking, or previous GCC/Saudi visas.",
-    accept: ".jpg,.jpeg,.png,.webp,.pdf",
-  },
-];
+    {
+      type: "passport",
+      title: "Passport Copy",
+      mandatory: true,
+      description: "Clear full-page color copy of passport bio-data page (minimum 6 months validity).",
+      accept: ".jpg,.jpeg,.png,.webp,.pdf",
+    },
+    {
+      type: "emirates_id_front",
+      title: "Emirates ID — Front",
+      mandatory: true,
+      description: "Color photo or scan of the front of your valid Emirates ID card.",
+      accept: ".jpg,.jpeg,.png,.webp,.pdf",
+    },
+    {
+      type: "emirates_id_back",
+      title: "Emirates ID — Back",
+      mandatory: true,
+      description: "Color photo or scan of the back of your valid Emirates ID card.",
+      accept: ".jpg,.jpeg,.png,.webp,.pdf",
+    },
+    {
+      type: "photo",
+      title: "Passport-size Photo",
+      mandatory: true,
+      description: "Recent color photograph with a white background taken within last 6 months.",
+      accept: ".jpg,.jpeg,.png,.webp",
+    },
+    {
+      type: "additional",
+      title: "Additional Documents",
+      mandatory: false,
+      description: "Optional: Flight ticket, hotel booking, or previous GCC/Saudi visas.",
+      accept: ".jpg,.jpeg,.png,.webp,.pdf",
+    },
+  ];
 
 export function SaudiVisaLandingPage() {
   const [applicationType, setApplicationType] = useState<"individual" | "family">("individual");
@@ -301,7 +301,7 @@ export function SaudiVisaLandingPage() {
 
     const phone = contactPhone.trim();
     if (!phone || phone.length < 7) {
-      setSubmissionError("A valid UAE Mobile / WhatsApp Phone Number is mandatory.");
+      setSubmissionError("A valid WhatsApp / Phone Number is mandatory.");
       return;
     }
 
@@ -310,22 +310,15 @@ export function SaudiVisaLandingPage() {
       return;
     }
 
+    if (!travelPurpose) {
+      setSubmissionError("Purpose of Visit is mandatory.");
+      return;
+    }
+
     for (let i = 0; i < applicants.length; i++) {
       const app = applicants[i];
       if (!app.fullName?.trim() || app.fullName.trim().length < 2) {
         setSubmissionError(`Traveller #${i + 1}: Full Name is mandatory.`);
-        setActiveApplicantIndex(i);
-        return;
-      }
-      if (!app.nationality || !isNationalityApproved(app.nationality)) {
-        setSubmissionError(
-          `Traveller #${i + 1} (${app.nationality || "Unspecified"}): Your nationality is not listed for instant automated online checkout. Please contact our team on WhatsApp for an eligibility check; we do not accept unverified online payments.`
-        );
-        setActiveApplicantIndex(i);
-        return;
-      }
-      if (!app.emiratesIdExpiryDate) {
-        setSubmissionError(`Traveller #${i + 1}: Emirates ID Expiry Date is mandatory.`);
         setActiveApplicantIndex(i);
         return;
       }
@@ -361,8 +354,7 @@ export function SaudiVisaLandingPage() {
         if (!hasPhoto) missing.push("Passport-size Photo");
 
         setSubmissionError(
-          `Please upload all mandatory documents for ${
-            applicants.length > 1 ? `Traveller #${i + 1}` : "your application"
+          `Please upload all mandatory documents for ${applicants.length > 1 ? `Traveller #${i + 1}` : "your application"
           }: missing ${missing.join(", ")}.`
         );
         setActiveApplicantIndex(i);
@@ -763,11 +755,10 @@ export function SaudiVisaLandingPage() {
           <div className="mt-12 mx-auto grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
             {/* Individual Card */}
             <div
-              className={`relative flex flex-col justify-between rounded-xl border bg-white p-7 shadow-sm transition-all hover:shadow-md ${
-                applicationType === "individual"
+              className={`relative flex flex-col justify-between rounded-xl border bg-white p-7 shadow-sm transition-all hover:shadow-md ${applicationType === "individual"
                   ? "border-pure-gold ring-2 ring-pure-gold/25"
                   : "border-black/10"
-              }`}
+                }`}
             >
               <div>
                 <span className="rounded-full bg-black/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-masaar-black/70">
@@ -847,11 +838,10 @@ export function SaudiVisaLandingPage() {
 
             {/* Family Card */}
             <div
-              className={`relative flex flex-col justify-between rounded-xl border bg-white p-7 shadow-sm transition-all hover:shadow-md ${
-                applicationType === "family"
+              className={`relative flex flex-col justify-between rounded-xl border bg-white p-7 shadow-sm transition-all hover:shadow-md ${applicationType === "family"
                   ? "border-pure-gold ring-2 ring-pure-gold/40"
                   : "border-black/10"
-              }`}
+                }`}
             >
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pure-gold px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-masaar-black shadow-sm">
                 5% Family Discount (3+ Applicants)
@@ -987,13 +977,12 @@ export function SaudiVisaLandingPage() {
                   type="button"
                   onClick={() => s.num < currentStep && setCurrentStep(s.num)}
                   disabled={s.num > currentStep}
-                  className={`rounded-xl py-3 px-2 transition-all cursor-pointer ${
-                    currentStep === s.num
+                  className={`rounded-xl py-3 px-2 transition-all cursor-pointer ${currentStep === s.num
                       ? "bg-masaar-black text-white font-bold shadow-sm"
                       : currentStep > s.num
-                      ? "bg-pure-gold/20 text-deep-gold font-semibold hover:bg-pure-gold/30"
-                      : "bg-white text-masaar-black/40 border border-black/5 cursor-not-allowed"
-                  }`}
+                        ? "bg-pure-gold/20 text-deep-gold font-semibold hover:bg-pure-gold/30"
+                        : "bg-white text-masaar-black/40 border border-black/5 cursor-not-allowed"
+                    }`}
                 >
                   <span className="block text-[10px] font-mono uppercase tracking-wider">
                     {currentStep > s.num ? "✓ Completed" : `Step ${s.num}`}
@@ -1041,11 +1030,10 @@ export function SaudiVisaLandingPage() {
                       <button
                         type="button"
                         onClick={handleSelectIndividual}
-                        className={`rounded-lg border p-3.5 text-left transition-all cursor-pointer ${
-                          applicationType === "individual"
+                        className={`rounded-lg border p-3.5 text-left transition-all cursor-pointer ${applicationType === "individual"
                             ? "border-pure-gold bg-white ring-2 ring-pure-gold/30 shadow-xs"
                             : "border-black/10 bg-white hover:bg-neutral-50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-masaar-black">Individual</span>
@@ -1061,11 +1049,10 @@ export function SaudiVisaLandingPage() {
                       <button
                         type="button"
                         onClick={handleSelectFamily}
-                        className={`rounded-lg border p-3.5 text-left transition-all cursor-pointer ${
-                          applicationType === "family"
+                        className={`rounded-lg border p-3.5 text-left transition-all cursor-pointer ${applicationType === "family"
                             ? "border-pure-gold bg-white ring-2 ring-pure-gold/30 shadow-xs"
                             : "border-black/10 bg-white hover:bg-neutral-50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-masaar-black">Family</span>
@@ -1123,11 +1110,10 @@ export function SaudiVisaLandingPage() {
                           key={idx}
                           type="button"
                           onClick={() => setActiveApplicantIndex(idx)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                            activeApplicantIndex === idx
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${activeApplicantIndex === idx
                               ? "bg-masaar-black text-white shadow-xs"
                               : "bg-neutral-100 text-masaar-black/70 hover:bg-neutral-200"
-                          }`}
+                            }`}
                         >
                           {idx === 0 ? "Traveller 1 (Lead)" : `Traveller ${idx + 1}`}
                           {app.fullName.trim() && (
@@ -1218,81 +1204,24 @@ export function SaudiVisaLandingPage() {
                       </div>
                     )}
 
-                    {/* Nationality Dropdown */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-masaar-black">
-                          Passport Nationality *
-                        </label>
-                        <span className="text-[10px] text-pure-gold font-bold uppercase tracking-wider">
-                          10 Confirmed Nationalities
-                        </span>
-                      </div>
-                      <select
-                        value={applicants[activeApplicantIndex]?.nationality || "India"}
-                        onChange={(e) =>
-                          handleApplicantChange(activeApplicantIndex, "nationality", e.target.value)
-                        }
-                        className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold bg-white"
-                      >
-                        {CONFIRMED_10_NATIONALITIES.map((nat) => (
-                          <option key={nat.country} value={nat.country}>
-                            {nat.flag} {nat.country} ({nat.name})
-                          </option>
-                        ))}
-                        <option value="Other">Other / Unlisted Nationality</option>
-                      </select>
-
-                      {/* Other Nationality WhatsApp Helper */}
-                      {applicants[activeApplicantIndex]?.nationality === "Other" && (
-                        <div className="mt-3 rounded-xl border border-pure-gold/40 bg-warm-ivory p-4">
-                          <div className="flex items-start gap-3">
-                            <AlertCircle className="size-5 shrink-0 text-deep-gold mt-0.5" />
-                            <div className="space-y-2">
-                              <p className="text-xs font-semibold text-deep-gold">
-                                Automated Checkout Unavailable for Unlisted Nationalities
-                              </p>
-                              <p className="text-xs text-masaar-black/80 leading-relaxed">
-                                Automated instant online checkout is configured for the 10 confirmed nationalities. For other passport holders, our visa specialists verify residency rules manually. Contact us on WhatsApp for fast manual review and personalized processing.
-                              </p>
-                              <a
-                                href={buildWhatsAppLink(
-                                  CONTACT.whatsappPhoneIntl,
-                                  "Hello Masaar Holidays! I would like an eligibility check for a Saudi Visa for my nationality."
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-md bg-masaar-black px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black/80"
-                              >
-                                Chat on WhatsApp for Eligibility Review →
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Emirates ID Expiry Date (Mandatory Typed Detail) */}
+                    {/* Purpose of Visit */}
                     <div>
                       <label className="block text-xs font-semibold text-masaar-black mb-1.5">
-                        Emirates ID Expiry Date * (Mandatory Detail)
+                        Purpose of Visit *
                       </label>
-                      <input
-                        type="date"
-                        required
-                        min={new Date().toISOString().split("T")[0]}
-                        value={applicants[activeApplicantIndex]?.emiratesIdExpiryDate || ""}
-                        onChange={(e) =>
-                          handleApplicantChange(
-                            activeApplicantIndex,
-                            "emiratesIdExpiryDate",
-                            e.target.value
-                          )
-                        }
-                        className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold"
-                      />
+                      <select
+                        value={travelPurpose}
+                        onChange={(e) => setTravelPurpose(e.target.value)}
+                        className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold bg-white"
+                      >
+                        <option value="Tourism / Leisure">Tourism / Leisure</option>
+                        <option value="Umrah">Umrah (Outside restricted Hajj period)</option>
+                        <option value="Visiting Family / Relatives">Visiting Family / Relatives</option>
+                        <option value="Business / Events">Business / Events / Conferences</option>
+                        <option value="Transit">Transit / Short Layover</option>
+                      </select>
                       <p className="text-[10px] text-masaar-black/50 mt-1">
-                        UAE Residence visa must be valid for at least 3 months from your planned travel date.
+                        All passport and UAE residency information will be verified directly from your uploaded documents in Step 2.
                       </p>
                     </div>
                   </div>
@@ -1346,21 +1275,19 @@ export function SaudiVisaLandingPage() {
                             key={idx}
                             type="button"
                             onClick={() => setActiveApplicantIndex(idx)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                              activeApplicantIndex === idx
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${activeApplicantIndex === idx
                                 ? "bg-masaar-black text-white shadow-xs"
                                 : "bg-neutral-100 text-masaar-black/70 hover:bg-neutral-200"
-                            }`}
+                              }`}
                           >
                             <span>
                               {idx === 0 ? "Traveller 1 (Lead)" : `Traveller ${idx + 1}`}
                             </span>
                             <span
-                              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                mandatoryCount === 4
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full ${mandatoryCount === 4
                                   ? "bg-emerald-500/20 text-emerald-700"
                                   : "bg-amber-500/20 text-amber-800"
-                              }`}
+                                }`}
                             >
                               {mandatoryCount}/4
                             </span>
@@ -1397,13 +1324,12 @@ export function SaudiVisaLandingPage() {
                       return (
                         <div
                           key={slot.type}
-                          className={`rounded-xl border p-4 transition-all ${
-                            uploaded
+                          className={`rounded-xl border p-4 transition-all ${uploaded
                               ? "border-emerald-200 bg-emerald-50/30"
                               : slot.mandatory
-                              ? "border-black/15 bg-white"
-                              : "border-black/10 bg-neutral-50/50"
-                          }`}
+                                ? "border-black/15 bg-white"
+                                : "border-black/10 bg-neutral-50/50"
+                            }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex-1">
@@ -1570,7 +1496,7 @@ export function SaudiVisaLandingPage() {
                     </div>
 
                     {/* Contact & Travel Details */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                       <div>
                         <span className="block text-[10px] text-masaar-black/50 uppercase font-semibold">
                           Contact Email
@@ -1588,6 +1514,12 @@ export function SaudiVisaLandingPage() {
                           Travel Date
                         </span>
                         <span className="font-medium text-masaar-black">{travelDate}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-masaar-black/50 uppercase font-semibold">
+                          Purpose of Visit
+                        </span>
+                        <span className="font-medium text-masaar-black">{travelPurpose}</span>
                       </div>
                     </div>
 
@@ -1613,11 +1545,8 @@ export function SaudiVisaLandingPage() {
                               <span className="font-bold text-masaar-black">
                                 {idx + 1}. {app.fullName}
                               </span>
-                              <span className="text-masaar-black/60 ml-2">
-                                ({app.nationality})
-                              </span>
-                              <span className="text-masaar-black/40 text-[11px] block sm:inline sm:ml-2">
-                                EID Expiry: {app.emiratesIdExpiryDate}
+                              <span className="text-masaar-black/50 text-[11px] block sm:inline sm:ml-2">
+                                (Passport & Emirates ID attached)
                               </span>
                             </div>
 
@@ -1690,11 +1619,10 @@ export function SaudiVisaLandingPage() {
                       <button
                         type="button"
                         onClick={() => setPaymentGateway("stripe")}
-                        className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${
-                          paymentGateway === "stripe"
+                        className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${paymentGateway === "stripe"
                             ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
                             : "border-black/10 bg-white hover:bg-neutral-50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-masaar-black">
@@ -1718,11 +1646,10 @@ export function SaudiVisaLandingPage() {
                         <button
                           type="button"
                           onClick={() => setPaymentGateway("tabby")}
-                          className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${
-                            paymentGateway === "tabby"
+                          className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${paymentGateway === "tabby"
                               ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
                               : "border-black/10 bg-white hover:bg-neutral-50"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-masaar-black">

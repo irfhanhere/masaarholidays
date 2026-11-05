@@ -107,24 +107,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please provide a valid phone or WhatsApp number." }, { status: 400 });
   }
 
-  // 1. Eligibility validation for Saudi Tourist Visa
+  // 1. Eligibility validation for Saudi Tourist Visa (if nationality explicitly provided)
   if (visaSlug === "saudi-tourist") {
     for (let i = 0; i < rawApplicants.length; i++) {
       const app = rawApplicants[i];
       const appNat = (typeof app?.nationality === "string" ? app.nationality : nationality).trim().toLowerCase();
-      const appRes = (typeof app?.countryOfResidence === "string" ? app.countryOfResidence : countryOfResidence).trim().toLowerCase();
 
-      const isIndianOrPakistani = appNat === "india" || appNat === "pakistan" || appNat === "indian" || appNat === "pakistani";
-      const isUaeResident = appRes === "united arab emirates" || appRes === "uae";
-
-      if (!isIndianOrPakistani || !isUaeResident) {
-        return NextResponse.json(
-          {
-            error:
-              "Currently, this Saudi Visa service is available only to UAE residents holding Indian or Pakistani passports. Please contact our team to discuss other options.",
-          },
-          { status: 400 }
-        );
+      if (appNat && appNat !== "not specified" && appNat !== "uae resident" && appNat !== "other") {
+        const isIndianOrPakistani = appNat === "india" || appNat === "pakistan" || appNat === "indian" || appNat === "pakistani";
+        if (!isIndianOrPakistani) {
+          return NextResponse.json(
+            {
+              error:
+                "Currently, online checkout for this Saudi Visa service is available to eligible UAE residents. Please contact our team on WhatsApp for other nationalities.",
+            },
+            { status: 400 }
+          );
+        }
       }
     }
   }
@@ -258,9 +257,9 @@ export async function POST(request: NextRequest) {
       full_name: (typeof a.fullName === "string" ? a.fullName.trim() : `Applicant ${idx + 1}`),
       date_of_birth: (typeof a.dateOfBirth === "string" ? a.dateOfBirth.trim() : "1990-01-01"),
       gender: (typeof a.gender === "string" ? a.gender.trim() : "Other"),
-      nationality: (typeof a.nationality === "string" ? a.nationality.trim() : nationality),
-      country_of_residence: (typeof a.countryOfResidence === "string" ? a.countryOfResidence.trim() : countryOfResidence),
-      passport_number: (typeof a.passportNumber === "string" ? a.passportNumber.trim() : "PENDING"),
+      nationality: (typeof a.nationality === "string" && a.nationality.trim() ? a.nationality.trim() : nationality || "UAE Resident"),
+      country_of_residence: (typeof a.countryOfResidence === "string" && a.countryOfResidence.trim() ? a.countryOfResidence.trim() : countryOfResidence || "United Arab Emirates"),
+      passport_number: (typeof a.passportNumber === "string" && a.passportNumber.trim() ? a.passportNumber.trim() : "SEE_ATTACHED_DOC"),
       passport_issue_date: (typeof a.passportIssueDate === "string" && a.passportIssueDate.trim() ? a.passportIssueDate.trim() : "N/A"),
       passport_expiry_date: (typeof a.passportExpiryDate === "string" && a.passportExpiryDate.trim() ? a.passportExpiryDate.trim() : "2030-01-01"),
       place_of_issue: (typeof a.placeOfIssue === "string" && a.placeOfIssue.trim() ? a.placeOfIssue.trim() : "N/A"),

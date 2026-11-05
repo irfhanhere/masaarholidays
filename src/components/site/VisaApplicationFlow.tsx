@@ -92,7 +92,7 @@ export function VisaApplicationFlow({
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Payment & Terms
-  const isThreeStep = visaType.slug === "saudi-tourist";
+  const isThreeStep = true;
   const [selectedGateway, setSelectedGateway] = useState<"stripe" | "tabby">("stripe");
   const [paymentMethod, setPaymentMethod] = useState<string>("card");
   const [sameBillingAddress, setSameBillingAddress] = useState<boolean>(true);
@@ -135,7 +135,7 @@ export function VisaApplicationFlow({
 
   // Pricing calculations
   const count = Math.max(1, travellersCount);
-  const isSaudi = isThreeStep || selectedProduct?.currency === "AED";
+  const isSaudi = visaType.slug === "saudi-tourist" || selectedProduct?.visa_type_slug === "saudi-tourist" || selectedProduct?.currency === "AED";
   const pricing = selectedProduct
     ? calculateVisaPricing(selectedProduct, count)
     : {
@@ -172,16 +172,7 @@ export function VisaApplicationFlow({
   const tabbyInstallmentAmount = Math.round((tabbyTotalAmount / 4) * 100) / 100;
   const isTabbyEligible = tabbyEnabled;
 
-  // Saudi applicant eligibility checker: UAE residents holding Indian or Pakistani passports
-  const isSaudiApplicantEligible = (a: ApplicantData) => {
-    const nat = (a.nationality || "").trim().toLowerCase();
-    const isIndianOrPakistani = nat === "india" || nat === "pakistan" || nat === "indian" || nat === "pakistani";
-    const res = (a.countryOfResidence || "").trim().toLowerCase();
-    const isUaeResident = res === "united arab emirates" || res === "uae";
-    return isIndianOrPakistani && isUaeResident;
-  };
-
-  const hasIneligibleSaudiApplicant = isThreeStep && applicants.some((a) => !isSaudiApplicantEligible(a));
+  const hasIneligibleSaudiApplicant = false;
 
   // File upload handler
   // File upload handler supporting applicant index
@@ -240,36 +231,20 @@ export function VisaApplicationFlow({
     });
   };
 
-  // 3-Step Validations (Saudi Tourist Visa)
+  // 3-Step Validations
   const validateThreeStep1 = () => {
     if (!intendedTravelDate) {
       alert("Please select your intended date of travel.");
+      return false;
+    }
+    if (!purposeOfVisit) {
+      alert("Please select your purpose of visit.");
       return false;
     }
     for (let i = 0; i < applicants.length; i++) {
       const a = applicants[i];
       if (!a.fullName || a.fullName.trim().length < 2) {
         alert(`Please enter full name (as per passport) for Traveller ${i + 1}.`);
-        setActiveApplicantIndex(i);
-        return false;
-      }
-      if (!isSaudiApplicantEligible(a)) {
-        alert("Currently, this Saudi Visa service is available only to UAE residents holding Indian or Pakistani passports. Please contact our team to discuss other options.");
-        setActiveApplicantIndex(i);
-        return false;
-      }
-      if (!a.dateOfBirth) {
-        alert(`Please enter date of birth for Traveller ${i + 1}.`);
-        setActiveApplicantIndex(i);
-        return false;
-      }
-      if (!a.passportNumber || a.passportNumber.trim().length < 4) {
-        alert(`Please enter passport number for Traveller ${i + 1}.`);
-        setActiveApplicantIndex(i);
-        return false;
-      }
-      if (!a.passportExpiryDate) {
-        alert(`Please enter passport expiry date for Traveller ${i + 1}.`);
         setActiveApplicantIndex(i);
         return false;
       }
@@ -293,15 +268,17 @@ export function VisaApplicationFlow({
         setActiveApplicantIndex(i);
         return false;
       }
-      if (!uploadedDocuments[`${i}_uae_residence_visa`]) {
-        alert(`Please upload UAE Residence Visa Copy for ${appName} to proceed.`);
-        setActiveApplicantIndex(i);
-        return false;
-      }
-      if (!uploadedDocuments[`${i}_emirates_id`]) {
-        alert(`Please upload Emirates ID Copy for ${appName} to proceed.`);
-        setActiveApplicantIndex(i);
-        return false;
+      if (isSaudi) {
+        if (!uploadedDocuments[`${i}_uae_residence_visa`]) {
+          alert(`Please upload UAE Residence Visa Copy for ${appName} to proceed.`);
+          setActiveApplicantIndex(i);
+          return false;
+        }
+        if (!uploadedDocuments[`${i}_emirates_id`]) {
+          alert(`Please upload Emirates ID Copy for ${appName} to proceed.`);
+          setActiveApplicantIndex(i);
+          return false;
+        }
       }
       if (!uploadedDocuments[`${i}_passport_photo`]) {
         alert(`Please upload Passport Size Photo for ${appName} to proceed.`);
@@ -762,10 +739,10 @@ export function VisaApplicationFlow({
                       </span>
                       <div>
                         <h2 className="font-semibold text-masaar-black text-sm">
-                          Traveller Details (Passport Information)
+                          Traveller Name
                         </h2>
                         <p className="text-[11px] text-masaar-black/60">
-                          Please enter details exactly as shown on the applicant&apos;s passport.
+                          Please enter the full legal name as shown on the applicant&apos;s passport.
                         </p>
                       </div>
                     </div>
@@ -797,122 +774,23 @@ export function VisaApplicationFlow({
                     </div>
                   )}
 
-                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Full Name (as per passport) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={applicants[activeApplicantIndex].fullName}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "fullName", e.target.value)}
-                        placeholder="e.g. MOHAMMED AHMED ALI"
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Passport Nationality <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={applicants[activeApplicantIndex].nationality}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "nationality", e.target.value)}
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      >
-                        <option value="India">🇮🇳 India (Indian Passport)</option>
-                        <option value="Pakistan">🇵🇰 Pakistan (Pakistani Passport)</option>
-                        <option value="Other">Other Nationality (Not Eligible)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Country of Residence <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={applicants[activeApplicantIndex].countryOfResidence}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "countryOfResidence", e.target.value)}
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      >
-                        <option value="United Arab Emirates">🇦🇪 United Arab Emirates (UAE Resident)</option>
-                        <option value="Other">Other Country (Not Eligible)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Date of Birth <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={applicants[activeApplicantIndex].dateOfBirth}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "dateOfBirth", e.target.value)}
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Gender <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={applicants[activeApplicantIndex].gender}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "gender", e.target.value)}
-                        aria-label="Gender"
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Passport Number <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={applicants[activeApplicantIndex].passportNumber}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "passportNumber", e.target.value)}
-                        placeholder="e.g. A1234567"
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Passport Expiry Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={applicants[activeApplicantIndex].passportExpiryDate}
-                        onChange={(e) => updateApplicantField(activeApplicantIndex, "passportExpiryDate", e.target.value)}
-                        className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                      <p className="mt-1 text-[10px] text-masaar-black/50">Must be valid for at least 6 months.</p>
-                    </div>
+                  <div className="mt-5">
+                    <label className="block text-xs font-semibold text-masaar-black">
+                      Full Name (as per passport) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={applicants[activeApplicantIndex].fullName}
+                      onChange={(e) => updateApplicantField(activeApplicantIndex, "fullName", e.target.value)}
+                      placeholder="e.g. MOHAMMED AHMED ALI"
+                      className="mt-1.5 w-full rounded-md border border-black/15 bg-warm-ivory/20 px-3 py-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
+                    />
+                    <p className="mt-1.5 text-[11px] text-masaar-black/50">
+                      Passport details and residence information will be verified directly from your uploaded documents in the next step.
+                    </p>
                   </div>
                 </div>
-
-                {/* Eligibility Warning Alert if nationality/residence is ineligible */}
-                {hasIneligibleSaudiApplicant && (
-                  <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-900 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="text-rose-600 text-base font-bold shrink-0">⚠️</span>
-                      <div>
-                        <p className="font-bold text-sm text-rose-800">Eligibility Notice</p>
-                        <p className="mt-1 leading-relaxed text-rose-900">
-                          Currently, this Saudi Visa service is available only to UAE residents holding Indian or Pakistani passports. Please contact our team to discuss other options.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1201,18 +1079,16 @@ export function VisaApplicationFlow({
                   </div>
                   <div className="mt-3 space-y-3">
                     {applicants.map((a, i) => (
-                      <div key={i} className="rounded border border-black/5 bg-warm-ivory/20 p-3 text-xs">
-                        <p className="font-semibold text-masaar-black">Traveller {i + 1}: {a.fullName}</p>
-                        <div className="mt-1 grid grid-cols-2 gap-2 text-masaar-black/70 sm:grid-cols-4">
-                          <p>Passport: <span className="font-mono font-bold text-masaar-black">{a.passportNumber}</span></p>
-                          <p>DOB: {a.dateOfBirth}</p>
-                          <p>Nationality: {a.nationality}</p>
-                          {isSaudi ? (
-                            <p>Residency: <span className="font-medium text-masaar-black">{a.countryOfResidence || "UAE"}</span></p>
-                          ) : (
-                            <p>Gender: {a.gender}</p>
-                          )}
+                      <div key={i} className="rounded border border-black/5 bg-warm-ivory/20 p-3 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-masaar-black">Traveller {i + 1}: {a.fullName || "Applicant"}</p>
+                          <p className="text-[11px] text-masaar-black/60 mt-0.5">
+                            Purpose: <span className="font-medium text-masaar-black">{purposeOfVisit}</span> · Travel Date: <span className="font-medium text-masaar-black">{intendedTravelDate}</span>
+                          </p>
                         </div>
+                        <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Documents Attached
+                        </span>
                       </div>
                     ))}
                     <div className="mt-2 text-xs text-masaar-black/70">
@@ -2439,17 +2315,16 @@ export function VisaApplicationFlow({
                 <button
                   type="button"
                   onClick={handleNext}
-                  disabled={isSaudi && hasIneligibleSaudiApplicant}
-                  className="rounded-md bg-pure-gold px-7 py-3 text-xs font-semibold text-masaar-black shadow-md transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md bg-pure-gold px-7 py-3 text-xs font-semibold text-masaar-black shadow-md transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {currentStep === (isThreeStep ? 2 : 4) ? "Continue to Payment →" : "Continue →"}
+                  {currentStep === 2 ? "Continue to Payment →" : "Continue →"}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleProceedToPayment}
-                  disabled={isSubmittingCheckout || !termsAgreed || !discretionAgreed || (isSaudi && hasIneligibleSaudiApplicant)}
-                  className="flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmittingCheckout || !termsAgreed || !discretionAgreed}
+                  className="flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg transition-all hover:bg-light-gold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSubmittingCheckout ? (
                     <span>Connecting to Secure Payment...</span>
