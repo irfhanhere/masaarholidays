@@ -7,7 +7,7 @@ import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { Price } from "@/components/site/Price";
-import { CONTACT } from "@/lib/contact";
+import { CONTACT, buildWhatsAppLink } from "@/lib/contact";
 import {
   FileCheck,
   ShieldCheck,
@@ -22,6 +22,10 @@ import {
   User,
   Users,
   Check,
+  Calendar,
+  CreditCard,
+  FileText,
+  ArrowRight,
 } from "./saudi-visa-icons";
 import {
   calculateSaudiVisaPricing,
@@ -33,9 +37,11 @@ import {
 } from "@/lib/data/saudi-visa-settings";
 import { trackMetaPixel } from "@/lib/analytics/meta-pixel";
 
+type VisaDocType = "passport" | "emirates_id_front" | "emirates_id_back" | "photo" | "additional";
+
 interface UploadedDoc {
   applicantIndex: number;
-  documentType: "passport" | "photo" | "emirates_id";
+  documentType: VisaDocType;
   filePath: string;
   fileName: string;
   fileSize: number;
@@ -45,29 +51,69 @@ interface UploadedDoc {
 
 interface ApplicantFormData {
   fullName: string;
-  dateOfBirth: string;
-  gender: string;
   nationality: string;
-  passportNumber: string;
-  passportIssueDate: string;
-  passportExpiryDate: string;
-  residenceExpiryDate: string;
-  emiratesIdNumber: string;
   emiratesIdExpiryDate: string;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  residenceExpiryDate?: string;
+  dateOfBirth?: string;
+  gender?: string;
 }
 
 const EMPTY_APPLICANT: ApplicantFormData = {
   fullName: "",
-  dateOfBirth: "",
-  gender: "Male",
   nationality: "India",
+  emiratesIdExpiryDate: "",
   passportNumber: "",
-  passportIssueDate: "",
   passportExpiryDate: "",
   residenceExpiryDate: "",
-  emiratesIdNumber: "",
-  emiratesIdExpiryDate: "",
+  dateOfBirth: "",
+  gender: "Male",
 };
+
+const DOCUMENT_SLOTS: Array<{
+  type: VisaDocType;
+  title: string;
+  mandatory: boolean;
+  description: string;
+  accept: string;
+}> = [
+  {
+    type: "passport",
+    title: "Passport Copy",
+    mandatory: true,
+    description: "Clear full-page color copy of passport bio-data page (minimum 6 months validity).",
+    accept: ".jpg,.jpeg,.png,.webp,.pdf",
+  },
+  {
+    type: "emirates_id_front",
+    title: "Emirates ID — Front",
+    mandatory: true,
+    description: "Color photo or scan of the front of your valid Emirates ID card.",
+    accept: ".jpg,.jpeg,.png,.webp,.pdf",
+  },
+  {
+    type: "emirates_id_back",
+    title: "Emirates ID — Back",
+    mandatory: true,
+    description: "Color photo or scan of the back of your valid Emirates ID card.",
+    accept: ".jpg,.jpeg,.png,.webp,.pdf",
+  },
+  {
+    type: "photo",
+    title: "Passport-size Photo",
+    mandatory: true,
+    description: "Recent color photograph with a white background taken within last 6 months.",
+    accept: ".jpg,.jpeg,.png,.webp",
+  },
+  {
+    type: "additional",
+    title: "Additional Documents",
+    mandatory: false,
+    description: "Optional: Flight ticket, hotel booking, or previous GCC/Saudi visas.",
+    accept: ".jpg,.jpeg,.png,.webp,.pdf",
+  },
+];
 
 export function SaudiVisaLandingPage() {
   const [applicationType, setApplicationType] = useState<"individual" | "family">("individual");
@@ -75,17 +121,11 @@ export function SaudiVisaLandingPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  // Eligibility state
-  const [eligibilityNationality, setEligibilityNationality] = useState<string>("India");
-  const [isUaeResident, setIsUaeResident] = useState<boolean>(true);
-  const [passportValidMonths, setPassportValidMonths] = useState<boolean>(true);
-  const [residenceValidMonths, setResidenceValidMonths] = useState<boolean>(true);
-  const [travelPurpose, setTravelPurpose] = useState<string>("Umrah");
-  const [travelDate, setTravelDate] = useState<string>("");
-
-  // Primary contact
+  // Step 1: Details fields
   const [contactEmail, setContactEmail] = useState<string>("");
   const [contactPhone, setContactPhone] = useState<string>("");
+  const [travelDate, setTravelDate] = useState<string>("");
+  const [travelPurpose, setTravelPurpose] = useState<string>("Umrah / Tourism");
 
   // Applicants array
   const [applicants, setApplicants] = useState<ApplicantFormData[]>([
@@ -103,7 +143,7 @@ export function SaudiVisaLandingPage() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, startSubmission] = useTransition();
 
-  // Active applicant tab in Step 3
+  // Active applicant tab for family applications
   const [activeApplicantIndex, setActiveApplicantIndex] = useState<number>(0);
 
   // Pricing calculation
@@ -137,9 +177,9 @@ export function SaudiVisaLandingPage() {
   const handleSelectIndividual = () => {
     setApplicationType("individual");
     setApplicantCount(1);
-    setApplicants((prev) => [prev[0] || { ...EMPTY_APPLICANT, nationality: eligibilityNationality }]);
+    setApplicants((prev) => [prev[0] || { ...EMPTY_APPLICANT, nationality: "India" }]);
     trackMetaPixel("ApplicationStarted", { application_type: "individual", applicant_count: 1 });
-    setCurrentStep(2);
+    setCurrentStep(1);
   };
 
   const handleSelectFamily = () => {
@@ -149,12 +189,12 @@ export function SaudiVisaLandingPage() {
     setApplicants((prev) => {
       const next = [...prev];
       while (next.length < count) {
-        next.push({ ...EMPTY_APPLICANT, nationality: eligibilityNationality });
+        next.push({ ...EMPTY_APPLICANT, nationality: "India" });
       }
       return next.slice(0, count);
     });
     trackMetaPixel("ApplicationStarted", { application_type: "family", applicant_count: count });
-    setCurrentStep(2);
+    setCurrentStep(1);
   };
 
   const handleUpdateFamilyCount = (newCount: number) => {
@@ -164,7 +204,7 @@ export function SaudiVisaLandingPage() {
       const next = [...prev];
       if (newCount > next.length) {
         for (let i = next.length; i < newCount; i++) {
-          next.push({ ...EMPTY_APPLICANT, nationality: eligibilityNationality });
+          next.push({ ...EMPTY_APPLICANT, nationality: "India" });
         }
       } else {
         next.splice(newCount);
@@ -183,12 +223,16 @@ export function SaudiVisaLandingPage() {
   };
 
   // Upload handler
-  const handleFileUpload = async (applicantIdx: number, docType: "passport" | "photo" | "emirates_id", file: File) => {
+  const handleFileUpload = async (applicantIdx: number, docType: VisaDocType, file: File) => {
     const slotKey = `${applicantIdx}_${docType}`;
     setUploadingSlots((prev) => ({ ...prev, [slotKey]: true }));
     setSubmissionError(null);
 
     try {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error("File exceeds 10 MB maximum size limit.");
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("documentType", `${docType}_app${applicantIdx + 1}`);
@@ -233,28 +277,44 @@ export function SaudiVisaLandingPage() {
     }
   };
 
-  // Checkout submission
-  const handleSubmitCheckout = () => {
+  const handleRemoveDoc = (applicantIdx: number, docType: VisaDocType) => {
+    setUploadedDocs((prev) =>
+      prev.filter((d) => !(d.applicantIndex === applicantIdx && d.documentType === docType))
+    );
+  };
+
+  // Step 1 Validation
+  const handleValidateStep1 = () => {
     setSubmissionError(null);
 
-    if (!contactEmail || !contactPhone) {
-      setSubmissionError("Please provide your contact email and UAE phone number in Step 3.");
-      setCurrentStep(3);
+    const leadName = applicants[0]?.fullName?.trim() || "";
+    if (leadName.length < 2) {
+      setSubmissionError("Full Name is mandatory (as shown on your passport).");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!contactEmail.trim() || !emailRegex.test(contactEmail.trim())) {
+      setSubmissionError("A valid Email Address is mandatory.");
+      return;
+    }
+
+    const phone = contactPhone.trim();
+    if (!phone || phone.length < 7) {
+      setSubmissionError("A valid UAE Mobile / WhatsApp Phone Number is mandatory.");
+      return;
+    }
+
+    if (!travelDate) {
+      setSubmissionError("Date of Travel is mandatory.");
       return;
     }
 
     for (let i = 0; i < applicants.length; i++) {
       const app = applicants[i];
-      if (!app.fullName.trim() || app.fullName.trim().length < 2) {
-        setSubmissionError(`Traveller #${i + 1}: Please enter the full legal name shown on the passport.`);
+      if (!app.fullName?.trim() || app.fullName.trim().length < 2) {
+        setSubmissionError(`Traveller #${i + 1}: Full Name is mandatory.`);
         setActiveApplicantIndex(i);
-        setCurrentStep(3);
-        return;
-      }
-      if (!app.passportNumber.trim()) {
-        setSubmissionError(`Traveller #${i + 1}: Please enter the passport number.`);
-        setActiveApplicantIndex(i);
-        setCurrentStep(3);
         return;
       }
       if (!app.nationality || !isNationalityApproved(app.nationality)) {
@@ -262,10 +322,61 @@ export function SaudiVisaLandingPage() {
           `Traveller #${i + 1} (${app.nationality || "Unspecified"}): Your nationality is not listed for instant automated online checkout. Please contact our team on WhatsApp for an eligibility check; we do not accept unverified online payments.`
         );
         setActiveApplicantIndex(i);
-        setCurrentStep(3);
+        return;
+      }
+      if (!app.emiratesIdExpiryDate) {
+        setSubmissionError(`Traveller #${i + 1}: Emirates ID Expiry Date is mandatory.`);
+        setActiveApplicantIndex(i);
         return;
       }
     }
+
+    setCurrentStep(2);
+    scrollToSection("apply-flow");
+  };
+
+  // Step 2 Validation
+  const handleValidateStep2 = () => {
+    setSubmissionError(null);
+
+    for (let i = 0; i < applicants.length; i++) {
+      const hasPassport = uploadedDocs.some(
+        (d) => d.applicantIndex === i && d.documentType === "passport"
+      );
+      const hasEidFront = uploadedDocs.some(
+        (d) => d.applicantIndex === i && d.documentType === "emirates_id_front"
+      );
+      const hasEidBack = uploadedDocs.some(
+        (d) => d.applicantIndex === i && d.documentType === "emirates_id_back"
+      );
+      const hasPhoto = uploadedDocs.some(
+        (d) => d.applicantIndex === i && d.documentType === "photo"
+      );
+
+      if (!hasPassport || !hasEidFront || !hasEidBack || !hasPhoto) {
+        const missing: string[] = [];
+        if (!hasPassport) missing.push("Passport Copy");
+        if (!hasEidFront) missing.push("Emirates ID Front");
+        if (!hasEidBack) missing.push("Emirates ID Back");
+        if (!hasPhoto) missing.push("Passport-size Photo");
+
+        setSubmissionError(
+          `Please upload all mandatory documents for ${
+            applicants.length > 1 ? `Traveller #${i + 1}` : "your application"
+          }: missing ${missing.join(", ")}.`
+        );
+        setActiveApplicantIndex(i);
+        return;
+      }
+    }
+
+    setCurrentStep(3);
+    scrollToSection("apply-flow");
+  };
+
+  // Checkout submission (Step 3)
+  const handleSubmitCheckout = () => {
+    setSubmissionError(null);
 
     if (!termsAccepted) {
       setSubmissionError("Please review and accept the terms, conditions and refund policy.");
@@ -284,7 +395,7 @@ export function SaudiVisaLandingPage() {
         const payload = {
           applicationType,
           paymentGateway,
-          travelPurpose,
+          travelPurpose: travelPurpose || "Umrah / Tourism",
           travelDate,
           primaryContact: {
             email: contactEmail.trim(),
@@ -292,14 +403,10 @@ export function SaudiVisaLandingPage() {
           },
           applicants: applicants.map((a) => ({
             fullName: a.fullName.trim(),
-            dateOfBirth: a.dateOfBirth || "1990-01-01",
-            gender: a.gender || "Other",
-            nationality: a.nationality || eligibilityNationality,
+            nationality: a.nationality,
+            emiratesIdExpiryDate: a.emiratesIdExpiryDate,
+            passportNumber: a.passportNumber?.trim() || "SEE_ATTACHED_PASSPORT",
             countryOfResidence: "United Arab Emirates",
-            passportNumber: a.passportNumber.trim(),
-            passportIssueDate: a.passportIssueDate || "N/A",
-            passportExpiryDate: a.passportExpiryDate || "2030-01-01",
-            residenceExpiryDate: a.residenceExpiryDate || "2027-01-01",
           })),
           uploadedDocuments: uploadedDocs.map((d) => ({
             documentType: d.documentType,
@@ -341,7 +448,6 @@ export function SaudiVisaLandingPage() {
     }
   };
 
-  const isEligibleNationality = isNationalityApproved(eligibilityNationality);
   const heroWhatsAppUrl = getSaudiVisaWhatsAppLink("individual", 1);
   const familyWhatsAppUrl = getSaudiVisaWhatsAppLink("family", 3);
 
@@ -460,13 +566,13 @@ export function SaudiVisaLandingPage() {
                 Stay: Up to 90 Days / Visit
               </span>
               <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
-                UAE Residents (Indian & Pakistani Passports)
+                Eligible UAE Residents
               </span>
             </div>
 
             {/* Intro text */}
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
-              Obtain your 1-Year Multiple Entry Saudi Tourist Visa effortlessly. Specially catered for UAE residents holding Indian or Pakistani passports. Fast ~2-3 working days processing with dedicated expert guidance.
+              Obtain your 1-Year Multiple Entry Saudi Tourist Visa effortlessly. Specially curated for UAE residents holding eligible passports. Fast ~2-3 working days processing with dedicated expert guidance.
             </p>
 
             {/* CTAs */}
@@ -588,7 +694,7 @@ export function SaudiVisaLandingPage() {
               About Saudi Tourist Visa
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-masaar-black/75 sm:text-base">
-              We help you apply for your 1-Year Multiple Entry Saudi Tourist Visa online with a smooth, reliable and transparent process. Specially designed for UAE residents holding Indian or Pakistani passports, ensuring accurate documentation and timely submission to authorities.
+              We help you apply for your 1-Year Multiple Entry Saudi Tourist Visa online with a smooth, reliable and transparent process. Specially designed for eligible UAE residents, ensuring accurate documentation and timely submission to authorities.
             </p>
 
             {/* 4 Feature Pills Grid */}
@@ -650,7 +756,7 @@ export function SaudiVisaLandingPage() {
               Saudi 1-Year Multiple Entry Tourist Visa
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-xs text-masaar-black/60 sm:text-sm">
-              Official Saudi 1-Year Multiple Entry Tourist Visa (AED 750) for eligible UAE residents holding Indian, Pakistani, British, American, Australian, Bangladeshi, Filipino, Nepali, Sri Lankan, or Egyptian passports. Select individual application or apply together as a family to enjoy 5% savings.
+              Official Saudi 1-Year Multiple Entry Tourist Visa (AED 750) for eligible UAE residents. Select an individual application or apply together as a family to enjoy 5% savings.
             </p>
           </div>
 
@@ -839,7 +945,7 @@ export function SaudiVisaLandingPage() {
                   Price & Eligibility Notice
                 </h4>
                 <p className="mt-1 text-xs leading-relaxed text-masaar-black/75">
-                  This service is exclusively available for UAE residents holding Indian or Pakistani passports (with minimum 3 months UAE residence and 6 months passport validity). Transparent fees are shown before checkout. Other nationalities can submit for manual verification.
+                  This service is available for eligible UAE residents (with minimum 3 months UAE residence and 6 months passport validity). Transparent fees are shown before checkout. Other nationalities can contact our concierge team on WhatsApp for manual eligibility verification.
                 </p>
               </div>
             </div>
@@ -862,35 +968,37 @@ export function SaudiVisaLandingPage() {
               <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold text-masaar-black sm:text-3xl">
                 {applicationType === "family"
                   ? `Family Visa Application (${applicantCount} Travellers)`
-                  : "Individual Visa Application"}
+                  : "Saudi Tourist Visa Application"}
               </h2>
               <p className="mt-1 text-xs text-masaar-black/60">
-                Complete your application details below in 4 easy steps.
+                Complete your application details below in 3 easy steps.
               </p>
             </div>
 
-            {/* Step Progress Pills */}
-            <div className="mb-8 grid grid-cols-4 gap-2 text-center text-xs">
+            {/* Step Progress Pills (Exactly 3 steps) */}
+            <div className="mb-8 grid grid-cols-3 gap-2 text-center text-xs">
               {[
-                { num: 1, label: "Eligibility" },
-                { num: 2, label: "Plan & Travellers" },
-                { num: 3, label: "Documents" },
-                { num: 4, label: "Payment" },
+                { num: 1, label: "Details" },
+                { num: 2, label: "Documents" },
+                { num: 3, label: "Payment" },
               ].map((s) => (
                 <button
                   key={s.num}
                   type="button"
                   onClick={() => s.num < currentStep && setCurrentStep(s.num)}
-                  className={`rounded-lg py-2.5 px-2 transition-all cursor-pointer ${
+                  disabled={s.num > currentStep}
+                  className={`rounded-xl py-3 px-2 transition-all cursor-pointer ${
                     currentStep === s.num
                       ? "bg-masaar-black text-white font-bold shadow-sm"
                       : currentStep > s.num
-                      ? "bg-pure-gold/20 text-deep-gold font-semibold"
-                      : "bg-white text-masaar-black/40 border border-black/5"
+                      ? "bg-pure-gold/20 text-deep-gold font-semibold hover:bg-pure-gold/30"
+                      : "bg-white text-masaar-black/40 border border-black/5 cursor-not-allowed"
                   }`}
                 >
-                  <span className="block text-[11px] font-mono">Step {s.num}</span>
-                  <span className="truncate block font-medium">{s.label}</span>
+                  <span className="block text-[10px] font-mono uppercase tracking-wider">
+                    {currentStep > s.num ? "✓ Completed" : `Step ${s.num}`}
+                  </span>
+                  <span className="truncate block font-semibold text-xs mt-0.5">{s.label}</span>
                 </button>
               ))}
             </div>
@@ -905,712 +1013,776 @@ export function SaudiVisaLandingPage() {
 
             {/* Card Form Wrapper */}
             <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-10 shadow-sm">
-              {/* STEP 1: ELIGIBILITY CHECK */}
+              {/* STEP 1: FILL IN APPLICATION DETAILS */}
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <div className="border-b border-black/5 pb-4">
-                    <h3 className="font-semibold text-masaar-black text-base">
-                      Step 1: Verify Your Eligibility
-                    </h3>
-                    <p className="text-xs text-masaar-black/60 mt-0.5">
-                      Confirm passport and UAE residency requirements before proceeding.
-                    </p>
-                  </div>
-
-                  {/* Nationality selector */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-semibold text-masaar-black">
-                        Applicant Passport Nationality *
-                      </label>
-                      <span className="text-[10px] text-pure-gold font-bold uppercase tracking-wider">
-                        10 Confirmed Nationalities
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-masaar-black text-base">
+                          Step 1: Fill in Application Details
+                        </h3>
+                        <p className="text-xs text-masaar-black/60 mt-0.5">
+                          Enter passenger and travel information to begin your visa application.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-pure-gold bg-pure-gold/10 px-2.5 py-1 rounded-full border border-pure-gold/20">
+                        Step 1 of 3
                       </span>
                     </div>
-
-                    <select
-                      value={eligibilityNationality}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEligibilityNationality(val);
-                        trackMetaPixel("EligibilityCheck", { nationality: val });
-                      }}
-                      className="w-full rounded-lg border border-black/15 bg-white p-3 text-xs text-masaar-black font-medium focus:border-pure-gold focus:outline-none"
-                    >
-                      <option value="" disabled>Select your passport nationality...</option>
-                      {CONFIRMED_10_NATIONALITIES.map((nat) => (
-                        <option key={nat.country} value={nat.country}>
-                          {nat.flag} {nat.name} ({nat.country})
-                        </option>
-                      ))}
-                      <option value="Other">🌍 Other / Unlisted Nationality</option>
-                    </select>
-
-                    {eligibilityNationality === "Other" && (
-                      <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900">
-                        <div className="flex items-start gap-2.5">
-                          <AlertCircle className="size-4 shrink-0 mt-0.5 text-amber-700" />
-                          <div>
-                            <p className="font-bold text-amber-950">
-                              Your nationality is not listed? Contact our team for an eligibility check.
-                            </p>
-                            <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
-                              Instant online checkout is reserved for our 10 confirmed nationalities with valid UAE residency. We do not accept unverified online payments for unlisted nationalities. Our specialists will manually verify your passport requirements on WhatsApp.
-                            </p>
-                            <a
-                              href={`https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-                                "Hello Masaar Holidays, my nationality is not on the 10 approved Saudi tourist visa list. Could you please check my eligibility?"
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-850"
-                            >
-                              Chat on WhatsApp for Eligibility Check →
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* UAE Residency checklist */}
-                  <div className="space-y-3 pt-2">
-                    <label className="flex items-start gap-3 rounded-lg border border-black/10 p-3.5 hover:bg-neutral-50/50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isUaeResident}
-                        onChange={(e) => setIsUaeResident(e.target.checked)}
-                        className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
-                      />
-                      <div className="text-xs">
-                        <p className="font-semibold text-masaar-black">Currently Residing in the UAE</p>
-                        <p className="text-masaar-black/60 text-[11px]">Hold a valid UAE residency status with Emirates ID.</p>
-                      </div>
+                  {/* Application Type Selector (Individual vs Family) */}
+                  <div className="rounded-xl border border-black/10 bg-neutral-50/50 p-4">
+                    <label className="block text-xs font-semibold text-masaar-black mb-2">
+                      Application Type
                     </label>
-
-                    <label className="flex items-start gap-3 rounded-lg border border-black/10 p-3.5 hover:bg-neutral-50/50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={residenceValidMonths}
-                        onChange={(e) => setResidenceValidMonths(e.target.checked)}
-                        className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
-                      />
-                      <div className="text-xs">
-                        <p className="font-semibold text-masaar-black">UAE Residence & Emirates ID Validity (3+ Months)</p>
-                        <p className="text-masaar-black/60 text-[11px]">Both documents must have at least 3 months validity from today.</p>
-                      </div>
-                    </label>
-
-                    <label className="flex items-start gap-3 rounded-lg border border-black/10 p-3.5 hover:bg-neutral-50/50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={passportValidMonths}
-                        onChange={(e) => setPassportValidMonths(e.target.checked)}
-                        className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
-                      />
-                      <div className="text-xs">
-                        <p className="font-semibold text-masaar-black">Passport Validity (6+ Months)</p>
-                        <p className="text-masaar-black/60 text-[11px]">Original passport must have at least 6 months validity from intended travel.</p>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Travel details */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black mb-1">
-                        Purpose of Travel
-                      </label>
-                      <select
-                        value={travelPurpose}
-                        onChange={(e) => setTravelPurpose(e.target.value)}
-                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={handleSelectIndividual}
+                        className={`rounded-lg border p-3.5 text-left transition-all cursor-pointer ${
+                          applicationType === "individual"
+                            ? "border-pure-gold bg-white ring-2 ring-pure-gold/30 shadow-xs"
+                            : "border-black/10 bg-white hover:bg-neutral-50"
+                        }`}
                       >
-                        <option value="Umrah">Umrah Pilgrimage</option>
-                        <option value="Tourism">Tourism & Sightseeing</option>
-                        <option value="Family Visit">Visiting Family / Friends</option>
-                        <option value="Business">Business / Conference</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black mb-1">
-                        Intended Travel Date
-                      </label>
-                      <input
-                        type="date"
-                        value={travelDate}
-                        onChange={(e) => setTravelDate(e.target.value)}
-                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 flex justify-end">
-                    <button
-                      type="button"
-                      disabled={
-                        !isUaeResident ||
-                        !passportValidMonths ||
-                        !residenceValidMonths ||
-                        !eligibilityNationality ||
-                        eligibilityNationality === "Other"
-                      }
-                      onClick={() => setCurrentStep(2)}
-                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-3 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold disabled:opacity-50 cursor-pointer"
-                    >
-                      Continue to Step 2 →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 2: CHOOSE APPLICATION OPTION & APPLICANTS COUNT */}
-              {currentStep === 2 && (
-                <div className="space-y-6">
-                  <div className="border-b border-black/5 pb-4">
-                    <h3 className="font-semibold text-masaar-black text-base">
-                      Step 2: Select Application Option
-                    </h3>
-                    <p className="text-xs text-masaar-black/60 mt-0.5">
-                      Choose individual or family application. Applying for 3 or more travellers automatically applies a 5% discount.
-                    </p>
-                  </div>
-
-                  {/* Type buttons */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={handleSelectIndividual}
-                      className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${
-                        applicationType === "individual"
-                          ? "border-pure-gold bg-pure-gold/15 ring-2 ring-pure-gold/30"
-                          : "border-black/10 hover:border-black/30"
-                      }`}
-                    >
-                      <User className="size-5 text-deep-gold mb-2" />
-                      <p className="text-xs font-bold text-masaar-black">Individual</p>
-                      <p className="text-[11px] text-masaar-black/60 mt-0.5">1 Applicant · AED 750</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleSelectFamily}
-                      className={`relative rounded-xl border p-4 text-left transition-all cursor-pointer ${
-                        applicationType === "family"
-                          ? "border-pure-gold bg-pure-gold/15 ring-2 ring-pure-gold/30"
-                          : "border-black/10 hover:border-black/30"
-                      }`}
-                    >
-                      <span className="absolute -top-2 right-2 rounded-full bg-pure-gold px-2 py-0.5 text-[9px] font-bold uppercase text-masaar-black">
-                        Save 5%
-                      </span>
-                      <Users className="size-5 text-deep-gold mb-2" />
-                      <p className="text-xs font-bold text-masaar-black">Family / Group</p>
-                      <p className="text-[11px] text-masaar-black/60 mt-0.5">3+ Travellers · 5% Discount</p>
-                    </button>
-                  </div>
-
-                  {/* Family applicant count stepper */}
-                  {applicationType === "family" && (
-                    <div className="rounded-xl border border-pure-gold/30 bg-warm-ivory/60 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold text-masaar-black">Number of Travellers</p>
-                          <p className="text-[11px] text-masaar-black/60">Minimum 3 applicants for family discount</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-masaar-black">Individual</span>
+                          {applicationType === "individual" && (
+                            <CheckCircle2 className="size-4 text-deep-gold" />
+                          )}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <p className="text-[11px] text-masaar-black/60 mt-1">
+                          1 Traveller • AED 750
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSelectFamily}
+                        className={`rounded-lg border p-3.5 text-left transition-all cursor-pointer ${
+                          applicationType === "family"
+                            ? "border-pure-gold bg-white ring-2 ring-pure-gold/30 shadow-xs"
+                            : "border-black/10 bg-white hover:bg-neutral-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-masaar-black">Family</span>
+                          <span className="text-[10px] font-bold text-deep-gold bg-pure-gold/15 px-1.5 py-0.5 rounded">
+                            Save 5%
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-masaar-black/60 mt-1">
+                          3+ Travellers • Group discount
+                        </p>
+                      </button>
+                    </div>
+
+                    {/* Family Stepper */}
+                    {applicationType === "family" && (
+                      <div className="mt-4 pt-4 border-t border-black/5 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-semibold text-masaar-black">
+                            Number of Family Members
+                          </p>
+                          <p className="text-[11px] text-masaar-black/60">
+                            Minimum 3 travellers to qualify for the 5% family discount.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleUpdateFamilyCount(applicantCount - 1)}
+                            onClick={() => handleUpdateFamilyCount(Math.max(3, applicantCount - 1))}
                             disabled={applicantCount <= 3}
-                            className="size-8 rounded-full border border-black/20 bg-white flex items-center justify-center text-masaar-black disabled:opacity-30 cursor-pointer"
+                            className="size-8 rounded-md border border-black/20 flex items-center justify-center text-masaar-black hover:bg-black/5 disabled:opacity-30 cursor-pointer"
                           >
                             <Minus className="size-3.5" />
                           </button>
-                          <span className="font-bold text-sm w-4 text-center">{applicantCount}</span>
+                          <span className="w-8 text-center text-xs font-bold text-masaar-black">
+                            {applicantCount}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => handleUpdateFamilyCount(applicantCount + 1)}
+                            onClick={() => handleUpdateFamilyCount(Math.min(10, applicantCount + 1))}
                             disabled={applicantCount >= 10}
-                            className="size-8 rounded-full border border-black/20 bg-white flex items-center justify-center text-masaar-black disabled:opacity-30 cursor-pointer"
+                            className="size-8 rounded-md border border-black/20 flex items-center justify-center text-masaar-black hover:bg-black/5 disabled:opacity-30 cursor-pointer"
                           >
                             <Plus className="size-3.5" />
                           </button>
                         </div>
                       </div>
-
-                      <div className="mt-3 border-t border-black/10 pt-3 flex items-center justify-between text-xs">
-                        <span className="text-masaar-black/70">5% Family Discount:</span>
-                        <span className="font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          -AED {pricing.discountAmount.toFixed(2)} applied
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Live Price Summary Bar */}
-                  <div className="rounded-xl bg-neutral-50 p-4 border border-black/5 flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] text-masaar-black/60 uppercase tracking-wider font-semibold">
-                        Payable Amount ({effectiveCount} {effectiveCount === 1 ? "Applicant" : "Applicants"})
-                      </p>
-                      <p className="text-xl font-bold font-[family-name:var(--font-display)] text-masaar-black">
-                        AED {pricing.finalPayableAmount.toFixed(2)}
-                      </p>
-                    </div>
-                    {pricing.discountAmount > 0 && (
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                        You save AED {pricing.discountAmount.toFixed(2)}
-                      </span>
                     )}
                   </div>
 
-                  <div className="pt-4 flex justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(1)}
-                      className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(3)}
-                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-2.5 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold cursor-pointer"
-                    >
-                      Continue to Documents →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 3: TRAVELLER DETAILS & DOCUMENT UPLOAD */}
-              {currentStep === 3 && (
-                <div className="space-y-6">
-                  <div className="border-b border-black/5 pb-4">
-                    <h3 className="font-semibold text-masaar-black text-base">
-                      Step 3: Traveller Details & Documents
-                    </h3>
-                    <p className="text-xs text-masaar-black/60 mt-0.5">
-                      Enter passport data and upload clear copies of passport, UAE residence visa, and Emirates ID.
-                    </p>
-                  </div>
-
-                  {/* Primary contact */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl bg-warm-ivory/50 p-4 border border-black/5">
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black mb-1">
-                        Primary Contact Email *
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={contactEmail}
-                        onChange={(e) => setContactEmail(e.target.value)}
-                        placeholder="you@email.com"
-                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-masaar-black mb-1">
-                        UAE Mobile Number (WhatsApp) *
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={contactPhone}
-                        onChange={(e) => setContactPhone(e.target.value)}
-                        placeholder="+971 50 123 4567"
-                        className="w-full rounded-lg border border-black/15 bg-white p-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Traveller tabs (if multi) */}
-                  {applicants.length > 1 && (
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                      {applicants.map((_, idx) => (
+                  {/* Family Applicant Tabs */}
+                  {applicationType === "family" && applicants.length > 1 && (
+                    <div className="flex flex-wrap gap-2 border-b border-black/10 pb-3">
+                      {applicants.map((app, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => setActiveApplicantIndex(idx)}
-                          className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                             activeApplicantIndex === idx
                               ? "bg-masaar-black text-white shadow-xs"
                               : "bg-neutral-100 text-masaar-black/70 hover:bg-neutral-200"
                           }`}
                         >
-                          Traveller {idx + 1} {idx === 0 ? "(Lead)" : ""}
+                          {idx === 0 ? "Traveller 1 (Lead)" : `Traveller ${idx + 1}`}
+                          {app.fullName.trim() && (
+                            <span className="ml-1.5 text-[10px] opacity-75">
+                              • {app.fullName.trim().split(" ")[0]}
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {/* Active traveller inputs */}
-                  {applicants[activeApplicantIndex] && (() => {
-                    const app = applicants[activeApplicantIndex];
-                    const idx = activeApplicantIndex;
-                    const passDoc = uploadedDocs.find((d) => d.applicantIndex === idx && d.documentType === "passport");
-                    const photoDoc = uploadedDocs.find((d) => d.applicantIndex === idx && d.documentType === "photo");
-                    const eidDoc = uploadedDocs.find((d) => d.applicantIndex === idx && d.documentType === "emirates_id");
+                  {/* Form Fields for Active Applicant */}
+                  <div className="space-y-4">
+                    {/* Full Name */}
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black mb-1.5">
+                        Full Name * (As printed on passport)
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Mohammed Ahmed"
+                        value={applicants[activeApplicantIndex]?.fullName || ""}
+                        onChange={(e) =>
+                          handleApplicantChange(activeApplicantIndex, "fullName", e.target.value)
+                        }
+                        className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold"
+                      />
+                    </div>
 
-                    return (
-                      <div className="space-y-4 rounded-xl border border-black/10 p-4">
-                        <div className="flex items-center justify-between border-b border-black/5 pb-2">
-                          <span className="text-xs font-bold text-masaar-black">
-                            Traveller {idx + 1} Personal Information
-                          </span>
-                          <span className="text-[11px] text-masaar-black/50">
-                            Must match passport bio page exactly
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="sm:col-span-2">
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Full Name (As on Passport) *
-                            </label>
-                            <input
-                              type="text"
-                              required
-                              value={app.fullName}
-                              onChange={(e) => handleApplicantChange(idx, "fullName", e.target.value)}
-                              placeholder="e.g. MOHAMMED AHMAD"
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs uppercase text-masaar-black focus:border-pure-gold focus:outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Nationality *
-                            </label>
-                            <select
-                              value={app.nationality}
-                              onChange={(e) => handleApplicantChange(idx, "nationality", e.target.value)}
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                            >
-                              {CONFIRMED_10_NATIONALITIES.map((nat) => (
-                                <option key={nat.country} value={nat.country}>
-                                  {nat.flag} {nat.name} ({nat.country})
-                                </option>
-                              ))}
-                              <option value="Other">🌍 Other / Unlisted (WhatsApp Check)</option>
-                            </select>
-                            {app.nationality === "Other" && (
-                              <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 text-[10px] text-amber-900 leading-tight">
-                                <p className="font-bold">Your nationality is not listed?</p>
-                                <p className="mt-0.5 text-amber-800">
-                                  We do not accept unverified online payments. Please contact our team on WhatsApp for an eligibility check.
-                                </p>
-                                <a
-                                  href={`https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-                                    `Hello Masaar Holidays, I need an eligibility check for Traveller ${idx + 1} with an unlisted nationality.`
-                                  )}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="mt-1.5 inline-block font-bold text-amber-950 underline"
-                                >
-                                  WhatsApp Eligibility Check →
-                                </a>
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Date of Birth *
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={app.dateOfBirth}
-                              onChange={(e) => handleApplicantChange(idx, "dateOfBirth", e.target.value)}
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Gender
-                            </label>
-                            <select
-                              value={app.gender}
-                              onChange={(e) => handleApplicantChange(idx, "gender", e.target.value)}
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                            >
-                              <option value="Male">Male</option>
-                              <option value="Female">Female</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Passport Number *
-                            </label>
-                            <input
-                              type="text"
-                              required
-                              value={app.passportNumber}
-                              onChange={(e) => handleApplicantChange(idx, "passportNumber", e.target.value)}
-                              placeholder="e.g. Z1234567"
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs uppercase font-mono text-masaar-black focus:border-pure-gold focus:outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Passport Expiry Date *
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={app.passportExpiryDate}
-                              onChange={(e) => handleApplicantChange(idx, "passportExpiryDate", e.target.value)}
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              UAE Residence Expiry *
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={app.residenceExpiryDate}
-                              onChange={(e) => handleApplicantChange(idx, "residenceExpiryDate", e.target.value)}
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-masaar-black mb-1">
-                              Emirates ID Expiry Date *
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={app.emiratesIdExpiryDate}
-                              onChange={(e) => handleApplicantChange(idx, "emiratesIdExpiryDate", e.target.value)}
-                              className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-masaar-black focus:border-pure-gold focus:outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Document Uploads for this traveller */}
-                        <div className="pt-3 border-t border-black/5">
-                          <p className="text-xs font-bold text-masaar-black mb-2">
-                            Upload Documents for Traveller {idx + 1}
+                    {/* Contact Details (Lead Traveller only) */}
+                    {activeApplicantIndex === 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-masaar-black mb-1.5">
+                            Email Address *
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            placeholder="name@example.com"
+                            value={contactEmail}
+                            onChange={(e) => setContactEmail(e.target.value)}
+                            className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold"
+                          />
+                          <p className="text-[10px] text-masaar-black/50 mt-1">
+                            Visa updates and payment receipt will be sent here.
                           </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Passport */}
-                            <div className="rounded-lg border border-dashed border-black/20 p-3 text-center bg-neutral-50/50">
-                              <span className="block text-[11px] font-semibold text-masaar-black">Passport Copy</span>
-                              <span className="block text-[10px] text-masaar-black/50 mb-2">PDF / JPG (Max 10MB)</span>
-                              {passDoc ? (
-                                <p className="text-[11px] text-emerald-700 font-semibold flex items-center justify-center gap-1">
-                                  <Check className="size-3.5" /> Uploaded
-                                </p>
-                              ) : (
-                                <label className="inline-block cursor-pointer rounded bg-white border border-black/15 px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-100">
-                                  {uploadingSlots[`${idx}_passport`] ? "Uploading..." : "Select File"}
-                                  <input
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      if (f) handleFileUpload(idx, "passport", f);
-                                    }}
-                                  />
-                                </label>
-                              )}
-                            </div>
+                        </div>
 
-                            {/* Photo */}
-                            <div className="rounded-lg border border-dashed border-black/20 p-3 text-center bg-neutral-50/50">
-                              <span className="block text-[11px] font-semibold text-masaar-black">Passport Photo</span>
-                              <span className="block text-[10px] text-masaar-black/50 mb-2">White Background</span>
-                              {photoDoc ? (
-                                <p className="text-[11px] text-emerald-700 font-semibold flex items-center justify-center gap-1">
-                                  <Check className="size-3.5" /> Uploaded
-                                </p>
-                              ) : (
-                                <label className="inline-block cursor-pointer rounded bg-white border border-black/15 px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-100">
-                                  {uploadingSlots[`${idx}_photo`] ? "Uploading..." : "Select File"}
-                                  <input
-                                    type="file"
-                                    accept=".jpg,.jpeg,.png"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      if (f) handleFileUpload(idx, "photo", f);
-                                    }}
-                                  />
-                                </label>
-                              )}
-                            </div>
-
-                            {/* Emirates ID */}
-                            <div className="rounded-lg border border-dashed border-black/20 p-3 text-center bg-neutral-50/50">
-                              <span className="block text-[11px] font-semibold text-masaar-black">Emirates ID</span>
-                              <span className="block text-[10px] text-masaar-black/50 mb-2">Front & Back</span>
-                              {eidDoc ? (
-                                <p className="text-[11px] text-emerald-700 font-semibold flex items-center justify-center gap-1">
-                                  <Check className="size-3.5" /> Uploaded
-                                </p>
-                              ) : (
-                                <label className="inline-block cursor-pointer rounded bg-white border border-black/15 px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-100">
-                                  {uploadingSlots[`${idx}_emirates_id`] ? "Uploading..." : "Select File"}
-                                  <input
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      if (f) handleFileUpload(idx, "emirates_id", f);
-                                    }}
-                                  />
-                                </label>
-                              )}
-                            </div>
-                          </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-masaar-black mb-1.5">
+                            Phone Number * (UAE / WhatsApp)
+                          </label>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="+971 50 123 4567"
+                            value={contactPhone}
+                            onChange={(e) => setContactPhone(e.target.value)}
+                            className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold"
+                          />
+                          <p className="text-[10px] text-masaar-black/50 mt-1">
+                            Used for urgent status notifications and concierge delivery.
+                          </p>
                         </div>
                       </div>
-                    );
-                  })()}
+                    )}
 
-                  <div className="pt-4 flex justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(2)}
-                      className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const hasUnapproved = applicants.some(
-                          (a) => a.nationality === "Other" || !isNationalityApproved(a.nationality)
-                        );
-                        if (hasUnapproved) {
-                          setSubmissionError(
-                            "One or more travellers have an unlisted nationality. Please contact our team on WhatsApp for an eligibility check; we do not accept unverified online payments."
-                          );
-                          return;
+                    {/* Date of Travel */}
+                    {activeApplicantIndex === 0 && (
+                      <div>
+                        <label className="block text-xs font-semibold text-masaar-black mb-1.5">
+                          Date of Travel *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          min={new Date().toISOString().split("T")[0]}
+                          value={travelDate}
+                          onChange={(e) => setTravelDate(e.target.value)}
+                          className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold"
+                        />
+                        <p className="text-[10px] text-masaar-black/50 mt-1">
+                          Estimated date of arrival in the Kingdom of Saudi Arabia.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Nationality Dropdown */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-masaar-black">
+                          Passport Nationality *
+                        </label>
+                        <span className="text-[10px] text-pure-gold font-bold uppercase tracking-wider">
+                          10 Confirmed Nationalities
+                        </span>
+                      </div>
+                      <select
+                        value={applicants[activeApplicantIndex]?.nationality || "India"}
+                        onChange={(e) =>
+                          handleApplicantChange(activeApplicantIndex, "nationality", e.target.value)
                         }
-                        setSubmissionError(null);
-                        setCurrentStep(4);
-                      }}
-                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-6 py-2.5 text-xs font-semibold text-masaar-black shadow hover:bg-light-gold cursor-pointer"
+                        className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold bg-white"
+                      >
+                        {CONFIRMED_10_NATIONALITIES.map((nat) => (
+                          <option key={nat.country} value={nat.country}>
+                            {nat.flag} {nat.country} ({nat.name})
+                          </option>
+                        ))}
+                        <option value="Other">Other / Unlisted Nationality</option>
+                      </select>
+
+                      {/* Other Nationality WhatsApp Helper */}
+                      {applicants[activeApplicantIndex]?.nationality === "Other" && (
+                        <div className="mt-3 rounded-xl border border-pure-gold/40 bg-warm-ivory p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="size-5 shrink-0 text-deep-gold mt-0.5" />
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold text-deep-gold">
+                                Automated Checkout Unavailable for Unlisted Nationalities
+                              </p>
+                              <p className="text-xs text-masaar-black/80 leading-relaxed">
+                                Automated instant online checkout is configured for the 10 confirmed nationalities. For other passport holders, our visa specialists verify residency rules manually. Contact us on WhatsApp for fast manual review and personalized processing.
+                              </p>
+                              <a
+                                href={buildWhatsAppLink(
+                                  CONTACT.whatsappPhoneIntl,
+                                  "Hello Masaar Holidays! I would like an eligibility check for a Saudi Visa for my nationality."
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-md bg-masaar-black px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black/80"
+                              >
+                                Chat on WhatsApp for Eligibility Review →
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Emirates ID Expiry Date (Mandatory Typed Detail) */}
+                    <div>
+                      <label className="block text-xs font-semibold text-masaar-black mb-1.5">
+                        Emirates ID Expiry Date * (Mandatory Detail)
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        min={new Date().toISOString().split("T")[0]}
+                        value={applicants[activeApplicantIndex]?.emiratesIdExpiryDate || ""}
+                        onChange={(e) =>
+                          handleApplicantChange(
+                            activeApplicantIndex,
+                            "emiratesIdExpiryDate",
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-md border border-black/20 px-3.5 py-2.5 text-xs text-masaar-black focus:border-pure-gold focus:outline-hidden focus:ring-1 focus:ring-pure-gold"
+                      />
+                      <p className="text-[10px] text-masaar-black/50 mt-1">
+                        UAE Residence visa must be valid for at least 3 months from your planned travel date.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 1 Actions */}
+                  <div className="pt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleValidateStep1}
+                      className="inline-flex items-center gap-2 rounded-md bg-masaar-black px-8 py-3.5 text-xs font-semibold text-white shadow-md hover:bg-black/90 active:scale-95 cursor-pointer"
                     >
-                      Review & Checkout →
+                      Continue to Upload Documents →
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* STEP 4: REVIEW & PAYMENT */}
-              {currentStep === 4 && (
+              {/* STEP 2: UPLOAD DOCUMENTS */}
+              {currentStep === 2 && (
                 <div className="space-y-6">
                   <div className="border-b border-black/5 pb-4">
-                    <h3 className="font-semibold text-masaar-black text-base">
-                      Step 4: Review Application & Secure Checkout
-                    </h3>
-                    <p className="text-xs text-masaar-black/60 mt-0.5">
-                      Confirm order breakdown and proceed to encrypted payment processing.
-                    </p>
-                  </div>
-
-                  {/* Summary table */}
-                  <div className="rounded-xl border border-black/10 divide-y divide-black/5 text-xs">
-                    <div className="p-3.5 flex justify-between">
-                      <span className="text-masaar-black/70">Application Type</span>
-                      <span className="font-semibold text-masaar-black capitalize">{applicationType}</span>
-                    </div>
-                    <div className="p-3.5 flex justify-between">
-                      <span className="text-masaar-black/70">Number of Travellers</span>
-                      <span className="font-semibold text-masaar-black">{effectiveCount}</span>
-                    </div>
-                    <div className="p-3.5 flex justify-between">
-                      <span className="text-masaar-black/70">Base Price ({effectiveCount} × AED 750)</span>
-                      <span className="font-semibold text-masaar-black">AED {pricing.subtotal.toFixed(2)}</span>
-                    </div>
-                    {pricing.discountAmount > 0 && (
-                      <div className="p-3.5 flex justify-between bg-emerald-50/60 text-emerald-800">
-                        <span className="font-semibold">5% Family Discount Savings</span>
-                        <span className="font-bold">-AED {pricing.discountAmount.toFixed(2)}</span>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-masaar-black text-base">
+                          Step 2: Upload Required Documents
+                        </h3>
+                        <p className="text-xs text-masaar-black/60 mt-0.5">
+                          Please provide clear color scans or photos. Stored encrypted in private storage.
+                        </p>
                       </div>
-                    )}
-                    <div className="p-3.5 flex justify-between bg-neutral-50 text-sm">
-                      <span className="font-bold text-masaar-black">Total Amount Payable</span>
-                      <span className="font-bold font-[family-name:var(--font-display)] text-lg text-masaar-black">
-                        AED {pricing.finalPayableAmount.toFixed(2)}
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-pure-gold bg-pure-gold/10 px-2.5 py-1 rounded-full border border-pure-gold/20">
+                        Step 2 of 3
                       </span>
                     </div>
                   </div>
 
-                  {/* Payment option */}
-                  <div>
-                    <label className="block text-xs font-semibold text-masaar-black mb-2">
-                      Payment Method
-                    </label>
-                    <div className="rounded-xl border border-pure-gold bg-pure-gold/5 p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="size-9 rounded-lg bg-pure-gold/20 flex items-center justify-center text-deep-gold">
-                          <Lock className="size-4" />
-                        </span>
-                        <div>
-                          <p className="text-xs font-bold text-masaar-black">Credit / Debit Card (Stripe)</p>
-                          <p className="text-[11px] text-masaar-black/60">Encrypted 256-bit checkout via Visa, Mastercard, Amex</p>
+                  {/* Family Applicant Tabs if Multiple */}
+                  {applicationType === "family" && applicants.length > 1 && (
+                    <div className="flex flex-wrap gap-2 border-b border-black/10 pb-3">
+                      {applicants.map((app, idx) => {
+                        const appDocs = uploadedDocs.filter((d) => d.applicantIndex === idx);
+                        const mandatoryCount = [
+                          "passport",
+                          "emirates_id_front",
+                          "emirates_id_back",
+                          "photo",
+                        ].filter((t) => appDocs.some((d) => d.documentType === t)).length;
+
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveApplicantIndex(idx)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              activeApplicantIndex === idx
+                                ? "bg-masaar-black text-white shadow-xs"
+                                : "bg-neutral-100 text-masaar-black/70 hover:bg-neutral-200"
+                            }`}
+                          >
+                            <span>
+                              {idx === 0 ? "Traveller 1 (Lead)" : `Traveller ${idx + 1}`}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                mandatoryCount === 4
+                                  ? "bg-emerald-500/20 text-emerald-700"
+                                  : "bg-amber-500/20 text-amber-800"
+                              }`}
+                            >
+                              {mandatoryCount}/4
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Upload Info Banner */}
+                  <div className="rounded-xl border border-black/10 bg-warm-ivory/60 p-3.5 flex items-start gap-3">
+                    <ShieldCheck className="size-5 shrink-0 text-deep-gold mt-0.5" />
+                    <div className="text-xs text-masaar-black/80 leading-relaxed">
+                      <p className="font-semibold text-masaar-black">
+                        Accepted File Formats & Size Limits
+                      </p>
+                      <p className="mt-0.5 text-masaar-black/60">
+                        JPG, PNG, WEBP, or PDF up to 10 MB per file. Documents are stored in secure private storage and accessed only by licensed visa processing officers.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Document Upload Slots */}
+                  <div className="space-y-4">
+                    {DOCUMENT_SLOTS.map((slot) => {
+                      const slotKey = `${activeApplicantIndex}_${slot.type}`;
+                      const isUploading = uploadingSlots[slotKey] || false;
+                      const uploaded = uploadedDocs.find(
+                        (d) =>
+                          d.applicantIndex === activeApplicantIndex &&
+                          d.documentType === slot.type
+                      );
+
+                      return (
+                        <div
+                          key={slot.type}
+                          className={`rounded-xl border p-4 transition-all ${
+                            uploaded
+                              ? "border-emerald-200 bg-emerald-50/30"
+                              : slot.mandatory
+                              ? "border-black/15 bg-white"
+                              : "border-black/10 bg-neutral-50/50"
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold text-masaar-black">
+                                  {slot.title}
+                                </h4>
+                                {slot.mandatory ? (
+                                  <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                    Mandatory *
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-medium text-masaar-black/50 bg-black/5 px-2 py-0.5 rounded">
+                                    Optional
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-masaar-black/60 mt-1">
+                                {slot.description}
+                              </p>
+                            </div>
+
+                            {/* Slot Status / Controls */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isUploading ? (
+                                <div className="flex items-center gap-2 text-xs text-deep-gold font-medium">
+                                  <div className="size-4 animate-spin rounded-full border-2 border-pure-gold border-t-transparent" />
+                                  <span>Uploading...</span>
+                                </div>
+                              ) : uploaded ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-100/60 px-2.5 py-1 rounded-md">
+                                    <CheckCircle2 className="size-3.5 text-emerald-600" />
+                                    <span className="font-semibold truncate max-w-[140px]">
+                                      {uploaded.fileName}
+                                    </span>
+                                    <span className="text-[10px] opacity-70">
+                                      ({(uploaded.fileSize / 1024).toFixed(0)} KB)
+                                    </span>
+                                  </div>
+
+                                  {/* Replace Button */}
+                                  <label className="rounded-md border border-black/20 bg-white px-3 py-1 text-[11px] font-semibold text-masaar-black hover:bg-neutral-50 cursor-pointer">
+                                    Replace
+                                    <input
+                                      type="file"
+                                      accept={slot.accept}
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          handleFileUpload(
+                                            activeApplicantIndex,
+                                            slot.type,
+                                            file
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </label>
+
+                                  {/* Optional Remove Button */}
+                                  {!slot.mandatory && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleRemoveDoc(activeApplicantIndex, slot.type)
+                                      }
+                                      className="text-masaar-black/40 hover:text-rose-600 p-1 cursor-pointer"
+                                      title="Remove document"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <label className="inline-flex items-center gap-1.5 rounded-md bg-pure-gold px-4 py-2 text-xs font-semibold text-masaar-black shadow-xs hover:bg-light-gold cursor-pointer transition-all">
+                                  <Upload className="size-3.5" />
+                                  <span>Upload File</span>
+                                  <input
+                                    type="file"
+                                    accept={slot.accept}
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleFileUpload(
+                                          activeApplicantIndex,
+                                          slot.type,
+                                          file
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Step 2 Actions */}
+                  <div className="pt-4 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentStep(1);
+                        scrollToSection("apply-flow");
+                      }}
+                      className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
+                    >
+                      ← Back to Details
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleValidateStep2}
+                      className="inline-flex items-center gap-2 rounded-md bg-masaar-black px-8 py-3.5 text-xs font-semibold text-white shadow-md hover:bg-black/90 active:scale-95 cursor-pointer"
+                    >
+                      Continue to Payment →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: REVIEW & PAYMENT */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="border-b border-black/5 pb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-masaar-black text-base">
+                          Step 3: Review & Secure Payment
+                        </h3>
+                        <p className="text-xs text-masaar-black/60 mt-0.5">
+                          Review your application summary and proceed with live payment.
+                        </p>
                       </div>
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                        Secure
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-pure-gold bg-pure-gold/10 px-2.5 py-1 rounded-full border border-pure-gold/20">
+                        Step 3 of 3
                       </span>
                     </div>
                   </div>
 
-                  {/* Terms acceptance */}
-                  <label className="flex items-start gap-3 pt-2 cursor-pointer">
+                  {/* Application Summary Box */}
+                  <div className="rounded-xl border border-black/10 bg-warm-ivory/40 p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-black/5 pb-3">
+                      <div>
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-deep-gold font-semibold">
+                          Selected Product
+                        </span>
+                        <h4 className="text-sm font-bold text-masaar-black">
+                          Saudi 1-Year Multiple Entry Tourist Visa
+                        </h4>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-masaar-black">
+                          {applicationType === "family"
+                            ? `Family (${applicantCount} Travellers)`
+                            : "Individual (1 Traveller)"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Contact & Travel Details */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <span className="block text-[10px] text-masaar-black/50 uppercase font-semibold">
+                          Contact Email
+                        </span>
+                        <span className="font-medium text-masaar-black">{contactEmail}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-masaar-black/50 uppercase font-semibold">
+                          Phone Number
+                        </span>
+                        <span className="font-medium text-masaar-black">{contactPhone}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-masaar-black/50 uppercase font-semibold">
+                          Travel Date
+                        </span>
+                        <span className="font-medium text-masaar-black">{travelDate}</span>
+                      </div>
+                    </div>
+
+                    {/* Applicant Breakdown */}
+                    <div className="border-t border-black/5 pt-3 space-y-2">
+                      <span className="block text-[10px] text-masaar-black/50 uppercase font-semibold">
+                        Applicants & Document Status
+                      </span>
+                      {applicants.map((app, idx) => {
+                        const appDocs = uploadedDocs.filter((d) => d.applicantIndex === idx);
+                        const hasPassport = appDocs.some((d) => d.documentType === "passport");
+                        const hasEidFront = appDocs.some((d) => d.documentType === "emirates_id_front");
+                        const hasEidBack = appDocs.some((d) => d.documentType === "emirates_id_back");
+                        const hasPhoto = appDocs.some((d) => d.documentType === "photo");
+                        const allMandatory = hasPassport && hasEidFront && hasEidBack && hasPhoto;
+
+                        return (
+                          <div
+                            key={idx}
+                            className="rounded-lg border border-black/5 bg-white p-3 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                          >
+                            <div>
+                              <span className="font-bold text-masaar-black">
+                                {idx + 1}. {app.fullName}
+                              </span>
+                              <span className="text-masaar-black/60 ml-2">
+                                ({app.nationality})
+                              </span>
+                              <span className="text-masaar-black/40 text-[11px] block sm:inline sm:ml-2">
+                                EID Expiry: {app.emiratesIdExpiryDate}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              {allMandatory ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                                  <CheckCircle2 className="size-3 text-emerald-600" />
+                                  All 4 Mandatory Docs Uploaded
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                                  <AlertCircle className="size-3 text-rose-600" />
+                                  Missing Mandatory Docs
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Pricing Breakdown */}
+                  <div className="rounded-xl border border-black/10 bg-white p-5 space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-masaar-black">
+                      Price Breakdown
+                    </h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between text-masaar-black/70">
+                        <span>
+                          Standard Visa Fee (AED 750 × {pricing.applicantCount}{" "}
+                          {pricing.applicantCount > 1 ? "travellers" : "traveller"})
+                        </span>
+                        <span className="font-medium text-masaar-black">
+                          AED {pricing.subtotal.toFixed(2)}
+                        </span>
+                      </div>
+
+                      {pricing.familyDiscountAmount > 0 && (
+                        <div className="flex justify-between text-emerald-700 font-semibold">
+                          <span>Family Bundle Discount (5%)</span>
+                          <span>- AED {pricing.familyDiscountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <div className="border-t border-black/10 pt-3 flex justify-between items-baseline">
+                        <div>
+                          <span className="text-sm font-bold text-masaar-black">
+                            Total Payable Amount
+                          </span>
+                          <span className="block text-[11px] text-masaar-black/50">
+                            Includes 1-Year Multiple Entry Visa, mandatory insurance & government fees.
+                          </span>
+                        </div>
+                        <span className="text-xl font-bold text-masaar-black font-[family-name:var(--font-display)]">
+                          AED {pricing.finalPayableAmount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Gateway Selector */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-masaar-black">
+                      Select Payment Method
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Stripe Live */}
+                      <button
+                        type="button"
+                        onClick={() => setPaymentGateway("stripe")}
+                        className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                          paymentGateway === "stripe"
+                            ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
+                            : "border-black/10 bg-white hover:bg-neutral-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-masaar-black">
+                            Credit / Debit Card / Apple Pay
+                          </span>
+                          {paymentGateway === "stripe" && (
+                            <CheckCircle2 className="size-4 text-deep-gold" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-masaar-black/60 mt-1">
+                          Visa, Mastercard, American Express, Apple Pay & Google Pay.
+                        </p>
+                        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700 font-medium">
+                          <Lock className="size-3" />
+                          <span>256-bit SSL Encrypted • Processed by Stripe</span>
+                        </div>
+                      </button>
+
+                      {/* Tabby (If available) */}
+                      {isTabbyAvailable && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentGateway("tabby")}
+                          className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                            paymentGateway === "tabby"
+                              ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
+                              : "border-black/10 bg-white hover:bg-neutral-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-masaar-black">
+                              Tabby — 4 Interest-Free Payments
+                            </span>
+                            {paymentGateway === "tabby" && (
+                              <CheckCircle2 className="size-4 text-deep-gold" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-masaar-black/60 mt-1">
+                            Pay AED {(pricing.finalPayableAmount / 4).toFixed(2)} today, rest over 3 months. No interest.
+                          </p>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Terms Acceptance Checkbox */}
+                  <label className="flex items-start gap-3 rounded-xl border border-black/10 bg-neutral-50/50 p-4 cursor-pointer">
                     <input
                       type="checkbox"
-                      required
                       checked={termsAccepted}
                       onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-0.5 size-4 rounded text-pure-gold focus:ring-pure-gold"
+                      className="mt-0.5 size-4 rounded border-black/20 text-deep-gold focus:ring-pure-gold cursor-pointer"
                     />
-                    <span className="text-[11px] text-masaar-black/75 leading-relaxed">
-                      I agree to the{" "}
-                      <Link href="/terms-conditions" target="_blank" className="font-semibold text-deep-gold underline">
-                        Terms & Conditions
+                    <span className="text-xs text-masaar-black/80 leading-relaxed">
+                      I confirm that all entered details and uploaded documents are genuine and accurate. I understand that visa issuance is subject to Saudi government regulations and I accept Masaar Holidays&apos;{" "}
+                      <Link href="/terms" target="_blank" className="font-semibold text-masaar-black underline">
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/refund-policy" target="_blank" className="font-semibold text-masaar-black underline">
+                        Refund Policy
                       </Link>
-                      ,{" "}
-                      <Link href="/privacy-policy" target="_blank" className="font-semibold text-deep-gold underline">
-                        Privacy Policy
-                      </Link>
-                      , and understand that visa approval decisions rest solely with official immigration authorities.
+                      .
                     </span>
                   </label>
 
-                  <div className="pt-4 flex justify-between">
+                  {/* Step 3 Actions */}
+                  <div className="pt-4 flex items-center justify-between">
                     <button
                       type="button"
-                      onClick={() => setCurrentStep(3)}
+                      onClick={() => {
+                        setCurrentStep(2);
+                        scrollToSection("apply-flow");
+                      }}
                       className="rounded-md border border-black/20 px-5 py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
                     >
-                      ← Back
+                      ← Back to Documents
                     </button>
                     <button
                       type="button"
                       disabled={isSubmitting || !termsAccepted}
                       onClick={handleSubmitCheckout}
-                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg hover:bg-light-gold disabled:opacity-50 cursor-pointer"
+                      className="inline-flex items-center gap-2 rounded-md bg-pure-gold px-8 py-3.5 text-xs font-semibold text-masaar-black shadow-lg hover:bg-light-gold disabled:opacity-50 cursor-pointer transition-all active:scale-95"
                     >
                       <Lock className="size-4" />
-                      {isSubmitting ? "Initiating Secure Checkout..." : `Pay AED ${pricing.finalPayableAmount.toFixed(2)} →`}
+                      {isSubmitting
+                        ? "Initiating Secure Checkout..."
+                        : `Proceed to Pay AED ${pricing.finalPayableAmount.toFixed(2)} →`}
                     </button>
                   </div>
                 </div>

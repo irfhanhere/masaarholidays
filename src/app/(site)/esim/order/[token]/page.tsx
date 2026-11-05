@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildWhatsAppLink } from "@/lib/contact";
 import { getDestinationByIso } from "@/lib/esim-config";
 import type { Esim } from "@/lib/megaesim";
+import { getStripe } from "@/lib/stripe";
+import { fulfilEsimOrder } from "@/lib/esim-fulfilment";
 import { OrderPoller, CopyButton } from "./OrderClientComponents";
 
 // noindex, no caching
@@ -84,17 +86,93 @@ export default async function EsimOrderPage({
   const supabase = createAdminClient();
 
   // Look up by public_token on the server only.
-  // NEVER select stripe_session_id, stripe_payment_intent, or internal cost fields.
-  const { data: order, error: orderError } = await supabase
+  const { data: initialOrder, error: orderError } = await supabase
     .from("esim_orders")
     .select(
-      "id, partner_ref, plan_id, quantity, customer_name, customer_email, payment_status, fulfilment_status, expected_amount_minor, charged_amount_minor, charge_currency, created_at, esims, needs_attention, fulfilment_error, presentment_currency, presentment_amount_minor, vat_amount_minor, vat_rate_pct, vat_trn, invoice_number"
+      "id, partner_ref, plan_id, quantity, customer_name, customer_email, payment_status, fulfilment_status, expected_amount_minor, charged_amount_minor, charge_currency, created_at, esims, needs_attention, fulfilment_error, presentment_currency, presentment_amount_minor, vat_amount_minor, vat_rate_pct, vat_trn, invoice_number, stripe_session_id"
     )
     .eq("public_token", publicToken)
     .maybeSingle();
 
-  if (orderError || !order) {
+  if (orderError || !initialOrder) {
     notFound();
+  }
+
+  let order = initialOrder;
+
+  // Authoritative server-side Stripe reconciliation
+  if (order.payment_status === "pending" && order.stripe_session_id) {
+    try {
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
+
+      if (session.payment_status === "paid" || session.status === "complete") {
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id || null;
+
+        await supabase
+          .from("esim_orders")
+          .update({
+            payment_status: "paid",
+            payment_ref: paymentIntentId,
+            stripe_payment_intent: paymentIntentId,
+            charged_amount_minor: session.amount_total ?? order.expected_amount_minor,
+            charge_currency: session.currency ?? order.charge_currency,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", order.id)
+          .eq("payment_status", "pending");
+
+        // Fulfill eSIM order immediately (atomic claim inside prevent duplicates)
+        await fulfilEsimOrder(order.id);
+
+        // Re-fetch updated order so this page render displays the fresh state
+        const { data: refreshedOrder } = await supabase
+          .from("esim_orders")
+          .select(
+            "id, partner_ref, plan_id, quantity, customer_name, customer_email, payment_status, fulfilment_status, expected_amount_minor, charged_amount_minor, charge_currency, created_at, esims, needs_attention, fulfilment_error, presentment_currency, presentment_amount_minor, vat_amount_minor, vat_rate_pct, vat_trn, invoice_number, stripe_session_id"
+          )
+          .eq("id", order.id)
+          .single();
+
+        if (refreshedOrder) {
+          order = refreshedOrder;
+        }
+      } else if (session.status === "expired") {
+        await supabase
+          .from("esim_orders")
+          .update({
+            payment_status: "failed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", order.id)
+          .eq("payment_status", "pending");
+
+        order.payment_status = "failed";
+      }
+    } catch (reconcileErr) {
+      console.warn(`[esim-order-page] Stripe reconciliation error on order ${order.id}:`, reconcileErr);
+    }
+  } else if (order.payment_status === "paid" && order.fulfilment_status === "pending") {
+    // Payment was settled (e.g. by webhook) but fulfilment is still pending
+    try {
+      await fulfilEsimOrder(order.id);
+      const { data: refreshedOrder } = await supabase
+        .from("esim_orders")
+        .select(
+          "id, partner_ref, plan_id, quantity, customer_name, customer_email, payment_status, fulfilment_status, expected_amount_minor, charged_amount_minor, charge_currency, created_at, esims, needs_attention, fulfilment_error, presentment_currency, presentment_amount_minor, vat_amount_minor, vat_rate_pct, vat_trn, invoice_number, stripe_session_id"
+        )
+        .eq("id", order.id)
+        .single();
+
+      if (refreshedOrder) {
+        order = refreshedOrder;
+      }
+    } catch (fulfilErr) {
+      console.warn(`[esim-order-page] Pending fulfilment trigger error on order ${order.id}:`, fulfilErr);
+    }
   }
 
   // Look up plan details
@@ -267,7 +345,7 @@ export default async function EsimOrderPage({
 
                 <div className="text-left sm:text-right">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0A0A08]/50">
-                    {isRefunded ? "Amount Refunded" : "Total Paid"}
+                    {isPaid ? "Total Paid" : isRefunded ? "Amount Refunded" : "Order Amount"}
                   </span>
                   <div className="text-lg font-bold text-[#0A0A08]">
                     {hasPresentment ? presentmentText : `${currency} ${formattedCharged}`}

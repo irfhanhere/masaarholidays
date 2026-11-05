@@ -4,7 +4,7 @@ import { uploadPrivateDocument, getPrivateDocumentSignedUrl } from "@/lib/docume
 
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 export async function POST(request: NextRequest) {

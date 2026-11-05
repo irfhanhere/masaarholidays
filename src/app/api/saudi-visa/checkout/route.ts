@@ -105,7 +105,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A valid contact phone number is required." }, { status: 400 });
   }
 
-  // 2. Strict Server-Side Pricing Calculation
+  // 2. Strict Server-Side Pricing & Travel Date Calculation
+  const travelDate = typeof body.travelDate === "string" ? body.travelDate.trim() : "";
+  if (!travelDate) {
+    return NextResponse.json({ error: "Date of Travel is mandatory." }, { status: 400 });
+  }
+
   const settings = await getSaudiVisaSettings();
   const pricing = calculateSaudiVisaPricing(rawApplicants.length, applicationType, settings);
 
@@ -130,13 +135,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const passportNumber = typeof a.passportNumber === "string" ? a.passportNumber.trim() : "";
-    if (!passportNumber || passportNumber.length < 5) {
+    const emiratesIdExpiryDate =
+      typeof a.emiratesIdExpiryDate === "string" ? a.emiratesIdExpiryDate.trim() : "";
+    if (!emiratesIdExpiryDate) {
       return NextResponse.json(
-        { error: `Applicant #${applicantIndex}: Valid passport number is required.` },
+        { error: `Applicant #${applicantIndex}: Emirates ID expiry date is required.` },
         { status: 400 }
       );
     }
+
+    const passportNumber =
+      typeof a.passportNumber === "string" && a.passportNumber.trim()
+        ? a.passportNumber.trim()
+        : "SEE_ATTACHED_PASSPORT";
 
     const validation = validateApplicantEligibility(
       {
@@ -145,7 +156,7 @@ export async function POST(request: NextRequest) {
         passportNumber,
         passportExpiryDate: typeof a.passportExpiryDate === "string" ? a.passportExpiryDate.trim() : "",
         residenceExpiryDate: typeof a.residenceExpiryDate === "string" ? a.residenceExpiryDate.trim() : "",
-        emiratesIdExpiryDate: typeof a.emiratesIdExpiryDate === "string" ? a.emiratesIdExpiryDate.trim() : "",
+        emiratesIdExpiryDate,
         emiratesIdNumber: typeof a.emiratesIdNumber === "string" ? a.emiratesIdNumber.trim() : "",
       },
       settings
@@ -164,7 +175,36 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 4. Terms Acceptance Verification
+  // 4. Mandatory Document Uploads Verification
+  const uploadedDocs = Array.isArray(body.uploadedDocuments) ? body.uploadedDocuments : [];
+  const hasPassport = uploadedDocs.some((d) => {
+    const t = String(d.documentType || "").toLowerCase();
+    return t.startsWith("passport") && !t.includes("photo");
+  });
+  const hasEidFront = uploadedDocs.some((d) => {
+    const t = String(d.documentType || "").toLowerCase();
+    return t.includes("emirates_id_front") || t === "emirates_id" || t.startsWith("emirates_id_app");
+  });
+  const hasEidBack = uploadedDocs.some((d) => {
+    const t = String(d.documentType || "").toLowerCase();
+    return t.includes("emirates_id_back");
+  });
+  const hasPhoto = uploadedDocs.some((d) => {
+    const t = String(d.documentType || "").toLowerCase();
+    return t.includes("photo");
+  });
+
+  if (!hasPassport || !hasEidFront || !hasEidBack || !hasPhoto) {
+    return NextResponse.json(
+      {
+        error:
+          "All mandatory documents (Passport Copy, Emirates ID Front, Emirates ID Back, and Passport-size Photo) must be uploaded before checkout.",
+      },
+      { status: 400 }
+    );
+  }
+
+  // 5. Terms Acceptance Verification
   if (!body.termsAccepted) {
     return NextResponse.json(
       { error: "You must accept the terms, conditions and refund policy to proceed." },
@@ -289,7 +329,6 @@ export async function POST(request: NextRequest) {
   }
 
   // 7. Insert Uploaded Documents (Secure Storage Paths)
-  const uploadedDocs = Array.isArray(body.uploadedDocuments) ? body.uploadedDocuments : [];
   if (uploadedDocs.length > 0) {
     try {
       const docRows = uploadedDocs.map((d: Record<string, unknown>) => ({

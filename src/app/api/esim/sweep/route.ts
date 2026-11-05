@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrderByRef, MegaEsimError, type Esim } from "@/lib/megaesim";
+import { getStripe } from "@/lib/stripe";
 import {
   fulfilEsimOrder,
   retryFulfilEsimOrder,
@@ -50,16 +51,85 @@ async function runSweep() {
   const supabase = createAdminClient();
   const now = Date.now();
 
+  const cutoff0 = new Date(now - 2 * 60 * 1000).toISOString(); // 2 minutes ago
   const cutoffA = new Date(now - 3 * 60 * 1000).toISOString(); // 3 minutes ago
   const cutoffB = new Date(now - 15 * 60 * 1000).toISOString(); // 15 minutes ago
   const cutoffC = new Date(now - 24 * 60 * 60 * 1000).toISOString(); // 24 hours ago
 
   const results = {
+    group0_stripe_reconciled: 0,
     groupA_pending_older_than_3m: 0,
     groupB_processing_older_than_15m: 0,
     groupC_abandoned_older_than_24h: 0,
     errors: [] as string[],
   };
+
+  // -------------------------------------------------------------
+  // Group 0: Pending orders with stripe_session_id older than 2m
+  // Reconciles directly with authoritative Stripe checkout session
+  // -------------------------------------------------------------
+  try {
+    const { data: group0, error: err0 } = await supabase
+      .from("esim_orders")
+      .select("id, partner_ref, stripe_session_id, expected_amount_minor, charge_currency, created_at")
+      .eq("payment_status", "pending")
+      .not("stripe_session_id", "is", null)
+      .lte("created_at", cutoff0)
+      .gte("created_at", cutoffC)
+      .limit(20);
+
+    if (err0) {
+      console.warn("[esim-sweep] Group 0 query error:", err0.message);
+    } else if (group0 && group0.length > 0) {
+      const stripe = getStripe();
+      for (const order of group0) {
+        if (!order.stripe_session_id) continue;
+        try {
+          const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);
+          if (session.payment_status === "paid" || session.status === "complete") {
+            const paymentIntentId =
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : session.payment_intent?.id || null;
+
+            console.log(
+              `[esim-sweep] Group 0: Reconciling paid order ${order.partner_ref} (${order.id}) via Stripe session`
+            );
+
+            await supabase
+              .from("esim_orders")
+              .update({
+                payment_status: "paid",
+                payment_ref: paymentIntentId,
+                stripe_payment_intent: paymentIntentId,
+                charged_amount_minor: session.amount_total ?? order.expected_amount_minor,
+                charge_currency: session.currency ?? order.charge_currency,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", order.id)
+              .eq("payment_status", "pending");
+
+            await fulfilEsimOrder(order.id);
+            results.group0_stripe_reconciled++;
+          } else if (session.status === "expired") {
+            await supabase
+              .from("esim_orders")
+              .update({
+                payment_status: "failed",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", order.id)
+              .eq("payment_status", "pending");
+          }
+        } catch (sErr) {
+          console.warn(`[esim-sweep] Stripe check failed for order ${order.partner_ref}:`, sErr);
+        }
+      }
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    results.errors.push(`Group 0 error: ${msg}`);
+  }
 
   // -------------------------------------------------------------
   // Group A: Paid orders still 'pending' fulfilment older than 3m
