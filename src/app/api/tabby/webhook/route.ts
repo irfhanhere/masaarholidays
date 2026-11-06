@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getTabbyConfig, getTabbyPayment, captureTabbyPayment } from "@/lib/tabby";
 import { sendVisaPaymentAndSubmissionEmails } from "@/lib/email/service";
 import { fulfilTransferBooking } from "@/lib/transfer-fulfilment";
+import { fulfilEsimOrder } from "@/lib/esim-fulfilment";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -222,6 +223,134 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ received: true, status: paymentStatus.toLowerCase(), type: "transfer" }, { status: 200 });
+  }
+
+  // 3b. Check if this is an eSIM order
+  const isEsim =
+    orderRef.startsWith("MH-") &&
+    !orderRef.startsWith("MH-TRF-") &&
+    !orderRef.startsWith("MH-UV-") &&
+    !orderRef.startsWith("MH-SV-");
+
+  let esimOrder = null;
+  if (isEsim && orderRef) {
+    const { data: eo } = await supabase
+      .from("esim_orders")
+      .select("*")
+      .eq("partner_ref", orderRef)
+      .maybeSingle();
+    esimOrder = eo;
+  }
+  if (!esimOrder && paymentId) {
+    const { data: eo } = await supabase
+      .from("esim_orders")
+      .select("*")
+      .or(`stripe_session_id.eq.${paymentId},payment_ref.eq.${paymentId}`)
+      .maybeSingle();
+    esimOrder = eo;
+  }
+
+  if (esimOrder) {
+    if (esimOrder.payment_status === "paid") {
+      console.log(`[tabby-webhook] eSIM order ${esimOrder.partner_ref} is already paid. Returning 200 idempotent.`);
+      await supabase
+        .from("payment_webhook_events")
+        .update({ processed: true })
+        .eq("gateway", "tabby")
+        .eq("external_id", externalId);
+      return NextResponse.json({ received: true, idempotent: true, type: "esim" }, { status: 200 });
+    }
+
+    if (paymentStatus === "AUTHORIZED") {
+      let captureResult;
+      try {
+        captureResult = await captureTabbyPayment(paymentId, paymentAmount, esimOrder.partner_ref);
+      } catch (captureErr: unknown) {
+        const msg = captureErr instanceof Error ? captureErr.message : "Capture failed";
+        console.warn(`[tabby-webhook] eSIM capture notice for ${paymentId}: ${msg}. Re-checking status...`);
+        try {
+          const recheck = await getTabbyPayment(paymentId);
+          if ((recheck.status || "").toUpperCase() === "CLOSED") {
+            captureResult = { id: `cap_concurrent_${paymentId}`, amount: paymentAmount, status: "CLOSED" };
+          } else {
+            return NextResponse.json({ error: "Capture failed" }, { status: 500 });
+          }
+        } catch {
+          return NextResponse.json({ error: "Capture failed" }, { status: 500 });
+        }
+      }
+
+      await supabase
+        .from("esim_orders")
+        .update({
+          payment_status: "paid",
+          payment_ref: paymentId,
+          stripe_payment_intent: paymentId,
+          charged_amount_minor: Math.round(paymentAmount * 100),
+          charge_currency: "aed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", esimOrder.id)
+        .eq("payment_status", "pending");
+
+      after(async () => {
+        try {
+          await fulfilEsimOrder(esimOrder.id);
+        } catch (fulfilErr) {
+          console.error("[tabby-webhook] Error fulfilling eSIM order:", fulfilErr);
+        }
+      });
+
+      await supabase
+        .from("payment_webhook_events")
+        .update({ processed: true })
+        .eq("gateway", "tabby")
+        .eq("external_id", externalId);
+
+      return NextResponse.json({ received: true, status: "captured", type: "esim" }, { status: 200 });
+    } else if (paymentStatus === "CLOSED") {
+      await supabase
+        .from("esim_orders")
+        .update({
+          payment_status: "paid",
+          payment_ref: paymentId,
+          stripe_payment_intent: paymentId,
+          charged_amount_minor: Math.round(paymentAmount * 100),
+          charge_currency: "aed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", esimOrder.id)
+        .eq("payment_status", "pending");
+
+      after(async () => {
+        try {
+          await fulfilEsimOrder(esimOrder.id);
+        } catch (fulfilErr) {
+          console.error("[tabby-webhook] Error fulfilling eSIM order:", fulfilErr);
+        }
+      });
+
+      await supabase
+        .from("payment_webhook_events")
+        .update({ processed: true })
+        .eq("gateway", "tabby")
+        .eq("external_id", externalId);
+
+      return NextResponse.json({ received: true, status: "closed", type: "esim" }, { status: 200 });
+    } else if (paymentStatus === "REJECTED" || paymentStatus === "EXPIRED") {
+      await supabase
+        .from("esim_orders")
+        .update({
+          payment_status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", esimOrder.id)
+        .eq("payment_status", "pending");
+
+      return NextResponse.json({ received: true, status: paymentStatus.toLowerCase(), type: "esim" }, { status: 200 });
+    }
+
+    return NextResponse.json({ received: true, status: paymentStatus.toLowerCase(), type: "esim" }, { status: 200 });
   }
 
   // 4. Locate matching Visa application

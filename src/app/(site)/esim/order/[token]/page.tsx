@@ -8,6 +8,7 @@ import { buildWhatsAppLink } from "@/lib/contact";
 import { getDestinationByIso } from "@/lib/esim-config";
 import type { Esim } from "@/lib/megaesim";
 import { getStripe } from "@/lib/stripe";
+import { getTabbyPayment, captureTabbyPayment } from "@/lib/tabby";
 import { fulfilEsimOrder } from "@/lib/esim-fulfilment";
 import { OrderPoller, CopyButton } from "./OrderClientComponents";
 
@@ -73,10 +74,13 @@ function AndroidIcon({ className = "size-4" }: { className?: string }) {
 
 export default async function EsimOrderPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ payment_id?: string; tabby?: string; session_id?: string }>;
 }) {
   const { token } = await params;
+  const search = searchParams ? await searchParams : {};
   const publicToken = token?.trim();
 
   if (!publicToken) {
@@ -100,8 +104,74 @@ export default async function EsimOrderPage({
 
   let order = initialOrder;
 
-  // Authoritative server-side Stripe reconciliation
-  if (order.payment_status === "pending" && order.stripe_session_id) {
+  // Authoritative server-side Tabby or Stripe reconciliation
+  const effectiveTabbyPaymentId =
+    search.payment_id ||
+    (order.stripe_session_id && !order.stripe_session_id.startsWith("cs_")
+      ? order.stripe_session_id
+      : null);
+
+  if (order.payment_status === "pending" && (effectiveTabbyPaymentId || search.tabby)) {
+    const payId = effectiveTabbyPaymentId || search.payment_id;
+    if (payId) {
+      try {
+        const tabbyPayment = await getTabbyPayment(payId);
+        const tabbyStatus = (tabbyPayment.status || "").toUpperCase();
+        const amountVal = parseFloat(tabbyPayment.amount || "0");
+
+        if (tabbyStatus === "AUTHORIZED") {
+          try {
+            await captureTabbyPayment(payId, amountVal, order.partner_ref);
+          } catch (capErr) {
+            console.warn("[esim-order-page] Tabby capture warning:", capErr);
+          }
+        }
+
+        if (tabbyStatus === "AUTHORIZED" || tabbyStatus === "CLOSED") {
+          await supabase
+            .from("esim_orders")
+            .update({
+              payment_status: "paid",
+              payment_ref: payId,
+              stripe_payment_intent: payId,
+              charged_amount_minor: Math.round(amountVal * 100),
+              charge_currency: (tabbyPayment.currency || "AED").toLowerCase(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id)
+            .eq("payment_status", "pending");
+
+          // Fulfill eSIM order immediately
+          await fulfilEsimOrder(order.id);
+
+          const { data: refreshedOrder } = await supabase
+            .from("esim_orders")
+            .select(
+              "id, partner_ref, plan_id, quantity, customer_name, customer_email, payment_status, fulfilment_status, expected_amount_minor, charged_amount_minor, charge_currency, created_at, esims, needs_attention, fulfilment_error, presentment_currency, presentment_amount_minor, vat_amount_minor, vat_rate_pct, vat_trn, invoice_number, stripe_session_id"
+            )
+            .eq("id", order.id)
+            .single();
+
+          if (refreshedOrder) {
+            order = refreshedOrder;
+          }
+        } else if (tabbyStatus === "REJECTED" || tabbyStatus === "EXPIRED") {
+          await supabase
+            .from("esim_orders")
+            .update({
+              payment_status: "failed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id)
+            .eq("payment_status", "pending");
+
+          order.payment_status = "failed";
+        }
+      } catch (tabbyErr) {
+        console.warn(`[esim-order-page] Tabby reconciliation error on order ${order.id}:`, tabbyErr);
+      }
+    }
+  } else if (order.payment_status === "pending" && order.stripe_session_id && order.stripe_session_id.startsWith("cs_")) {
     try {
       const stripe = getStripe();
       const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id);

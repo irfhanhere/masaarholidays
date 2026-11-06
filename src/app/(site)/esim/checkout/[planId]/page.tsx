@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isEsimVatEnabled, getEsimVatPct } from "@/lib/vat";
 import { verifyEsimAccess } from "@/lib/esim-launch-server";
 import { getAllEsimFxQuotes } from "@/lib/esim-fx";
+import { isTabbyCheckoutEnabled } from "@/lib/tabby";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,7 @@ export default async function EsimCheckoutPage({
         esimFxRates={esimFxRates}
         vatEnabled={vatEnabled}
         vatPct={vatPct}
+        tabbyEnabled={isTabbyCheckoutEnabled()}
       />
     </>
   );

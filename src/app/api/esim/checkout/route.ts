@@ -3,6 +3,11 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { getSiteOrigin } from "@/lib/site-url";
+import {
+  createTabbyCheckoutSession,
+  isTabbyCheckoutEnabled,
+  convertUsdToTabbyCurrency,
+} from "@/lib/tabby";
 import { isEsimVatEnabled, getEsimVatPct, getVatTrn, calculateVatMinor } from "@/lib/vat";
 import { verifyEsimAccess, ESIM_PREVIEW_COOKIE_NAME } from "@/lib/esim-launch-server";
 import {
@@ -101,6 +106,10 @@ export async function POST(request: NextRequest) {
   const confirmEmail =
     typeof body.confirmEmail === "string" ? body.confirmEmail.trim().toLowerCase() : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const paymentGateway =
+    typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby"
+      ? "tabby"
+      : "stripe";
 
   // Validate charge currency against allow-list (fallback AED)
   const chargeCurrency: AllowedChargeCurrency = normalizeChargeCurrency(
@@ -214,7 +223,7 @@ export async function POST(request: NextRequest) {
     expected_amount_minor: expectedAmountMinor,
     fx_rate: fxRate,
     fx_rate_at: fxRateAt,
-    payment_provider: "stripe",
+    payment_provider: paymentGateway,
     payment_status: "pending" as const,
     fulfilment_status: "pending" as const,
     terms_accepted_at: nowIso,
@@ -254,7 +263,7 @@ export async function POST(request: NextRequest) {
         currency: chargeCurrency,
         charge_currency: chargeCurrency.toLowerCase(),
         expected_amount_minor: expectedAmountMinor,
-        payment_provider: "stripe",
+        payment_provider: paymentGateway,
         payment_status: "pending" as const,
         fulfilment_status: "pending" as const,
         terms_accepted_at: nowIso,
@@ -289,7 +298,75 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 7. Create Stripe Checkout Session in the selected charge currency
+  const siteOrigin = getSiteOrigin();
+  const planDataLabel = plan.is_unlimited ? "Unlimited Data" : `${plan.data_gb} GB`;
+  const lineItemDescription = `${planDataLabel} · ${plan.validity_days} Days · High-Speed Prepaid eSIM`;
+
+  // 7a. Tabby Checkout Session Branch (Pay in 4 installments in AED)
+  if (paymentGateway === "tabby") {
+    if (!isTabbyCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tabby Pay in 4 is currently unavailable. Please select card payment to complete your checkout." },
+        { status: 400 }
+      );
+    }
+
+    const tabbyConverted = convertUsdToTabbyCurrency(amountUsd, "AED");
+    const tabbyAmount = tabbyConverted.amount;
+    const tabbySuccessUrl = `${siteOrigin}/esim/order/${order.public_token}?payment_id={payment_id}&tabby=1`;
+    const tabbyCancelUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}?cancelled=1`;
+    const tabbyFailureUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}?failed=1`;
+
+    try {
+      const tabbySession = await createTabbyCheckoutSession({
+        amount: tabbyAmount,
+        currency: "AED",
+        description: `eSIM: ${plan.name} — ${planDataLabel} (${plan.validity_days} Days)`,
+        buyer: {
+          name: fullName,
+          email: email,
+          phone: phone || "+971500000000",
+        },
+        referenceId: order.partner_ref,
+        items: [
+          {
+            title: `${plan.name} (${planDataLabel})`,
+            description: lineItemDescription,
+            quantity: quantity,
+            unitPrice: Math.round((tabbyAmount / quantity) * 100) / 100,
+            category: "eSIM",
+            referenceId: plan.plan_id,
+          },
+        ],
+        successUrl: tabbySuccessUrl,
+        cancelUrl: tabbyCancelUrl,
+        failureUrl: tabbyFailureUrl,
+      });
+
+      await supabase
+        .from("esim_orders")
+        .update({
+          stripe_session_id: tabbySession.sessionId,
+          payment_ref: tabbySession.paymentId,
+        })
+        .eq("id", order.id);
+
+      return NextResponse.json({
+        url: tabbySession.webUrl,
+        paymentGateway: "tabby",
+        referenceId: order.partner_ref,
+      });
+    } catch (tabbyErr: unknown) {
+      const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
+      console.error("[esim-checkout] Tabby session creation failed:", msg);
+      return NextResponse.json(
+        { error: `Tabby payment error: ${msg}` },
+        { status: 500 }
+      );
+    }
+  }
+
+  // 7b. Create Stripe Checkout Session in the selected charge currency
   let stripe;
   try {
     stripe = getStripe();
@@ -302,12 +379,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const siteOrigin = getSiteOrigin();
   const successUrl = `${siteOrigin}/esim/order/${order.public_token}`;
   const cancelUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}`;
-
-  const planDataLabel = plan.is_unlimited ? "Unlimited Data" : `${plan.data_gb} GB`;
-  const lineItemDescription = `${planDataLabel} · ${plan.validity_days} Days · High-Speed Prepaid eSIM`;
   const stripeCurrency = chargeCurrency.toLowerCase();
 
   try {

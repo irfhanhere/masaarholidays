@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useId } from "react";
+import { useState, useId, useEffect } from "react";
 import Link from "next/link";
 import { Container } from "./Container";
 import { useCurrency } from "./CurrencyProvider";
@@ -29,6 +29,7 @@ interface EsimCheckoutClientProps {
   esimFxRates?: Record<string, number>;
   vatEnabled?: boolean;
   vatPct?: number;
+  tabbyEnabled?: boolean;
 }
 
 function LockIcon({ className = "size-4" }: { className?: string }) {
@@ -61,8 +62,23 @@ export function EsimCheckoutClient({
   esimFxRates,
   vatEnabled = false,
   vatPct = 5,
+  tabbyEnabled = true,
 }: EsimCheckoutClientProps) {
   const { currency, rates } = useCurrency();
+
+  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby">("stripe");
+  const [isTabbyAvailable, setIsTabbyAvailable] = useState<boolean>(tabbyEnabled);
+
+  useEffect(() => {
+    fetch("/api/tabby/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data?.enabled === "boolean") {
+          setIsTabbyAvailable(data.enabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [quantity, setQuantity] = useState<number>(1);
   const [fullName, setFullName] = useState("");
@@ -183,6 +199,10 @@ export function EsimCheckoutClient({
   const totalChargedAmount = (totalChargedMinor / 100).toFixed(2);
   const totalSalePriceUsd = plan.sale_price_usd * quantity;
 
+  // Tabby calculation: charged in AED (pegged USD to AED 3.6725)
+  const tabbyTotalAed = Math.round(totalSalePriceUsd * 3.6725 * 100) / 100;
+  const tabbyInstallmentAed = (tabbyTotalAed / 4).toFixed(2);
+
   // VAT calculations (price is VAT-inclusive when enabled)
   const netAmountMinor =
     vatEnabled && vatPct > 0
@@ -272,6 +292,7 @@ export function EsimCheckoutClient({
           planId: plan.plan_id,
           quantity,
           currency: chargeCurrency,
+          paymentGateway: isTabbyAvailable ? paymentGateway : "stripe",
           fullName: fullName.trim(),
           email: email.trim().toLowerCase(),
           confirmEmail: confirmEmail.trim().toLowerCase(),
@@ -633,6 +654,95 @@ export function EsimCheckoutClient({
                 </div>
               </div>
 
+              {/* Step 4: Payment Method Selection */}
+              <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-7 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-black/5 pb-3">
+                  <h2 className="text-base font-bold text-[#0A0A08]">4. Select Payment Method</h2>
+                  <span className="text-[11px] font-semibold text-[#8F6407]">
+                    256-Bit SSL Encrypted
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* Option 1: Card / Apple Pay / Google Pay (Stripe) */}
+                  <label
+                    onClick={() => setPaymentGateway("stripe")}
+                    className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all ${
+                      paymentGateway === "stripe"
+                        ? "border-[#C9A227] bg-[#FAF7F2] ring-2 ring-[#C9A227]/30 shadow-xs"
+                        : "border-black/10 bg-white hover:border-black/20"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="paymentGateway"
+                          value="stripe"
+                          checked={paymentGateway === "stripe"}
+                          onChange={() => setPaymentGateway("stripe")}
+                          className="size-4 text-[#C9A227] focus:ring-[#C9A227]"
+                        />
+                        <span className="text-xs font-bold text-[#0A0A08]">Credit / Debit Card</span>
+                      </div>
+                      <span className="rounded bg-black/5 px-2 py-0.5 text-[10px] font-bold text-[#0A0A08]/70">
+                        Instant
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-[#0A0A08]/65 leading-relaxed">
+                      Pay with Visa, Mastercard, Amex, Apple Pay or Google Pay via encrypted Stripe checkout.
+                    </p>
+                  </label>
+
+                  {/* Option 2: Tabby (Pay in 4 installments) */}
+                  <label
+                    onClick={() => {
+                      if (isTabbyAvailable) setPaymentGateway("tabby");
+                    }}
+                    className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all ${
+                      paymentGateway === "tabby"
+                        ? "border-[#C9A227] bg-[#FAF7F2] ring-2 ring-[#C9A227]/30 shadow-xs"
+                        : "border-black/10 bg-white hover:border-black/20"
+                    } ${!isTabbyAvailable ? "opacity-60 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="paymentGateway"
+                          value="tabby"
+                          disabled={!isTabbyAvailable}
+                          checked={paymentGateway === "tabby"}
+                          onChange={() => {
+                            if (isTabbyAvailable) setPaymentGateway("tabby");
+                          }}
+                          className="size-4 text-[#C9A227] focus:ring-[#C9A227]"
+                        />
+                        <span className="text-xs font-bold text-[#0A0A08]">Tabby · Pay in 4</span>
+                      </div>
+                      <span className="rounded-full bg-[#3EEDBF]/30 px-2 py-0.5 text-[10px] font-extrabold text-[#055743]">
+                        4x AED {tabbyInstallmentAed}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-[#0A0A08]/65 leading-relaxed">
+                      Split into 4 interest-free monthly payments of AED {tabbyInstallmentAed}. No hidden fees. Shariah-compliant.
+                    </p>
+                  </label>
+                </div>
+
+                {paymentGateway === "tabby" && (
+                  <div className="rounded-xl border border-[#3EEDBF]/40 bg-[#3EEDBF]/10 p-3.5 text-xs text-[#055743]">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>✨</span>
+                      <span>Pay AED {tabbyInstallmentAed} today, and the rest over 3 months</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#055743]/80">
+                      Tabby automatically splits your total (AED {tabbyTotalAed}) into 4 equal interest-free installments. Valid UAE or GCC mobile number required.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* API error alert */}
               {apiError && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
@@ -644,12 +754,17 @@ export function EsimCheckoutClient({
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A227] px-6 py-4 text-sm font-bold text-[#0A0A08] transition hover:bg-[#A87F12] hover:text-white shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A227] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A227] px-6 py-4 text-sm font-bold text-[#0A0A08] transition hover:bg-[#A87F12] hover:text-white shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A227] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading ? (
                   <>
                     <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Connecting to Secure Payment...
+                    {paymentGateway === "tabby" ? "Connecting to Tabby..." : "Connecting to Secure Payment..."}
+                  </>
+                ) : paymentGateway === "tabby" ? (
+                  <>
+                    <LockIcon className="size-4" />
+                    Pay with Tabby · 4x AED {tabbyInstallmentAed}
                   </>
                 ) : (
                   <>
@@ -759,6 +874,21 @@ export function EsimCheckoutClient({
                     </div>
                   )}
                 </div>
+
+                {/* Tabby 4 Installments Badge */}
+                {isTabbyAvailable && (
+                  <div className="rounded-xl border border-black/5 bg-[#FAF7F2] p-3 text-xs text-[#0A0A08]/85 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#0A0A08]">Pay in 4 with Tabby</span>
+                      <span className="rounded bg-[#3EEDBF]/40 px-2 py-0.5 text-[10px] font-extrabold text-[#055743]">
+                        0% Interest
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#0A0A08]/65">
+                      Or 4 interest-free monthly payments of <strong className="text-[#0A0A08]">AED {tabbyInstallmentAed}</strong> with Tabby.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* WhatsApp Alternative CTA */}
