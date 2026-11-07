@@ -27,6 +27,9 @@ import {
 } from "@/lib/documents/calculations";
 import { ShareQuotationModal } from "@/components/documents/ShareQuotationModal";
 import { ClientQuotationPortal } from "@/app/quote/[token]/ClientQuotationPortal";
+import { HotelDetailsEditModal } from "./HotelDetailsEditModal";
+import { FlightItinerarySection } from "./FlightItinerarySection";
+import { SightseeingZiyaratSection } from "./SightseeingZiyaratSection";
 
 const JOURNEY_TYPES: Array<{
   id: DocumentJourneyType;
@@ -208,6 +211,34 @@ export function QuotationBuilder({
       : `https://masaarholidays.com/quote/${shareToken}`;
 
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Hotel Details Edit Modal State
+  const [isEditHotelModalOpen, setIsEditHotelModalOpen] = useState(false);
+  const [selectedHotelIndex, setSelectedHotelIndex] = useState<number | null>(null);
+
+  function handleSaveHotelDetails(
+    itemIndex: number,
+    updatedItem: LineItemPricingInput,
+    updateMasterCatalog?: boolean
+  ) {
+    const nextItems = [...lineItems];
+    nextItems[itemIndex] = updatedItem;
+    setLineItems(nextItems);
+    handlePersistLineItems(nextItems);
+    setSaveSuccessMsg(`Updated hotel "${updatedItem.description}" for this quotation.`);
+
+    if (updateMasterCatalog) {
+      fetch("/api/admin/hotels/quick-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: updatedItem.description,
+          details: updatedItem.details,
+          priceAed: updatedItem.unit_price_aed,
+        }),
+      }).catch((e) => console.warn("Master catalogue update notice:", e));
+    }
+  }
 
   // Service Adding Dialog State (Q02)
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
@@ -1162,6 +1193,25 @@ export function QuotationBuilder({
               </div>
             </div>
           </div>
+
+          {/* Flight Itinerary Attachment & Management (Step 2) */}
+          <FlightItinerarySection
+            documentId={document.id}
+            lineItems={lineItems}
+            adultsCount={adults}
+            origin={origin}
+            destination={destination}
+            onUpdateLineItems={setLineItems}
+            onPersist={handlePersistLineItems}
+          />
+
+          {/* Sightseeing & Private Ziyarat Section (Step 2) */}
+          <SightseeingZiyaratSection
+            lineItems={lineItems}
+            adultsCount={adults}
+            onUpdateLineItems={setLineItems}
+            onPersist={handlePersistLineItems}
+          />
         </div>
       )}
 
@@ -1206,6 +1256,25 @@ export function QuotationBuilder({
               </button>
             </div>
           </div>
+
+          {/* Flight Itinerary Attachment & Management (Step 3) */}
+          <FlightItinerarySection
+            documentId={document.id}
+            lineItems={lineItems}
+            adultsCount={adults}
+            origin={origin}
+            destination={destination}
+            onUpdateLineItems={setLineItems}
+            onPersist={handlePersistLineItems}
+          />
+
+          {/* Sightseeing & Private Ziyarat Section (Step 3) */}
+          <SightseeingZiyaratSection
+            lineItems={lineItems}
+            adultsCount={adults}
+            onUpdateLineItems={setLineItems}
+            onPersist={handlePersistLineItems}
+          />
 
           {/* Pricing Table (Matches FLEXIBLE PRICING & SUMMARY.png) */}
           <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white shadow-xs">
@@ -1277,6 +1346,18 @@ export function QuotationBuilder({
                             <option value="Half Board (Breakfast & Dinner)">Half Board (Breakfast + Dinner)</option>
                             <option value="Full Board (Breakfast, Lunch & Dinner)">Full Board (All 3 Meals)</option>
                           </select>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedHotelIndex(idx);
+                              setIsEditHotelModalOpen(true);
+                            }}
+                            className="rounded border border-[#c9983e]/40 bg-[#FAF8F5] px-2 py-0.5 text-[10px] font-bold text-[#865d1d] hover:bg-[#c9983e] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                            title="Edit Hotel Details & Room Snapshot"
+                          >
+                            <span>✏️</span> Edit Hotel Details
+                          </button>
                         </div>
                       )}
                       {it.is_overridden && (
@@ -1373,6 +1454,20 @@ export function QuotationBuilder({
                         >
                           {it.is_price_on_request ? "Set Price" : "Unprice"}
                         </button>
+
+                        {it.item_type === "hotel" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedHotelIndex(idx);
+                              setIsEditHotelModalOpen(true);
+                            }}
+                            className="rounded-md border border-[#c9983e]/50 bg-[#FAF8F5] px-2 py-0.5 text-[10px] font-bold text-[#865d1d] hover:bg-[#c9983e] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                            title="Edit Hotel Details & Room Snapshot"
+                          >
+                            <span>✏️</span> Edit
+                          </button>
+                        )}
                       </div>
                     </td>
 
@@ -1914,6 +2009,18 @@ Masaar Holidays`)}`}
         onClose={() => setShowShareModal(false)}
         document={document}
         shareToken={shareToken}
+      />
+
+      {/* Edit Hotel Details & Room Snapshot Modal */}
+      <HotelDetailsEditModal
+        isOpen={isEditHotelModalOpen}
+        onClose={() => {
+          setIsEditHotelModalOpen(false);
+          setSelectedHotelIndex(null);
+        }}
+        item={selectedHotelIndex !== null ? lineItems[selectedHotelIndex] : null}
+        itemIndex={selectedHotelIndex ?? -1}
+        onSave={handleSaveHotelDetails}
       />
     </div>
   );

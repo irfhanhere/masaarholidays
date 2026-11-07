@@ -3,6 +3,7 @@ import type { DocumentItemRow, DocumentRow, DocumentTemplateRow } from "@/lib/ty
 import { getHotelImage, getTransportImage } from "@/lib/documents/images";
 import { generateItineraryForDays, type ItineraryDay } from "@/lib/documents/itinerary";
 import { resolveHotelMealPlan } from "@/lib/documents/calculations";
+import { extractFlightMetadata } from "@/lib/documents/flight-attachment";
 
 function formatMoney(amountAed: number | null | undefined): string {
   return `AED ${Number(amountAed ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -27,6 +28,7 @@ export const PDF_PAGE_SECTIONS = [
   { id: "package_overview", label: "Package Overview" },
   { id: "accommodation", label: "Accommodation" },
   { id: "transportation", label: "Transportation" },
+  { id: "ziyarat", label: "Sightseeing & Ziyarat" },
   { id: "flights", label: "Flights" },
   { id: "itinerary", label: "Itinerary" },
   { id: "inclusions", label: "Inclusions" },
@@ -615,36 +617,153 @@ export function QuotationDocumentView({
           );
         }
 
+        // 5b. SIGHTSEEING & PRIVATE ZIYARAT
+        if (sec.id === "ziyarat") {
+          const ziyaratItems = items.filter(
+            (i) =>
+              i.item_type === "private_trip" ||
+              i.description.toLowerCase().includes("ziyarat") ||
+              i.description.toLowerCase().includes("sightseeing")
+          );
+
+          if (ziyaratItems.length === 0) return null;
+
+          return (
+            <div key="ziyarat" className="masaar-pdf-page p-10">
+              {renderPageHeader("Private Ziyarat & Cultural Sightseeing")}
+
+              <div className="space-y-5 flex-1 text-xs">
+                {ziyaratItems.map((zi, zIdx) => {
+                  const isMakkah = zi.description.toLowerCase().includes("makkah");
+                  const cardImg = isMakkah
+                    ? "/trips/private-trip-makkah-card.webp"
+                    : "/trips/private-trip-madinah-card.webp";
+                  const isInc = (zi as any).is_included || Number(zi.unit_price_aed || 0) === 0;
+
+                  return (
+                    <div
+                      key={zIdx}
+                      className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden"
+                    >
+                      <div className="flex flex-col sm:flex-row">
+                        <div className="relative h-36 sm:h-auto sm:w-52 shrink-0 bg-neutral-100">
+                          <Image
+                            src={cardImg}
+                            alt={zi.description}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                          <div className="absolute top-2 left-2 rounded bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
+                            {isMakkah ? "Makkah Al-Mukarramah" : "Madinah Al-Munawwarah"}
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-start justify-between gap-2 border-b border-black/10 pb-2">
+                              <div>
+                                <h3 className="font-serif text-base font-bold text-masaar-black">
+                                  {zi.description}
+                                </h3>
+                                <p className="text-[11px] text-masaar-black/70 mt-0.5">
+                                  2 – 2.5 hrs • Dedicated Chauffeur • Hotel Lobby Pickup &amp; Return
+                                </p>
+                              </div>
+                              <span
+                                className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase shrink-0 ${
+                                  isInc
+                                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                    : "bg-light-gold/30 text-admin-primary"
+                                }`}
+                              >
+                                {isInc ? "✓ Included in Package" : `AED ${Number(zi.unit_price_aed).toLocaleString()}`}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 text-[11px] text-masaar-black/80 leading-relaxed">
+                              {zi.details}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="rounded-xl border border-black/10 bg-[#FAF8F5] p-4 text-[11px] text-masaar-black/80 leading-relaxed">
+                  <span className="font-bold text-masaar-black block mb-1">
+                    Spiritual Guided Pilgrimage Sightseeing
+                  </span>
+                  Private sightseeing journeys are conducted in modern air-conditioned private vehicles with experienced chauffeurs. The itinerary is paced comfortably to permit reflection, prayer, and historical understanding at sacred landmarks.
+                </div>
+              </div>
+
+              {renderPageFooter(pageNum)}
+            </div>
+          );
+        }
+
         // 6. FLIGHTS
         if (sec.id === "flights") {
           // Hide section entirely if no flight items added
           if (flightItems.length === 0) return null;
+          const flightItem = flightItems[0];
+          const flightMeta = extractFlightMetadata(flightItem?.details);
+
           return (
             <div key="flights" className="masaar-pdf-page p-10">
               {renderPageHeader("Flights & Dining Arrangements")}
 
               <div className="space-y-6 flex-1 text-xs">
                 <div className="rounded-xl border border-black/10 bg-white shadow-xs overflow-hidden">
-                  <div className="relative h-44 w-full bg-neutral-100">
-                    <Image
-                      src="/Assets/image-flight.jpg"
-                      alt={flightItems[0]?.description || "Scheduled Flight"}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
+                  {flightMeta.screenshotUrl ? (
+                    <div className="relative w-full max-h-[380px] min-h-[160px] bg-neutral-50 flex items-center justify-center p-3 border-b border-black/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={flightMeta.screenshotUrl}
+                        alt={flightItem?.description || "Flight Itinerary Screenshot"}
+                        className="max-h-[350px] w-auto max-w-full object-contain rounded-md shadow-2xs"
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative h-44 w-full bg-neutral-100">
+                      <Image
+                        src="/Assets/image-flight.jpg"
+                        alt={flightItem?.description || "Scheduled Flight"}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  )}
+
                   <div className="p-5">
-                    <div className="flex items-center justify-between border-b border-black/10 pb-3">
+                    <div className="flex items-start justify-between border-b border-black/10 pb-3 gap-3">
                       <div>
-                        <h3 className="font-serif text-base font-bold text-masaar-black">
-                          {flightItems[0]?.description || "Scheduled Direct Flights"}
+                        {flightMeta.airline && (
+                          <span className="text-[10px] font-mono font-bold text-admin-primary uppercase tracking-wider block">
+                            {flightMeta.airline}
+                          </span>
+                        )}
+                        <h3 className="font-serif text-base font-bold text-masaar-black mt-0.5">
+                          {flightItem?.description || "Scheduled Direct Flights"}
                         </h3>
-                        <p className="text-[11px] text-masaar-black/70 whitespace-pre-line mt-1">
-                          {flightItems[0]?.details || "Direct scheduled return flights with luggage allowance included."}
+                        {flightMeta.pnr && (
+                          <p className="text-xs font-mono font-bold text-black mt-1">
+                            Booking Reference / PNR: <span className="text-deep-gold">{flightMeta.pnr}</span>
+                          </p>
+                        )}
+                        {flightMeta.departureArrival && (
+                          <p className="text-xs text-masaar-black/70 mt-0.5">
+                            Flight Schedule: {flightMeta.departureArrival}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-masaar-black/70 whitespace-pre-line mt-1.5 leading-relaxed">
+                          {flightMeta.cleanDetails || flightItem?.details || "Direct scheduled return flights with luggage allowance included."}
                         </p>
                       </div>
-                      <span className="rounded bg-light-gold/30 px-2.5 py-1 text-[10px] font-bold text-admin-primary uppercase">
+                      <span className="rounded bg-light-gold/30 px-2.5 py-1 text-[10px] font-bold text-admin-primary uppercase shrink-0">
                         Scheduled Flights
                       </span>
                     </div>

@@ -20,6 +20,7 @@ import {
   buildSequencedPilgrimageDays,
   type ItineraryDayItem,
 } from "@/lib/documents/calculations";
+import { extractFlightMetadata } from "@/lib/documents/flight-attachment";
 import {
   formatCardWalkTime,
   formatLadiesGateWalkTime,
@@ -70,6 +71,7 @@ export function ClientQuotationPortal({
   const [declineReason, setDeclineReason] = useState("");
   const [acceptedNotice, setAcceptedNotice] = useState(currentStatus === "accepted");
   const [declinedNotice, setDeclinedNotice] = useState(currentStatus === "rejected");
+  const [flightLightboxUrl, setFlightLightboxUrl] = useState<string | null>(null);
 
   const cleanPhone = (whatsappPhone || "971552276299").replace(/\D/g, "");
   const isHajj = document.journey_type === "hajj";
@@ -161,9 +163,17 @@ export function ClientQuotationPortal({
       i.description.toLowerCase().includes("train") ||
       i.description.toLowerCase().includes("haramain")
   );
+  const ziyarat = items.filter(
+    (i) =>
+      (i.item_type === "private_trip" ||
+        i.description.toLowerCase().includes("ziyarat") ||
+        i.description.toLowerCase().includes("sightseeing")) &&
+      !i.description.toLowerCase().includes("train")
+  );
   const transfers = items.filter(
     (i) =>
-      (i.item_type === "transfer" || i.item_type === "private_trip") &&
+      i.item_type === "transfer" &&
+      !ziyarat.some((z) => z.id === i.id || z.description === i.description) &&
       !i.description.toLowerCase().includes("train") &&
       !i.description.toLowerCase().includes("haramain")
   );
@@ -591,14 +601,14 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
             </section>
 
             {/* SECTION C: TRANSPORTATION & TRAVEL SERVICES */}
-            {(transfers.length > 0 || trains.length > 0 || flights.length > 0 || visas.length > 0 || Boolean(document.origin && document.destination)) && (
+            {(transfers.length > 0 || trains.length > 0 || flights.length > 0 || ziyarat.length > 0 || visas.length > 0 || Boolean(document.origin && document.destination)) && (
               <section className="space-y-4">
                 <div className="border-b border-black/10 pb-3">
                   <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
                     Transportation &amp; Travel Services
                   </h2>
                   <p className="text-xs text-[#1A1816]/60 mt-0.5">
-                    Seamless transit with private chauffeurs, flights, high-speed rail, and visa assistance.
+                    Seamless transit with private chauffeurs, flights, high-speed rail, sightseeing ziyarat, and visa assistance.
                   </p>
                 </div>
 
@@ -606,31 +616,73 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                   {/* Flights */}
                   {flights.map((f, idx) => {
                     const imgRes = resolveServiceImage("flight", f.description, f.details);
+                    const flightMeta = extractFlightMetadata(f.details);
+
                     return (
                       <div
                         key={f.id || idx}
                         className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4"
                       >
-                        <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
-                          <Image
-                            src={imgRes.imageUrl}
-                            alt={imgRes.altText}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </div>
+                        {flightMeta.screenshotUrl ? (
+                          <div
+                            className="relative h-20 w-24 shrink-0 rounded-xl overflow-hidden bg-neutral-100 border border-black/10 cursor-pointer group"
+                            onClick={() => setFlightLightboxUrl(flightMeta.screenshotUrl!)}
+                            title="Click to view flight itinerary screenshot"
+                          >
+                            <Image
+                              src={flightMeta.screenshotUrl}
+                              alt={f.description || "Flight Screenshot"}
+                              fill
+                              className="object-contain p-1 group-hover:scale-105 transition-transform"
+                              unoptimized
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
+                              🔍 View
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                            <Image
+                              src={imgRes.imageUrl}
+                              alt={imgRes.altText}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
                         <div className="text-xs flex-1">
-                          <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
-                            Flight Booking
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                              {flightMeta.airline || "Flight Booking"}
+                            </span>
+                            {flightMeta.pnr && (
+                              <span className="rounded bg-[#FAF8F5] border border-[#c9983e]/30 px-1.5 py-0.5 text-[9px] font-mono font-bold text-[#865d1d]">
+                                PNR: {flightMeta.pnr}
+                              </span>
+                            )}
+                          </div>
                           <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
                             {f.description}
                           </h4>
-                          {f.details && (
-                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
-                              {f.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                          {flightMeta.departureArrival && (
+                            <p className="text-[11px] font-semibold text-black/80 mt-0.5">
+                              Schedule: {flightMeta.departureArrival}
                             </p>
+                          )}
+                          {(flightMeta.cleanDetails || f.details) && (
+                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                              {flightMeta.cleanDetails || f.details?.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
+                          )}
+                          {flightMeta.screenshotUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setFlightLightboxUrl(flightMeta.screenshotUrl!)}
+                              className="mt-1 text-[11px] text-blue-600 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>📎 View Attached Screenshot ↗</span>
+                            </button>
                           )}
                           <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
                             <span>{f.quantity || document.adults || 2} Pax • Return Ticket</span>
@@ -638,6 +690,53 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
                               {Number(f.unit_price_aed) > 0
                                 ? `AED ${(Number(f.unit_price_aed) * Number(f.quantity || 1)).toLocaleString()}`
                                 : "Included in Package"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Sightseeing & Private Ziyarat */}
+                  {ziyarat.map((z, idx) => {
+                    const isMakkah = z.description.toLowerCase().includes("makkah");
+                    const cardImg = isMakkah
+                      ? "/trips/private-trip-makkah-card.webp"
+                      : "/trips/private-trip-madinah-card.webp";
+                    const isInc = (z as any).is_included || Number(z.unit_price_aed || 0) === 0;
+
+                    return (
+                      <div
+                        key={z.id || idx}
+                        className="rounded-2xl border border-black/10 bg-white p-5 shadow-xs flex items-start gap-4"
+                      >
+                        <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-neutral-100">
+                          <Image
+                            src={cardImg}
+                            alt={z.description}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="text-xs flex-1">
+                          <span className="font-mono text-[10px] font-bold text-[#865d1d] uppercase tracking-wider">
+                            {isMakkah ? "Makkah Ziyarat" : "Madinah Ziyarat"}
+                          </span>
+                          <h4 className="font-serif text-sm font-bold text-[#1A1816] mt-0.5">
+                            {z.description}
+                          </h4>
+                          {z.details && (
+                            <p className="text-[#1A1816]/70 mt-1 leading-relaxed">
+                              {z.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
+                            </p>
+                          )}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 text-[#1A1816]/70">
+                            <span>2 – 2.5 hrs • Private Chauffeur</span>
+                            <span className="font-bold text-[#865d1d]">
+                              {isInc
+                                ? "Included in Package"
+                                : `AED ${Number(z.unit_price_aed).toLocaleString()}`}
                             </span>
                           </div>
                         </div>
@@ -1291,6 +1390,41 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
           </div>
         </div>
       </footer>
+
+      {/* Flight Screenshot Lightbox Modal */}
+      {flightLightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in"
+          onClick={() => setFlightLightboxUrl(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] w-full rounded-2xl bg-white p-4 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-black/10">
+              <span className="font-serif font-bold text-sm text-[#1A1816]">
+                Flight Itinerary Screenshot
+              </span>
+              <button
+                type="button"
+                onClick={() => setFlightLightboxUrl(null)}
+                className="rounded-lg p-1 text-black/60 hover:text-black cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="relative h-[70vh] w-full mt-3 bg-neutral-100 rounded-xl overflow-hidden">
+              <Image
+                src={flightLightboxUrl}
+                alt="Enlarged Flight Screenshot"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
