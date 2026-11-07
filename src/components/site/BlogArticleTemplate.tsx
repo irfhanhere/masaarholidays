@@ -93,6 +93,79 @@ export function BlogArticleTemplate({
           </aside>
         </div>
 
+        {/* Contextual Internal Linking / Pilgrimage Resources Hub */}
+        <div className="mt-12 rounded-2xl border border-black/10 bg-warm-ivory/40 p-6 sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#8C6B1A]">Plan Your Pilgrimage with Masaar</p>
+          <h2 className="mt-1 font-[family-name:var(--font-display)] text-xl font-bold text-masaar-black sm:text-2xl">
+            Explore Related Umrah Travel Services
+          </h2>
+          <p className="mt-2 text-xs text-masaar-black/70 sm:text-sm">
+            Whether you are planning your first Umrah or returning with your family, Masaar Holidays provides end-to-end pilgrimage arrangements across the UAE.
+          </p>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/umrah"
+              className="rounded-xl border border-black/10 bg-white p-4 transition-all hover:border-pure-gold hover:shadow-2xs"
+            >
+              <h3 className="font-semibold text-masaar-black text-xs">Curated Umrah Packages</h3>
+              <p className="mt-1 text-[11px] text-masaar-black/60">
+                Explore Essential, Signature, and VIP Exclusive Umrah packages departing from the UAE.
+              </p>
+            </Link>
+
+            <Link
+              href="/hotels"
+              className="rounded-xl border border-black/10 bg-white p-4 transition-all hover:border-pure-gold hover:shadow-2xs"
+            >
+              <h3 className="font-semibold text-masaar-black text-xs">Makkah &amp; Madinah Hotels</h3>
+              <p className="mt-1 text-[11px] text-masaar-black/60">
+                Handpicked 5-star and 4-star stays with verified Haram walking distances.
+              </p>
+            </Link>
+
+            <Link
+              href="/transfers"
+              className="rounded-xl border border-black/10 bg-white p-4 transition-all hover:border-pure-gold hover:shadow-2xs"
+            >
+              <h3 className="font-semibold text-masaar-black text-xs">Private Umrah Transfers</h3>
+              <p className="mt-1 text-[11px] text-masaar-black/60">
+                VIP airport and intercity transport between Jeddah, Makkah, and Madinah.
+              </p>
+            </Link>
+
+            <Link
+              href="/visa/saudi-tourist"
+              className="rounded-xl border border-black/10 bg-white p-4 transition-all hover:border-pure-gold hover:shadow-2xs"
+            >
+              <h3 className="font-semibold text-masaar-black text-xs">Saudi Tourist Visa (UAE Residents)</h3>
+              <p className="mt-1 text-[11px] text-masaar-black/60">
+                1-Year multiple-entry eVisa assistance for Indian, Pakistani, and expat passport holders.
+              </p>
+            </Link>
+
+            <Link
+              href="/private-trips"
+              className="rounded-xl border border-black/10 bg-white p-4 transition-all hover:border-pure-gold hover:shadow-2xs"
+            >
+              <h3 className="font-semibold text-masaar-black text-xs">Private Ziyarat Tours</h3>
+              <p className="mt-1 text-[11px] text-masaar-black/60">
+                Meaningful historical journeys around sacred sites in Makkah and Madinah.
+              </p>
+            </Link>
+
+            <Link
+              href="/esim"
+              className="rounded-xl border border-black/10 bg-white p-4 transition-all hover:border-pure-gold hover:shadow-2xs"
+            >
+              <h3 className="font-semibold text-masaar-black text-xs">Saudi Travel eSIM</h3>
+              <p className="mt-1 text-[11px] text-masaar-black/60">
+                High-speed 4G/5G mobile connectivity across the Kingdom without physical SIM swapping.
+              </p>
+            </Link>
+          </div>
+        </div>
+
         {relatedPosts.length > 0 && (
           <div className="mt-14 border-t border-black/5 pt-10">
             <p className="text-sm font-bold uppercase tracking-wide text-masaar-black/60">Related Articles</p>

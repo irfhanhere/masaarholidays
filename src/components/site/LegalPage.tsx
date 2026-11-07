@@ -1,7 +1,62 @@
+import React from "react";
+import Link from "next/link";
 import { Container } from "./Container";
 import { ContentPending } from "./SectionHeading";
 
 type ContentBlock = { type: "heading"; text: string } | { type: "list"; items: string[] } | { type: "paragraph"; lines: string[] };
+
+/**
+ * Parses markdown [anchor text](/url) into accessible internal Next.js links or external anchors.
+ */
+function renderTextWithLinks(text: string): React.ReactNode {
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  if (!linkRegex.test(text)) {
+    return text;
+  }
+  linkRegex.lastIndex = 0;
+  const parts: (string | React.ReactNode)[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const label = match[1];
+    const href = match[2];
+    const isInternal = href.startsWith("/");
+    if (isInternal) {
+      parts.push(
+        <Link
+          key={match.index}
+          href={href}
+          className="font-medium text-[#8C6B1A] underline decoration-deep-gold/40 underline-offset-2 transition-colors hover:text-deep-gold hover:decoration-deep-gold"
+        >
+          {label}
+        </Link>
+      );
+    } else {
+      parts.push(
+        <a
+          key={match.index}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-[#8C6B1A] underline decoration-deep-gold/40 underline-offset-2 transition-colors hover:text-deep-gold hover:decoration-deep-gold"
+        >
+          {label}
+        </a>
+      );
+    }
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
 
 /**
  * Renders the lightweight markup used by legal_pages.content and
@@ -62,14 +117,14 @@ export function renderLegalContent(content: string) {
       return (
         <ul key={i} className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-masaar-black/75">
           {block.items.map((item, j) => (
-            <li key={j}>{item}</li>
+            <li key={j}>{renderTextWithLinks(item)}</li>
           ))}
         </ul>
       );
     }
     return (
       <p key={i} className="mt-3 text-sm leading-relaxed text-masaar-black/75">
-        {block.lines.join(" ")}
+        {renderTextWithLinks(block.lines.join(" "))}
       </p>
     );
   });

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { FaqSchema } from "@/components/site/FaqSchema";
 import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { Price } from "@/components/site/Price";
@@ -500,6 +501,7 @@ export function SaudiVisaLandingPage() {
 
   return (
     <div className="min-h-screen bg-warm-ivory/20 text-masaar-black">
+      <FaqSchema faqs={faqs.map((f) => ({ question: f.q, answer: f.a }))} />
       {/* ─────────────────────────────────────────────────────────
           1. BREADCRUMBS (Matches Image 2)
       ───────────────────────────────────────────────────────── */}

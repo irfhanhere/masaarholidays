@@ -21,6 +21,7 @@ export async function generateMetadata({
     path: `/visa/application/${token}`,
     title: `${refTitle} Status & Tracking | Masaar Holidays`,
     description: "Track your Masaar Holidays visa application progress in real time.",
+    noindex: true,
   });
 }
 

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { FaqSchema } from "@/components/site/FaqSchema";
 import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { CONTACT } from "@/lib/contact";
@@ -211,6 +212,7 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
 
   return (
     <div className="min-h-screen bg-warm-ivory/20 text-masaar-black">
+      <FaqSchema faqs={faqs.map((f) => ({ question: f.q, answer: f.a }))} />
       {/* 1. Breadcrumbs */}
       <div className="bg-warm-ivory/60 border-b border-black/5 py-2.5">
         <Container>

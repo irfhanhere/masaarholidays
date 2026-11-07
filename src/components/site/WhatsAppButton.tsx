@@ -1,6 +1,7 @@
 "use client";
 
 import { buildWhatsAppLink } from "@/lib/contact";
+import { trackWhatsAppClick } from "@/lib/analytics/events";
 import type { WhatsAppTemplateKey } from "@/lib/whatsapp-templates";
 import { useWhatsAppTemplates } from "./WhatsAppTemplatesProvider";
 
@@ -34,11 +35,22 @@ export function WhatsAppButton({
         ? "bg-[#25D366] text-white hover:bg-[#1fb959]"
         : "border border-masaar-black text-masaar-black hover:bg-masaar-black hover:text-white";
 
+  const handleClick = () => {
+    trackWhatsAppClick({
+      service_type: templateKey,
+      template_key: templateKey,
+      package_name: params?.packageName || params?.packageTitle,
+      hotel_name: params?.hotelName,
+      cta_location: className.includes("floating") ? "floating_widget" : "page_content",
+    });
+  };
+
   return (
     <a
       href={buildWhatsAppLink(getMessage(templateKey, params), phoneNumber)}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleClick}
       className={`${base} ${styles} ${className}`}
     >
       <WhatsAppGlyph />

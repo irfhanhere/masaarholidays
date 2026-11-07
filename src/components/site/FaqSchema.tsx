@@ -1,7 +1,10 @@
-import type { FaqRow } from "@/lib/types/database";
+export interface FaqItemSchema {
+  question: string;
+  answer: string;
+}
 
-/** FAQPage JSON-LD built directly from the real published faqs rows shown on the page — no rewritten or invented questions. */
-export function FaqSchema({ faqs }: { faqs: FaqRow[] }) {
+/** FAQPage JSON-LD built directly from real visible questions and answers shown on the page — no rewritten or invented questions. */
+export function FaqSchema({ faqs }: { faqs: FaqItemSchema[] }) {
   const schema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",

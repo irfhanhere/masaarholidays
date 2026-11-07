@@ -80,7 +80,9 @@ export function OrganizationSchema() {
   const schema = {
     "@context": "https://schema.org",
     "@type": "TravelAgency",
+    "@id": `${SITE_ORIGIN}/#travelagency`,
     name: "Masaar Holidays",
+    alternateName: ["Masaar Holidays UAE", "Masaar"],
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/brand/logo.png`,
     image: `${SITE_ORIGIN}/brand/logo.png`,
@@ -94,10 +96,32 @@ export function OrganizationSchema() {
       addressRegion: "Sharjah",
       addressCountry: "AE",
     },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: 25.3199,
+      longitude: 55.4586,
+    },
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        opens: "08:00",
+        closes: "20:00",
+      },
+    ],
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: `+${CONTACT.whatsappPhoneIntl}`,
+      contactType: "customer service",
+      areaServed: ["AE", "SA"],
+      availableLanguage: ["en", "ar", "ur", "hi"],
+    },
     sameAs: [CONTACT.instagramUrl, CONTACT.facebookUrl, CONTACT.linkedinUrl],
     areaServed: [
       { "@type": "Country", name: "United Arab Emirates" },
       { "@type": "Country", name: "Saudi Arabia" },
+      { "@type": "City", name: "Sharjah" },
+      { "@type": "City", name: "Dubai" },
       { "@type": "City", name: "Makkah" },
       { "@type": "City", name: "Madinah" },
     ],

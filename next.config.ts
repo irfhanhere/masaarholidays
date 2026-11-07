@@ -156,6 +156,16 @@ const nextConfig: NextConfig = {
       },
       // 3. Umrah placeholder slugs -> clean tier URLs
       {
+        source: "/umrah-packages",
+        destination: "/umrah",
+        permanent: true,
+      },
+      {
+        source: "/umrah-packages/:path*",
+        destination: "/umrah/:path*",
+        permanent: true,
+      },
+      {
         source: "/umrah/umrah-essential-placeholder",
         destination: "/umrah/essential",
         permanent: true,

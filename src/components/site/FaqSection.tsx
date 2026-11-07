@@ -1,5 +1,6 @@
 import { Container } from "./Container";
 import { FaqAccordionList } from "./FaqAccordion";
+import { FaqSchema } from "./FaqSchema";
 import { getPublishedFaqs } from "@/lib/data/public";
 import type { FaqCategory } from "@/lib/types/database";
 
@@ -19,7 +20,9 @@ export async function FaqSection({
   if (!faqs || faqs.length === 0) return null;
 
   return (
-    <section className={className}>
+    <>
+      <FaqSchema faqs={faqs} />
+      <section className={className}>
       <Container>
         <div className="mx-auto max-w-3xl text-center">
           {/* Eyebrow with gold flanking lines matching FAQ SECTION.png */}
@@ -71,5 +74,6 @@ export async function FaqSection({
         </div>
       </Container>
     </section>
+    </>
   );
 }

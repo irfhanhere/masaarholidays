@@ -5,23 +5,38 @@ import { WhatsAppButton, WhatsAppGlyph } from "@/components/site/WhatsAppButton"
 import { ClockIcon, HeadsetIcon, LocationIcon, MailIcon, PhoneIcon } from "@/components/site/icons";
 import { CONTACT } from "@/lib/contact";
 import { buildStaticPageMetadata } from "@/lib/i18n";
+import { getSiteOrigin } from "@/lib/site-url";
 import { ContactForm } from "./ContactForm";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
   return buildStaticPageMetadata({
     path: "/contact",
-    fallbackTitle: "Contact Masaar Holidays | Umrah & Hajj Enquiries",
+    fallbackTitle: "Contact Masaar Holidays | Umrah & Hajj Enquiries | Sharjah, UAE",
     fallbackDescription:
-      "Reach Masaar Holidays by WhatsApp, phone, or email — a dedicated advisor responds personally to every Umrah or Hajj enquiry.",
+      "Reach Masaar Holidays by WhatsApp, phone, or visit our Sharjah Publishing City office. Dedicated personal support for Umrah, Hajj, Makkah hotels, and Saudi visas.",
   });
 }
 
-// Office address, business hours, and traveller-support copy are the
-// client's confirmed details (contact.ts) — real content, not placeholders.
 export default function ContactPage() {
+  const origin = getSiteOrigin();
+  const contactPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name: "Contact Masaar Holidays",
+    description: "Reach Masaar Holidays by WhatsApp, phone, or email — dedicated personal support for every Umrah, Hajj, and visa enquiry.",
+    url: `${origin}/contact`,
+    mainEntity: {
+      "@id": `${origin}/#travelagency`,
+    },
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(contactPageSchema) }}
+      />
       <Hero
         eyebrow="Contact Masaar"
         h1="Let's Plan Your"
@@ -156,6 +171,58 @@ export default function ContactPage() {
             </p>
             <div className="mt-6">
               <ContactForm />
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* Office Location & Map Section */}
+      <section className="border-t border-black/10 bg-warm-ivory/50 py-16">
+        <Container>
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="rounded-full bg-pure-gold/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#936E0F]">
+              Sharjah Headquarters
+            </span>
+            <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold text-masaar-black sm:text-4xl">
+              Visit Our Office in Sharjah
+            </h2>
+            <p className="mt-3 text-sm text-masaar-black/70 sm:text-base">
+              Conveniently located at Sharjah Publishing City (SPC Free Zone), Entrance 2, Ground Floor, off Sheikh Mohammed Bin Zayed Road (E311), adjacent to City Centre Al Zahia. Free visitor parking is available at Entrance 2.
+            </p>
+          </div>
+
+          <div className="mt-10 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
+            <div className="relative aspect-video w-full sm:aspect-[21/9]">
+              <iframe
+                title="Masaar Holidays Location - Sharjah Publishing City"
+                src="https://maps.google.com/maps?q=Sharjah+Publishing+City+Free+Zone&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 h-full w-full"
+              />
+            </div>
+            <div className="grid gap-6 border-t border-black/5 p-6 sm:grid-cols-3">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-deep-gold">Office Location</h3>
+                <p className="mt-1 text-xs text-masaar-black/80">
+                  Sharjah Publishing City, Entrance 2, Ground Floor, Al Zahia, Sheikh Mohammed Bin Zayed Rd, Sharjah, UAE
+                </p>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-deep-gold">Consultations</h3>
+                <p className="mt-1 text-xs text-masaar-black/80">
+                  Daily 8:00 AM – 8:00 PM UAE Time. In-person meetings for package selection, visa processing, and personalized family travel advice.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-deep-gold">Direct WhatsApp &amp; Call</h3>
+                <p className="mt-1 text-xs text-masaar-black/80">
+                  Tel: +971 55 732 9320 · Care: care@masaarholidays.com · 24/7 Pilgrim Emergency Helpline
+                </p>
+              </div>
             </div>
           </div>
         </Container>

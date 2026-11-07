@@ -15,6 +15,8 @@ const RETIRED_SLUG_REDIRECTS: Record<string, string> = {
   "/hajj/hajj-exclusive-17-days": "/hajj/hajj-exclusive-13-days",
   "/hajj/hajj-exclusive-25-days": "/hajj/hajj-exclusive-13-days",
   "/visa/emirates-id": "/visa/uae",
+  "/umrah-packages": "/umrah",
+  "/umrah-packages/masaar-premium-umrah": "/umrah/masaar-premium-umrah",
   "/umrah/umrah-essential-placeholder": "/umrah/essential",
   "/umrah/umrah-signature-placeholder": "/umrah/signature",
   "/umrah/umrah-exclusive-placeholder": "/umrah/exclusive",
@@ -38,6 +40,14 @@ export async function proxy(request: NextRequest) {
   const targetInternal = RETIRED_SLUG_REDIRECTS[internalPath];
   if (targetInternal) {
     const destination = localizedPath(locale, targetInternal);
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = destination;
+    return NextResponse.redirect(redirectUrl, 301);
+  }
+
+  // 301 permanent redirect for any legacy /umrah-packages/* path
+  if (internalPath.startsWith("/umrah-packages/")) {
+    const destination = localizedPath(locale, internalPath.replace(/^\/umrah-packages/, "/umrah"));
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = destination;
     return NextResponse.redirect(redirectUrl, 301);

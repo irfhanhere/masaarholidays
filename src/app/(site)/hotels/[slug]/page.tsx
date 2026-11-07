@@ -685,6 +685,29 @@ export default async function HotelDetailPage({
         </section>
       )}
 
+      {/* Contextual Airport & Intercity Transfer Callout */}
+      <section className="bg-warm-ivory/50 py-10 border-t border-black/5">
+        <Container>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-black/10 bg-white p-6 shadow-2xs">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8C6B1A]">Ground Transportation</span>
+              <h3 className="text-base font-bold text-masaar-black">
+                Need Airport or Intercity Transfers to {hotel.name}?
+              </h3>
+              <p className="text-xs text-masaar-black/70 max-w-xl">
+                Avoid taxi queues with our private VIP transfers from King Abdulaziz Airport (Jeddah) or Prince Mohammad Airport (Madinah) directly to your hotel lobby.
+              </p>
+            </div>
+            <Link
+              href="/transfers"
+              className="shrink-0 rounded-md border border-masaar-black/30 px-4 py-2.5 text-xs font-bold text-masaar-black transition hover:border-[#8C6B1A] hover:text-[#8C6B1A]"
+            >
+              View Transfer Routes →
+            </Link>
+          </div>
+        </Container>
+      </section>
+
       {/* CROSS-LINK BANNER TO /umrah */}
       <section className="bg-masaar-black py-12 text-white">
         <Container className="flex flex-col sm:flex-row items-center justify-between gap-6">

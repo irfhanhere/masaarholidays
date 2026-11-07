@@ -1,14 +1,24 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { submitEnquiry, type SubmitEnquiryState } from "./actions";
 import { PhoneNumberField } from "@/components/site/PhoneNumberField";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
+import { trackEnquirySubmit } from "@/lib/analytics/events";
 
 const initialState: SubmitEnquiryState = { status: "idle" };
 
 export function ContactForm() {
   const [state, formAction, isPending] = useActionState(submitEnquiry, initialState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      trackEnquirySubmit("general", {
+        form_name: "contact_page_enquiry",
+        cta_location: "contact_form",
+      });
+    }
+  }, [state.status]);
 
   return (
     <form action={formAction} className="space-y-4">

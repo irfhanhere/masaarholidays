@@ -26,6 +26,8 @@ import { isEsimLive } from "@/lib/esim-launch";
 const STATIC_ROUTES = [
   "/",
   "/umrah",
+  "/umrah/sharjah",
+  "/umrah/dubai",
   "/hajj",
   "/hotels",
   "/transfers",
