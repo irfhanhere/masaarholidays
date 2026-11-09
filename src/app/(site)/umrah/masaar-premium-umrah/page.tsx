@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
     path: "/umrah/masaar-premium-umrah",
     title: "Masaar Premium Umrah Package (6 Days / 5 Nights) | Masaar Holidays",
     description:
-      "Exclusive 6-day luxury Umrah journey from Dubai featuring 5-star stays at Crowne Plaza Madinah and Pullman ZamZam Makkah. Transparent room pricing and VIP ground transfers.",
+      "Exclusive 6-day luxury Umrah journey from Dubai featuring 5-star stays at Anwar Al Madinah Mövenpick or similar in Madinah and Makkah Towers / Swissôtel or similar in Makkah. Transparent room pricing and VIP ground transfers.",
     ogImageUrl: "/brand/banners/umrah.webp",
   });
 }
@@ -58,9 +58,9 @@ const ITINERARY = [
   {
     day: "Day 1",
     title: "Arrival in Madinah Al-Munawwarah",
-    subtitle: "Check-in at Crowne Plaza Madinah",
+    subtitle: "Check-in at Anwar Al Madinah Mövenpick or similar",
     description:
-      "Arrive at Prince Mohammad Bin Abdulaziz International Airport (or transfer from Dubai). Meet our VIP airport concierge for private transfer to Crowne Plaza Madinah. Check in, settle into your luxury room, and walk to Al-Masjid An-Nabawi for your first congregational prayers and greetings at the Rawdah Sharif.",
+      "Arrive at Prince Mohammad Bin Abdulaziz International Airport (or transfer from Dubai). Meet our VIP airport concierge for private transfer to Anwar Al Madinah Mövenpick or similar. Check in, settle into your luxury room, and enjoy a quick 1-minute walk (approx. 50m) along a flat walking pathway to Al-Masjid An-Nabawi for your first congregational prayers and greetings at the Rawdah Sharif.",
   },
   {
     day: "Day 2",
@@ -72,16 +72,16 @@ const ITINERARY = [
   {
     day: "Day 3",
     title: "Journey to Makkah Al-Mukarramah & Umrah",
-    subtitle: "High-Speed Haramain Train & Pullman ZamZam Check-in",
+    subtitle: "High-Speed Haramain Train & Makkah Check-in",
     description:
-      "Enter the state of Ihram at the hotel, make your Niyyah at the Miqat (Dhul Hulaifah), and board the high-speed Haramain Bullet Train (or VIP private GMC transfer) to Makkah. Upon arrival, check in to Pullman ZamZam Makkah directly adjacent to the Holy Haram. In the evening, perform your Umrah rites (Tawaf and Sa'i) accompanied by our experienced ground guide.",
+      "Enter the state of Ihram at the hotel, make your Niyyah at the Miqat (Dhul Hulaifah), and board the high-speed Haramain Bullet Train (or VIP private GMC transfer) to Makkah. Upon arrival, check in to Makkah Towers / Swissôtel or similar, approximately 100 metres and a 2-minute walk from the Holy Haram. In the evening, perform your Umrah rites (Tawaf and Sa'i) accompanied by our experienced ground guide.",
   },
   {
     day: "Day 4",
     title: "Spiritual Devotion in the Holy Haram",
     subtitle: "Dedicated Day for Prayers & Reflection",
     description:
-      "A serene, unhurried day focused on worship. Enjoy direct, seamless elevator access from Pullman ZamZam straight into the courtyard of the Holy Haram. Spend time in Nawafil, Qur'anic recitation, and heartfelt Du'a before the Holy Kaaba.",
+      "A serene, unhurried day focused on worship. Enjoy convenient 2-minute walking access (approx. 100m) directly into the courtyard of the Holy Haram. Spend time in Nawafil, Qur'anic recitation, and heartfelt Du'a before the Holy Kaaba.",
   },
   {
     day: "Day 5",
@@ -95,12 +95,12 @@ const ITINERARY = [
     title: "Tawaf Al-Wadaa & Return to Dubai",
     subtitle: "Farewell Prayers & Private Transfer",
     description:
-      "Perform Tawaf Al-Wadaa (Farewell Circumambulation) at the Kaaba. Complete hotel check-out at Pullman ZamZam Makkah. Board your private VIP chauffeur transfer to King Abdulaziz International Airport in Jeddah for your return flight back to the UAE, concluding a blessed, memorable pilgrimage.",
+      "Perform Tawaf Al-Wadaa (Farewell Circumambulation) at the Kaaba. Complete hotel check-out at Makkah Towers / Swissôtel or similar. Board your private VIP chauffeur transfer to King Abdulaziz International Airport in Jeddah for your return flight back to the UAE, concluding a blessed, memorable pilgrimage.",
   },
 ];
 
 const INCLUSIONS = [
-  "5 Nights luxury 5-star accommodation (Crowne Plaza Madinah & Pullman ZamZam Makkah)",
+  "5 Nights luxury 5-star accommodation (Anwar Al Madinah Mövenpick or similar & Makkah Towers / Swissôtel or similar)",
   "Daily international buffet breakfast at both luxury hotels",
   "High-speed Haramain Bullet Train or VIP luxury private transfer between Madinah & Makkah",
   "Private air-conditioned chauffeur transfers for all airport arrivals and departures",
@@ -138,7 +138,7 @@ const FAQS = [
 
 export default function MasaarPremiumUmrahPage() {
   const whatsappUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-    "Hello Masaar Holidays, I am interested in the 6-Day Masaar Premium Umrah Package (Crowne Plaza Madinah & Pullman ZamZam Makkah). Please share availability and booking details."
+    "Hello Masaar Holidays, I am interested in the 6-Day Masaar Premium Umrah Package (Anwar Al Madinah Mövenpick or similar & Makkah Towers / Swissôtel or similar). Please share availability and booking details."
   )}`;
 
   return (
@@ -178,7 +178,7 @@ export default function MasaarPremiumUmrahPage() {
               Masaar Premium Umrah Package
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-white/80 sm:text-base sm:leading-relaxed">
-              Experience a tranquil 6-day, 5-night spiritual journey curated for discerning travellers. Stay in 5-star comfort at Crowne Plaza Madinah and Pullman ZamZam Makkah, with high-speed bullet train transfers, daily buffet breakfasts, and personalized 24/7 ground care.
+              Experience a tranquil 6-day, 5-night spiritual journey curated for discerning travellers. Stay in 5-star comfort at Anwar Al Madinah Mövenpick or similar in Madinah and Makkah Towers / Swissôtel or similar in Makkah, with high-speed bullet train transfers, daily buffet breakfasts, and personalized 24/7 ground care.
             </p>
 
             {/* Badges */}
@@ -266,18 +266,22 @@ export default function MasaarPremiumUmrahPage() {
                   Madinah Al-Munawwarah · 2 Nights
                 </span>
                 <h3 className="mt-3 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
-                  Crowne Plaza Madinah
+                  Anwar Al Madinah Mövenpick or similar
                 </h3>
                 <p className="mt-1 text-xs text-masaar-black/60">
-                  ⭐⭐⭐⭐⭐ 5-Star Luxury · Steps from the Prophet&apos;s Mosque
+                  ⭐⭐⭐⭐⭐ 5-Star Luxury · Approx. 50m from the Haram (1-min walk)
                 </p>
                 <p className="mt-4 text-xs leading-relaxed text-masaar-black/75">
-                  Overlooking the southern courtyard of the Prophet&apos;s Mosque, Crowne Plaza Madinah offers classic elegance, spacious rooms, and rapid walking access for women and men to the Haram gates and Rawdah entrances.
+                  Located approximately 50 metres from the Prophet&apos;s Mosque, Anwar Al Madinah Mövenpick (or similar) offers premier convenience with an easy 1-minute walk along a flat walking pathway to Al-Masjid An-Nabawi and the Rawdah entrances.
                 </p>
                 <ul className="mt-5 space-y-2 text-xs text-masaar-black/70">
                   <li className="flex items-center gap-2">
                     <span className="text-deep-gold font-bold">✓</span>
-                    <span>Direct pedestrian access to Al-Masjid An-Nabawi</span>
+                    <span>Approximately 50 metres from the Haram (~1 minute walk)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Flat walking pathway directly to Al-Masjid An-Nabawi</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="text-deep-gold font-bold">✓</span>
@@ -298,18 +302,22 @@ export default function MasaarPremiumUmrahPage() {
                   Makkah Al-Mukarramah · 3 Nights
                 </span>
                 <h3 className="mt-3 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black">
-                  Pullman ZamZam Makkah
+                  Makkah Towers / Swissôtel or similar
                 </h3>
                 <p className="mt-1 text-xs text-masaar-black/60">
-                  ⭐⭐⭐⭐⭐ 5-Star Luxury · Abraj Al Bait Complex
+                  ⭐⭐⭐⭐⭐ 5-Star Luxury · Approx. 100m from the Haram (2-min walk)
                 </p>
                 <p className="mt-4 text-xs leading-relaxed text-masaar-black/75">
-                  Located within the iconic Abraj Al Bait Clock Tower complex directly facing King Abdulaziz Gate, Pullman ZamZam provides an unparalleled location just steps away from the Holy Kaaba and King Fahad gate of Masjid Al-Haram.
+                  Situated approximately 100 metres from the Holy Haram, Makkah Towers / Swissôtel (or similar) provides superb comfort and convenient access with an approximately 2-minute walk directly to the courtyard of Masjid Al-Haram.
                 </p>
                 <ul className="mt-5 space-y-2 text-xs text-masaar-black/70">
                   <li className="flex items-center gap-2">
                     <span className="text-deep-gold font-bold">✓</span>
-                    <span>Direct elevator access to the Haram courtyard</span>
+                    <span>Approximately 100 metres from the Holy Haram</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Approximately 2 minutes walking distance directly to the Haram courtyard</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="text-deep-gold font-bold">✓</span>

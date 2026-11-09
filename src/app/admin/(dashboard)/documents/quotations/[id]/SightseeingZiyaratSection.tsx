@@ -10,20 +10,22 @@ interface SightseeingZiyaratSectionProps {
   onPersist: (items: LineItemPricingInput[]) => void;
 }
 
+export type ZiyaratArrangement = "none" | "shared" | "private" | "custom";
+
 const VEHICLE_OPTIONS = [
-  { label: "GMC Yukon / Suburban (Luxury SUV - Up to 7 Pax)", value: "GMC Yukon XL / Suburban" },
-  { label: "Hyundai Staria / H1 (Executive Van - Up to 7 Pax)", value: "Hyundai Staria VIP Van" },
-  { label: "Toyota HiAce (Comfort Mini-Bus - Up to 11 Pax)", value: "Toyota HiAce Mini-Coach" },
-  { label: "Lexus ES / Sedan (Executive Sedan - Up to 3 Pax)", value: "Lexus ES Executive Sedan" },
+  { label: "GMC Yukon XL / Suburban (Private Luxury SUV - Up to 7 Pax)", value: "GMC Yukon XL / Suburban" },
+  { label: "Hyundai Staria VIP Van (Executive Van - Up to 7 Pax)", value: "Hyundai Staria VIP Van" },
+  { label: "Toyota HiAce Mini-Coach (Up to 11 Pax)", value: "Toyota HiAce Mini-Coach" },
+  { label: "Executive Sedan / Camry (Up to 3 Pax)", value: "Executive Sedan" },
+  { label: "Shared Air-Conditioned Coaster / Bus", value: "Shared Tourist Coach" },
+  { label: "Custom Vehicle Arrangement", value: "Custom Vehicle Arrangement" },
 ];
 
-const TIME_SLOTS = [
-  "7:00 AM (Morning Tour)",
-  "8:00 AM (Morning Tour)",
-  "9:00 AM (Morning Tour)",
-  "2:00 PM (Afternoon Tour)",
-  "3:00 PM (Afternoon Tour)",
-  "4:00 PM (Evening Tour)",
+const DURATION_OPTIONS = [
+  "2 – 2.5 Hours",
+  "3 – 4 Hours (Half Day)",
+  "Full Day Tour",
+  "Custom Duration",
 ];
 
 const MAKKAH_DEFAULT_SITES =
@@ -57,25 +59,45 @@ export function SightseeingZiyaratSection({
   const madinahItem = madinahIndex >= 0 ? lineItems[madinahIndex] : null;
 
   // Local state for Makkah
-  const [hasMakkah, setHasMakkah] = useState<boolean>(Boolean(makkahItem));
+  const [makkahArrangement, setMakkahArrangement] = useState<ZiyaratArrangement>(
+    makkahItem
+      ? makkahItem.description.toLowerCase().includes("shared")
+        ? "shared"
+        : makkahItem.description.toLowerCase().includes("custom")
+        ? "custom"
+        : "private"
+      : "none"
+  );
   const [makkahVehicle, setMakkahVehicle] = useState<string>("GMC Yukon XL / Suburban");
-  const [makkahTime, setMakkahTime] = useState<string>("8:00 AM (Morning Tour)");
+  const [makkahDuration, setMakkahDuration] = useState<string>("2 – 2.5 Hours");
+  const [makkahGuideDetails, setMakkahGuideDetails] = useState<string>("Licensed Bilingual Guide");
   const [makkahSites, setMakkahSites] = useState<string>(MAKKAH_DEFAULT_SITES);
   const [makkahPrice, setMakkahPrice] = useState<number>(350);
   const [makkahIncluded, setMakkahIncluded] = useState<boolean>(true);
 
   // Local state for Madinah
-  const [hasMadinah, setHasMadinah] = useState<boolean>(Boolean(madinahItem));
+  const [madinahArrangement, setMadinahArrangement] = useState<ZiyaratArrangement>(
+    madinahItem
+      ? madinahItem.description.toLowerCase().includes("shared")
+        ? "shared"
+        : madinahItem.description.toLowerCase().includes("custom")
+        ? "custom"
+        : "private"
+      : "none"
+  );
   const [madinahVehicle, setMadinahVehicle] = useState<string>("GMC Yukon XL / Suburban");
-  const [madinahTime, setMadinahTime] = useState<string>("8:00 AM (Morning Tour)");
+  const [madinahDuration, setMadinahDuration] = useState<string>("2 – 2.5 Hours");
+  const [madinahGuideDetails, setMadinahGuideDetails] = useState<string>("Licensed Bilingual Guide");
   const [madinahSites, setMadinahSites] = useState<string>(MADINAH_DEFAULT_SITES);
   const [madinahPrice, setMadinahPrice] = useState<number>(350);
   const [madinahIncluded, setMadinahIncluded] = useState<boolean>(true);
 
-  // Sync state from existing items
+  // Parse existing details
   useEffect(() => {
     if (makkahItem) {
-      setHasMakkah(true);
+      const isShared = makkahItem.description.toLowerCase().includes("shared");
+      const isCustom = makkahItem.description.toLowerCase().includes("custom");
+      setMakkahArrangement(isShared ? "shared" : isCustom ? "custom" : "private");
       setMakkahIncluded(Boolean(makkahItem.is_included || Number(makkahItem.unit_price_aed) === 0));
       if (Number(makkahItem.unit_price_aed) > 0) {
         setMakkahPrice(Number(makkahItem.unit_price_aed));
@@ -83,16 +105,20 @@ export function SightseeingZiyaratSection({
       const d = makkahItem.details || "";
       const vehMatch = d.match(/Vehicle:\s*([^•|]+)/i);
       if (vehMatch) setMakkahVehicle(vehMatch[1].trim());
-      const timeMatch = d.match(/Time:\s*([^•|]+)/i);
-      if (timeMatch) setMakkahTime(timeMatch[1].trim());
+      const durMatch = d.match(/Duration:\s*([^•|]+)/i);
+      if (durMatch) setMakkahDuration(durMatch[1].trim());
+      const guideMatch = d.match(/Guide:\s*([^•|]+)/i);
+      if (guideMatch) setMakkahGuideDetails(guideMatch[1].trim());
       const sitesMatch = d.match(/Sites:\s*([^•|]+)/i);
       if (sitesMatch) setMakkahSites(sitesMatch[1].trim());
     } else {
-      setHasMakkah(false);
+      setMakkahArrangement("none");
     }
 
     if (madinahItem) {
-      setHasMadinah(true);
+      const isShared = madinahItem.description.toLowerCase().includes("shared");
+      const isCustom = madinahItem.description.toLowerCase().includes("custom");
+      setMadinahArrangement(isShared ? "shared" : isCustom ? "custom" : "private");
       setMadinahIncluded(Boolean(madinahItem.is_included || Number(madinahItem.unit_price_aed) === 0));
       if (Number(madinahItem.unit_price_aed) > 0) {
         setMadinahPrice(Number(madinahItem.unit_price_aed));
@@ -100,26 +126,30 @@ export function SightseeingZiyaratSection({
       const d = madinahItem.details || "";
       const vehMatch = d.match(/Vehicle:\s*([^•|]+)/i);
       if (vehMatch) setMadinahVehicle(vehMatch[1].trim());
-      const timeMatch = d.match(/Time:\s*([^•|]+)/i);
-      if (timeMatch) setMadinahTime(timeMatch[1].trim());
+      const durMatch = d.match(/Duration:\s*([^•|]+)/i);
+      if (durMatch) setMadinahDuration(durMatch[1].trim());
+      const guideMatch = d.match(/Guide:\s*([^•|]+)/i);
+      if (guideMatch) setMadinahGuideDetails(guideMatch[1].trim());
       const sitesMatch = d.match(/Sites:\s*([^•|]+)/i);
       if (sitesMatch) setMadinahSites(sitesMatch[1].trim());
     } else {
-      setHasMadinah(false);
+      setMadinahArrangement("none");
     }
   }, [makkahItem, madinahItem]);
 
-  // Apply changes to lineItems
-  function updateZiyaratLineItems(
-    includeMakkah: boolean,
+  // Synchronize state back into line items
+  function applyZiyaratChanges(
+    mArr: ZiyaratArrangement,
     mVeh: string,
-    mTm: string,
+    mDur: string,
+    mGuide: string,
     mSts: string,
     mPrc: number,
     mInc: boolean,
-    includeMadinah: boolean,
+    madArr: ZiyaratArrangement,
     madVeh: string,
-    madTm: string,
+    madDur: string,
+    madGuide: string,
     madSts: string,
     madPrc: number,
     madInc: boolean
@@ -136,11 +166,28 @@ export function SightseeingZiyaratSection({
         )
     );
 
-    if (includeMakkah) {
+    if (mArr !== "none") {
+      const title =
+        mArr === "shared"
+          ? "Makkah Shared Group Ziyarat"
+          : mArr === "custom"
+          ? "Makkah Custom Ziyarat Arrangement"
+          : "Makkah Private Ziyarat & Sightseeing";
+
+      const detailsParts: string[] = [
+        `City: Makkah`,
+        `Arrangement: ${mArr === "shared" ? "Shared Group" : mArr === "custom" ? "Custom" : "Private Chauffeur"}`,
+        `Duration: ${mDur}`,
+        `Vehicle: ${mVeh}`,
+        `Guide: ${mGuide}`,
+        `Sites: ${mSts}`,
+        `Hotel Lobby Pickup & Drop-Off`,
+      ];
+
       const makkahLine: LineItemPricingInput = {
         item_type: "private_trip",
-        description: "Makkah Private Ziyarat & Sightseeing",
-        details: `City: Makkah • Duration: 2 – 2.5 hrs • Vehicle: ${mVeh} • Time: ${mTm} • Sites: ${mSts} • Hotel Lobby Pickup & Drop-Off`,
+        description: title,
+        details: detailsParts.join(" • "),
         quantity: 1,
         unit: "trip",
         unit_price_aed: mInc ? 0 : mPrc,
@@ -154,11 +201,28 @@ export function SightseeingZiyaratSection({
       current.push(makkahLine);
     }
 
-    if (includeMadinah) {
+    if (madArr !== "none") {
+      const title =
+        madArr === "shared"
+          ? "Madinah Shared Group Ziyarat"
+          : madArr === "custom"
+          ? "Madinah Custom Ziyarat Arrangement"
+          : "Madinah Private Ziyarat & Sightseeing";
+
+      const detailsParts: string[] = [
+        `City: Madinah`,
+        `Arrangement: ${madArr === "shared" ? "Shared Group" : madArr === "custom" ? "Custom" : "Private Chauffeur"}`,
+        `Duration: ${madDur}`,
+        `Vehicle: ${madVeh}`,
+        `Guide: ${madGuide}`,
+        `Sites: ${madSts}`,
+        `Hotel Lobby Pickup & Drop-Off`,
+      ];
+
       const madinahLine: LineItemPricingInput = {
         item_type: "private_trip",
-        description: "Madinah Private Ziyarat & Sightseeing",
-        details: `City: Madinah • Duration: 2 – 2.5 hrs • Vehicle: ${madVeh} • Time: ${madTm} • Sites: ${madSts} • Hotel Lobby Pickup & Drop-Off`,
+        description: title,
+        details: detailsParts.join(" • "),
         quantity: 1,
         unit: "trip",
         unit_price_aed: madInc ? 0 : madPrc,
@@ -181,15 +245,15 @@ export function SightseeingZiyaratSection({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-black/10 pb-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-xl bg-[#FAF8F5] text-base border border-[#c9983e]/30">
+          <span className="flex size-8 items-center justify-center rounded-xl bg-warm-ivory text-base border border-pure-gold/30">
             🕌
           </span>
           <div>
             <h3 className="font-serif text-base font-bold text-black flex items-center gap-2">
-              Sightseeing &amp; Private Ziyarat Options
+              Makkah &amp; Madinah Ziyarah Options
             </h3>
             <p className="text-xs text-black/60">
-              Easily attach curated Makkah and Madinah spiritual tours. Pre-populated with authentic site stops &amp; private chauffeur details.
+              Configure confirmed Ziyarah arrangements: Not included, Shared/group, Private, or Custom with vehicle, guide and itinerary details.
             </p>
           </div>
         </div>
@@ -197,483 +261,528 @@ export function SightseeingZiyaratSection({
 
       {/* Two Tour Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* 1. MAKKAH PRIVATE ZIYARAT */}
+        {/* 1. MAKKAH ZIYARAH */}
         <div
           className={`rounded-2xl border p-4.5 transition-all ${
-            hasMakkah
-              ? "border-[#c9983e] bg-[#FAF8F5]/80 ring-2 ring-[#c9983e]/20"
+            makkahArrangement !== "none"
+              ? "border-pure-gold bg-warm-ivory/30 ring-2 ring-pure-gold/20"
               : "border-black/10 bg-neutral-50/50 hover:bg-neutral-50"
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={hasMakkah}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-serif font-bold text-sm text-black block">
+                Makkah Ziyarah
+              </span>
+              {makkahArrangement !== "none" && (
+                <span className="rounded-full bg-pure-gold/20 border border-pure-gold/40 px-2.5 py-0.5 text-[10px] font-bold text-[#865d1d] uppercase">
+                  {makkahArrangement.toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            {/* Arrangement Selector */}
+            <div>
+              <label className="block text-[11px] font-semibold text-black mb-1">
+                Arrangement Mode
+              </label>
+              <select
+                value={makkahArrangement}
                 onChange={(e) => {
-                  const checked = e.target.checked;
-                  setHasMakkah(checked);
-                  updateZiyaratLineItems(
-                    checked,
+                  const val = e.target.value as ZiyaratArrangement;
+                  setMakkahArrangement(val);
+                  applyZiyaratChanges(
+                    val,
                     makkahVehicle,
-                    makkahTime,
+                    makkahDuration,
+                    makkahGuideDetails,
                     makkahSites,
                     makkahPrice,
                     makkahIncluded,
-                    hasMadinah,
+                    madinahArrangement,
                     madinahVehicle,
-                    madinahTime,
+                    madinahDuration,
+                    madinahGuideDetails,
                     madinahSites,
                     madinahPrice,
                     madinahIncluded
                   );
                 }}
-                className="mt-1 size-4 rounded border-black/30 text-[#b37e28] focus:ring-[#b37e28]"
-              />
-              <div>
-                <span className="font-serif font-bold text-sm text-black block">
-                  Makkah Private Ziyarat
-                </span>
-                <span className="text-[11px] text-black/60 block mt-0.5">
-                  2 – 2.5 hrs • Private Vehicle with Chauffeur • Hotel Pickup &amp; Drop-off
-                </span>
-              </div>
-            </label>
+                className="w-full rounded-xl border border-black/15 bg-white p-2.5 text-xs text-black font-medium focus:border-pure-gold"
+              >
+                <option value="none">Not included</option>
+                <option value="shared">Shared / group arrangement</option>
+                <option value="private">Private arrangement</option>
+                <option value="custom">Custom arrangement</option>
+              </select>
+            </div>
 
-            {hasMakkah && (
-              <span className="rounded-full bg-[#c9983e]/15 border border-[#c9983e]/30 px-2 py-0.5 text-[10px] font-bold text-[#865d1d] uppercase">
-                Active in Quote
-              </span>
-            )}
-          </div>
+            {makkahArrangement !== "none" && (
+              <div className="pt-3 border-t border-black/10 space-y-3 text-xs animate-in fade-in">
+                {/* Vehicle & Duration */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-black mb-1">
+                      Vehicle Details
+                    </label>
+                    <select
+                      value={makkahVehicle}
+                      onChange={(e) => {
+                        setMakkahVehicle(e.target.value);
+                        applyZiyaratChanges(
+                          makkahArrangement,
+                          e.target.value,
+                          makkahDuration,
+                          makkahGuideDetails,
+                          makkahSites,
+                          makkahPrice,
+                          makkahIncluded,
+                          madinahArrangement,
+                          madinahVehicle,
+                          madinahDuration,
+                          madinahGuideDetails,
+                          madinahSites,
+                          madinahPrice,
+                          madinahIncluded
+                        );
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
+                    >
+                      {VEHICLE_OPTIONS.map((v) => (
+                        <option key={v.value} value={v.value}>{v.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-          {hasMakkah && (
-            <div className="mt-4 pt-4 border-t border-black/10 space-y-3 text-xs animate-in fade-in">
-              {/* Vehicle & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-black mb-1">
-                    Chauffeur Vehicle Type
-                  </label>
-                  <select
-                    value={makkahVehicle}
-                    onChange={(e) => {
-                      setMakkahVehicle(e.target.value);
-                      updateZiyaratLineItems(
-                        true,
-                        e.target.value,
-                        makkahTime,
-                        makkahSites,
-                        makkahPrice,
-                        makkahIncluded,
-                        hasMadinah,
-                        madinahVehicle,
-                        madinahTime,
-                        madinahSites,
-                        madinahPrice,
-                        madinahIncluded
-                      );
-                    }}
-                    className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
-                  >
-                    {VEHICLE_OPTIONS.map((v) => (
-                      <option key={v.value} value={v.value}>{v.label}</option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-black mb-1">
+                      Tour Duration
+                    </label>
+                    <select
+                      value={makkahDuration}
+                      onChange={(e) => {
+                        setMakkahDuration(e.target.value);
+                        applyZiyaratChanges(
+                          makkahArrangement,
+                          makkahVehicle,
+                          e.target.value,
+                          makkahGuideDetails,
+                          makkahSites,
+                          makkahPrice,
+                          makkahIncluded,
+                          madinahArrangement,
+                          madinahVehicle,
+                          madinahDuration,
+                          madinahGuideDetails,
+                          madinahSites,
+                          madinahPrice,
+                          madinahIncluded
+                        );
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
+                    >
+                      {DURATION_OPTIONS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
+                {/* Guide Details */}
                 <div>
                   <label className="block text-[11px] font-semibold text-black mb-1">
-                    Preferred Time Slot
+                    Guide &amp; Chauffeur Details
                   </label>
-                  <select
-                    value={makkahTime}
+                  <input
+                    type="text"
+                    value={makkahGuideDetails}
                     onChange={(e) => {
-                      setMakkahTime(e.target.value);
-                      updateZiyaratLineItems(
-                        true,
+                      setMakkahGuideDetails(e.target.value);
+                      applyZiyaratChanges(
+                        makkahArrangement,
                         makkahVehicle,
+                        makkahDuration,
                         e.target.value,
                         makkahSites,
                         makkahPrice,
                         makkahIncluded,
-                        hasMadinah,
+                        madinahArrangement,
                         madinahVehicle,
-                        madinahTime,
+                        madinahDuration,
+                        madinahGuideDetails,
                         madinahSites,
                         madinahPrice,
                         madinahIncluded
                       );
                     }}
+                    placeholder="e.g. Licensed Bilingual Historical Guide"
                     className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
-                  >
-                    {TIME_SLOTS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Sites Visited */}
-              <div>
-                <label className="block text-[11px] font-semibold text-black mb-1">
-                  Key Spiritual Sites Visited
-                </label>
-                <textarea
-                  rows={2}
-                  value={makkahSites}
-                  onChange={(e) => setMakkahSites(e.target.value)}
-                  onBlur={() =>
-                    updateZiyaratLineItems(
-                      true,
-                      makkahVehicle,
-                      makkahTime,
-                      makkahSites,
-                      makkahPrice,
-                      makkahIncluded,
-                      hasMadinah,
-                      madinahVehicle,
-                      madinahTime,
-                      madinahSites,
-                      madinahPrice,
-                      madinahIncluded
-                    )
-                  }
-                  className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
-                />
-              </div>
-
-              {/* Pricing Structure */}
-              <div className="rounded-xl border border-black/10 bg-white p-3 space-y-2">
-                <span className="font-semibold text-black block text-[11px]">Pricing Option:</span>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="makkahPriceOpt"
-                      checked={makkahIncluded}
-                      onChange={() => {
-                        setMakkahIncluded(true);
-                        updateZiyaratLineItems(
-                          true,
-                          makkahVehicle,
-                          makkahTime,
-                          makkahSites,
-                          makkahPrice,
-                          true,
-                          hasMadinah,
-                          madinahVehicle,
-                          madinahTime,
-                          madinahSites,
-                          madinahPrice,
-                          madinahIncluded
-                        );
-                      }}
-                      className="text-[#b37e28]"
-                    />
-                    <span className="font-semibold text-black">Included in Package (AED 0)</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="makkahPriceOpt"
-                      checked={!makkahIncluded}
-                      onChange={() => {
-                        setMakkahIncluded(false);
-                        updateZiyaratLineItems(
-                          true,
-                          makkahVehicle,
-                          makkahTime,
-                          makkahSites,
-                          makkahPrice,
-                          false,
-                          hasMadinah,
-                          madinahVehicle,
-                          madinahTime,
-                          madinahSites,
-                          madinahPrice,
-                          madinahIncluded
-                        );
-                      }}
-                      className="text-[#b37e28]"
-                    />
-                    <span className="font-semibold text-black">Additional Charge</span>
-                  </label>
+                  />
                 </div>
 
-                {!makkahIncluded && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-[11px] text-black/60">Price (AED):</span>
+                {/* Itinerary & Key Stops */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-black mb-1">
+                    Confirmed Itinerary &amp; Key Stops
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={makkahSites}
+                    onChange={(e) => {
+                      setMakkahSites(e.target.value);
+                      applyZiyaratChanges(
+                        makkahArrangement,
+                        makkahVehicle,
+                        makkahDuration,
+                        makkahGuideDetails,
+                        e.target.value,
+                        makkahPrice,
+                        makkahIncluded,
+                        madinahArrangement,
+                        madinahVehicle,
+                        madinahDuration,
+                        madinahGuideDetails,
+                        madinahSites,
+                        madinahPrice,
+                        madinahIncluded
+                      );
+                    }}
+                    className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black leading-relaxed"
+                  />
+                </div>
+
+                {/* Pricing & Inclusion Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-end">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-black mb-1">
+                      Price per Tour (AED)
+                    </label>
                     <input
                       type="number"
                       min={0}
                       value={makkahPrice}
-                      onChange={(e) => setMakkahPrice(Number(e.target.value) || 0)}
-                      onBlur={() =>
-                        updateZiyaratLineItems(
-                          true,
+                      disabled={makkahIncluded}
+                      onChange={(e) => {
+                        const p = Math.max(0, Number(e.target.value) || 0);
+                        setMakkahPrice(p);
+                        applyZiyaratChanges(
+                          makkahArrangement,
                           makkahVehicle,
-                          makkahTime,
+                          makkahDuration,
+                          makkahGuideDetails,
                           makkahSites,
-                          makkahPrice,
-                          false,
-                          hasMadinah,
+                          p,
+                          makkahIncluded,
+                          madinahArrangement,
                           madinahVehicle,
-                          madinahTime,
+                          madinahDuration,
+                          madinahGuideDetails,
                           madinahSites,
                           madinahPrice,
                           madinahIncluded
-                        )
-                      }
-                      className="w-28 rounded border border-black/20 p-1 font-mono font-bold text-xs"
+                        );
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs font-mono font-bold text-black disabled:bg-neutral-100"
                     />
                   </div>
-                )}
+
+                  <div className="pb-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-masaar-black">
+                      <input
+                        type="checkbox"
+                        checked={makkahIncluded}
+                        onChange={(e) => {
+                          const inc = e.target.checked;
+                          setMakkahIncluded(inc);
+                          applyZiyaratChanges(
+                            makkahArrangement,
+                            makkahVehicle,
+                            makkahDuration,
+                            makkahGuideDetails,
+                            makkahSites,
+                            makkahPrice,
+                            inc,
+                            madinahArrangement,
+                            madinahVehicle,
+                            madinahDuration,
+                            madinahGuideDetails,
+                            madinahSites,
+                            madinahPrice,
+                            madinahIncluded
+                          );
+                        }}
+                        className="size-4 rounded border-black/30 text-pure-gold focus:ring-pure-gold"
+                      />
+                      <span>Included in Base Package</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* 2. MADINAH PRIVATE ZIYARAT */}
+        {/* 2. MADINAH ZIYARAH */}
         <div
           className={`rounded-2xl border p-4.5 transition-all ${
-            hasMadinah
-              ? "border-[#c9983e] bg-[#FAF8F5]/80 ring-2 ring-[#c9983e]/20"
+            madinahArrangement !== "none"
+              ? "border-pure-gold bg-warm-ivory/30 ring-2 ring-pure-gold/20"
               : "border-black/10 bg-neutral-50/50 hover:bg-neutral-50"
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={hasMadinah}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-serif font-bold text-sm text-black block">
+                Madinah Ziyarah
+              </span>
+              {madinahArrangement !== "none" && (
+                <span className="rounded-full bg-pure-gold/20 border border-pure-gold/40 px-2.5 py-0.5 text-[10px] font-bold text-[#865d1d] uppercase">
+                  {madinahArrangement.toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            {/* Arrangement Selector */}
+            <div>
+              <label className="block text-[11px] font-semibold text-black mb-1">
+                Arrangement Mode
+              </label>
+              <select
+                value={madinahArrangement}
                 onChange={(e) => {
-                  const checked = e.target.checked;
-                  setHasMadinah(checked);
-                  updateZiyaratLineItems(
-                    hasMakkah,
+                  const val = e.target.value as ZiyaratArrangement;
+                  setMadinahArrangement(val);
+                  applyZiyaratChanges(
+                    makkahArrangement,
                     makkahVehicle,
-                    makkahTime,
+                    makkahDuration,
+                    makkahGuideDetails,
                     makkahSites,
                     makkahPrice,
                     makkahIncluded,
-                    checked,
+                    val,
                     madinahVehicle,
-                    madinahTime,
+                    madinahDuration,
+                    madinahGuideDetails,
                     madinahSites,
                     madinahPrice,
                     madinahIncluded
                   );
                 }}
-                className="mt-1 size-4 rounded border-black/30 text-[#b37e28] focus:ring-[#b37e28]"
-              />
-              <div>
-                <span className="font-serif font-bold text-sm text-black block">
-                  Madinah Private Ziyarat
-                </span>
-                <span className="text-[11px] text-black/60 block mt-0.5">
-                  2 – 2.5 hrs • Private Vehicle with Chauffeur • Hotel Pickup &amp; Drop-off
-                </span>
-              </div>
-            </label>
+                className="w-full rounded-xl border border-black/15 bg-white p-2.5 text-xs text-black font-medium focus:border-pure-gold"
+              >
+                <option value="none">Not included</option>
+                <option value="shared">Shared / group arrangement</option>
+                <option value="private">Private arrangement</option>
+                <option value="custom">Custom arrangement</option>
+              </select>
+            </div>
 
-            {hasMadinah && (
-              <span className="rounded-full bg-[#c9983e]/15 border border-[#c9983e]/30 px-2 py-0.5 text-[10px] font-bold text-[#865d1d] uppercase">
-                Active in Quote
-              </span>
-            )}
-          </div>
+            {madinahArrangement !== "none" && (
+              <div className="pt-3 border-t border-black/10 space-y-3 text-xs animate-in fade-in">
+                {/* Vehicle & Duration */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-black mb-1">
+                      Vehicle Details
+                    </label>
+                    <select
+                      value={madinahVehicle}
+                      onChange={(e) => {
+                        setMadinahVehicle(e.target.value);
+                        applyZiyaratChanges(
+                          makkahArrangement,
+                          makkahVehicle,
+                          makkahDuration,
+                          makkahGuideDetails,
+                          makkahSites,
+                          makkahPrice,
+                          makkahIncluded,
+                          madinahArrangement,
+                          e.target.value,
+                          madinahDuration,
+                          madinahGuideDetails,
+                          madinahSites,
+                          madinahPrice,
+                          madinahIncluded
+                        );
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
+                    >
+                      {VEHICLE_OPTIONS.map((v) => (
+                        <option key={v.value} value={v.value}>{v.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-          {hasMadinah && (
-            <div className="mt-4 pt-4 border-t border-black/10 space-y-3 text-xs animate-in fade-in">
-              {/* Vehicle & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-black mb-1">
-                    Chauffeur Vehicle Type
-                  </label>
-                  <select
-                    value={madinahVehicle}
-                    onChange={(e) => {
-                      setMadinahVehicle(e.target.value);
-                      updateZiyaratLineItems(
-                        hasMakkah,
-                        makkahVehicle,
-                        makkahTime,
-                        makkahSites,
-                        makkahPrice,
-                        makkahIncluded,
-                        true,
-                        e.target.value,
-                        madinahTime,
-                        madinahSites,
-                        madinahPrice,
-                        madinahIncluded
-                      );
-                    }}
-                    className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
-                  >
-                    {VEHICLE_OPTIONS.map((v) => (
-                      <option key={v.value} value={v.value}>{v.label}</option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-black mb-1">
+                      Tour Duration
+                    </label>
+                    <select
+                      value={madinahDuration}
+                      onChange={(e) => {
+                        setMadinahDuration(e.target.value);
+                        applyZiyaratChanges(
+                          makkahArrangement,
+                          makkahVehicle,
+                          makkahDuration,
+                          makkahGuideDetails,
+                          makkahSites,
+                          makkahPrice,
+                          makkahIncluded,
+                          madinahArrangement,
+                          madinahVehicle,
+                          e.target.value,
+                          madinahGuideDetails,
+                          madinahSites,
+                          madinahPrice,
+                          madinahIncluded
+                        );
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
+                    >
+                      {DURATION_OPTIONS.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
+                {/* Guide Details */}
                 <div>
                   <label className="block text-[11px] font-semibold text-black mb-1">
-                    Preferred Time Slot
+                    Guide &amp; Chauffeur Details
                   </label>
-                  <select
-                    value={madinahTime}
+                  <input
+                    type="text"
+                    value={madinahGuideDetails}
                     onChange={(e) => {
-                      setMadinahTime(e.target.value);
-                      updateZiyaratLineItems(
-                        hasMakkah,
+                      setMadinahGuideDetails(e.target.value);
+                      applyZiyaratChanges(
+                        makkahArrangement,
                         makkahVehicle,
-                        makkahTime,
+                        makkahDuration,
+                        makkahGuideDetails,
                         makkahSites,
                         makkahPrice,
                         makkahIncluded,
-                        true,
+                        madinahArrangement,
                         madinahVehicle,
+                        madinahDuration,
                         e.target.value,
                         madinahSites,
                         madinahPrice,
                         madinahIncluded
                       );
                     }}
+                    placeholder="e.g. Licensed Bilingual Historical Guide"
                     className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
-                  >
-                    {TIME_SLOTS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Sites Visited */}
-              <div>
-                <label className="block text-[11px] font-semibold text-black mb-1">
-                  Key Spiritual Sites Visited
-                </label>
-                <textarea
-                  rows={2}
-                  value={madinahSites}
-                  onChange={(e) => setMadinahSites(e.target.value)}
-                  onBlur={() =>
-                    updateZiyaratLineItems(
-                      hasMakkah,
-                      makkahVehicle,
-                      makkahTime,
-                      makkahSites,
-                      makkahPrice,
-                      makkahIncluded,
-                      true,
-                      madinahVehicle,
-                      madinahTime,
-                      madinahSites,
-                      madinahPrice,
-                      madinahIncluded
-                    )
-                  }
-                  className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black"
-                />
-              </div>
-
-              {/* Pricing Structure */}
-              <div className="rounded-xl border border-black/10 bg-white p-3 space-y-2">
-                <span className="font-semibold text-black block text-[11px]">Pricing Option:</span>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="madinahPriceOpt"
-                      checked={madinahIncluded}
-                      onChange={() => {
-                        setMadinahIncluded(true);
-                        updateZiyaratLineItems(
-                          hasMakkah,
-                          makkahVehicle,
-                          makkahTime,
-                          makkahSites,
-                          makkahPrice,
-                          makkahIncluded,
-                          true,
-                          madinahVehicle,
-                          madinahTime,
-                          madinahSites,
-                          madinahPrice,
-                          true
-                        );
-                      }}
-                      className="text-[#b37e28]"
-                    />
-                    <span className="font-semibold text-black">Included in Package (AED 0)</span>
-                  </label>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="madinahPriceOpt"
-                      checked={!madinahIncluded}
-                      onChange={() => {
-                        setMadinahIncluded(false);
-                        updateZiyaratLineItems(
-                          hasMakkah,
-                          makkahVehicle,
-                          makkahTime,
-                          makkahSites,
-                          makkahPrice,
-                          makkahIncluded,
-                          true,
-                          madinahVehicle,
-                          madinahTime,
-                          madinahSites,
-                          madinahPrice,
-                          false
-                        );
-                      }}
-                      className="text-[#b37e28]"
-                    />
-                    <span className="font-semibold text-black">Additional Charge</span>
-                  </label>
+                  />
                 </div>
 
-                {!madinahIncluded && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-[11px] text-black/60">Price (AED):</span>
+                {/* Itinerary & Key Stops */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-black mb-1">
+                    Confirmed Itinerary &amp; Key Stops
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={madinahSites}
+                    onChange={(e) => {
+                      setMadinahSites(e.target.value);
+                      applyZiyaratChanges(
+                        makkahArrangement,
+                        makkahVehicle,
+                        makkahDuration,
+                        makkahGuideDetails,
+                        makkahSites,
+                        makkahPrice,
+                        makkahIncluded,
+                        madinahArrangement,
+                        madinahVehicle,
+                        madinahDuration,
+                        madinahGuideDetails,
+                        e.target.value,
+                        madinahPrice,
+                        madinahIncluded
+                      );
+                    }}
+                    className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs text-black leading-relaxed"
+                  />
+                </div>
+
+                {/* Pricing & Inclusion Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-end">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-black mb-1">
+                      Price per Tour (AED)
+                    </label>
                     <input
                       type="number"
                       min={0}
                       value={madinahPrice}
-                      onChange={(e) => setMadinahPrice(Number(e.target.value) || 0)}
-                      onBlur={() =>
-                        updateZiyaratLineItems(
-                          hasMakkah,
+                      disabled={madinahIncluded}
+                      onChange={(e) => {
+                        const p = Math.max(0, Number(e.target.value) || 0);
+                        setMadinahPrice(p);
+                        applyZiyaratChanges(
+                          makkahArrangement,
                           makkahVehicle,
-                          makkahTime,
+                          makkahDuration,
+                          makkahGuideDetails,
                           makkahSites,
                           makkahPrice,
                           makkahIncluded,
-                          true,
+                          madinahArrangement,
                           madinahVehicle,
-                          madinahTime,
+                          madinahDuration,
+                          madinahGuideDetails,
                           madinahSites,
-                          madinahPrice,
-                          false
-                        )
-                      }
-                      className="w-28 rounded border border-black/20 p-1 font-mono font-bold text-xs"
+                          p,
+                          madinahIncluded
+                        );
+                      }}
+                      className="w-full rounded-lg border border-black/15 bg-white p-2 text-xs font-mono font-bold text-black disabled:bg-neutral-100"
                     />
                   </div>
-                )}
+
+                  <div className="pb-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-masaar-black">
+                      <input
+                        type="checkbox"
+                        checked={madinahIncluded}
+                        onChange={(e) => {
+                          const inc = e.target.checked;
+                          setMadinahIncluded(inc);
+                          applyZiyaratChanges(
+                            makkahArrangement,
+                            makkahVehicle,
+                            makkahDuration,
+                            makkahGuideDetails,
+                            makkahSites,
+                            makkahPrice,
+                            makkahIncluded,
+                            madinahArrangement,
+                            madinahVehicle,
+                            madinahDuration,
+                            madinahGuideDetails,
+                            madinahSites,
+                            madinahPrice,
+                            inc
+                          );
+                        }}
+                        className="size-4 rounded border-black/30 text-pure-gold focus:ring-pure-gold"
+                      />
+                      <span>Included in Base Package</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

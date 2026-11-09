@@ -29,6 +29,8 @@ import { HomePrivateTrips } from "@/components/site/HomePrivateTrips";
 import { WhyMasaar } from "@/components/site/WhyMasaar";
 import { TabbyPromoBanner } from "@/components/site/TabbyPromoBanner";
 import { MasaarPremiumUmrahSpotlight } from "@/components/site/MasaarPremiumUmrahSpotlight";
+import { HomeAdditionalServices } from "@/components/site/HomeAdditionalServices";
+import { getHomepageAdditionalServices } from "@/lib/data/additional-services";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
 import type { PackageTier } from "@/lib/types/database";
@@ -82,11 +84,12 @@ function pickFeaturedUmrahConfigs(configs: PublicUmrahInventoryConfig[]): Public
 }
 
 export default async function HomePage() {
-  const [inventoryConfigs, testimonials, homeContent, privateTrips] = await Promise.all([
+  const [inventoryConfigs, testimonials, homeContent, privateTrips, additionalServices] = await Promise.all([
     getPublishedUmrahInventoryConfigurations(),
     getPublishedTestimonials(),
     getHomeContent(),
     getPublishedPrivateTrips(),
+    getHomepageAdditionalServices(),
   ]);
 
   const featuredConfigs = pickFeaturedUmrahConfigs(inventoryConfigs);
@@ -198,6 +201,9 @@ export default async function HomePage() {
           </div>
         </Container>
       </section>
+
+      {/* Additional Services: Enhance Your Umrah Journey */}
+      <HomeAdditionalServices services={additionalServices} />
 
       {/* Unified Services & Private Trips Section */}
       <HomePrivateTrips trips={privateTrips} />

@@ -183,7 +183,7 @@ export default function UmrahSharjahPage() {
                 </span>
                 <h3 className="mt-3 font-bold text-masaar-black text-lg">Signature Umrah</h3>
                 <p className="mt-1 text-xs text-masaar-black/60">
-                  Direct courtyard access in Makkah and Madinah with Pullman ZamZam or Crowne Plaza.
+                  Prime Haram proximity in Makkah (Makkah Towers / Swissôtel or similar) and Madinah (Anwar Al Madinah Mövenpick or similar).
                 </p>
                 <div className="mt-4 pt-4 border-t border-black/5">
                   <span className="text-xs text-masaar-black/60">Starting from</span>

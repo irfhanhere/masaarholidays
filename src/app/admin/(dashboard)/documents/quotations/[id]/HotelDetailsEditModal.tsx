@@ -15,6 +15,32 @@ interface HotelDetailsEditModalProps {
   ) => void;
 }
 
+const ROOM_CATEGORIES = [
+  "Standard Room",
+  "Deluxe Room",
+  "Deluxe City View",
+  "Deluxe Haram View",
+  "Deluxe Kaaba View",
+  "Junior Suite",
+  "Executive Suite (Kaaba View)",
+  "Family Suite (2 Bedrooms)",
+];
+
+const OCCUPANCY_OPTIONS = [
+  "Single (1 Person)",
+  "Double / Twin (2 Persons)",
+  "Triple (3 Persons)",
+  "Quad (4 Persons)",
+  "Family Suite (5+ Persons)",
+];
+
+const MEAL_PLANS = [
+  "Room Only (No Meals Included)",
+  "Breakfast Included (International Buffet)",
+  "Half Board (Breakfast & Dinner)",
+  "Full Board (Breakfast, Lunch & Dinner)",
+];
+
 export function HotelDetailsEditModal({
   isOpen,
   onClose,
@@ -23,6 +49,7 @@ export function HotelDetailsEditModal({
   onSave,
 }: HotelDetailsEditModalProps) {
   const [hotelName, setHotelName] = useState("");
+  const [alternativeHotelWording, setAlternativeHotelWording] = useState("");
   const [city, setCity] = useState("Makkah");
   const [location, setLocation] = useState("");
   const [roomCategory, setRoomCategory] = useState("Deluxe Room");
@@ -32,6 +59,7 @@ export function HotelDetailsEditModal({
   const [nights, setNights] = useState(1);
   const [mealPlan, setMealPlan] = useState("Room Only (No Meals Included)");
   const [unitPriceAed, setUnitPriceAed] = useState(0);
+  const [hotelNotes, setHotelNotes] = useState("");
   const [supplierNotes, setSupplierNotes] = useState("");
   const [updateMasterCatalog, setUpdateMasterCatalog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,12 +68,12 @@ export function HotelDetailsEditModal({
   useEffect(() => {
     if (!item) return;
 
-    setHotelName(item.description || "");
+    const desc = item.description || "";
     setUnitPriceAed(Number(item.unit_price_aed) || 0);
     setNights(Math.max(1, Number(item.quantity) || 1));
 
     const details = item.details || "";
-    const lower = details.toLowerCase();
+    const lower = `${desc} ${details}`.toLowerCase();
 
     // City
     if (lower.includes("madinah") || lower.includes("medina")) {
@@ -56,18 +84,28 @@ export function HotelDetailsEditModal({
       setCity("Makkah");
     }
 
+    // Alternative hotel wording
+    const altMatch = details.match(/(?:Alternative|Alt Wording):\s*([^•|]+)/i);
+    if (altMatch) {
+      setAlternativeHotelWording(altMatch[1].trim());
+    } else if (desc.includes("or similar")) {
+      setAlternativeHotelWording("or similar");
+    } else {
+      setAlternativeHotelWording("");
+    }
+
+    setHotelName(desc);
+
     // Location
     const locMatch = details.match(/(?:Location|Area|Proximity):\s*([^•|]+)/i);
     if (locMatch) {
       setLocation(locMatch[1].trim());
     } else if (lower.includes("clock tower")) {
-      setLocation("Clock Tower, Steps from Haram");
-    } else if (lower.includes("jabal omar")) {
-      setLocation("Jabal Omar, Steps from Haram");
+      setLocation("Clock Tower, Steps from Haram (~100m)");
     } else if (lower.includes("steps from haram")) {
       setLocation("Steps from Haram");
     } else if (lower.includes("central area")) {
-      setLocation("Central Area North");
+      setLocation("Central Area North (~50m, flat pathway)");
     } else {
       setLocation("");
     }
@@ -85,10 +123,10 @@ export function HotelDetailsEditModal({
     } else if (lower.includes("suite")) {
       setRoomCategory("Junior Suite");
     } else {
-      setRoomCategory("Standard Room");
+      setRoomCategory("Deluxe Room");
     }
 
-    // Room Sharing
+    // Room Sharing / Occupancy
     if (lower.includes("single")) {
       setRoomSharing("Single (1 Person)");
     } else if (lower.includes("triple")) {
@@ -112,7 +150,7 @@ export function HotelDetailsEditModal({
       !lower.includes("no breakfast") &&
       !lower.includes("room only")
     ) {
-      setMealPlan("Breakfast Included");
+      setMealPlan("Breakfast Included (International Buffet)");
     } else {
       setMealPlan("Room Only (No Meals Included)");
     }
@@ -123,8 +161,16 @@ export function HotelDetailsEditModal({
     const checkOutMatch = details.match(/(?:Check-out|Out):\s*(\d{4}-\d{2}-\d{2})/i);
     if (checkOutMatch) setCheckOut(checkOutMatch[1]);
 
+    // Public Hotel Notes
+    const hotelNoteMatch = details.match(/(?:Hotel Notes?|Notes?):\s*([^•|\[]+)/i);
+    if (hotelNoteMatch && !hotelNoteMatch[1].toLowerCase().includes("supplier_notes")) {
+      setHotelNotes(hotelNoteMatch[1].trim());
+    } else {
+      setHotelNotes("");
+    }
+
     // Supplier / Internal Notes
-    const noteMatch = details.match(/(?:Supplier|Internal Note|Note):\s*([^•|]+)/i);
+    const noteMatch = details.match(/\[supplier_notes:\s*([^\]]+)\]/i);
     if (noteMatch) setSupplierNotes(noteMatch[1].trim());
     else setSupplierNotes("");
   }, [item]);
@@ -144,6 +190,23 @@ export function HotelDetailsEditModal({
     }
   }
 
+  // Quick Preset Handlers
+  function applyFeaturedMakkahPreset() {
+    setCity("Makkah");
+    setHotelName("Makkah Towers / Swissôtel or similar");
+    setAlternativeHotelWording("or similar");
+    setLocation("Approximately 100 metres from the Haram (approx. 2 minutes' walk)");
+    setHotelNotes("5-Star luxury hospitality near King Abdulaziz Gate.");
+  }
+
+  function applyFeaturedMadinahPreset() {
+    setCity("Madinah");
+    setHotelName("Anwar Al Madinah Mövenpick or similar");
+    setAlternativeHotelWording("or similar");
+    setLocation("Approximately 50 metres from the Haram, with a flat pathway (approx. 1 minute walk)");
+    setHotelNotes("5-Star hotel directly facing the Prophet's Mosque courtyard.");
+  }
+
   if (!isOpen || !item) return null;
 
   function handleSubmit(e: React.FormEvent) {
@@ -155,6 +218,9 @@ export function HotelDetailsEditModal({
     // Build clean, structured details string
     const detailsParts: string[] = [];
     detailsParts.push(`City: ${city}`);
+    if (alternativeHotelWording.trim()) {
+      detailsParts.push(`Alternative: ${alternativeHotelWording.trim()}`);
+    }
     if (location.trim()) detailsParts.push(`Area: ${location.trim()}`);
     detailsParts.push(`Room: ${roomCategory.trim()}`);
     detailsParts.push(`Sharing: ${roomSharing}`);
@@ -164,6 +230,9 @@ export function HotelDetailsEditModal({
       detailsParts.push(`${nights} Nights`);
     }
     detailsParts.push(`Meal Plan: ${mealPlan}`);
+    if (hotelNotes.trim()) {
+      detailsParts.push(`Notes: ${hotelNotes.trim()}`);
+    }
     if (supplierNotes.trim()) {
       detailsParts.push(`[supplier_notes: ${supplierNotes.trim()}]`);
     }
@@ -190,7 +259,7 @@ export function HotelDetailsEditModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-black/10 pb-4">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-xl bg-[#FAF8F5] text-base border border-[#c9983e]/30">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-warm-ivory text-base border border-pure-gold/30">
               🏨
             </span>
             <div>
@@ -198,23 +267,44 @@ export function HotelDetailsEditModal({
                 Edit Hotel Details &amp; Room Snapshot
               </h3>
               <p className="text-xs text-black/60">
-                Customise hotel, room category, meal plan and nights for this specific quotation.
+                Customise hotel name, alternative wording, occupancy, meal plan and nights for this quotation.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-black/50 hover:bg-black/5 hover:text-black transition-all"
+            className="rounded-lg p-1.5 text-black/50 hover:bg-black/5 hover:text-black transition-all cursor-pointer"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-xs">
-          {/* Hotel Name & City */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2">
+        {/* Featured Package Presets */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 p-3 bg-warm-ivory/40 rounded-xl border border-pure-gold/30">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-deep-gold">
+            Featured Presets:
+          </span>
+          <button
+            type="button"
+            onClick={applyFeaturedMakkahPreset}
+            className="rounded-lg border border-pure-gold/50 bg-white px-2.5 py-1 text-[11px] font-semibold text-masaar-black hover:bg-pure-gold/15 transition-all cursor-pointer"
+          >
+            Makkah Towers / Swissôtel or similar
+          </button>
+          <button
+            type="button"
+            onClick={applyFeaturedMadinahPreset}
+            className="rounded-lg border border-pure-gold/50 bg-white px-2.5 py-1 text-[11px] font-semibold text-masaar-black hover:bg-pure-gold/15 transition-all cursor-pointer"
+          >
+            Anwar Al Madinah Mövenpick or similar
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5 text-xs">
+          {/* Hotel Name & Alternative Wording */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-8">
               <label className="block font-semibold text-black mb-1">
                 Hotel Name <span className="text-red-500">*</span>
               </label>
@@ -223,71 +313,86 @@ export function HotelDetailsEditModal({
                 required
                 value={hotelName}
                 onChange={(e) => setHotelName(e.target.value)}
-                placeholder="e.g. Makkah Clock Royal Tower, A Fairmont Hotel"
-                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-[#b37e28] focus:outline-hidden"
+                placeholder="e.g. Makkah Towers / Swissôtel or similar"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold focus:outline-hidden"
               />
             </div>
 
-            <div>
+            <div className="sm:col-span-4">
+              <label className="block font-semibold text-black mb-1">
+                Alternative Wording
+              </label>
+              <input
+                type="text"
+                value={alternativeHotelWording}
+                onChange={(e) => setAlternativeHotelWording(e.target.value)}
+                placeholder="e.g. or similar"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          {/* City & Location */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-4">
               <label className="block font-semibold text-black mb-1">
                 City / Destination
               </label>
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-[#b37e28]"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold"
               >
-                <option value="Makkah">Makkah</option>
-                <option value="Madinah">Madinah</option>
+                <option value="Makkah">Makkah Al-Mukarramah</option>
+                <option value="Madinah">Madinah Al-Munawwarah</option>
                 <option value="Jeddah">Jeddah</option>
-                <option value="Other">Other</option>
+                <option value="Other">Other Destination</option>
               </select>
             </div>
-          </div>
 
-          {/* Location / Area */}
-          <div>
-            <label className="block font-semibold text-black mb-1">
-              Location / Proximity to Haram
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. Steps from Haram, Clock Tower / Abraj Al Bait"
-              className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-[#b37e28] focus:outline-hidden"
-            />
-          </div>
-
-          {/* Room Category & Sharing */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+            <div className="sm:col-span-8">
               <label className="block font-semibold text-black mb-1">
-                Room Category / View
+                Location &amp; Walking Distance
               </label>
               <input
                 type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Approximately 100 metres from Haram (~2 mins walk)"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          {/* Room Type & Occupancy */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-black mb-1">
+                Room Type / Category
+              </label>
+              <select
                 value={roomCategory}
                 onChange={(e) => setRoomCategory(e.target.value)}
-                placeholder="e.g. Deluxe Kaaba View / Deluxe Haram View"
-                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-[#b37e28] focus:outline-hidden"
-              />
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold"
+              >
+                {ROOM_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block font-semibold text-black mb-1">
-                Room Sharing / Occupancy
+                Occupancy / Room Sharing
               </label>
               <select
                 value={roomSharing}
                 onChange={(e) => setRoomSharing(e.target.value)}
-                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-[#b37e28]"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold"
               >
-                <option value="Single (1 Person)">Single (1 Person)</option>
-                <option value="Double / Twin (2 Persons)">Double / Twin (2 Persons)</option>
-                <option value="Triple (3 Persons)">Triple (3 Persons)</option>
-                <option value="Quad (4 Persons)">Quad (4 Persons)</option>
-                <option value="Family Suite (5+ Persons)">Family Suite (5+ Persons)</option>
+                {OCCUPANCY_OPTIONS.map((occ) => (
+                  <option key={occ} value={occ}>{occ}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -302,7 +407,7 @@ export function HotelDetailsEditModal({
                 type="date"
                 value={checkIn}
                 onChange={(e) => handleDateChange(e.target.value, checkOut)}
-                className="w-full rounded-xl border border-black/15 p-2 text-xs text-black bg-white focus:border-[#b37e28]"
+                className="w-full rounded-xl border border-black/15 p-2 text-xs text-black bg-white focus:border-pure-gold"
               />
             </div>
 
@@ -314,7 +419,7 @@ export function HotelDetailsEditModal({
                 type="date"
                 value={checkOut}
                 onChange={(e) => handleDateChange(checkIn, e.target.value)}
-                className="w-full rounded-xl border border-black/15 p-2 text-xs text-black bg-white focus:border-[#b37e28]"
+                className="w-full rounded-xl border border-black/15 p-2 text-xs text-black bg-white focus:border-pure-gold"
               />
             </div>
 
@@ -327,7 +432,7 @@ export function HotelDetailsEditModal({
                 min={1}
                 value={nights}
                 onChange={(e) => setNights(Math.max(1, Number(e.target.value) || 1))}
-                className="w-full rounded-xl border border-black/15 p-2 text-xs font-bold text-center text-black bg-white focus:border-[#b37e28]"
+                className="w-full rounded-xl border border-black/15 p-2 text-xs font-bold text-center text-black bg-white focus:border-pure-gold"
               />
             </div>
           </div>
@@ -341,12 +446,11 @@ export function HotelDetailsEditModal({
               <select
                 value={mealPlan}
                 onChange={(e) => setMealPlan(e.target.value)}
-                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-[#b37e28]"
+                className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold"
               >
-                <option value="Room Only (No Meals Included)">Room Only (No Meals Included)</option>
-                <option value="Breakfast Included">Breakfast Included (Buffet)</option>
-                <option value="Half Board (Breakfast & Dinner)">Half Board (Breakfast &amp; Dinner)</option>
-                <option value="Full Board (Breakfast, Lunch & Dinner)">Full Board (Breakfast, Lunch &amp; Dinner)</option>
+                {MEAL_PLANS.map((mp) => (
+                  <option key={mp} value={mp}>{mp}</option>
+                ))}
               </select>
             </div>
 
@@ -362,7 +466,7 @@ export function HotelDetailsEditModal({
                   step="any"
                   value={unitPriceAed}
                   onChange={(e) => setUnitPriceAed(Math.max(0, Number(e.target.value) || 0))}
-                  className="w-full rounded-xl border border-black/15 pl-12 pr-3 py-2 text-xs font-mono font-bold text-black bg-white focus:border-[#b37e28]"
+                  className="w-full rounded-xl border border-black/15 pl-12 pr-3 py-2 text-xs font-mono font-bold text-black bg-white focus:border-pure-gold"
                 />
               </div>
               <span className="mt-1 text-[10px] text-black/50 block">
@@ -371,56 +475,49 @@ export function HotelDetailsEditModal({
             </div>
           </div>
 
-          {/* Supplier Cost & Internal Notes */}
+          {/* Hotel Notes (Public) */}
+          <div>
+            <label className="block font-semibold text-black mb-1">
+              Hotel Notes (Visible on PDF &amp; Client Portal)
+            </label>
+            <input
+              type="text"
+              value={hotelNotes}
+              onChange={(e) => setHotelNotes(e.target.value)}
+              placeholder="e.g. Direct Haram view, flat pathway, 24/7 luggage concierge included"
+              className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold focus:outline-hidden"
+            />
+          </div>
+
+          {/* Supplier Cost & Internal Notes (Private) */}
           <div>
             <label className="block font-semibold text-black mb-1 flex items-center justify-between">
-              <span>Internal Supplier Notes (Private - Not shown in customer PDF)</span>
+              <span>Internal Supplier Notes (Private — Not shown to customer)</span>
               <span className="text-[10px] text-black/40 font-normal">Internal Staff Only</span>
             </label>
             <input
               type="text"
               value={supplierNotes}
               onChange={(e) => setSupplierNotes(e.target.value)}
-              placeholder="e.g. Net supplier rate SAR 950/night booked via Dakkah Travel"
-              className="w-full rounded-xl border border-black/15 p-2 text-xs text-black/80 bg-neutral-50 focus:bg-white focus:border-[#b37e28]"
+              placeholder="e.g. Booked via Agoda B2B / Confirm Voucher by Oct 1"
+              className="w-full rounded-xl border border-black/15 p-2.5 text-xs text-black bg-white focus:border-pure-gold focus:outline-hidden"
             />
           </div>
 
-          {/* Master catalogue update option */}
-          <div className="rounded-xl border border-black/10 bg-[#FAF8F5] p-3">
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={updateMasterCatalog}
-                onChange={(e) => setUpdateMasterCatalog(e.target.checked)}
-                className="mt-0.5 rounded border-black/30 text-[#b37e28] focus:ring-[#b37e28]"
-              />
-              <div>
-                <span className="font-semibold text-black block">
-                  Also save these updates as default to the master hotel catalogue
-                </span>
-                <span className="text-[11px] text-black/60 block">
-                  When unchecked, changes strictly update this specific quotation without altering historical quotations.
-                </span>
-              </div>
-            </label>
-          </div>
-
-          {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-black/10">
+          <div className="mt-5 pt-3 border-t border-black/10 flex justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-black/15 bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-black/5 transition-all"
+              className="rounded-xl border border-black/15 bg-white px-4 py-2 text-xs font-semibold text-masaar-black hover:bg-black/5 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-gradient-to-r from-[#b37e28] to-[#916d28] px-5 py-2 text-xs font-bold text-white shadow-xs hover:from-[#9c6d1f] hover:to-[#7d5c1f] transition-all disabled:opacity-50"
+              className="rounded-xl bg-pure-gold text-masaar-black font-bold px-5 py-2 text-xs shadow-md hover:bg-light-gold cursor-pointer"
             >
-              {isSaving ? "Saving..." : "Save Hotel Details"}
+              {isSaving ? "Saving..." : "Save Hotel Snapshot"}
             </button>
           </div>
         </form>

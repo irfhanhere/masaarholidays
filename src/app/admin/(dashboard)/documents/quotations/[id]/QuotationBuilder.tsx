@@ -30,6 +30,7 @@ import { ClientQuotationPortal } from "@/app/quote/[token]/ClientQuotationPortal
 import { HotelDetailsEditModal } from "./HotelDetailsEditModal";
 import { FlightItinerarySection } from "./FlightItinerarySection";
 import { SightseeingZiyaratSection } from "./SightseeingZiyaratSection";
+import { AdditionalServicesSection } from "./AdditionalServicesSection";
 
 const JOURNEY_TYPES: Array<{
   id: DocumentJourneyType;
@@ -1272,6 +1273,14 @@ export function QuotationBuilder({
           <SightseeingZiyaratSection
             lineItems={lineItems}
             adultsCount={adults}
+            onUpdateLineItems={setLineItems}
+            onPersist={handlePersistLineItems}
+          />
+
+          {/* Searchable Additional Services Catalogue Section (Step 3) */}
+          <AdditionalServicesSection
+            lineItems={lineItems}
+            availableServices={products?.additionalServices || []}
             onUpdateLineItems={setLineItems}
             onPersist={handlePersistLineItems}
           />

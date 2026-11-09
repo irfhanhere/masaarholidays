@@ -919,6 +919,55 @@ type PackageAddonCatalogRowShape = {
   updated_at: string;
 };
 
+export interface AdditionalServiceFaq {
+  q: string;
+  a: string;
+}
+
+export interface AdditionalServiceExpectation {
+  title: string;
+  description: string;
+}
+
+export interface AdditionalServiceWhyChoose {
+  title: string;
+  description: string;
+}
+
+export interface AdditionalServiceTourInfo {
+  availability?: string | null;
+  important_reminder?: string | null;
+}
+
+type AdditionalServiceRowShape = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  price_type: ServicePriceType;
+  price_aed: number | null;
+  currency: string;
+  short_description: string;
+  full_description: string | null;
+  image_url: string;
+  icon: string;
+  features: string[];
+  is_featured: boolean;
+  status: ServiceStatus;
+  display_order: number;
+  hero_headline?: string | null;
+  hero_subtext?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  faqs?: AdditionalServiceFaq[] | null;
+  expectations?: AdditionalServiceExpectation[] | null;
+  why_choose?: AdditionalServiceWhyChoose[] | null;
+  tour_info?: AdditionalServiceTourInfo | null;
+  pdf_url?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 /** Helper so every table follows the exact same Row/Insert/Update/Relationships shape. */
 type AdminMfaBackupCodeRowShape = {
   id: string;
@@ -1142,6 +1191,7 @@ export interface Database {
       ziyarat_pricing: Table<ZiyaratPricingRowShape, "city" | "vehicle_type_id" | "price_aed">;
       package_inclusions_catalog: Table<PackageInclusionCatalogRowShape, "name">;
       package_addons_catalog: Table<PackageAddonCatalogRowShape, "name" | "key_slug">;
+      additional_services: Table<AdditionalServiceRowShape, "name" | "slug">;
       admin_mfa_backup_codes: Table<AdminMfaBackupCodeRowShape, "user_id" | "code_hash">;
       admin_audit_logs: Table<AdminAuditLogRowShape, "admin_email" | "action" | "resource_type">;
       documents: Table<DocumentRowShape, "document_type" | "document_number" | "client_name">;
@@ -1311,6 +1361,38 @@ export type PackageAddonCatalogRow =
   Database["public"]["Tables"]["package_addons_catalog"]["Row"];
 export type PackageInclusionCatalogRow =
   Database["public"]["Tables"]["package_inclusions_catalog"]["Row"];
+
+export type ServicePriceType = "on_request" | "fixed" | "from";
+export type ServiceStatus = "published" | "draft" | "archived";
+
+export interface AdditionalServiceRow {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  price_type: ServicePriceType;
+  price_aed: number | null;
+  currency: string;
+  short_description: string;
+  full_description: string | null;
+  image_url: string;
+  icon: string;
+  features: string[];
+  is_featured: boolean;
+  status: ServiceStatus;
+  display_order: number;
+  hero_headline?: string | null;
+  hero_subtext?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  faqs?: AdditionalServiceFaq[] | null;
+  expectations?: AdditionalServiceExpectation[] | null;
+  why_choose?: AdditionalServiceWhyChoose[] | null;
+  tour_info?: AdditionalServiceTourInfo | null;
+  pdf_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Document & Proposal Toolkit (0074_document_toolkit.sql) — Quotation /

@@ -47,6 +47,7 @@ next-env.d.ts
 # with large binary/one-off content.
 /scratch/
 /inspirations/
+/Blogs/
 # /public/Assets/ — removed: images MUST be in git for Hostinger deployment
 supabase/.temp/
 scripts/hotel-rates/*.pdf

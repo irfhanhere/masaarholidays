@@ -37,13 +37,13 @@ export function MasaarPremiumUmrahSpotlight() {
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 text-xs text-masaar-black/80">
             <div className="rounded-lg border border-black/10 bg-white/70 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-deep-gold">Madinah (2 Nights)</p>
-              <p className="font-semibold text-masaar-black">Crowne Plaza Madinah</p>
-              <p className="text-[11px] text-masaar-black/60">5-Star · Steps from Prophet&apos;s Mosque</p>
+              <p className="font-semibold text-masaar-black">Anwar Al Madinah Mövenpick or similar</p>
+              <p className="text-[11px] text-masaar-black/60">5-Star · Approx. 50m (1-min walk, flat pathway)</p>
             </div>
             <div className="rounded-lg border border-black/10 bg-white/70 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-deep-gold">Makkah (3 Nights)</p>
-              <p className="font-semibold text-masaar-black">Pullman ZamZam Makkah</p>
-              <p className="text-[11px] text-masaar-black/60">5-Star · Abraj Al Bait Complex</p>
+              <p className="font-semibold text-masaar-black">Makkah Towers / Swissôtel or similar</p>
+              <p className="text-[11px] text-masaar-black/60">5-Star · Approx. 100m (2-min walk from Haram)</p>
             </div>
           </div>
 

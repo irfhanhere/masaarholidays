@@ -14,6 +14,7 @@ import {
   getSelectablePrivateTrips,
   getSelectablePackages,
   getSelectableZiyaratOptions,
+  getSelectableAdditionalServices,
 } from "@/lib/data/document-products";
 import { QuotationBuilder } from "./QuotationBuilder";
 
@@ -44,6 +45,7 @@ export default async function QuotationBuilderPage({
     privateTrips,
     packages,
     ziyaratOptions,
+    additionalServices,
   ] = await Promise.all([
     getDocumentItems(id),
     getDocumentTemplates("quotation"),
@@ -55,6 +57,7 @@ export default async function QuotationBuilderPage({
     getSelectablePrivateTrips(),
     getSelectablePackages(),
     getSelectableZiyaratOptions(),
+    getSelectableAdditionalServices(),
   ]);
 
   const template =
@@ -71,7 +74,7 @@ export default async function QuotationBuilderPage({
       versions={versions}
       shares={shares}
       activeShareToken={activeShare?.share_token}
-      products={{ hotels, transfers, privateTrips, packages, ziyaratOptions }}
+      products={{ hotels, transfers, privateTrips, packages, ziyaratOptions, additionalServices }}
     />
   );
 }

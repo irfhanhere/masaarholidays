@@ -120,3 +120,36 @@ export async function getSelectableZiyaratOptions(): Promise<SelectableZiyaratOp
     })
   );
 }
+
+export interface SelectableAdditionalService {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  price_type: "fixed" | "from" | "on_request";
+  price_aed: number | null;
+  currency: string;
+  short_description: string;
+  icon?: string;
+  features?: string[];
+  status: string;
+}
+
+export async function getSelectableAdditionalServices(): Promise<SelectableAdditionalService[]> {
+  const { getAllPublishedAdditionalServices } = await import("@/lib/data/additional-services");
+  const services = await getAllPublishedAdditionalServices();
+  return services.map((s) => ({
+    id: s.id,
+    name: s.name,
+    slug: s.slug,
+    category: s.category,
+    price_type: s.price_type,
+    price_aed: s.price_aed,
+    currency: s.currency || "AED",
+    short_description: s.short_description,
+    icon: s.icon,
+    features: s.features,
+    status: s.status,
+  }));
+}
+

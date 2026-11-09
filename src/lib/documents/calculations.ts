@@ -740,17 +740,59 @@ export function resolveServiceImage(
     };
   }
 
-  // 5. PRIVATE TRIPS & ZIYARAT
-  if (cat.includes("ziyarat") || cat.includes("private_trip") || cat.includes("tour")) {
+  // 5. PRIVATE TRIPS & ZIYARAT & GUIDANCE
+  if (
+    cat.includes("ziyarat") ||
+    cat.includes("private_trip") ||
+    cat.includes("tour") ||
+    cat.includes("service") ||
+    text.includes("guide") ||
+    text.includes("wheelchair")
+  ) {
+    if (text.includes("wheelchair")) {
+      return {
+        imageUrl: "/services/wheelchair-assistance.webp",
+        altText: title || "Wheelchair Assistance",
+        badgeLabel: "MOBILITY SUPPORT",
+      };
+    }
+    if (text.includes("umrah guide") || (text.includes("guide") && !text.includes("sightseeing"))) {
+      return {
+        imageUrl: "/services/umrah-guide-hero.webp",
+        altText: title || "Personal Umrah Guide",
+        badgeLabel: "SPIRITUAL GUIDANCE",
+      };
+    }
+    if (text.includes("sightseeing") && text.includes("guide")) {
+      return {
+        imageUrl: "/brand/banners/umrah.webp",
+        altText: title || "Tour Guide for Sightseeing",
+        badgeLabel: "TOUR GUIDE",
+      };
+    }
+    if (text.includes("private transport") || (text.includes("transport") && !text.includes("train"))) {
+      return {
+        imageUrl: "/services/private-transport.webp",
+        altText: title || "Private Transport",
+        badgeLabel: "TRANSPORT",
+      };
+    }
+    if (text.includes("private tour")) {
+      return {
+        imageUrl: "/services/private-tours.webp",
+        altText: title || "Private Tours & Excursions",
+        badgeLabel: "PRIVATE TOURS",
+      };
+    }
     if (text.includes("madinah") || text.includes("uhud") || text.includes("quba")) {
       return {
-        imageUrl: "/trips/private-trip-madinah-card.webp",
+        imageUrl: "/services/madinah-ziyarah.webp",
         altText: title || "Historical Ziyarat in Madinah",
         badgeLabel: "ZIYARAT",
       };
     }
     return {
-      imageUrl: "/trips/private-trip-makkah-card.webp",
+      imageUrl: "/services/makkah-ziyarah.webp",
       altText: title || "Historical Ziyarat in Makkah",
       badgeLabel: "ZIYARAT",
     };

@@ -30,6 +30,7 @@ export const PDF_PAGE_SECTIONS = [
   { id: "transportation", label: "Transportation" },
   { id: "ziyarat", label: "Sightseeing & Ziyarat" },
   { id: "flights", label: "Flights" },
+  { id: "services", label: "Additional Services" },
   { id: "itinerary", label: "Itinerary" },
   { id: "inclusions", label: "Inclusions" },
   { id: "exclusions", label: "Exclusions" },
@@ -789,6 +790,88 @@ export function QuotationDocumentView({
           );
         }
 
+        // 6b. ADDITIONAL SERVICES & ADD-ONS
+        if (sec.id === "services") {
+          const additionalServiceItems = items.filter(
+            (i) =>
+              (i.item_type === "service" || i.item_type === "custom") &&
+              !i.description.toLowerCase().includes("flight") &&
+              !i.description.toLowerCase().includes("airline") &&
+              !i.description.toLowerCase().includes("ziyarat") &&
+              !i.description.toLowerCase().includes("sightseeing") &&
+              !i.description.toLowerCase().includes("visa")
+          );
+
+          if (additionalServiceItems.length === 0) return null;
+
+          return (
+            <div key="services" className="masaar-pdf-page p-10">
+              {renderPageHeader("Additional Pilgrimage Services")}
+
+              <div className="space-y-4 flex-1 text-xs">
+                <div className="grid grid-cols-1 gap-3.5">
+                  {additionalServiceItems.map((srv, sIdx) => {
+                    const isInc = (srv as any).is_included || Number(srv.unit_price_aed || 0) === 0;
+                    const details = srv.details || "";
+                    const dateMatch = details.match(/\[service_date:\s*([^\]]+)\]/i);
+                    const notesMatch = details.match(/\[service_notes:\s*([^\]]+)\]/i);
+                    const cleanDetails = details
+                      .replace(/\[service_date:[^\]]+\]/gi, "")
+                      .replace(/\[service_notes:[^\]]+\]/gi, "")
+                      .replace(/•?\s*\[price_[^\]]+\]/g, "")
+                      .trim();
+
+                    return (
+                      <div
+                        key={sIdx}
+                        className="rounded-xl border border-black/10 bg-white p-4 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between border-b border-black/10 pb-2.5 gap-2">
+                          <div>
+                            <h3 className="font-serif text-sm font-bold text-masaar-black">
+                              {srv.description}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-masaar-black/60 mt-0.5">
+                              <span>Quantity: <strong>{srv.quantity || 1}</strong></span>
+                              {dateMatch && <span>Date: <strong>{dateMatch[1]}</strong></span>}
+                              {notesMatch && <span>Notes: <strong>{notesMatch[1]}</strong></span>}
+                            </div>
+                          </div>
+                          <span
+                            className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase shrink-0 ${
+                              isInc
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : "bg-pure-gold/20 text-[#865d1d] border border-pure-gold/40"
+                            }`}
+                          >
+                            {isInc
+                              ? "✓ Included in Package"
+                              : `Optional: AED ${Number(srv.unit_price_aed).toLocaleString()}`}
+                          </span>
+                        </div>
+                        {cleanDetails && (
+                          <p className="mt-2 text-[11px] text-masaar-black/75 leading-relaxed">
+                            {cleanDetails}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-xl border border-black/10 bg-[#FAF8F5] p-4 text-[11px] text-masaar-black/80 leading-relaxed">
+                  <span className="font-bold text-masaar-black block mb-1">
+                    Dedicated Ground Concierge Coordination
+                  </span>
+                  Optional and included pilgrimage services are coordinated by Masaar Holidays licensed ground specialists in Saudi Arabia. Meeting times, assistance points, and logistical arrangements are confirmed with your dedicated pilgrimage advisor.
+                </div>
+              </div>
+
+              {renderPageFooter(pageNum)}
+            </div>
+          );
+        }
+
         // 7. ITINERARY
         if (sec.id === "itinerary") {
           if (isItineraryExplicitlyRemoved || activeItinerary.length === 0) return null;
@@ -921,19 +1004,43 @@ export function QuotationDocumentView({
                     </thead>
                     <tbody className="divide-y divide-black/5">
                       {items.length > 0 ? (
-                        items.map((item, idx) => (
-                          <tr key={idx}>
-                            <td className="p-3">
-                              <span className="font-semibold text-masaar-black">{item.description}</span>
-                              {item.details && <p className="text-[10px] text-black/50 mt-0.5">{item.details}</p>}
-                            </td>
-                            <td className="p-3 text-center">{item.quantity}</td>
-                            <td className="p-3 text-right">{formatMoney(item.unit_price_aed)}</td>
-                            <td className="p-3 text-right font-semibold">
-                              {formatMoney((item.quantity || 1) * (item.unit_price_aed || 0) - (item.discount_aed || 0))}
-                            </td>
-                          </tr>
-                        ))
+                        items.map((item, idx) => {
+                          const isInc = Boolean((item as any).is_included || Number(item.unit_price_aed) === 0);
+                          const cleanText = (item.details || "")
+                            .replace(/\[screenshot(?:_url)?:[^\]]+\]/gi, "")
+                            .replace(/\[service_date:[^\]]+\]/gi, "")
+                            .replace(/\[service_notes:[^\]]+\]/gi, "")
+                            .replace(/\[supplier_notes:[^\]]+\]/gi, "")
+                            .replace(/•?\s*\[price_[^\]]+\]/g, "")
+                            .trim();
+
+                          return (
+                            <tr key={idx}>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-masaar-black">{item.description}</span>
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${
+                                      isInc
+                                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                        : "bg-pure-gold/20 text-[#865d1d] border border-pure-gold/30"
+                                    }`}
+                                  >
+                                    {isInc ? "Included" : "Optional Add-on"}
+                                  </span>
+                                </div>
+                                {cleanText && <p className="text-[10px] text-black/50 mt-0.5">{cleanText}</p>}
+                              </td>
+                              <td className="p-3 text-center">{item.quantity}</td>
+                              <td className="p-3 text-right">
+                                {isInc ? "Included" : formatMoney(item.unit_price_aed)}
+                              </td>
+                              <td className="p-3 text-right font-semibold">
+                                {isInc ? "AED 0.00" : formatMoney((item.quantity || 1) * (item.unit_price_aed || 0) - (item.discount_aed || 0))}
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td className="p-3">

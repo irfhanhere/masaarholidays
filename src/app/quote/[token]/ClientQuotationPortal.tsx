@@ -910,39 +910,73 @@ Please let me know once the revised quotation is ready. JazakAllahu Khairan!`;
               <section className="space-y-4">
                 <div className="border-b border-black/10 pb-3">
                   <h2 className="font-serif text-2xl font-bold text-[#1A1816]">
-                    Included Amenities &amp; Highlights
+                    Additional Services &amp; Add-ons
                   </h2>
                   <p className="text-xs text-[#1A1816]/60 mt-0.5">
-                    Additional arrangements configured for your comfort and spiritual enrichment.
+                    Tailored arrangements configured for your comfort and spiritual enrichment.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {otherServices.map((srv, idx) => {
-                    const imgRes = resolveServiceImage(srv.item_type, srv.description, srv.details);
+                    const isInc = Boolean((srv as any).is_included || Number(srv.unit_price_aed) === 0);
+                    const details = srv.details || "";
+                    const dateMatch = details.match(/\[service_date:\s*([^\]]+)\]/i);
+                    const notesMatch = details.match(/\[service_notes:\s*([^\]]+)\]/i);
+                    const cleanDetails = details
+                      .replace(/\[service_date:[^\]]+\]/gi, "")
+                      .replace(/\[service_notes:[^\]]+\]/gi, "")
+                      .replace(/•?\s*\[price_[^\]]+\]/g, "")
+                      .trim();
+
                     return (
                       <div
                         key={srv.id || idx}
-                        className="rounded-xl border border-black/10 bg-white p-4 text-xs flex items-center gap-3"
+                        className="rounded-xl border border-black/10 bg-white p-4 text-xs flex flex-col justify-between gap-3 shadow-2xs"
                       >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#FAF8F5] text-base">
-                          {srv.description.toLowerCase().includes("visa")
-                            ? "🛂"
-                            : srv.description.toLowerCase().includes("meal")
-                            ? "🍽️"
-                            : srv.description.toLowerCase().includes("ziyarat")
-                            ? "📍"
-                            : srv.description.toLowerCase().includes("esim")
-                            ? "📶"
-                            : "✨"}
-                        </span>
-                        <div>
-                          <h4 className="font-bold text-[#1A1816]">{srv.description}</h4>
-                          {srv.details && (
-                            <p className="text-[#1A1816]/60 text-[11px] mt-0.5">
-                              {srv.details.replace(/•?\s*\[price_[^\]]+\]/g, "").trim()}
-                            </p>
-                          )}
+                        <div className="flex items-start gap-3">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#FAF8F5] text-base border border-black/5">
+                            {srv.description.toLowerCase().includes("guide")
+                              ? "🕋"
+                              : srv.description.toLowerCase().includes("wheelchair")
+                              ? "♿"
+                              : srv.description.toLowerCase().includes("transport")
+                              ? "🚗"
+                              : srv.description.toLowerCase().includes("tour")
+                              ? "🗺️"
+                              : srv.description.toLowerCase().includes("visa")
+                              ? "🛂"
+                              : srv.description.toLowerCase().includes("meal")
+                              ? "🍽️"
+                              : srv.description.toLowerCase().includes("esim")
+                              ? "📶"
+                              : "✨"}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-bold text-[#1A1816] truncate">{srv.description}</h4>
+                              <span
+                                className={`rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                                  isInc
+                                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                    : "bg-pure-gold/20 text-[#865d1d] border border-pure-gold/40"
+                                }`}
+                              >
+                                {isInc ? "✓ Included" : `Optional: AED ${Number(srv.unit_price_aed || 0).toLocaleString()}`}
+                              </span>
+                            </div>
+                            {cleanDetails && (
+                              <p className="text-[#1A1816]/70 text-[11px] mt-1 leading-relaxed">
+                                {cleanDetails}
+                              </p>
+                            )}
+                            {(dateMatch || notesMatch) && (
+                              <div className="mt-2 flex flex-wrap gap-x-3 text-[10px] text-black/50">
+                                {dateMatch && <span>Date: <strong>{dateMatch[1]}</strong></span>}
+                                {notesMatch && <span>Notes: <strong>{notesMatch[1]}</strong></span>}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

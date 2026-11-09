@@ -8,6 +8,7 @@ import {
   getPublishedPackages,
   getPublishedPrivateTrips,
 } from "@/lib/data/public";
+import { getAllPublishedAdditionalServices } from "@/lib/data/additional-services";
 import { UMRAH_TIER_ORDER } from "@/lib/umrah-journey";
 import { getSiteOrigin } from "@/lib/site-url";
 import {
@@ -38,6 +39,8 @@ const STATIC_ROUTES = [
   "/contact",
   "/blog",
   "/private-trips",
+  "/additional-services",
+  "/additional-services/umrah-guide",
   "/privacy-policy",
   "/terms-conditions",
   "/accessibility",
@@ -120,7 +123,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   // 2. Data-driven published content
-  const [umrahPackages, hajjPackages, hotels, visaTypes, departureMonths, blogPosts, privateTrips, transfers] = await Promise.all([
+  const [umrahPackages, hajjPackages, hotels, visaTypes, departureMonths, blogPosts, privateTrips, transfers, additionalServices] = await Promise.all([
     getPublishedPackages("umrah"),
     getPublishedPackages("hajj"),
     getActiveHotels(),
@@ -129,6 +132,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getSitemapVisibleBlogPosts(),
     getPublishedPrivateTrips(),
     (await import("@/lib/data/transfers")).getPublicTransfers(),
+    getAllPublishedAdditionalServices(),
   ]);
 
   // Exclude any internal/admin placeholder slugs (e.g. umrah-*-placeholder, hajj-*-placeholder)
@@ -186,6 +190,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       createSitemapEntries(`/transfers/${t.slug}`, new Date(t.updated_at), origin)
     );
 
+  const additionalServiceEntries: MetadataRoute.Sitemap = additionalServices
+    .filter((s) => s.status === "published" && s.slug !== "umrah-guide")
+    .flatMap((s) =>
+      createSitemapEntries(`/additional-services/${s.slug}`, new Date(s.updated_at), origin)
+    );
+
   const allEntries = [
     ...staticEntries,
     ...packageEntries,
@@ -196,6 +206,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...blogEntries,
     ...privateTripEntries,
     ...transferEntries,
+    ...additionalServiceEntries,
   ];
 
   const seenUrls = new Set<string>();
