@@ -10,7 +10,16 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  let webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (webhookSecret) {
+    if (
+      (webhookSecret.startsWith('"') && webhookSecret.endsWith('"')) ||
+      (webhookSecret.startsWith("'") && webhookSecret.endsWith("'"))
+    ) {
+      webhookSecret = webhookSecret.slice(1, -1).trim();
+    }
+  }
+
   if (!webhookSecret) {
     console.error("Stripe webhook received but STRIPE_WEBHOOK_SECRET is not configured.");
     return NextResponse.json(
@@ -32,6 +41,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Request body error: ${msg}` }, { status: 400 });
   }
 
+  if (!rawBody || rawBody.length === 0) {
+    return NextResponse.json({ error: "Empty request body" }, { status: 400 });
+  }
+
   let stripe: Stripe;
   try {
     stripe = getStripe();
@@ -47,7 +60,14 @@ export async function POST(request: NextRequest) {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Bad signature";
-    console.warn("Stripe webhook signature verification failed:", msg);
+    console.warn("[stripe-webhook] Signature verification failed:", {
+      message: msg,
+      secretConfigured: Boolean(webhookSecret),
+      secretLength: webhookSecret?.length ?? 0,
+      secretPrefixValid: webhookSecret?.startsWith("whsec_") ?? false,
+      bodyLength: rawBody.length,
+      hasSignatureHeader: Boolean(signature),
+    });
     return NextResponse.json({ error: `Invalid webhook signature: ${msg}` }, { status: 400 });
   }
 

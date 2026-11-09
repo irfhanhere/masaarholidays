@@ -31,6 +31,12 @@ const RETIRED_SLUG_REDIRECTS: Record<string, string> = {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Completely bypass middleware for API endpoints and webhooks.
+  // Preserves bit-for-bit raw body streams without re-wrapping or header mutation.
+  if (pathname.startsWith("/api/") || pathname === "/api") {
+    return NextResponse.next();
+  }
+
   // Resolve locale first so the /admin guard automatically covers every
   // supported locale's prefix ("/ar/admin", "/ur/admin", "/hi/admin", …)
   // without listing them one by one.
@@ -107,9 +113,9 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Run on every route except static assets, so /admin/** gets its
+     * Run on every route except static assets and API routes, so /admin/** gets its
      * Supabase auth gate and every public route gets locale resolution.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
