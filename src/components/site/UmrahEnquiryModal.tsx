@@ -12,6 +12,8 @@ import { WhatsAppGlyph } from "./WhatsAppButton";
 import { Price } from "./Price";
 import { useCurrency } from "./CurrencyProvider";
 import { convertFromAed, formatCurrency } from "@/lib/currency";
+import { getEnquiryPopupCatalogServices } from "@/lib/data/additional-services-catalog";
+import type { AdditionalServiceRow } from "@/lib/types/database";
 
 export interface PackageEnquiryInfo {
   name: string;
@@ -40,6 +42,7 @@ interface Props {
   onClose: () => void;
   packageInfo: PackageEnquiryInfo;
   initialAddon?: string;
+  additionalServices?: AdditionalServiceRow[];
 }
 
 const WHATSAPP_NUMBER = "971557329320"; // Official Masaar Holidays UAE contact number
@@ -146,6 +149,7 @@ export function UmrahEnquiryModal({
   onClose,
   packageInfo,
   initialAddon,
+  additionalServices,
 }: Props) {
   const { currency, rates } = useCurrency();
   const isHajj = packageInfo.packageType === "hajj" || packageInfo.destination?.toLowerCase().includes("hajj");
@@ -196,6 +200,12 @@ export function UmrahEnquiryModal({
   const [ziyaratMadinahStatus, setZiyaratMadinahStatus] = useState<ServiceStatus>("none");
   const [ziyaratMadinahVehicle, setZiyaratMadinahVehicle] = useState<string>("toyota-camry");
 
+  // Curated Additional Services (Multi-select)
+  const availableServices = (additionalServices ?? getEnquiryPopupCatalogServices()).filter(
+    (s) => s.status === "published" && s.is_enquiry_enabled !== false && s.show_in_enquiry_popup !== false
+  );
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+
   // Notes
   const [notes, setNotes] = useState<string>("");
 
@@ -212,6 +222,20 @@ export function UmrahEnquiryModal({
     }
     if (lower.includes("madinah") && (lower.includes("ziyarat") || lower.includes("sightseeing"))) {
       setZiyaratMadinahStatus("choose_now");
+    }
+    if (lower.includes("guide") || lower.includes("umrah-guide")) {
+      setSelectedServices((prev) => Array.from(new Set([...prev, "umrah-guide"])));
+    }
+    if (lower.includes("wheelchair")) {
+      setSelectedServices((prev) => Array.from(new Set([...prev, "wheelchair-assistance"])));
+    }
+    if (lower.includes("ziyarah")) {
+      if (lower.includes("makkah")) {
+        setSelectedServices((prev) => Array.from(new Set([...prev, "makkah-ziyarah"])));
+      }
+      if (lower.includes("madinah")) {
+        setSelectedServices((prev) => Array.from(new Set([...prev, "madinah-ziyarah"])));
+      }
     }
   }, [initialAddon]);
 
@@ -333,20 +357,34 @@ export function UmrahEnquiryModal({
       services.push(`• Private Madinah Sightseeing: Decide Later`);
     }
 
-    if (services.length > 0) {
+    // Additional Services Requested (Multi-select)
+    const selectedAdditionalNames: string[] = [];
+    selectedServices.forEach((slug) => {
+      const s = availableServices.find((srv) => srv.slug === slug);
+      if (s) {
+        selectedAdditionalNames.push(`• ${s.name}`);
+      }
+    });
+
+    if (selectedAdditionalNames.length > 0 || services.length > 0) {
       lines.push("");
-      lines.push("Additional Services:");
-      lines.push(...services);
+      lines.push("Additional services requested:");
+      if (selectedAdditionalNames.length > 0) {
+        lines.push(...selectedAdditionalNames);
+      }
+      if (services.length > 0) {
+        lines.push(...services);
+      }
     }
 
     if (notes.trim()) {
       lines.push("");
-      lines.push("Additional Notes:");
+      lines.push("Additional notes:");
       lines.push(notes.trim());
     }
 
     lines.push("");
-    lines.push("Please share availability and confirmed pricing details.");
+    lines.push("Please share the available arrangements and quotation.");
     lines.push("JazakAllah Khair.");
 
     return lines.join("\n");
@@ -1260,6 +1298,83 @@ export function UmrahEnquiryModal({
                       </div>
                     )}
                   </div>
+
+                  {/* SERVICE 8: CURATED PILGRIMAGE SERVICES (MULTI-SELECT) */}
+                  {availableServices.length > 0 && (
+                    <div className="rounded-xl border border-black/10 bg-[#FAF7F2]/50 p-3.5 space-y-3 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="flex size-9 items-center justify-center rounded-lg bg-white text-base shadow-2xs">
+                            ✨
+                          </span>
+                          <div>
+                            <h5 className="text-xs font-bold text-[#0A0A08]">
+                              Curated Additional Services
+                            </h5>
+                            <p className="text-[11px] text-[#0A0A08]/60">
+                              Select optional assistance or guidance (multiple allowed)
+                            </p>
+                          </div>
+                        </div>
+                        {selectedServices.length > 0 && (
+                          <span className="rounded-full bg-[#C9A227]/20 px-2.5 py-1 text-[10px] font-bold text-[#8F6407]">
+                            {selectedServices.length} Selected
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {availableServices.map((service) => {
+                          const isSelected = selectedServices.includes(service.slug);
+                          return (
+                            <button
+                              key={service.slug}
+                              type="button"
+                              onClick={() => {
+                                setSelectedServices((prev) =>
+                                  prev.includes(service.slug)
+                                    ? prev.filter((s) => s !== service.slug)
+                                    : [...prev, service.slug]
+                                );
+                              }}
+                              className={`group relative flex items-start gap-3 rounded-xl border p-2.5 text-left transition-all duration-200 ${
+                                isSelected
+                                  ? "border-[#C9A227] bg-[#C9A227]/15 ring-1.5 ring-[#C9A227] shadow-xs"
+                                  : "border-black/10 bg-white hover:border-[#C9A227]/50 hover:bg-[#FAF7F2]"
+                              }`}
+                            >
+                              <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-warm-ivory border border-black/10">
+                                <Image
+                                  src={service.image_url}
+                                  alt={service.image_alt || service.name}
+                                  fill
+                                  sizes="40px"
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1 pr-6">
+                                <h6 className="text-xs font-bold text-[#0A0A08] group-hover:text-[#8F6407] transition-colors leading-snug">
+                                  {service.name}
+                                </h6>
+                                <p className="text-[10px] text-[#0A0A08]/60 line-clamp-2 mt-0.5 leading-relaxed">
+                                  {service.short_description}
+                                </p>
+                              </div>
+                              <div
+                                className={`absolute top-2.5 right-2.5 flex size-4 items-center justify-center rounded border text-[9px] font-bold transition-all ${
+                                  isSelected
+                                    ? "border-[#C9A227] bg-[#C9A227] text-white"
+                                    : "border-black/20 bg-white text-transparent group-hover:border-black/40"
+                                }`}
+                              >
+                                ✓
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1598,6 +1713,53 @@ export function UmrahEnquiryModal({
                           {ziyaratMadinahStatus === "choose_now" ? "Configured" : "Decide Later"}
                         </p>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 8. ADDITIONAL SERVICES REQUESTED REVIEW */}
+                {selectedServices.length > 0 && (
+                  <div className="rounded-xl border border-black/10 bg-[#FAF7F2] p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">✨</span>
+                        <h4 className="text-xs font-bold text-[#0A0A08]">
+                          Additional Services Requested ({selectedServices.length})
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStep(1)}
+                        className="text-xs font-bold text-[#8F6407] hover:underline"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-6">
+                      {selectedServices.map((slug) => {
+                        const s = availableServices.find((srv) => srv.slug === slug);
+                        if (!s) return null;
+                        return (
+                          <div
+                            key={slug}
+                            className="flex items-center gap-2.5 rounded-lg border border-black/5 bg-white p-2"
+                          >
+                            <div className="relative size-8 shrink-0 overflow-hidden rounded bg-warm-ivory border border-black/10">
+                              <Image
+                                src={s.image_url}
+                                alt={s.image_alt || s.name}
+                                fill
+                                sizes="32px"
+                                className="object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-[#0A0A08] truncate">{s.name}</p>
+                              <p className="text-[10px] text-[#0A0A08]/60 truncate">{s.category}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

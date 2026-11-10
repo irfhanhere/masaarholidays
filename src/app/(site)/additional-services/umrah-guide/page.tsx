@@ -4,9 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { ServiceFaqAccordion } from "@/components/site/ServiceFaqAccordion";
 import { FaqSchema } from "@/components/site/FaqSchema";
-import { CONTACT } from "@/lib/contact";
+import { buildServiceWhatsAppUrl } from "@/lib/whatsapp-templates";
 import { getAdditionalServiceBySlug } from "@/lib/data/additional-services";
 import { buildPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
@@ -38,10 +39,10 @@ export default async function UmrahGuidePage() {
   const origin = getSiteOrigin();
   const canonicalUrl = `${origin}/additional-services/umrah-guide`;
 
-  const whatsappMessage = encodeURIComponent(
-    "Hello Masaar Holidays, I would like to enquire about arranging an Umrah Guide in Makkah and Madinah for my upcoming pilgrimage."
-  );
-  const whatsappUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${whatsappMessage}`;
+  const whatsappUrl = buildServiceWhatsAppUrl("umrah-guide", {
+    service_name: "Umrah Guide",
+    service_url: canonicalUrl,
+  });
 
   // Structured Data (JSON-LD)
   const serviceSchema = {
@@ -131,10 +132,6 @@ export default async function UmrahGuidePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
       />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-      />
       {faqItemsForSchema.length > 0 && <FaqSchema faqs={faqItemsForSchema} />}
 
       {/* Breadcrumbs */}
@@ -142,7 +139,6 @@ export default async function UmrahGuidePage() {
         <Container>
           <Breadcrumbs
             items={[
-              { label: "Home", href: "/" },
               { label: "Additional Services", href: "/additional-services" },
               { label: "Umrah Guide" },
             ]}
@@ -762,6 +758,12 @@ export default async function UmrahGuidePage() {
           </div>
         </Container>
       </section>
+
+      {/* Cross-Link Services: Thoughtful Services for Every Part of Your Journey */}
+      <CrossLinkServices
+        exclude={["umrah-guide"]}
+        className="py-16 bg-white border-t border-black/5"
+      />
 
       {/* Bottom Dark CTA Banner */}
       <section className="relative overflow-hidden bg-masaar-black py-16 text-white text-center sm:py-20">

@@ -2,15 +2,14 @@
 
 import { buildWhatsAppLink } from "@/lib/contact";
 import { trackWhatsAppClick } from "@/lib/analytics/events";
-import type { WhatsAppTemplateKey } from "@/lib/whatsapp-templates";
+import type { WhatsAppTemplateKey, AdditionalServiceEnquiryParams } from "@/lib/whatsapp-templates";
 import { useWhatsAppTemplates } from "./WhatsAppTemplatesProvider";
 
 /**
  * Resolves its message from the live `whatsapp_templates` table (via
  * WhatsAppTemplatesProvider) rather than taking pre-built text — this is
  * what makes an admin edit show up on every button using that key
- * without a rebuild. `params` fills {{placeholders}} the template uses,
- * e.g. templateKey="hotel" params={{ hotelName: hotel.name }}.
+ * without a rebuild. `params` fills {{placeholders}} the template uses.
  */
 export function WhatsAppButton({
   templateKey,
@@ -19,7 +18,7 @@ export function WhatsAppButton({
   variant = "solid",
   className = "",
 }: {
-  templateKey: WhatsAppTemplateKey;
+  templateKey: WhatsAppTemplateKey | string;
   params?: Record<string, string>;
   children: React.ReactNode;
   variant?: "solid" | "outline" | "whatsapp-green";
@@ -39,7 +38,7 @@ export function WhatsAppButton({
     trackWhatsAppClick({
       service_type: templateKey,
       template_key: templateKey,
-      package_name: params?.packageName || params?.packageTitle,
+      package_name: params?.packageName || params?.packageTitle || params?.package_name,
       hotel_name: params?.hotelName,
       cta_location: className.includes("floating") ? "floating_widget" : "page_content",
     });
@@ -55,6 +54,63 @@ export function WhatsAppButton({
     >
       <WhatsAppGlyph />
       {children}
+    </a>
+  );
+}
+
+/**
+ * Service-specific WhatsApp button that automatically resolves the template assigned
+ * to the service in the admin panel (or defaults to the corresponding service template),
+ * interpolates dynamic fields, and supports admin-configured default CTA text.
+ */
+export function ServiceWhatsAppButton({
+  serviceSlug,
+  params,
+  children,
+  fallbackCtaText = "Enquire on WhatsApp",
+  variant = "solid",
+  className = "",
+}: {
+  serviceSlug: string;
+  params?: AdditionalServiceEnquiryParams;
+  children?: React.ReactNode;
+  fallbackCtaText?: string;
+  variant?: "solid" | "outline" | "whatsapp-green" | "gold";
+  className?: string;
+}) {
+  const { getServiceCta, getServiceWhatsAppUrl } = useWhatsAppTemplates();
+
+  const base =
+    "inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-semibold transition-colors";
+  const styles =
+    variant === "solid" || variant === "gold"
+      ? "bg-pure-gold text-masaar-black hover:bg-light-gold"
+      : variant === "whatsapp-green"
+        ? "bg-[#25D366] text-white hover:bg-[#1fb959]"
+        : "border border-masaar-black text-masaar-black hover:bg-masaar-black hover:text-white";
+
+  const ctaText = children || getServiceCta(serviceSlug, fallbackCtaText);
+  const href = getServiceWhatsAppUrl(serviceSlug, params);
+
+  const handleClick = () => {
+    trackWhatsAppClick({
+      service_type: serviceSlug,
+      template_key: serviceSlug,
+      package_name: params?.package_name,
+      cta_location: className.includes("floating") ? "floating_widget" : "service_cta",
+    });
+  };
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={handleClick}
+      className={`${base} ${styles} ${className}`}
+    >
+      <WhatsAppGlyph />
+      <span>{ctaText}</span>
     </a>
   );
 }

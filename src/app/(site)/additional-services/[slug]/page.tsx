@@ -4,7 +4,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
-import { CONTACT } from "@/lib/contact";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { FaqSchema } from "@/components/site/FaqSchema";
+import { ServiceFaqAccordion } from "@/components/site/ServiceFaqAccordion";
+import { buildServiceWhatsAppUrl } from "@/lib/whatsapp-templates";
 import {
   getAllPublishedAdditionalServices,
   getAdditionalServiceBySlug,
@@ -29,8 +32,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return buildPageMetadata({
     path: `/additional-services/${service.slug}`,
-    title: `${service.name} for Umrah | Masaar Holidays`,
-    description: service.short_description,
+    title: service.meta_title || `${service.name} for Umrah | Masaar Holidays`,
+    description: service.meta_description || service.short_description,
     ogImageUrl: service.image_url,
   });
 }
@@ -48,18 +51,60 @@ export default async function AdditionalServiceDetailPage({ params }: Props) {
     notFound();
   }
 
-  const whatsappUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-    `Hello Masaar Holidays, I would like to book/enquire about "${service.name}" for my upcoming Umrah journey.`
-  )}`;
+  const canonicalUrl = `https://www.masaarholidays.com/additional-services/${service.slug}`;
+  const whatsappUrl = buildServiceWhatsAppUrl(service.slug, {
+    service_name: service.name,
+    service_url: canonicalUrl,
+  });
+
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: service.name,
+    description: service.short_description,
+    provider: {
+      "@type": "TravelAgency",
+      name: "Masaar Holidays",
+      url: "https://www.masaarholidays.com",
+    },
+    areaServed: [
+      { "@type": "City", name: "Makkah" },
+      { "@type": "City", name: "Madinah" },
+      { "@type": "Country", name: "Saudi Arabia" },
+    ],
+    serviceType: service.category,
+    url: canonicalUrl,
+    ...(service.price_type === "fixed" && service.price_aed
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: service.price_aed,
+            priceCurrency: "AED",
+          },
+        }
+      : {}),
+  };
+
+  const visibleFaqs = (service.faqs || []).filter((f) => f.published !== false);
+  const faqItemsForSchema = visibleFaqs.map((faq) => ({
+    question: faq.q,
+    answer: faq.a,
+  }));
 
   return (
     <div className="min-h-screen bg-warm-ivory/20 text-masaar-black">
+      {/* Schema.org Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+      />
+      {faqItemsForSchema.length > 0 && <FaqSchema faqs={faqItemsForSchema} />}
+
       {/* Breadcrumbs */}
       <div className="border-b border-black/5 bg-warm-ivory/60 py-2.5">
         <Container>
           <Breadcrumbs
             items={[
-              { label: "Home", href: "/" },
               { label: "Additional Services", href: "/additional-services" },
               { label: service.name },
             ]}
@@ -72,7 +117,7 @@ export default async function AdditionalServiceDetailPage({ params }: Props) {
         <div className="absolute inset-0 z-0 opacity-25">
           <Image
             src={service.image_url}
-            alt={service.name}
+            alt={service.image_alt || service.name}
             fill
             className="object-cover"
             priority
@@ -156,6 +201,16 @@ export default async function AdditionalServiceDetailPage({ params }: Props) {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Service FAQs if available */}
+              {visibleFaqs.length > 0 && (
+                <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-8 shadow-xs">
+                  <h2 className="font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black mb-6">
+                    Frequently Asked Questions
+                  </h2>
+                  <ServiceFaqAccordion faqs={visibleFaqs} />
                 </div>
               )}
 
@@ -263,7 +318,12 @@ export default async function AdditionalServiceDetailPage({ params }: Props) {
           </div>
         </Container>
       </section>
+
+      {/* Cross-Link Services: Thoughtful Services for Every Part of Your Journey */}
+      <CrossLinkServices
+        exclude={[service.slug]}
+        className="py-16 bg-white border-t border-black/5"
+      />
     </div>
   );
 }
-

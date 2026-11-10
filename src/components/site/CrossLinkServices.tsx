@@ -3,8 +3,12 @@ import Link from "next/link";
 import { Container } from "./Container";
 import { SectionHeading } from "./SectionHeading";
 import { isEsimLive } from "@/lib/esim-launch";
+import {
+  getThoughtfulCatalogServices,
+} from "@/lib/data/additional-services-catalog";
+import type { AdditionalServiceRow } from "@/lib/types/database";
 
-export type ServiceKey =
+export type CoreServiceKey =
   | "umrah"
   | "hajj"
   | "hotels"
@@ -13,6 +17,8 @@ export type ServiceKey =
   | "esim"
   | "private-trips";
 
+export type ServiceKey = CoreServiceKey | string;
+
 export interface CrossLinkService {
   key: ServiceKey;
   href: string;
@@ -20,6 +26,7 @@ export interface CrossLinkService {
   description: string;
   image: string;
   alt: string;
+  isAdditional?: boolean;
 }
 
 export const CROSS_LINK_SERVICES: CrossLinkService[] = [
@@ -83,12 +90,14 @@ export const CROSS_LINK_SERVICES: CrossLinkService[] = [
 
 export function CrossLinkServices({
   exclude,
+  additionalServices,
   eyebrow = "Explore More",
   title = "Thoughtful Services for Every Part of Your Journey",
   subtitle = "Complete arrangements with personal care and trusted support from start to finish.",
   className = "py-16",
 }: {
   exclude?: ServiceKey | ServiceKey[];
+  additionalServices?: AdditionalServiceRow[];
   eyebrow?: string;
   title?: string;
   subtitle?: string;
@@ -98,7 +107,23 @@ export function CrossLinkServices({
   if (!isEsimLive() && !excludedKeys.includes("esim")) {
     excludedKeys.push("esim");
   }
-  const filteredServices = CROSS_LINK_SERVICES.filter((s) => !excludedKeys.includes(s.key));
+
+  // Combine core foundational services with published Additional Services
+  const addlList = additionalServices ?? getThoughtfulCatalogServices();
+  const additionalCards: CrossLinkService[] = addlList
+    .filter((s) => s.status === "published" && s.show_in_thoughtful_services !== false)
+    .map((s) => ({
+      key: s.slug,
+      href: `/additional-services/${s.slug}`,
+      title: s.name,
+      description: s.short_description,
+      image: s.image_url,
+      alt: s.image_alt || `${s.name} service for Umrah`,
+      isAdditional: true,
+    }));
+
+  const allServices = [...CROSS_LINK_SERVICES, ...additionalCards];
+  const filteredServices = allServices.filter((s) => !excludedKeys.includes(s.key));
 
   return (
     <section className={className}>
@@ -114,23 +139,25 @@ export function CrossLinkServices({
 
         <div
           className={`mt-10 grid gap-6 ${
-            filteredServices.length === 4
+            filteredServices.length <= 3
+              ? "sm:grid-cols-2 lg:grid-cols-3"
+              : filteredServices.length === 4
               ? "sm:grid-cols-2 lg:grid-cols-4"
-              : "sm:grid-cols-2 lg:grid-cols-3"
+              : "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           }`}
         >
           {filteredServices.map((service) => (
             <Link
               key={service.href}
               href={service.href}
-              className="group flex flex-col overflow-hidden rounded-lg border border-black/10 bg-white transition-all hover:border-pure-gold hover:shadow-md"
+              className="group flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white transition-all duration-300 hover:border-pure-gold hover:shadow-md"
             >
               <div className="relative h-48 w-full overflow-hidden bg-warm-ivory">
                 <Image
                   src={service.image}
                   alt={service.alt}
                   fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
@@ -138,10 +165,10 @@ export function CrossLinkServices({
                 <h3 className="text-lg font-semibold text-masaar-black transition-colors group-hover:text-deep-gold">
                   {service.title}
                 </h3>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-masaar-black/60">
+                <p className="mt-2 flex-1 text-xs sm:text-sm leading-relaxed text-masaar-black/60 line-clamp-3">
                   {service.description}
                 </p>
-                <span className="mt-4 inline-flex items-center text-sm font-semibold text-deep-gold group-hover:underline">
+                <span className="mt-4 inline-flex items-center text-xs sm:text-sm font-semibold text-deep-gold group-hover:underline">
                   Explore →
                 </span>
               </div>
@@ -154,4 +181,3 @@ export function CrossLinkServices({
 }
 
 export { CrossLinkServices as ExploreMore };
-

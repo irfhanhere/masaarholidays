@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "./Container";
-import { CONTACT } from "@/lib/contact";
+import { buildServiceWhatsAppUrl } from "@/lib/whatsapp-templates";
 import type { AdditionalServiceRow } from "@/lib/types/database";
 
 interface Props {
@@ -115,9 +115,10 @@ export function HomeAdditionalServices({ services }: Props) {
         {/* Dynamic Cards Grid */}
         <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {services.map((service) => {
-            const enquiryUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-              `Hello Masaar Holidays, I would like to enquire about the "${service.name}" additional service for my Umrah journey.`
-            )}`;
+            const enquiryUrl = buildServiceWhatsAppUrl(service.slug, {
+              service_name: service.name,
+              service_url: `https://www.masaarholidays.com/additional-services/${service.slug}`,
+            });
 
             return (
               <article

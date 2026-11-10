@@ -419,4 +419,72 @@ export const FALLBACK_FAQS: FaqRow[] = [
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
   },
+
+  // Additional Services (6)
+  {
+    id: "faq-additional-services-1",
+    category: "additional_services",
+    question: "What additional services does Masaar Holidays offer?",
+    answer:
+      "Masaar Holidays provides a range of additional services to help organise your pilgrimage, including Umrah guidance, Ziyarah arrangements, transport and other assistance. Available services depend on the confirmed arrangements.",
+    display_order: 1,
+    published: true,
+    created_at: "2026-11-10T00:00:00Z",
+    updated_at: "2026-11-10T00:00:00Z",
+  },
+  {
+    id: "faq-additional-services-2",
+    category: "additional_services",
+    question: "Can I book an Umrah Guide separately?",
+    answer:
+      "You can enquire about arranging an Umrah Guide separately. Our team will discuss the available arrangements, requirements and availability.",
+    display_order: 2,
+    published: true,
+    created_at: "2026-11-10T00:00:00Z",
+    updated_at: "2026-11-10T00:00:00Z",
+  },
+  {
+    id: "faq-additional-services-3",
+    category: "additional_services",
+    question: "Can I request Makkah and Madinah Ziyarah?",
+    answer:
+      "Yes. You can enquire about Makkah and Madinah Ziyarah arrangements. Private or group options are subject to availability and confirmation.",
+    display_order: 3,
+    published: true,
+    created_at: "2026-11-10T00:00:00Z",
+    updated_at: "2026-11-10T00:00:00Z",
+  },
+  {
+    id: "faq-additional-services-4",
+    category: "additional_services",
+    question: "Can I add additional services to my Umrah package?",
+    answer:
+      "Yes. You can discuss optional services with our team and request that suitable arrangements be included in your quotation.",
+    display_order: 4,
+    published: true,
+    created_at: "2026-11-10T00:00:00Z",
+    updated_at: "2026-11-10T00:00:00Z",
+  },
+  {
+    id: "faq-additional-services-5",
+    category: "additional_services",
+    question: "How can I enquire about a particular service?",
+    answer:
+      "Select the service you are interested in and use its WhatsApp enquiry option. Our team can help you understand the available arrangements.",
+    display_order: 5,
+    published: true,
+    created_at: "2026-11-10T00:00:00Z",
+    updated_at: "2026-11-10T00:00:00Z",
+  },
+  {
+    id: "faq-additional-services-6",
+    category: "additional_services",
+    question: "Are all services available throughout the year?",
+    answer:
+      "Availability depends on the service, travel dates and local arrangements. Please contact our team to confirm availability.",
+    display_order: 6,
+    published: true,
+    created_at: "2026-11-10T00:00:00Z",
+    updated_at: "2026-11-10T00:00:00Z",
+  },
 ];

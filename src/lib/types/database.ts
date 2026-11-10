@@ -24,7 +24,7 @@ export type VisaDocumentContextKey =
   | "hajj";
 export type TestimonialSource = "admin" | "passenger";
 export type CurrencyCode = "AED" | "INR" | "USD" | "EUR" | "GBP" | "SAR";
-export type FaqCategory = "umrah" | "hajj" | "hotels" | "visa" | "transfers" | "general";
+export type FaqCategory = "umrah" | "hajj" | "hotels" | "visa" | "transfers" | "general" | "additional_services";
 
 export type PackageItineraryDay = {
   day: number;
@@ -792,6 +792,8 @@ type WhatsAppTemplateRowShape = {
   placeholders: string[];
   is_active: boolean;
   display_order: number;
+  assigned_service_slug?: string | null;
+  default_cta_text?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -922,6 +924,8 @@ type PackageAddonCatalogRowShape = {
 export interface AdditionalServiceFaq {
   q: string;
   a: string;
+  published?: boolean;
+  order?: number;
 }
 
 export interface AdditionalServiceExpectation {
@@ -955,6 +959,16 @@ type AdditionalServiceRowShape = {
   is_featured: boolean;
   status: ServiceStatus;
   display_order: number;
+  show_on_homepage?: boolean;
+  homepage_display_order?: number | null;
+  show_in_thoughtful_services?: boolean;
+  thoughtful_services_order?: number | null;
+  show_in_enquiry_popup?: boolean;
+  enquiry_popup_order?: number | null;
+  allow_multiple_in_popup?: boolean;
+  is_enquiry_enabled?: boolean;
+  whatsapp_template_key?: string | null;
+  image_alt?: string | null;
   hero_headline?: string | null;
   hero_subtext?: string | null;
   meta_title?: string | null;
@@ -1381,6 +1395,16 @@ export interface AdditionalServiceRow {
   is_featured: boolean;
   status: ServiceStatus;
   display_order: number;
+  show_on_homepage?: boolean;
+  homepage_display_order?: number | null;
+  show_in_thoughtful_services?: boolean;
+  thoughtful_services_order?: number | null;
+  show_in_enquiry_popup?: boolean;
+  enquiry_popup_order?: number | null;
+  allow_multiple_in_popup?: boolean;
+  is_enquiry_enabled?: boolean;
+  whatsapp_template_key?: string | null;
+  image_alt?: string | null;
   hero_headline?: string | null;
   hero_subtext?: string | null;
   meta_title?: string | null;

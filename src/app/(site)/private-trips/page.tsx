@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
 import { Container } from "@/components/site/Container";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { ExternalImage } from "@/components/site/ExternalImage";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { getPublishedPrivateTrips } from "@/lib/data/public";
@@ -242,6 +243,12 @@ export default async function PrivateTripsLandingPage() {
           </p>
         </Container>
       </section>
+
+      {/* Cross-Link Services: Thoughtful Services for Every Part of Your Journey */}
+      <CrossLinkServices
+        exclude="private-trips"
+        className="py-16 bg-white border-t border-black/5"
+      />
 
       {/* ── We're Here to Help CTA ─────────────────────────────────── */}
       <section className="relative overflow-hidden bg-masaar-black py-16 text-white">

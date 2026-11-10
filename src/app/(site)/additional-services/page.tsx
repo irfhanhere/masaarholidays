@@ -3,7 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/site/Container";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
-import { CONTACT } from "@/lib/contact";
+import { FaqSection } from "@/components/site/FaqSection";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
+import { buildServiceWhatsAppUrl } from "@/lib/whatsapp-templates";
 import { getAllPublishedAdditionalServices } from "@/lib/data/additional-services";
 import { buildPageMetadata } from "@/lib/i18n";
 
@@ -20,11 +22,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AdditionalServicesPage() {
   const services = await getAllPublishedAdditionalServices();
 
-  const categories = [
-    "All Services",
-    ...Array.from(new Set(services.map((s) => s.category))),
-  ];
-
   return (
     <div className="min-h-screen bg-warm-ivory/20 text-masaar-black">
       {/* Breadcrumbs */}
@@ -32,7 +29,6 @@ export default async function AdditionalServicesPage() {
         <Container>
           <Breadcrumbs
             items={[
-              { label: "Home", href: "/" },
               { label: "Additional Services" },
             ]}
           />
@@ -73,9 +69,10 @@ export default async function AdditionalServicesPage() {
           {/* Services Grid */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => {
-              const enquiryUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-                `Hello Masaar Holidays, I am interested in booking the "${service.name}" additional service for my Umrah trip.`
-              )}`;
+              const enquiryUrl = buildServiceWhatsAppUrl(service.slug, {
+                service_name: service.name,
+                service_url: `https://www.masaarholidays.com/additional-services/${service.slug}`,
+              });
 
               return (
                 <article
@@ -86,7 +83,7 @@ export default async function AdditionalServicesPage() {
                     <div className="relative aspect-[16/10] w-full overflow-hidden bg-warm-ivory/50">
                       <Image
                         src={service.image_url}
-                        alt={service.name}
+                        alt={service.image_alt || service.name}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -167,7 +164,19 @@ export default async function AdditionalServicesPage() {
           </div>
         </Container>
       </section>
+
+      {/* Cross-Link Services: Thoughtful Services for Every Part of Your Journey */}
+      <CrossLinkServices
+        className="py-16 bg-warm-ivory/30 border-t border-black/5"
+      />
+
+      {/* FAQ Section: Frequently Asked Questions & Your Questions, Our Guidance */}
+      <FaqSection
+        category="additional_services"
+        title="Your Questions, Our Guidance"
+        subtitle="Clear answers to common questions about our additional pilgrimage services in Makkah and Madinah."
+        className="py-16 bg-white border-t border-black/5"
+      />
     </div>
   );
 }
-

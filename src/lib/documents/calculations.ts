@@ -866,6 +866,8 @@ export function resolveHotelMealPlan(details?: string | null, description?: stri
     text.includes("daily gourmet buffet") ||
     text.includes("buffet breakfast") ||
     text.includes("with breakfast") ||
+    text.includes("bed & breakfast") ||
+    text.includes("bed and breakfast") ||
     text.includes("daily buffet")
   ) {
     return "Daily Buffet Breakfast Included";

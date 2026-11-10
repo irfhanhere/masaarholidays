@@ -30,6 +30,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <WhatsAppTemplatesProvider
       initialTemplates={whatsAppConfig.templates}
       initialPhoneNumber={whatsAppConfig.phoneNumber}
+      initialServiceSlugToKey={whatsAppConfig.serviceSlugToKey}
+      initialDefaultCtaTexts={whatsAppConfig.defaultCtaTexts}
     >
       <CurrencyProvider initialRates={currencyRates}>
         <OrganizationSchema />

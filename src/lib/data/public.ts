@@ -1063,34 +1063,57 @@ export async function getAddonsCatalogForPublic(): Promise<PublicAddonCatalogRow
 export interface PublicWhatsAppConfig {
   templates: Record<string, string>;
   phoneNumber: string;
+  serviceSlugToKey?: Record<string, string>;
+  defaultCtaTexts?: Record<string, string>;
 }
 
 export async function getCachedWhatsAppConfig(): Promise<PublicWhatsAppConfig> {
-  const { WHATSAPP_DEFAULT_PHONE } = await import("@/lib/whatsapp-templates");
+  const { WHATSAPP_DEFAULT_PHONE, DEFAULT_SERVICE_SLUG_TO_KEY } = await import("@/lib/whatsapp-templates");
   if (!isSupabaseConfigured()) {
-    return { templates: {}, phoneNumber: WHATSAPP_DEFAULT_PHONE };
+    return {
+      templates: {},
+      phoneNumber: WHATSAPP_DEFAULT_PHONE,
+      serviceSlugToKey: { ...DEFAULT_SERVICE_SLUG_TO_KEY },
+      defaultCtaTexts: {},
+    };
   }
   try {
     const { createCachedPublicClient } = await import("@/lib/supabase/public-cached");
     const supabase = createCachedPublicClient();
     const [templatesRes, settingsRes] = await Promise.all([
-      supabase.from("whatsapp_templates").select("key, template_text"),
+      supabase.from("whatsapp_templates").select("key, template_text, assigned_service_slug, default_cta_text"),
       supabase.from("whatsapp_settings").select("phone_number").eq("id", 1).maybeSingle(),
     ]);
 
     const templates: Record<string, string> = {};
-    for (const row of templatesRes.data ?? []) {
-      templates[row.key] = row.template_text;
+    const serviceSlugToKey: Record<string, string> = { ...DEFAULT_SERVICE_SLUG_TO_KEY };
+    const defaultCtaTexts: Record<string, string> = {};
+
+    for (const row of (templatesRes.data ?? []) as any[]) {
+      if (row.key && row.template_text) {
+        templates[row.key] = row.template_text;
+      }
+      if (row.assigned_service_slug && row.key) {
+        serviceSlugToKey[row.assigned_service_slug] = row.key;
+      }
+      if (row.key && row.default_cta_text) {
+        defaultCtaTexts[row.key] = row.default_cta_text;
+      }
     }
 
     const phoneNumber = (!settingsRes.error && settingsRes.data?.phone_number)
       ? settingsRes.data.phone_number
       : WHATSAPP_DEFAULT_PHONE;
 
-    return { templates, phoneNumber };
+    return { templates, phoneNumber, serviceSlugToKey, defaultCtaTexts };
   } catch (err) {
     console.error("getCachedWhatsAppConfig error:", err);
-    return { templates: {}, phoneNumber: WHATSAPP_DEFAULT_PHONE };
+    return {
+      templates: {},
+      phoneNumber: WHATSAPP_DEFAULT_PHONE,
+      serviceSlugToKey: { ...DEFAULT_SERVICE_SLUG_TO_KEY },
+      defaultCtaTexts: {},
+    };
   }
 }
 

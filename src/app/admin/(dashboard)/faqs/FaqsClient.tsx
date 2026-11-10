@@ -20,9 +20,10 @@ const CATEGORY_META: Record<
   visa: { label: "Visa", bg: "bg-purple-50", text: "text-purple-800", border: "border-purple-200" },
   transfers: { label: "Transfers", bg: "bg-orange-50", text: "text-orange-800", border: "border-orange-200" },
   general: { label: "General", bg: "bg-slate-100", text: "text-slate-800", border: "border-slate-200" },
+  additional_services: { label: "Additional Services", bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
 };
 
-const ALL_CATEGORIES: FaqCategory[] = ["umrah", "hajj", "hotels", "visa", "transfers", "general"];
+const ALL_CATEGORIES: FaqCategory[] = ["umrah", "hajj", "hotels", "visa", "transfers", "general", "additional_services"];
 
 export function FaqsClient({ initialFaqs }: { initialFaqs: FaqRow[] }) {
   const [faqs, setFaqs] = useState<FaqRow[]>(initialFaqs);

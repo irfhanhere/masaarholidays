@@ -34,6 +34,8 @@ export async function updateTemplate(templateId: string, formData: FormData) {
     .filter(Boolean);
   const displayOrderRaw = String(formData.get("display_order") ?? "").trim();
   const displayOrder = displayOrderRaw ? Number(displayOrderRaw) : undefined;
+  const assignedServiceSlug = String(formData.get("assigned_service_slug") ?? "").trim() || null;
+  const defaultCtaText = String(formData.get("default_cta_text") ?? "").trim() || "Enquire on WhatsApp";
 
   try {
     const supabase = await getClient();
@@ -44,6 +46,8 @@ export async function updateTemplate(templateId: string, formData: FormData) {
         template_text: templateText,
         is_active: isActive,
         placeholders,
+        assigned_service_slug: assignedServiceSlug,
+        default_cta_text: defaultCtaText,
         ...(displayOrder !== undefined && !Number.isNaN(displayOrder) ? { display_order: displayOrder } : {}),
       })
       .eq("id", templateId);
@@ -67,6 +71,10 @@ export async function createTemplate(formData: FormData) {
     .join("");
   if (!key) return;
 
+  const assignedServiceSlug = String(formData.get("assigned_service_slug") ?? "").trim() || null;
+  const defaultCtaText = String(formData.get("default_cta_text") ?? "").trim() || "Enquire on WhatsApp";
+  const templateText = String(formData.get("template_text") ?? "").trim() || "Assalamu Alaikum,\n\n";
+
   try {
     const supabase = await getClient();
 
@@ -83,10 +91,12 @@ export async function createTemplate(formData: FormData) {
     await supabase.from("whatsapp_templates").insert({
       key,
       label,
-      template_text: "Assalamu Alaikum,\n\n",
+      template_text: templateText,
       placeholders: [],
       is_active: true,
       display_order: (maxOrderRow?.display_order ?? 0) + 1,
+      assigned_service_slug: assignedServiceSlug,
+      default_cta_text: defaultCtaText,
     });
 
     revalidatePath("/admin/whatsapp-templates");
@@ -96,6 +106,52 @@ export async function createTemplate(formData: FormData) {
       throw err;
     }
     console.error("[createTemplate] Error:", err);
+  }
+}
+
+export async function duplicateTemplate(templateId: string) {
+  try {
+    const supabase = await getClient();
+    const { data: original, error } = await supabase
+      .from("whatsapp_templates")
+      .select("*")
+      .eq("id", templateId)
+      .maybeSingle();
+
+    if (error || !original) {
+      console.error("[duplicateTemplate] Could not find template to duplicate:", templateId);
+      return;
+    }
+
+    const randomSuffix = Math.floor(Math.random() * 900 + 100);
+    const newKey = `${original.key}Copy${randomSuffix}`;
+    const newLabel = `${original.label} (Copy)`;
+
+    const { data: maxOrderRow } = await supabase
+      .from("whatsapp_templates")
+      .select("display_order")
+      .order("display_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    await supabase.from("whatsapp_templates").insert({
+      key: newKey,
+      label: newLabel,
+      template_text: original.template_text,
+      placeholders: original.placeholders || [],
+      is_active: true,
+      display_order: (maxOrderRow?.display_order ?? 0) + 1,
+      assigned_service_slug: original.assigned_service_slug,
+      default_cta_text: original.default_cta_text || "Enquire on WhatsApp",
+    });
+
+    revalidatePath("/admin/whatsapp-templates");
+    redirect(`/admin/whatsapp-templates?key=${newKey}`);
+  } catch (err: any) {
+    if (err?.message?.includes("NEXT_REDIRECT") || err?.digest?.includes("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[duplicateTemplate] Error:", err);
   }
 }
 

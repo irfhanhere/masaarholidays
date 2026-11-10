@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/site/Container";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { CONTACT } from "@/lib/contact";
 import { buildPageMetadata } from "@/lib/i18n";
 
@@ -500,6 +501,12 @@ export default function MasaarPremiumUmrahPage() {
           </div>
         </Container>
       </section>
+
+      {/* Thoughtful Services Site-Wide Section */}
+      <CrossLinkServices
+        exclude="umrah"
+        className="py-16 bg-warm-ivory/30 border-t border-black/5"
+      />
 
       {/* Bottom CTA Banner */}
       <section className="bg-masaar-black py-16 text-white text-center">
