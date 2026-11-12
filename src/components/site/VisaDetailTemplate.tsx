@@ -1228,10 +1228,16 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
                     Chat on WhatsApp
                   </a>
                   <a
-                    href={`tel:+${CONTACT.whatsappPhoneIntl}`}
-                    className="inline-flex items-center gap-2 rounded-md border border-black/15 bg-white px-6 py-3.5 text-xs font-semibold text-masaar-black transition-all hover:bg-black/5"
+                    href={`tel:${CONTACT.landlineTel}`}
+                    className="inline-flex items-center gap-2 rounded-md border border-black/15 bg-white px-5 py-3.5 text-xs font-semibold text-masaar-black transition-all hover:bg-black/5"
                   >
-                    Call {CONTACT.phoneDisplay}
+                    Landline {CONTACT.landlineDisplay}
+                  </a>
+                  <a
+                    href={`tel:+${CONTACT.whatsappPhoneIntl}`}
+                    className="inline-flex items-center gap-2 rounded-md border border-black/15 bg-white px-5 py-3.5 text-xs font-semibold text-masaar-black transition-all hover:bg-black/5"
+                  >
+                    Mobile {CONTACT.phoneDisplay}
                   </a>
                 </div>
               </div>

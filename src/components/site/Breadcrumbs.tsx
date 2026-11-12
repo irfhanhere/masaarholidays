@@ -86,7 +86,7 @@ export function OrganizationSchema() {
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/brand/logo.png`,
     image: `${SITE_ORIGIN}/brand/logo.png`,
-    telephone: `+${CONTACT.whatsappPhoneIntl}`,
+    telephone: [CONTACT.landlineTel, `+${CONTACT.whatsappPhoneIntl}`],
     email: CONTACT.emailGeneral,
     priceRange: "$$$",
     address: {
@@ -111,7 +111,7 @@ export function OrganizationSchema() {
     ],
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: `+${CONTACT.whatsappPhoneIntl}`,
+      telephone: [CONTACT.landlineTel, `+${CONTACT.whatsappPhoneIntl}`],
       contactType: "customer service",
       areaServed: ["AE", "SA"],
       availableLanguage: ["en", "ar", "ur", "hi"],

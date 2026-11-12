@@ -36,8 +36,21 @@ export function Footer({ locale, showEsim = true }: { locale: Locale; showEsim?:
             Stay Connected
           </h3>
           <ul className="mt-4 space-y-2 text-sm text-white/80">
-            <li>{CONTACT.phoneDisplay}</li>
-            <li>{CONTACT.emailGeneral}</li>
+            <li>
+              <a href={`tel:${CONTACT.landlineTel}`} className="transition-colors hover:text-pure-gold">
+                Landline: {CONTACT.landlineDisplay}
+              </a>
+            </li>
+            <li>
+              <a href={`tel:+${CONTACT.whatsappPhoneIntl}`} className="transition-colors hover:text-pure-gold">
+                Mobile: {CONTACT.phoneDisplay}
+              </a>
+            </li>
+            <li>
+              <a href={`mailto:${CONTACT.emailGeneral}`} className="transition-colors hover:text-pure-gold">
+                {CONTACT.emailGeneral}
+              </a>
+            </li>
           </ul>
           <div className="mt-4 flex items-center gap-2.5">
             <a

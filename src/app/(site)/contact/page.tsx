@@ -74,6 +74,25 @@ export default function ContactPage() {
             </div>
 
             <a
+              href={`tel:${CONTACT.landlineTel}`}
+              className="flex items-center gap-3 rounded-lg border border-black/10 bg-white p-5 transition-colors hover:border-pure-gold"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-warm-ivory text-deep-gold">
+                <PhoneIcon className="size-5" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-masaar-black">Office Landline</h3>
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                    Direct Line
+                  </span>
+                </div>
+                <p className="text-base font-bold text-masaar-black">{CONTACT.landlineDisplay}</p>
+                <p className="text-xs text-masaar-black/60">Call our dedicated travel & enquiries desk</p>
+              </div>
+            </a>
+
+            <a
               href={`tel:+${CONTACT.whatsappPhoneIntl}`}
               className="flex items-center gap-3 rounded-lg border border-black/10 bg-white p-5 transition-colors hover:border-pure-gold"
             >
@@ -81,8 +100,9 @@ export default function ContactPage() {
                 <PhoneIcon className="size-5" />
               </span>
               <div>
-                <h3 className="font-semibold text-masaar-black">Call Us</h3>
-                <p className="text-sm text-masaar-black/60">{CONTACT.phoneDisplay}</p>
+                <h3 className="font-semibold text-masaar-black">Mobile & Direct Call</h3>
+                <p className="text-base font-bold text-masaar-black">{CONTACT.phoneDisplay}</p>
+                <p className="text-xs text-masaar-black/60">Voice call or direct phone enquiry</p>
               </div>
             </a>
 

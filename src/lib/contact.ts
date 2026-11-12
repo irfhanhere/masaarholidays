@@ -6,6 +6,9 @@
 export const CONTACT = {
   whatsappPhoneIntl: "971557329320", // +971 55 732 9320, no leading "+"/spaces (wa.me format)
   phoneDisplay: "+971 55 732 9320",
+  landlineDisplay: "+971 4 614 7024",
+  landlineTel: "+97146147024",
+  landlineIntl: "97146147024",
   emailGeneral: "care@masaarholidays.com",
   emailPartnerships: "partners@masaarholidays.com",
   emailAccounts: "accounts@masaarholidays.com",

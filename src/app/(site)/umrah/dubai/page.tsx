@@ -241,9 +241,10 @@ export default function UmrahDubaiPage() {
               Masaar Holidays serves pilgrims residing across all Dubai communities through our dedicated digital booking system, direct WhatsApp concierge, and telephone support. Our physical operations center is located at Sharjah Publishing City (SPC Free Zone), Entrance 2, Ground Floor, off Sheikh Mohammed Bin Zayed Road (E311), just 15 minutes drive from Dubai International Airport. In-person consultations are available daily from 8:00 AM to 8:00 PM.
             </p>
             <div className="mt-5 flex flex-wrap gap-4 text-xs font-semibold text-masaar-black">
-              <span>📞 Phone: {CONTACT.phoneDisplay}</span>
+              <a href={`tel:${CONTACT.landlineTel}`} className="hover:text-deep-gold">☎️ Landline: {CONTACT.landlineDisplay}</a>
+              <a href={`tel:+${CONTACT.whatsappPhoneIntl}`} className="hover:text-deep-gold">📞 Mobile: {CONTACT.phoneDisplay}</a>
               <span>💬 WhatsApp: +{CONTACT.whatsappPhoneIntl}</span>
-              <span>✉️ Email: {CONTACT.emailGeneral}</span>
+              <a href={`mailto:${CONTACT.emailGeneral}`} className="hover:text-deep-gold">✉️ Email: {CONTACT.emailGeneral}</a>
             </div>
           </div>
         </Container>

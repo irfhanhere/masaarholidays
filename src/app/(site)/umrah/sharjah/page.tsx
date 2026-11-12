@@ -248,7 +248,8 @@ export default function UmrahSharjahPage() {
                 </div>
                 <div className="mt-6 flex flex-wrap gap-4 text-xs font-medium text-masaar-black/70">
                   <span>⏱ Hours: {CONTACT.businessHours}</span>
-                  <span>📞 Call: {CONTACT.phoneDisplay}</span>
+                  <a href={`tel:${CONTACT.landlineTel}`} className="font-semibold text-masaar-black hover:text-deep-gold">☎️ Landline: {CONTACT.landlineDisplay}</a>
+                  <a href={`tel:+${CONTACT.whatsappPhoneIntl}`} className="hover:text-deep-gold">📞 Mobile: {CONTACT.phoneDisplay}</a>
                 </div>
                 <div className="mt-6">
                   <WhatsAppButton templateKey="contact">Chat with a Sharjah Travel Specialist</WhatsAppButton>

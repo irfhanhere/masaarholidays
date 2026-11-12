@@ -615,10 +615,10 @@ export function VisaTrackingView({
                   Chat on WhatsApp
                 </a>
                 <a
-                  href={`tel:+${CONTACT.whatsappPhoneIntl}`}
+                  href={`tel:${CONTACT.landlineTel}`}
                   className="rounded-md border border-black/15 bg-white py-2.5 text-xs font-semibold text-masaar-black hover:bg-black/5"
                 >
-                  Call {CONTACT.phoneDisplay}
+                  Call {CONTACT.landlineDisplay}
                 </a>
               </div>
             </div>
