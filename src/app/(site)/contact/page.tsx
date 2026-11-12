@@ -84,11 +84,11 @@ export default function ContactPage() {
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-masaar-black">Office Landline</h3>
                   <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                    Direct Line
+                    8:00 AM – 8:00 PM
                   </span>
                 </div>
                 <p className="text-base font-bold text-masaar-black">{CONTACT.landlineDisplay}</p>
-                <p className="text-xs text-masaar-black/60">Call our dedicated travel & enquiries desk</p>
+                <p className="text-xs text-masaar-black/60">Available daily: 8:00 AM – 8:00 PM (UAE Time)</p>
               </div>
             </a>
 
@@ -100,9 +100,14 @@ export default function ContactPage() {
                 <PhoneIcon className="size-5" />
               </span>
               <div>
-                <h3 className="font-semibold text-masaar-black">Mobile & Direct Call</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-masaar-black">Mobile & Direct Call</h3>
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-[#936E0F] border border-amber-200">
+                    24/7 Available
+                  </span>
+                </div>
                 <p className="text-base font-bold text-masaar-black">{CONTACT.phoneDisplay}</p>
-                <p className="text-xs text-masaar-black/60">Voice call or direct phone enquiry</p>
+                <p className="text-xs text-masaar-black/60">Available 24/7 for calls and WhatsApp assistance</p>
               </div>
             </a>
 
@@ -162,7 +167,7 @@ export default function ContactPage() {
                 </div>
               </div>
               <p className="mt-3 border-t border-black/10 pt-3 text-xs text-masaar-black/50">
-                {CONTACT.businessHoursNote}
+                Landline enquiries desk is available daily from 8:00 AM to 8:00 PM. Direct mobile line and WhatsApp support are active 24/7.
               </p>
             </div>
 

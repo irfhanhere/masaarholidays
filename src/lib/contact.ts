@@ -9,6 +9,8 @@ export const CONTACT = {
   landlineDisplay: "+971 4 614 7024",
   landlineTel: "+97146147024",
   landlineIntl: "97146147024",
+  landlineHours: "8:00 AM – 8:00 PM",
+  mobileHours: "24/7",
   emailGeneral: "care@masaarholidays.com",
   emailPartnerships: "partners@masaarholidays.com",
   emailAccounts: "accounts@masaarholidays.com",
