@@ -127,10 +127,10 @@ export function Header({
             <a
               href={`tel:${CONTACT.landlineTel}`}
               className="group flex flex-col items-start leading-none transition-transform hover:scale-[1.02] shrink-0"
-              aria-label={`Call Toll-Free for Best Fare: ${CONTACT.landlineDisplay}`}
+              aria-label={`Call Landline for Best Service: ${CONTACT.landlineDisplay}`}
             >
               <span className="text-[11px] font-bold tracking-tight text-[#1E293B]">
-                Call Toll-Free for Best Fare!
+                Call Landline for Best Service
               </span>
               <span className="mt-1 inline-flex items-center gap-1.5 text-base font-extrabold text-[#15803d] group-hover:text-[#16a34a]">
                 <svg
@@ -206,7 +206,7 @@ export function Header({
                 className="flex items-center justify-between rounded-lg border border-emerald-600/25 bg-emerald-50/70 p-3 transition hover:bg-emerald-100/70"
               >
                 <div>
-                  <p className="text-xs font-bold text-[#1E293B]">Call Toll-Free for Best Fare!</p>
+                  <p className="text-xs font-bold text-[#1E293B]">Call Landline for Best Service</p>
                   <p className="text-sm font-extrabold text-[#15803d]">{CONTACT.landlineDisplay}</p>
                 </div>
                 <span className="flex size-8 items-center justify-center rounded-full bg-[#15803d] text-white shadow-xs">
