@@ -66,6 +66,15 @@ export function CarIcon(props: IconProps) {
   );
 }
 
+export function BusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="3" width="16" height="15" rx="2" />
+      <path d="M4 11h16M8 15h.01M16 15h.01M6 18v2M18 18v2M4 7h16" />
+    </Svg>
+  );
+}
+
 export function DocumentIcon(props: IconProps) {
   return (
     <Svg {...props}>

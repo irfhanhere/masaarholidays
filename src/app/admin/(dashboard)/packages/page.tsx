@@ -76,6 +76,25 @@ export default async function AdminPackagesPage({
         </Link>
       </div>
 
+      {type === "umrah" && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-pure-gold/40 bg-warm-ivory/60 p-4 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <Badge tone="gold">FEATURED PACKAGE</Badge>
+              <h3 className="font-bold text-masaar-black text-sm">Masaar Premium Umrah Package (6D / 5N)</h3>
+            </div>
+            <p className="mt-1 text-xs text-masaar-black/70">
+              Manage hotels (Jabal Omar Hyatt Regency & Mövenpick), 6 inclusions, Haramain train journeys, room prices & day-by-day itinerary.
+            </p>
+          </div>
+          <Link href="/admin/packages/masaar-premium-umrah">
+            <PrimaryButton className="text-xs bg-masaar-black hover:bg-black/90">
+              Manage Masaar Premium Package →
+            </PrimaryButton>
+          </Link>
+        </div>
+      )}
+
       {tierGroups.length === 0 && (
         <div className="rounded-lg border border-dashed border-black/15 bg-white px-6 py-10 text-center text-sm text-masaar-black/50">
           No {type} packages yet.

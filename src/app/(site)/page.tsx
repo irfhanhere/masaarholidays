@@ -31,6 +31,7 @@ import { TabbyPromoBanner } from "@/components/site/TabbyPromoBanner";
 import { MasaarPremiumUmrahSpotlight } from "@/components/site/MasaarPremiumUmrahSpotlight";
 import { HomeAdditionalServices } from "@/components/site/HomeAdditionalServices";
 import { getHomepageAdditionalServices } from "@/lib/data/additional-services";
+import { getMasaarPremiumPackage } from "@/lib/data/premium-package";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
 import type { PackageTier } from "@/lib/types/database";
@@ -84,12 +85,13 @@ function pickFeaturedUmrahConfigs(configs: PublicUmrahInventoryConfig[]): Public
 }
 
 export default async function HomePage() {
-  const [inventoryConfigs, testimonials, homeContent, privateTrips, additionalServices] = await Promise.all([
+  const [inventoryConfigs, testimonials, homeContent, privateTrips, additionalServices, premiumPackage] = await Promise.all([
     getPublishedUmrahInventoryConfigurations(),
     getPublishedTestimonials(),
     getHomeContent(),
     getPublishedPrivateTrips(),
     getHomepageAdditionalServices(),
+    getMasaarPremiumPackage(),
   ]);
 
   const featuredConfigs = pickFeaturedUmrahConfigs(inventoryConfigs);
@@ -174,7 +176,9 @@ export default async function HomePage() {
           <SectionHeading eyebrow="Featured Umrah Packages" title="Choose a Package That Suits Your Journey" />
           <div className="mt-10">
             {/* Spotlight: Masaar Premium Umrah Package (6 Days / 5 Nights) */}
-            <MasaarPremiumUmrahSpotlight />
+            {premiumPackage.show_on_homepage && (
+              <MasaarPremiumUmrahSpotlight pkg={premiumPackage} />
+            )}
             {featuredConfigs.length > 0 ? (
               <div className="space-y-6">
                 {featuredConfigs.map((config) => (

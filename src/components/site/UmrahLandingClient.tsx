@@ -18,6 +18,8 @@ import { UmrahExperienceStrip } from "./UmrahExperienceStrip";
 import { UmrahOptionalAddons, mergeAddons } from "./UmrahOptionalAddons";
 import { CrossLinkServices } from "./CrossLinkServices";
 import { UmrahFaqSection } from "./UmrahFaqSection";
+import { MasaarPremiumUmrahSpotlight } from "./MasaarPremiumUmrahSpotlight";
+import type { PremiumPackage } from "@/lib/types/premium-package";
 import type { PackageEnquiryInfo } from "./UmrahEnquiryModal";
 
 const UmrahAddonsCartModal = dynamic(() => import("./UmrahAddonsCartModal").then((m) => m.UmrahAddonsCartModal), { ssr: false });
@@ -30,6 +32,7 @@ interface Props {
   addons: PublicAddonCatalogRow[];
   defaultMonthSlug: string | null;
   departureMonths?: UmrahDepartureMonthRow[];
+  premiumPackage?: PremiumPackage;
 }
 
 export function UmrahLandingClient({
@@ -39,6 +42,7 @@ export function UmrahLandingClient({
   addons,
   defaultMonthSlug,
   departureMonths,
+  premiumPackage,
 }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [enquiryPackage, setEnquiryPackage] = useState<PackageEnquiryInfo>({
@@ -90,6 +94,26 @@ export function UmrahLandingClient({
           })
         }
       />
+
+      {/* Featured Fixed-Departure Journey: Masaar Premium Umrah */}
+      {premiumPackage && premiumPackage.show_on_umrah_page && (
+        <section className="bg-warm-ivory py-14 border-b border-black/5">
+          <Container>
+            <div className="mb-8 max-w-2xl">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#936E0F]">
+                Featured Fixed-Departure Journey
+              </span>
+              <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black sm:text-3xl">
+                Masaar Premium Umrah Package
+              </h2>
+              <p className="mt-2 text-xs leading-relaxed text-masaar-black/70 sm:text-sm">
+                A complete 6-day pilgrimage experience from the UAE combining Saudi Airlines flights, 5-star stays in Makkah and Madinah, and the iconic Haramain Speed Train journey.
+              </p>
+            </div>
+            <MasaarPremiumUmrahSpotlight pkg={premiumPackage} />
+          </Container>
+        </section>
+      )}
 
       {/* 2. Choose Your Umrah Experience (3 Full-Width Tier Cards) */}
       <UmrahTierCards

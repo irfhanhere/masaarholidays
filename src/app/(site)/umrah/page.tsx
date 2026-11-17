@@ -6,6 +6,7 @@ import {
   getAddonsCatalogForPublic,
   getActiveUmrahDepartureMonths,
 } from "@/lib/data/public";
+import { getMasaarPremiumPackage } from "@/lib/data/premium-package";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { UmrahLandingClient } from "@/components/site/UmrahLandingClient";
 
@@ -20,12 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function UmrahPage() {
-  const [packages, inventoryConfigs, faqs, addons, activeMonths] = await Promise.all([
+  const [packages, inventoryConfigs, faqs, addons, activeMonths, premiumPackage] = await Promise.all([
     getPublishedPackages("umrah"),
     getPublishedUmrahInventoryConfigurations(),
     getPublishedFaqs("umrah"),
     getAddonsCatalogForPublic(),
     getActiveUmrahDepartureMonths(),
+    getMasaarPremiumPackage(),
   ]);
 
   // "View Journey Details" on the Makkah+Madinah section needs some month
@@ -42,6 +44,7 @@ export default async function UmrahPage() {
       addons={addons}
       defaultMonthSlug={defaultMonthSlug}
       departureMonths={activeMonths}
+      premiumPackage={premiumPackage}
     />
   );
 }

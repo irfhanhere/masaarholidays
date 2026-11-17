@@ -26,6 +26,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         label: "Packages",
         href: "/admin/packages",
         children: [
+          { label: "Masaar Premium Umrah", href: "/admin/packages/masaar-premium-umrah" },
           { label: "Umrah Packages", href: "/admin/packages?type=umrah" },
           { label: "Hajj Packages", href: "/admin/packages?type=hajj" },
         ],
