@@ -8,6 +8,10 @@ import {
   isTabbyCheckoutEnabled,
   getTabbyConfig,
 } from "@/lib/tabby";
+import {
+  createTamaraCheckoutSession,
+  isTamaraCheckoutEnabled,
+} from "@/lib/tamara";
 import { getSiteOrigin } from "@/lib/site-url";
 import { getVisaProductById, calculateVisaPricing } from "@/lib/data/visa";
 
@@ -76,7 +80,9 @@ export async function POST(request: NextRequest) {
 
   const visaSlug = typeof body.visaSlug === "string" ? body.visaSlug.trim().toLowerCase() : "uae";
   const productId = typeof body.productId === "string" ? body.productId.trim() : "";
-  const paymentGateway = typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby" ? "tabby" : "stripe";
+  const rawGateway = typeof body.paymentGateway === "string" ? body.paymentGateway.trim().toLowerCase() : "stripe";
+  const paymentGateway: "stripe" | "tabby" | "tamara" =
+    rawGateway === "tamara" ? "tamara" : rawGateway === "tabby" ? "tabby" : "stripe";
   const nationality = typeof body.nationality === "string" ? body.nationality.trim() : "";
   const countryOfResidence = typeof body.countryOfResidence === "string" ? body.countryOfResidence.trim() : "";
   const travelDate = typeof body.travelDate === "string" ? body.travelDate.trim() : "";
@@ -157,6 +163,13 @@ export async function POST(request: NextRequest) {
       }
     : convertUsdToTabbyCurrency(pricing.totalAmount, "AED");
 
+  // Tamara uses AED merchant account (pegged 1 USD = 3.6725 AED)
+  const tamaraTargetCurrency: "AED" = "AED";
+  const tamaraAmountAed = isSaudi
+    ? pricing.totalAmount
+    : Math.round(pricing.totalAmount * 3.6725 * 100) / 100;
+  const tamaraInstallmentAmount = Math.round((tamaraAmountAed / 4) * 100) / 100;
+
   const referenceNo = generateReferenceNo(visaSlug);
   const trackingToken = crypto.randomBytes(24).toString("hex");
   const siteOrigin = getSiteOrigin();
@@ -231,8 +244,8 @@ export async function POST(request: NextRequest) {
         total_amount: pricing.totalAmount,
         currency: pricing.currency,
         payment_gateway: paymentGateway,
-        charged_currency: paymentGateway === "tabby" ? "AED" : checkoutCurrency,
-        charged_amount: paymentGateway === "tabby" ? tabbyConverted.amount : pricing.totalAmount,
+        charged_currency: paymentGateway === "tamara" ? "AED" : paymentGateway === "tabby" ? "AED" : checkoutCurrency,
+        charged_amount: paymentGateway === "tamara" ? tamaraAmountAed : paymentGateway === "tabby" ? tabbyConverted.amount : pricing.totalAmount,
         payment_status: "pending",
         application_status: "draft",
         status_timeline: initialTimeline,
@@ -364,6 +377,88 @@ export async function POST(request: NextRequest) {
     } catch (tabbyErr: unknown) {
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
       console.error("[visa-checkout] Tabby session creation failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
+  // 6b. Tamara Payment Gateway Branch
+  if (paymentGateway === "tamara") {
+    if (!isTamaraCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tamara Pay in 4 is currently unavailable. Please select card payment to complete your checkout." },
+        { status: 400 }
+      );
+    }
+
+    const successUrl = `${siteOrigin}/visa/application/${trackingToken}?payment_id={order_id}&tamara=1`;
+    const cancelUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&cancelled=1`;
+    const failureUrl = `${siteOrigin}/visa/${encodeURIComponent(visaSlug)}/apply?product=${product.id}&failed=1`;
+
+    try {
+      const nameParts = primaryApplicantName.trim().split(" ");
+      const firstName = nameParts[0] || "Valued";
+      const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+      const tamaraSession = await createTamaraCheckoutSession({
+        orderReferenceId: referenceNo,
+        amount: tamaraAmountAed,
+        currency: "AED",
+        description: `Masaar Holidays: ${product.title} (${referenceNo})`,
+        countryCode: "AE",
+        consumer: {
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone_number: phone,
+        },
+        items: [
+          {
+            reference_id: product.id,
+            type: "digital",
+            name: `${product.title} (${visaSlug.toUpperCase()})`,
+            sku: product.id,
+            quantity: 1,
+            unit_price: {
+              amount: tamaraAmountAed,
+              currency: "AED",
+            },
+            total_amount: {
+              amount: tamaraAmountAed,
+              currency: "AED",
+            },
+          },
+        ],
+        successUrl,
+        cancelUrl,
+        failureUrl,
+        notificationUrl: `${siteOrigin}/api/tamara/webhook`,
+      });
+
+      // Update application with Tamara order & checkout IDs
+      try {
+        await supabase
+          .from("visa_applications")
+          .update({
+            tamara_order_id: tamaraSession.order_id,
+            tamara_checkout_id: tamaraSession.checkout_id,
+          })
+          .eq("id", applicationId);
+      } catch (saveErr) {
+        console.warn("[visa-checkout] Error saving tamara order id:", saveErr);
+      }
+
+      return NextResponse.json({
+        url: tamaraSession.checkout_url,
+        referenceNo,
+        trackingToken,
+        paymentGateway: "tamara",
+        chargedAmount: tamaraAmountAed,
+        chargedCurrency: tamaraTargetCurrency,
+        installmentAmount: tamaraInstallmentAmount,
+      });
+    } catch (tamaraErr: unknown) {
+      const msg = tamaraErr instanceof Error ? tamaraErr.message : "Tamara checkout initialization failed";
+      console.error("[visa-checkout] Tamara session creation failed:", msg);
       return NextResponse.json({ error: msg }, { status: 400 });
     }
   }

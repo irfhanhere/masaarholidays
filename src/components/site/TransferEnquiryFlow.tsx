@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
 import type { EnrichedTransferRoute, RouteVehicleOption } from "@/lib/data/transfers-catalog";
 import { buildWhatsAppLink } from "@/lib/contact";
@@ -12,9 +12,15 @@ interface Props {
   route: EnrichedTransferRoute;
   whatsappPhone?: string;
   tabbyEnabled?: boolean;
+  tamaraEnabled?: boolean;
 }
 
-export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true }: Props) {
+export function TransferEnquiryFlow({
+  route,
+  whatsappPhone,
+  tabbyEnabled = true,
+  tamaraEnabled = true,
+}: Props) {
   const { currency, rates } = useCurrency();
   const isAirportRoute = route.transfer_type === "airport";
   const formId = useId();
@@ -56,8 +62,22 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
   const [email, setEmail] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
 
-  // Payment gateway selection state (Stripe or Tabby)
-  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby">("stripe");
+  // Payment gateway selection state (Stripe, Tabby, or Tamara)
+  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby" | "tamara">("stripe");
+  const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(tamaraEnabled);
+
+  useEffect(() => {
+    fetch("/api/tamara/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data?.enabled === "boolean") {
+          setIsTamaraAvailable(data.enabled);
+        }
+      })
+      .catch(() => {
+        setIsTamaraAvailable(false);
+      });
+  }, []);
 
   // Payment loading state & error
   const [isPaying, setIsPaying] = useState<boolean>(false);
@@ -253,7 +273,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
           email: email.trim().toLowerCase(),
           phone: phone.trim(),
           currency,
-          paymentGateway: tabbyEnabled ? paymentGateway : "stripe",
+          paymentGateway: (paymentGateway === "tamara" && isTamaraAvailable) ? "tamara" : (paymentGateway === "tabby" && tabbyEnabled) ? "tabby" : "stripe",
         }),
       });
 
@@ -984,7 +1004,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
                 <span className="text-xs text-masaar-black/60 font-medium">100% Secure Checkout</span>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Option 1: Card / Apple Pay (Stripe) */}
                 <button
                   type="button"
@@ -1044,7 +1064,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
                       </span>
                     ) : (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                        0% Interest · Sharia-Compliant
+                        0% Interest · Sharia
                       </span>
                     )}
                   </div>
@@ -1060,6 +1080,38 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
                     </div>
                   )}
                 </button>
+
+                {/* Option 3: Tamara (Pay in 4) */}
+                {isTamaraAvailable && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentGateway("tamara")}
+                    className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+                      paymentGateway === "tamara"
+                        ? "border-[#F88D2A] bg-amber-50/40 ring-2 ring-[#F88D2A]/40 shadow-xs"
+                        : "border-black/10 bg-white hover:border-black/30"
+                    }`}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-sm bg-[#F88D2A] px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
+                          tamara
+                        </span>
+                        <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                      </div>
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-[#8F6407]">
+                        0% Interest · Sharia
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-masaar-black/70">
+                      4 monthly payments of AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}. Zero hidden fees.
+                    </p>
+                    <div className="mt-3 text-xs font-bold text-masaar-black">
+                      <span>AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}</span>
+                      <span className="font-normal text-masaar-black/60 text-[10px]"> / month (4 payments)</span>
+                    </div>
+                  </button>
+                )}
               </div>
 
               {/* Tabby breakdown schedule box when selected */}
@@ -1110,6 +1162,55 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
                   </p>
                 </div>
               )}
+
+              {/* Tamara breakdown schedule box when selected */}
+              {paymentGateway === "tamara" && isTamaraAvailable && (
+                <div className="mt-4 rounded-xl border border-[#F88D2A]/40 bg-amber-50/60 p-4 text-xs">
+                  <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#F88D2A] text-[10px] font-bold text-white">
+                        4
+                      </span>
+                      <span className="font-semibold text-masaar-black">Tamara 4-Month Installment Plan (AED)</span>
+                    </div>
+                    <span className="text-[11px] text-[#C86400] font-semibold">0% APR · Sharia-Compliant</span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-[#C86400] font-semibold mt-0.5">Due Today (25%)</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
+                      <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
+                      <p className="mt-1 font-bold text-masaar-black text-xs">
+                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
+                      </p>
+                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[10px] text-masaar-black/60">
+                    You will be redirected securely to Tamara to complete checkout with zero interest and zero added fees.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Notice Banner */}
@@ -1120,7 +1221,7 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
               <div>
                 <strong className="font-semibold text-masaar-black">Instant Booking &amp; Live Dispatch:</strong>
                 <p className="mt-0.5 text-masaar-black/70">
-                  Pay securely online with card or Tabby Pay in 4 to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
+                  Pay securely online with card or Tabby / Tamara Pay in 4 to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
                 </p>
               </div>
             </div>
@@ -1154,6 +1255,13 @@ export function TransferEnquiryFlow({ route, whatsappPhone, tabbyEnabled = true 
                     <>
                       <span className="inline-flex rounded-sm bg-black px-1.5 py-0.5 text-[10px] font-black text-[#3EEDB4]">
                         tabby
+                      </span>
+                      <span>Pay AED {selectedVehicle?.priceAed || 0} in 4 Installments →</span>
+                    </>
+                  ) : paymentGateway === "tamara" && isTamaraAvailable ? (
+                    <>
+                      <span className="inline-flex rounded-sm bg-[#F88D2A] px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
+                        tamara
                       </span>
                       <span>Pay AED {selectedVehicle?.priceAed || 0} in 4 Installments →</span>
                     </>

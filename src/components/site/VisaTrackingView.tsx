@@ -265,21 +265,19 @@ export function VisaTrackingView({
                     {/* Connecting line */}
                     {idx < timelineSteps.length - 1 && (
                       <span
-                        className={`absolute left-4 top-8 -bottom-6 w-0.5 ${
-                          step.status === "completed" ? "bg-emerald-500" : "bg-black/10"
-                        }`}
+                        className={`absolute left-4 top-8 -bottom-6 w-0.5 ${step.status === "completed" ? "bg-emerald-500" : "bg-black/10"
+                          }`}
                       />
                     )}
 
                     {/* Step Icon */}
                     <span
-                      className={`relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        step.status === "completed"
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : step.status === "in_progress"
+                      className={`relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.status === "completed"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : step.status === "in_progress"
                           ? "bg-pure-gold text-masaar-black ring-4 ring-pure-gold/20"
                           : "bg-black/10 text-masaar-black/40"
-                      }`}
+                        }`}
                     >
                       {step.status === "completed" ? (
                         <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -295,19 +293,18 @@ export function VisaTrackingView({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h4 className="font-semibold text-masaar-black text-xs sm:text-sm">{step.title}</h4>
                         <span
-                          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                            step.status === "completed"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : step.status === "in_progress"
+                          className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${step.status === "completed"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : step.status === "in_progress"
                               ? "bg-amber-50 text-amber-700"
                               : "bg-black/5 text-masaar-black/50"
-                          }`}
+                            }`}
                         >
                           {step.status === "completed"
                             ? "Completed"
                             : step.status === "in_progress"
-                            ? "In Progress"
-                            : "Pending"}
+                              ? "In Progress"
+                              : "Pending"}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-masaar-black/60">{step.desc}</p>
@@ -367,24 +364,22 @@ export function VisaTrackingView({
                     return (
                       <div
                         key={doc.id}
-                        className={`rounded-lg border p-4 transition-all ${
-                          isRejected
-                            ? "border-red-200 bg-red-50/30"
-                            : isVerified
+                        className={`rounded-lg border p-4 transition-all ${isRejected
+                          ? "border-red-200 bg-red-50/30"
+                          : isVerified
                             ? "border-emerald-200 bg-emerald-50/20"
                             : "border-black/10 bg-warm-ivory/20"
-                        }`}
+                          }`}
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-start gap-3">
                             <span
-                              className={`flex size-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                                isVerified
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : isRejected
+                              className={`flex size-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${isVerified
+                                ? "bg-emerald-100 text-emerald-700"
+                                : isRejected
                                   ? "bg-red-100 text-red-700"
                                   : "bg-pure-gold/20 text-deep-gold"
-                              }`}
+                                }`}
                             >
                               📄
                             </span>
@@ -407,13 +402,12 @@ export function VisaTrackingView({
 
                           <div className="flex items-center gap-2 self-start sm:self-center">
                             <span
-                              className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                                isVerified
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : isRejected
+                              className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isVerified
+                                ? "bg-emerald-100 text-emerald-800"
+                                : isRejected
                                   ? "bg-red-100 text-red-800"
                                   : "bg-amber-100 text-amber-800"
-                              }`}
+                                }`}
                             >
                               {isVerified ? "✓ Verified" : isRejected ? "⚠️ Action Required" : "⏳ Under Review"}
                             </span>
@@ -537,9 +531,8 @@ export function VisaTrackingView({
 
                 <div>
                   <p className="text-[11px] text-masaar-black/60">Payment Status</p>
-                  <span className={`inline-block mt-0.5 rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                    isPaid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                  }`}>
+                  <span className={`inline-block mt-0.5 rounded px-2 py-0.5 text-[10px] font-bold uppercase ${isPaid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                    }`}>
                     {paymentStatus}
                   </span>
                 </div>
@@ -547,7 +540,12 @@ export function VisaTrackingView({
                 <div>
                   <p className="text-[11px] text-masaar-black/60">Payment Gateway</p>
                   <div className="mt-1 flex items-center gap-1.5">
-                    {application.payment_gateway === "tabby" ? (
+                    {application.payment_gateway === "tamara" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-900 border border-amber-500/20">
+                        <span className="rounded bg-[#F88D2A] px-1.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider">tamara</span>
+                        Tamara (Split in 4)
+                      </span>
+                    ) : application.payment_gateway === "tabby" ? (
                       <span className="inline-flex items-center gap-1.5 rounded bg-[#3EEDB4]/20 px-2.5 py-1 text-xs font-semibold text-emerald-900">
                         <span className="rounded bg-[#3EEDB4] px-1.5 py-0.2 text-[9px] font-black text-black">tabby</span>
                         Tabby (Split in 4)
@@ -560,20 +558,20 @@ export function VisaTrackingView({
                   </div>
                 </div>
 
-                {application.payment_gateway === "tabby" && application.charged_currency && application.charged_amount && (
+                {(application.payment_gateway === "tabby" || application.payment_gateway === "tamara") && application.charged_currency && application.charged_amount && (
                   <div>
-                    <p className="text-[11px] text-masaar-black/60">Tabby Charged Amount</p>
+                    <p className="text-[11px] text-masaar-black/60">Charged Amount ({application.payment_gateway === "tamara" ? "Tamara" : "Tabby"})</p>
                     <p className="font-semibold text-masaar-black">
                       {application.charged_currency} {application.charged_amount}
                     </p>
                   </div>
                 )}
 
-                {(application.tabby_payment_id || application.stripe_payment_intent_id) && (
+                {(application.tamara_order_id || application.tabby_payment_id || application.stripe_payment_intent_id) && (
                   <div>
                     <p className="text-[11px] text-masaar-black/60">Transaction Reference</p>
                     <p className="font-mono text-[11px] text-masaar-black break-all">
-                      {application.tabby_payment_id || application.stripe_payment_intent_id}
+                      {application.tamara_order_id || application.tabby_payment_id || application.stripe_payment_intent_id}
                     </p>
                   </div>
                 )}

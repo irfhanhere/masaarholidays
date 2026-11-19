@@ -5,6 +5,7 @@ import { getStripe } from "@/lib/stripe";
 import { getSiteOrigin } from "@/lib/site-url";
 import { getPublicTransferBySlug } from "@/lib/data/transfers";
 import { createTabbyCheckoutSession, isTabbyCheckoutEnabled } from "@/lib/tabby";
+import { createTamaraCheckoutSession, isTamaraCheckoutEnabled } from "@/lib/tamara";
 
 export const dynamic = "force-dynamic";
 
@@ -88,10 +89,9 @@ export async function POST(request: NextRequest) {
   const chargeCurrency = (ALLOWED_CHARGE_CURRENCIES as readonly string[]).includes(rawCurrency)
     ? rawCurrency
     : "AED";
+  const rawGateway = typeof body.paymentGateway === "string" ? body.paymentGateway.trim().toLowerCase() : "stripe";
   const paymentGateway =
-    typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby"
-      ? "tabby"
-      : "stripe";
+    rawGateway === "tamara" ? "tamara" : rawGateway === "tabby" ? "tabby" : "stripe";
 
   // Validate required contact fields
   if (!fullName || fullName.length < 2) {
@@ -198,6 +198,7 @@ export async function POST(request: NextRequest) {
       charged_amount_minor: chargedAmountMinor,
       charge_currency: chargeCurrency,
       fx_rate: fxRate,
+      payment_gateway: paymentGateway,
       payment_status: "pending",
       booking_status: "pending",
     })
@@ -274,6 +275,78 @@ export async function POST(request: NextRequest) {
     } catch (tabbyErr: unknown) {
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
       console.error("[transfers-checkout] Tabby session creation failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
+  // 6b. Tamara Payment Gateway Branch
+  if (paymentGateway === "tamara") {
+    if (!isTamaraCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tamara payment gateway is currently unavailable. Please select Credit / Debit Card." },
+        { status: 400 }
+      );
+    }
+
+    const tamaraSuccessUrl = `${siteOrigin}/transfers/booking/success?token=${booking.public_token}&payment_id={order_id}&tamara=1`;
+    const tamaraCancelUrl = `${siteOrigin}/transfers/${encodeURIComponent(route.slug)}?cancelled=1`;
+    const tamaraFailureUrl = `${siteOrigin}/transfers/${encodeURIComponent(route.slug)}?failed=1`;
+
+    try {
+      const nameParts = fullName.trim().split(" ");
+      const firstName = nameParts[0] || "Valued";
+      const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+      const tamaraSession = await createTamaraCheckoutSession({
+        orderReferenceId: bookingRef,
+        amount: priceAed,
+        currency: "AED",
+        description: `Masaar Transfers: ${route.route_name} (${bookingRef})`,
+        countryCode: "AE",
+        consumer: {
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone_number: phone,
+        },
+        items: [
+          {
+            reference_id: route.slug,
+            type: "service",
+            name: `Private Transfer: ${route.route_name}`,
+            sku: vehicleId,
+            quantity: 1,
+            unit_price: { amount: priceAed, currency: "AED" },
+            total_amount: { amount: priceAed, currency: "AED" },
+          },
+        ],
+        successUrl: tamaraSuccessUrl,
+        cancelUrl: tamaraCancelUrl,
+        failureUrl: tamaraFailureUrl,
+        notificationUrl: `${siteOrigin}/api/tamara/webhook`,
+      });
+
+      // Save Tamara IDs on booking record
+      await supabase
+        .from("transfer_bookings")
+        .update({
+          tamara_order_id: tamaraSession.order_id,
+          tamara_checkout_id: tamaraSession.checkout_id,
+        })
+        .eq("id", booking.id);
+
+      return NextResponse.json({
+        url: tamaraSession.checkout_url,
+        bookingRef,
+        token: booking.public_token,
+        paymentGateway: "tamara",
+        chargedAmount: priceAed,
+        chargedCurrency: "AED",
+        installmentAmount: Math.round((priceAed / 4) * 100) / 100,
+      });
+    } catch (tamaraErr: unknown) {
+      const msg = tamaraErr instanceof Error ? tamaraErr.message : "Tamara checkout initialization failed";
+      console.error("[transfers-checkout] Tamara session creation failed:", msg);
       return NextResponse.json({ error: msg }, { status: 400 });
     }
   }

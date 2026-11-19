@@ -8,6 +8,10 @@ import {
   isTabbyCheckoutEnabled,
   convertUsdToTabbyCurrency,
 } from "@/lib/tabby";
+import {
+  createTamaraCheckoutSession,
+  isTamaraCheckoutEnabled,
+} from "@/lib/tamara";
 import { isEsimVatEnabled, getEsimVatPct, getVatTrn, calculateVatMinor } from "@/lib/vat";
 import { verifyEsimAccess, ESIM_PREVIEW_COOKIE_NAME } from "@/lib/esim-launch-server";
 import {
@@ -106,10 +110,9 @@ export async function POST(request: NextRequest) {
   const confirmEmail =
     typeof body.confirmEmail === "string" ? body.confirmEmail.trim().toLowerCase() : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const rawGateway = typeof body.paymentGateway === "string" ? body.paymentGateway.trim().toLowerCase() : "stripe";
   const paymentGateway =
-    typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby"
-      ? "tabby"
-      : "stripe";
+    rawGateway === "tamara" ? "tamara" : rawGateway === "tabby" ? "tabby" : "stripe";
 
   // Validate charge currency against allow-list (fallback AED)
   const chargeCurrency: AllowedChargeCurrency = normalizeChargeCurrency(
@@ -361,6 +364,84 @@ export async function POST(request: NextRequest) {
       console.error("[esim-checkout] Tabby session creation failed:", msg);
       return NextResponse.json(
         { error: `Tabby payment error: ${msg}` },
+        { status: 500 }
+      );
+    }
+  }
+
+  // 7b. Tamara Checkout Session Branch (Pay in 4 installments in AED)
+  if (paymentGateway === "tamara") {
+    if (!isTamaraCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tamara Pay in 4 is currently unavailable. Please select card payment to complete your checkout." },
+        { status: 400 }
+      );
+    }
+
+    const tamaraAmount = Math.round(amountUsd * 3.6725 * 100) / 100;
+    const tamaraSuccessUrl = `${siteOrigin}/esim/order/${order.public_token}?payment_id={order_id}&tamara=1`;
+    const tamaraCancelUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}?cancelled=1`;
+    const tamaraFailureUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}?failed=1`;
+
+    try {
+      const nameParts = fullName.trim().split(" ");
+      const firstName = nameParts[0] || "Valued";
+      const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+      const tamaraSession = await createTamaraCheckoutSession({
+        orderReferenceId: order.partner_ref,
+        amount: tamaraAmount,
+        currency: "AED",
+        description: `eSIM: ${plan.name} — ${planDataLabel} (${plan.validity_days} Days)`,
+        countryCode: "AE",
+        consumer: {
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          phone_number: phone || "+971500000000",
+        },
+        items: [
+          {
+            reference_id: plan.plan_id,
+            type: "digital",
+            name: `${plan.name} (${planDataLabel})`,
+            sku: plan.plan_id,
+            quantity: quantity,
+            unit_price: {
+              amount: Math.round((tamaraAmount / quantity) * 100) / 100,
+              currency: "AED",
+            },
+            total_amount: {
+              amount: tamaraAmount,
+              currency: "AED",
+            },
+          },
+        ],
+        successUrl: tamaraSuccessUrl,
+        cancelUrl: tamaraCancelUrl,
+        failureUrl: tamaraFailureUrl,
+        notificationUrl: `${siteOrigin}/api/tamara/webhook`,
+      });
+
+      await supabase
+        .from("esim_orders")
+        .update({
+          tamara_order_id: tamaraSession.order_id,
+          tamara_checkout_id: tamaraSession.checkout_id,
+          payment_ref: tamaraSession.order_id,
+        })
+        .eq("id", order.id);
+
+      return NextResponse.json({
+        url: tamaraSession.checkout_url,
+        paymentGateway: "tamara",
+        referenceId: order.partner_ref,
+      });
+    } catch (tamaraErr: unknown) {
+      const msg = tamaraErr instanceof Error ? tamaraErr.message : "Tamara checkout initialization failed";
+      console.error("[esim-checkout] Tamara session creation failed:", msg);
+      return NextResponse.json(
+        { error: `Tamara payment error: ${msg}` },
         { status: 500 }
       );
     }

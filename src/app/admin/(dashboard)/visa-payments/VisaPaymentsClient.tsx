@@ -27,7 +27,7 @@ interface PaymentItem {
   variant: string;
   amount: number;
   currency: string;
-  payment_gateway: "stripe" | "tabby" | string;
+  payment_gateway: "stripe" | "tabby" | "tamara" | string;
   payment_method: string;
   transaction_ref: string;
   gateway_payment_id: string;
@@ -445,6 +445,7 @@ export default function VisaPaymentsClient() {
             <option value="all">All Gateways</option>
             <option value="stripe">Stripe</option>
             <option value="tabby">Tabby</option>
+            <option value="tamara">Tamara</option>
           </select>
 
           <button
@@ -499,7 +500,12 @@ export default function VisaPaymentsClient() {
                   <td className="px-4 py-3.5 font-semibold text-masaar-black">{p.applicant_name}</td>
                   <td className="px-4 py-3.5 text-masaar-black/80">{p.visa_type}</td>
                   <td className="px-4 py-3.5">
-                    {p.payment_gateway === "tabby" ? (
+                    {p.payment_gateway === "tamara" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-900 border border-amber-500/20">
+                        <span className="rounded bg-[#F88D2A] px-1.5 py-0.2 text-[9px] font-black text-white uppercase tracking-wider">tamara</span>
+                        Tamara
+                      </span>
+                    ) : p.payment_gateway === "tabby" ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#3EEDB4]/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-950">
                         <span className="rounded bg-[#3EEDB4] px-1 py-0.2 text-[9px] font-black text-black">tabby</span>
                         Tabby
@@ -512,7 +518,7 @@ export default function VisaPaymentsClient() {
                   </td>
                   <td className="px-4 py-3.5 font-bold text-masaar-black">
                     <div>{p.currency} {p.amount}</div>
-                    {p.payment_gateway === "tabby" && p.charged_currency && p.charged_amount && (
+                    {(p.payment_gateway === "tabby" || p.payment_gateway === "tamara") && p.charged_currency && p.charged_amount && (
                       <div className="text-[10px] font-normal text-emerald-700">
                         {p.charged_currency} {p.charged_amount}
                       </div>
@@ -621,10 +627,14 @@ export default function VisaPaymentsClient() {
                 <div className="flex justify-between">
                   <span className="text-masaar-black/60">Gateway</span>
                   <span className="font-semibold text-masaar-black">
-                    {selectedPayment.payment_gateway === "tabby" ? "Tabby (Split in 4)" : "Stripe (Card)"}
+                    {selectedPayment.payment_gateway === "tamara"
+                      ? "Tamara (Split in 4)"
+                      : selectedPayment.payment_gateway === "tabby"
+                      ? "Tabby (Split in 4)"
+                      : "Stripe (Card)"}
                   </span>
                 </div>
-                {selectedPayment.payment_gateway === "tabby" && selectedPayment.charged_currency && selectedPayment.charged_amount && (
+                {(selectedPayment.payment_gateway === "tabby" || selectedPayment.payment_gateway === "tamara") && selectedPayment.charged_currency && selectedPayment.charged_amount && (
                   <div className="flex justify-between">
                     <span className="text-masaar-black/60">Charged Currency</span>
                     <span className="font-bold text-emerald-800">
@@ -734,7 +744,9 @@ export default function VisaPaymentsClient() {
                   <div>
                     <p className="text-xs font-bold text-masaar-black">Payment Successful</p>
                     <p className="text-[10px] text-masaar-black/50">
-                      {selectedPayment.payment_gateway === "tabby"
+                      {selectedPayment.payment_gateway === "tamara"
+                        ? "Tamara Webhook Verified & Authorised"
+                        : selectedPayment.payment_gateway === "tabby"
                         ? "Tabby Webhook Captured & Verified"
                         : "Stripe Webhook Verified"}
                     </p>

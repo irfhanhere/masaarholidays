@@ -139,8 +139,9 @@ export function SaudiVisaLandingPage() {
 
   // Terms and gateway
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
-  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby">("stripe");
+  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby" | "tamara">("stripe");
   const [isTabbyAvailable, setIsTabbyAvailable] = useState<boolean>(false);
+  const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, startSubmission] = useTransition();
 
@@ -165,13 +166,18 @@ export function SaudiVisaLandingPage() {
       .then((data) => {
         if (data?.enabled) {
           setIsTabbyAvailable(true);
-        } else {
-          setPaymentGateway("stripe");
         }
       })
-      .catch(() => {
-        setPaymentGateway("stripe");
-      });
+      .catch(() => {});
+
+    fetch("/api/tamara/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.enabled) {
+          setIsTamaraAvailable(true);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Handlers for switching application type
@@ -472,7 +478,7 @@ export function SaudiVisaLandingPage() {
     },
     {
       q: "What payment options are accepted?",
-      a: "You can pay securely online via Debit/Credit Card (Visa, Mastercard, Amex) through encrypted Stripe checkout. When available, you can also split your payment into 4 interest-free monthly installments using Tabby.",
+      a: "You can pay securely online via Debit/Credit Card (Visa, Mastercard, Amex) through encrypted Stripe checkout. When available, you can also split your payment into 4 interest-free monthly installments using Tabby or Tamara.",
     },
     {
       q: "Does applying through Masaar Holidays guarantee visa approval?",
@@ -787,7 +793,7 @@ export function SaudiVisaLandingPage() {
                     <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
                   </div>
                   <p className="mt-2 rounded-md bg-warm-ivory px-2.5 py-1 text-[11px] font-medium text-masaar-black/75 border border-black/5">
-                    💳 Or 4 interest-free payments of AED 187.50 with Tabby
+                    💳 Or 4 interest-free payments of AED 187.50 with Tabby or Tamara
                   </p>
                 </div>
 
@@ -1616,7 +1622,7 @@ export function SaudiVisaLandingPage() {
                       Select Payment Method
                     </label>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {/* Stripe Live */}
                       <button
                         type="button"
@@ -1628,18 +1634,18 @@ export function SaudiVisaLandingPage() {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-masaar-black">
-                            Credit / Debit Card / Apple Pay
+                            Credit / Debit Card
                           </span>
                           {paymentGateway === "stripe" && (
                             <CheckCircle2 className="size-4 text-deep-gold" />
                           )}
                         </div>
                         <p className="text-[11px] text-masaar-black/60 mt-1">
-                          Visa, Mastercard, American Express, Apple Pay & Google Pay.
+                          Visa, Mastercard, Amex, Apple Pay & Google Pay.
                         </p>
                         <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700 font-medium">
                           <Lock className="size-3" />
-                          <span>256-bit SSL Encrypted • Processed by Stripe</span>
+                          <span>256-bit SSL • Stripe</span>
                         </div>
                       </button>
 
@@ -1654,8 +1660,9 @@ export function SaudiVisaLandingPage() {
                             }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-masaar-black">
-                              Tabby — 4 Interest-Free Payments
+                            <span className="text-xs font-bold text-masaar-black flex items-center gap-1.5">
+                              <span className="rounded bg-[#3EEDB4] px-1 py-0.2 text-[8px] font-black text-black">tabby</span>
+                              Tabby — Pay in 4
                             </span>
                             {paymentGateway === "tabby" && (
                               <CheckCircle2 className="size-4 text-deep-gold" />
@@ -1663,6 +1670,31 @@ export function SaudiVisaLandingPage() {
                           </div>
                           <p className="text-[11px] text-masaar-black/60 mt-1">
                             Pay AED {(pricing.finalPayableAmount / 4).toFixed(2)} today, rest over 3 months. No interest.
+                          </p>
+                        </button>
+                      )}
+
+                      {/* Tamara (If available) */}
+                      {isTamaraAvailable && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentGateway("tamara")}
+                          className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${paymentGateway === "tamara"
+                              ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
+                              : "border-black/10 bg-white hover:bg-neutral-50"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-masaar-black flex items-center gap-1.5">
+                              <span className="rounded bg-[#F88D2A] px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider">tamara</span>
+                              Tamara — Pay in 4
+                            </span>
+                            {paymentGateway === "tamara" && (
+                              <CheckCircle2 className="size-4 text-deep-gold" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-masaar-black/60 mt-1">
+                            Pay AED {(pricing.finalPayableAmount / 4).toFixed(2)} today. 4 monthly payments, Sharia-compliant.
                           </p>
                         </button>
                       )}

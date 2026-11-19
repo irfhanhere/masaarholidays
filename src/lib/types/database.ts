@@ -507,9 +507,11 @@ export type VisaApplicationRowShape = {
   currency: string;
   payment_status: VisaPaymentStatus;
   payment_method: string | null;
-  payment_gateway?: "stripe" | "tabby" | string;
+  payment_gateway?: "stripe" | "tabby" | "tamara" | string;
   tabby_payment_id?: string | null;
   tabby_session_id?: string | null;
+  tamara_order_id?: string | null;
+  tamara_checkout_id?: string | null;
   charged_currency?: string | null;
   charged_amount?: number | null;
   stripe_session_id: string | null;
@@ -573,6 +575,10 @@ export type VisaPaymentRowShape = {
   tabby_payment_id?: string | null;
   tabby_capture_id?: string | null;
   tabby_refund_id?: string | null;
+  tamara_order_id?: string | null;
+  tamara_checkout_id?: string | null;
+  tamara_capture_id?: string | null;
+  tamara_refund_id?: string | null;
   error_message?: string | null;
   refund_status: string | null;
   refund_amount: number | null;
@@ -1057,6 +1063,10 @@ export type EsimOrderRowShape = {
   currency: string;
   payment_provider: string | null;
   payment_ref: string | null;
+  tamara_order_id?: string | null;
+  tamara_checkout_id?: string | null;
+  tamara_capture_id?: string | null;
+  tamara_refund_id?: string | null;
   payment_status: "pending" | "paid" | "failed" | "refunded" | "abandoned";
   fulfilment_status: "pending" | "processing" | "completed" | "failed" | "refunded";
   megaesim_order_number: string | null;
@@ -1120,6 +1130,11 @@ export type TransferBookingRowShape = {
   charged_amount_minor: number;
   charge_currency: string;
   fx_rate: number | null;
+  payment_gateway?: "stripe" | "tabby" | "tamara" | string;
+  tamara_order_id?: string | null;
+  tamara_checkout_id?: string | null;
+  tamara_capture_id?: string | null;
+  tamara_refund_id?: string | null;
   payment_status: "pending" | "paid" | "failed" | "refunded";
   booking_status: "pending" | "confirmed" | "voucher_issued" | "completed" | "cancelled";
   stripe_session_id: string | null;

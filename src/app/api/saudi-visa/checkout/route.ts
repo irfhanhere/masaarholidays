@@ -6,6 +6,10 @@ import {
   createTabbyCheckoutSession,
   isTabbyCheckoutEnabled,
 } from "@/lib/tabby";
+import {
+  createTamaraCheckoutSession,
+  isTamaraCheckoutEnabled,
+} from "@/lib/tamara";
 import { getSiteOrigin } from "@/lib/site-url";
 import {
   calculateSaudiVisaPricing,
@@ -76,10 +80,8 @@ export async function POST(request: NextRequest) {
   }
 
   const applicationType = body.applicationType === "family" ? "family" : "individual";
-  const paymentGateway =
-    typeof body.paymentGateway === "string" && body.paymentGateway.trim().toLowerCase() === "tabby"
-      ? "tabby"
-      : "stripe";
+  const rawGateway = typeof body.paymentGateway === "string" ? body.paymentGateway.trim().toLowerCase() : "stripe";
+  const paymentGateway = rawGateway === "tabby" ? "tabby" : rawGateway === "tamara" ? "tamara" : "stripe";
 
   const rawApplicants = Array.isArray(body.applicants) ? body.applicants : [];
   if (rawApplicants.length === 0) {
@@ -399,6 +401,89 @@ export async function POST(request: NextRequest) {
     } catch (tabbyErr: unknown) {
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout error";
       console.error("[saudi-visa-checkout] Tabby checkout failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  }
+
+  // 8b. Handle Tamara Buy Now, Pay Later Branch
+  if (paymentGateway === "tamara") {
+    if (!isTamaraCheckoutEnabled()) {
+      return NextResponse.json(
+        { error: "Tamara Buy Now, Pay Later is currently unavailable. Please select card payment." },
+        { status: 400 }
+      );
+    }
+
+    const nameParts = primaryApplicantName.trim().split(" ");
+    const firstName = nameParts[0] || "Guest";
+    const lastName = nameParts.slice(1).join(" ") || "Pilgrim";
+
+    const successUrl = `${siteOrigin}/saudi-visa/confirmation?ref=${referenceNo}&token=${trackingToken}&tamara=1&orderId={orderId}`;
+    const cancelUrl = `${siteOrigin}/saudi-visa?cancelled=1#apply`;
+    const failureUrl = `${siteOrigin}/saudi-visa?failed=1#apply`;
+    const notificationUrl = `${siteOrigin}/api/tamara/webhook`;
+
+    try {
+      const tamaraSession = await createTamaraCheckoutSession({
+        orderReferenceId: referenceNo,
+        amount: pricing.finalPayableAmount,
+        currency: "AED",
+        description: `Masaar Holidays: Saudi Visa (${referenceNo})`,
+        countryCode: "AE",
+        consumer: {
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone_number: phone,
+        },
+        items: [
+          {
+            reference_id: `saudi-visa-${applicationType}`,
+            type: "digital",
+            name: `Saudi 1-Year Tourist Visa (${applicationType === "family" ? "Family" : "Individual"})`,
+            sku: `SAUDI-VISA-${referenceNo}`,
+            quantity: 1,
+            unit_price: {
+              amount: pricing.finalPayableAmount,
+              currency: "AED",
+            },
+            total_amount: {
+              amount: pricing.finalPayableAmount,
+              currency: "AED",
+            },
+          },
+        ],
+        successUrl,
+        cancelUrl,
+        failureUrl,
+        notificationUrl,
+      });
+
+      try {
+        await supabase
+          .from("visa_applications")
+          .update({
+            tamara_order_id: tamaraSession.order_id,
+            tamara_checkout_id: tamaraSession.checkout_id,
+            payment_gateway: "tamara",
+          })
+          .eq("id", applicationId);
+      } catch (saveErr) {
+        console.warn("[saudi-visa-checkout] Error saving tamara session id:", saveErr);
+      }
+
+      return NextResponse.json({
+        url: tamaraSession.checkout_url,
+        referenceNo,
+        trackingToken,
+        paymentGateway: "tamara",
+        chargedAmount: pricing.finalPayableAmount,
+        chargedCurrency: "AED",
+        installmentAmount: Math.round((pricing.finalPayableAmount / 4) * 100) / 100,
+      });
+    } catch (tamaraErr: unknown) {
+      const msg = tamaraErr instanceof Error ? tamaraErr.message : "Tamara checkout error";
+      console.error("[saudi-visa-checkout] Tamara checkout failed:", msg);
       return NextResponse.json({ error: msg }, { status: 400 });
     }
   }

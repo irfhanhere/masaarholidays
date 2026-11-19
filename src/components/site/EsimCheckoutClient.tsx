@@ -66,8 +66,9 @@ export function EsimCheckoutClient({
 }: EsimCheckoutClientProps) {
   const { currency, rates } = useCurrency();
 
-  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby">("stripe");
+  const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby" | "tamara">("stripe");
   const [isTabbyAvailable, setIsTabbyAvailable] = useState<boolean>(tabbyEnabled);
+  const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(true);
 
   useEffect(() => {
     fetch("/api/tabby/config")
@@ -78,6 +79,17 @@ export function EsimCheckoutClient({
         }
       })
       .catch(() => {});
+
+    fetch("/api/tamara/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data?.enabled === "boolean") {
+          setIsTamaraAvailable(data.enabled);
+        }
+      })
+      .catch(() => {
+        setIsTamaraAvailable(false);
+      });
   }, []);
 
   const [quantity, setQuantity] = useState<number>(1);
@@ -203,6 +215,10 @@ export function EsimCheckoutClient({
   const tabbyTotalAed = Math.round(totalSalePriceUsd * 3.6725 * 100) / 100;
   const tabbyInstallmentAed = (tabbyTotalAed / 4).toFixed(2);
 
+  // Tamara calculation: charged in AED (pegged USD to AED 3.6725)
+  const tamaraTotalAed = Math.round(totalSalePriceUsd * 3.6725 * 100) / 100;
+  const tamaraInstallmentAed = (tamaraTotalAed / 4).toFixed(2);
+
   // VAT calculations (price is VAT-inclusive when enabled)
   const netAmountMinor =
     vatEnabled && vatPct > 0
@@ -292,7 +308,7 @@ export function EsimCheckoutClient({
           planId: plan.plan_id,
           quantity,
           currency: chargeCurrency,
-          paymentGateway: isTabbyAvailable ? paymentGateway : "stripe",
+          paymentGateway: (paymentGateway === "tamara" && isTamaraAvailable) ? "tamara" : (paymentGateway === "tabby" && isTabbyAvailable) ? "tabby" : "stripe",
           fullName: fullName.trim(),
           email: email.trim().toLowerCase(),
           confirmEmail: confirmEmail.trim().toLowerCase(),
@@ -663,7 +679,7 @@ export function EsimCheckoutClient({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {/* Option 1: Card / Apple Pay / Google Pay (Stripe) */}
                   <label
                     onClick={() => setPaymentGateway("stripe")}
@@ -725,9 +741,44 @@ export function EsimCheckoutClient({
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] text-[#0A0A08]/65 leading-relaxed">
-                      Split into 4 interest-free monthly payments of AED {tabbyInstallmentAed}. No hidden fees. Shariah-compliant.
+                      Split into 4 interest-free monthly payments of AED {tabbyInstallmentAed}. Shariah-compliant.
                     </p>
                   </label>
+
+                  {/* Option 3: Tamara (Pay in 4 installments) */}
+                  {isTamaraAvailable && (
+                    <label
+                      onClick={() => setPaymentGateway("tamara")}
+                      className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all ${
+                        paymentGateway === "tamara"
+                          ? "border-[#F88D2A] bg-amber-50/40 ring-2 ring-[#F88D2A]/30 shadow-xs"
+                          : "border-black/10 bg-white hover:border-black/20"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="radio"
+                            name="paymentGateway"
+                            value="tamara"
+                            checked={paymentGateway === "tamara"}
+                            onChange={() => setPaymentGateway("tamara")}
+                            className="size-4 text-[#F88D2A] focus:ring-[#F88D2A]"
+                          />
+                          <span className="text-xs font-bold text-[#0A0A08] flex items-center gap-1.5">
+                            <span className="rounded bg-[#F88D2A] px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider">tamara</span>
+                            Pay in 4
+                          </span>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-[#C86400]">
+                          4x AED {tamaraInstallmentAed}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[11px] text-[#0A0A08]/65 leading-relaxed">
+                        Split into 4 interest-free payments of AED {tamaraInstallmentAed}. Zero fees. Sharia-compliant.
+                      </p>
+                    </label>
+                  )}
                 </div>
 
                 {paymentGateway === "tabby" && (
@@ -738,6 +789,18 @@ export function EsimCheckoutClient({
                     </div>
                     <p className="mt-1 text-[11px] text-[#055743]/80">
                       Tabby automatically splits your total (AED {tabbyTotalAed}) into 4 equal interest-free installments. Valid UAE or GCC mobile number required.
+                    </p>
+                  </div>
+                )}
+
+                {paymentGateway === "tamara" && (
+                  <div className="rounded-xl border border-[#F88D2A]/40 bg-amber-50/60 p-3.5 text-xs text-[#C86400]">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>✨</span>
+                      <span>Pay AED {tamaraInstallmentAed} today, and the rest over 3 months</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#0A0A08]/75">
+                      Tamara splits your total (AED {tamaraTotalAed}) into 4 equal monthly payments. Zero interest, zero added fees. Valid UAE or GCC mobile number required.
                     </p>
                   </div>
                 )}
@@ -759,7 +822,12 @@ export function EsimCheckoutClient({
                 {loading ? (
                   <>
                     <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    {paymentGateway === "tabby" ? "Connecting to Tabby..." : "Connecting to Secure Payment..."}
+                    {paymentGateway === "tamara" ? "Connecting to Tamara..." : paymentGateway === "tabby" ? "Connecting to Tabby..." : "Connecting to Secure Payment..."}
+                  </>
+                ) : paymentGateway === "tamara" ? (
+                  <>
+                    <LockIcon className="size-4" />
+                    Pay with Tamara · 4x AED {tamaraInstallmentAed}
                   </>
                 ) : paymentGateway === "tabby" ? (
                   <>
@@ -875,17 +943,17 @@ export function EsimCheckoutClient({
                   )}
                 </div>
 
-                {/* Tabby 4 Installments Badge */}
-                {isTabbyAvailable && (
+                {/* BNPL 4 Installments Badge */}
+                {(isTabbyAvailable || isTamaraAvailable) && (
                   <div className="rounded-xl border border-black/5 bg-[#FAF7F2] p-3 text-xs text-[#0A0A08]/85 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#0A0A08]">Pay in 4 with Tabby</span>
-                      <span className="rounded bg-[#3EEDBF]/40 px-2 py-0.5 text-[10px] font-extrabold text-[#055743]">
+                      <span className="font-bold text-[#0A0A08]">Split into 4 Monthly Payments</span>
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-[#8F6407]">
                         0% Interest
                       </span>
                     </div>
                     <p className="text-[11px] text-[#0A0A08]/65">
-                      Or 4 interest-free monthly payments of <strong className="text-[#0A0A08]">AED {tabbyInstallmentAed}</strong> with Tabby.
+                      Pay <strong className="text-[#0A0A08]">AED {tabbyInstallmentAed}</strong> today with Tabby or Tamara, and the rest over 3 months. No hidden fees.
                     </p>
                   </div>
                 )}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { refundTabbyPayment } from "@/lib/tabby";
+import { refundTamaraPayment } from "@/lib/tamara";
 import type { VisaPaymentRowShape } from "@/lib/types/database";
 
 export async function processVisaRefund(paymentId: string, amount: number, reason?: string) {
@@ -26,8 +27,9 @@ export async function processVisaRefund(paymentId: string, amount: number, reaso
     }
 
     let tabbyRefundId: string | null = null;
+    let tamaraRefundId: string | null = null;
 
-    // 2. If Tabby payment, trigger Tabby Refund API
+    // 2a. If Tabby payment, trigger Tabby Refund API
     if (payment && payment.gateway === "tabby" && payment.tabby_payment_id) {
       const refundResult = await refundTabbyPayment(
         payment.tabby_payment_id,
@@ -35,6 +37,19 @@ export async function processVisaRefund(paymentId: string, amount: number, reaso
         reason || "Admin requested refund"
       );
       tabbyRefundId = refundResult.id;
+    }
+
+    // 2b. If Tamara payment, trigger Tamara Refund API
+    if (payment && payment.gateway === "tamara" && (payment.tamara_order_id || payment.tamara_capture_id)) {
+      const orderIdToRefund = payment.tamara_order_id || payment.tamara_capture_id!;
+      const currency = payment.currency || "AED";
+      const refundResult = await refundTamaraPayment(
+        orderIdToRefund,
+        amount,
+        currency,
+        reason || "Admin requested refund"
+      );
+      tamaraRefundId = refundResult.refund_id || "tamara_refunded";
     }
 
     // 3. Update payment record
@@ -48,6 +63,9 @@ export async function processVisaRefund(paymentId: string, amount: number, reaso
 
     if (tabbyRefundId) {
       updatePayload.tabby_refund_id = tabbyRefundId;
+    }
+    if (tamaraRefundId) {
+      updatePayload.tamara_refund_id = tamaraRefundId;
     }
 
     const { error: updateErr } = await supabase
@@ -69,7 +87,7 @@ export async function processVisaRefund(paymentId: string, amount: number, reaso
     }
 
     revalidatePath("/admin/visa-payments");
-    return { success: true, tabbyRefundId };
+    return { success: true, tabbyRefundId, tamaraRefundId };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to process refund";
     console.error("[processVisaRefund] Error:", err);

@@ -1538,6 +1538,7 @@ export default function VisaApplicationsClient({
                               <span className="font-mono text-[11px] break-all">
                                 {selectedApp.stripe_payment_intent_id ||
                                   selectedApp.tabby_payment_id ||
+                                  selectedApp.tamara_order_id ||
                                   selectedApp.stripe_session_id ||
                                   "Recorded on checkout"}
                               </span>

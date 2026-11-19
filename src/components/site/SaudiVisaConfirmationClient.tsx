@@ -18,7 +18,7 @@ export function SaudiVisaConfirmationClient({ application, applicants, payments 
   const breakdown = application.fee_breakdown as Record<string, unknown> | null;
   const isFamily = breakdown?.application_type === "family" || application.product_title?.includes("Family");
   const latestPayment = payments[0];
-  const paymentRef = latestPayment?.transaction_reference || application.stripe_payment_intent_id || application.tabby_payment_id || "Confirmed";
+  const paymentRef = latestPayment?.transaction_reference || application.stripe_payment_intent_id || application.tabby_payment_id || application.tamara_order_id || application.tamara_checkout_id || "Confirmed";
 
   useEffect(() => {
     // Only fire after verified successful payment
