@@ -41,6 +41,7 @@ export async function saveMasaarPremiumPackageAction(
             canonical_url: updatedData.canonical_url,
             hotels: updatedData.hotels,
             inclusions: updatedData.inclusions,
+            addons: updatedData.addons,
             transport: updatedData.transport,
             pricing: updatedData.pricing,
             itinerary: updatedData.itinerary,

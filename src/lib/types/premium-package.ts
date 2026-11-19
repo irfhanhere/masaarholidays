@@ -58,6 +58,15 @@ export interface PremiumPackageItineraryDay {
   transport_note?: string;
 }
 
+export interface PremiumPackageAddon {
+  id: string;
+  title: string;
+  type: "complimentary" | "upon_request";
+  description: string;
+  badge?: string;
+  is_active: boolean;
+}
+
 export interface PremiumPackage {
   id: string;
   slug: string;
@@ -77,6 +86,7 @@ export interface PremiumPackage {
   canonical_url: string;
   hotels: PremiumPackageHotel[];
   inclusions: PremiumPackageInclusion[];
+  addons?: PremiumPackageAddon[];
   transport: PremiumPackageTransport[];
   pricing: PremiumPackagePricing[];
   itinerary: PremiumPackageItineraryDay[];

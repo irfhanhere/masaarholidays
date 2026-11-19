@@ -40,6 +40,7 @@ export async function getMasaarPremiumPackage(): Promise<PremiumPackage> {
           canonical_url: data.canonical_url,
           hotels: Array.isArray(data.hotels) ? data.hotels : DEFAULT_PREMIUM_PACKAGE.hotels,
           inclusions: Array.isArray(data.inclusions) ? data.inclusions : DEFAULT_PREMIUM_PACKAGE.inclusions,
+          addons: Array.isArray(data.addons) ? data.addons : DEFAULT_PREMIUM_PACKAGE.addons,
           transport: Array.isArray(data.transport) ? data.transport : DEFAULT_PREMIUM_PACKAGE.transport,
           pricing: Array.isArray(data.pricing) ? data.pricing : DEFAULT_PREMIUM_PACKAGE.pricing,
           itinerary: Array.isArray(data.itinerary) ? data.itinerary : DEFAULT_PREMIUM_PACKAGE.itinerary,

@@ -9,11 +9,13 @@ import type {
   PremiumPackage,
   PremiumPackageHotel,
   PremiumPackageInclusion,
+  PremiumPackageAddon,
   PremiumPackageTransport,
   PremiumPackagePricing,
   PremiumPackageItineraryDay,
   TransportMode,
 } from "@/lib/types/premium-package";
+import { DEFAULT_PREMIUM_PACKAGE } from "@/lib/data/premium-package-catalog";
 import { saveMasaarPremiumPackageAction } from "./actions";
 import { MasaarPremiumUmrahSpotlight } from "@/components/site/MasaarPremiumUmrahSpotlight";
 import { PremiumItineraryAccordion } from "@/components/site/PremiumItineraryAccordion";
@@ -22,7 +24,7 @@ interface Props {
   initialPackage: PremiumPackage;
 }
 
-type ActiveTab = "general" | "hotels" | "inclusions" | "transport" | "pricing" | "itinerary" | "preview";
+type ActiveTab = "general" | "hotels" | "inclusions" | "addons" | "transport" | "pricing" | "itinerary" | "preview";
 
 export function PremiumPackageManagerClient({ initialPackage }: Props) {
   const [pkg, setPkg] = useState<PremiumPackage>(initialPackage);
@@ -114,6 +116,15 @@ export function PremiumPackageManagerClient({ initialPackage }: Props) {
       type: "inclusion",
       index,
       title: pkg.inclusions[index].title,
+    });
+  };
+
+  // Addon Updates
+  const updateAddon = (index: number, field: keyof PremiumPackageAddon, value: any) => {
+    setPkg((prev) => {
+      const currentAddons = prev.addons ? [...prev.addons] : [...(DEFAULT_PREMIUM_PACKAGE.addons || [])];
+      currentAddons[index] = { ...currentAddons[index], [field]: value };
+      return { ...prev, addons: currentAddons };
     });
   };
 
@@ -349,10 +360,11 @@ export function PremiumPackageManagerClient({ initialPackage }: Props) {
             { id: "general", label: "A. General Info" },
             { id: "hotels", label: "B. Hotels (Makkah & Madinah)" },
             { id: "inclusions", label: "C. Inclusions" },
-            { id: "transport", label: "D. Transport Journeys" },
-            { id: "pricing", label: "E. Room Pricing" },
-            { id: "itinerary", label: "F. 6-Day Itinerary" },
-            { id: "preview", label: "G. Live Previews" },
+            { id: "addons", label: "D. Add-Ons & Extras" },
+            { id: "transport", label: "E. Transport Journeys" },
+            { id: "pricing", label: "F. Room Pricing" },
+            { id: "itinerary", label: "G. 6-Day Itinerary" },
+            { id: "preview", label: "H. Live Previews" },
           ] as const
         ).map((tab) => (
           <button
@@ -710,7 +722,92 @@ export function PremiumPackageManagerClient({ initialPackage }: Props) {
         </div>
       )}
 
-      {/* TAB D: TRANSPORT MANAGEMENT */}
+      {/* TAB D: ADD-ONS & EXTRAS */}
+      {activeTab === "addons" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-4 text-xs text-emerald-950">
+            <strong>Package Enhancements & Value Inclusions:</strong> Configure complimentary inclusions (such as the complimentary Saudi eSIM) and tailored pilgrimage add-ons available upon request (such as Wheelchair Assistance and Private Guides).
+          </div>
+
+          <div className="space-y-4">
+            {(pkg.addons || DEFAULT_PREMIUM_PACKAGE.addons || []).map((addon, idx) => (
+              <div
+                key={addon.id}
+                className="rounded-xl border border-black/10 bg-white p-5 shadow-2xs space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-warm-ivory text-xs font-bold text-deep-gold">
+                      {addon.type === "complimentary" ? "📶" : addon.title.toLowerCase().includes("wheelchair") ? "♿" : "👤"}
+                    </span>
+                    <span className="font-bold text-sm text-masaar-black">
+                      {addon.title}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        addon.type === "complimentary"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-900"
+                      }`}
+                    >
+                      {addon.type === "complimentary" ? "Complimentary Bonus" : "Upon Request"}
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={addon.is_active}
+                      onChange={(e) => updateAddon(idx, "is_active", e.target.checked)}
+                      className="rounded text-pure-gold focus:ring-pure-gold"
+                    />
+                    <span>Active on Public Page</span>
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold text-masaar-black uppercase tracking-wider">
+                      Add-on Title
+                    </label>
+                    <input
+                      type="text"
+                      value={addon.title}
+                      onChange={(e) => updateAddon(idx, "title", e.target.value)}
+                      className="mt-1 w-full rounded-md border border-black/15 p-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-masaar-black uppercase tracking-wider">
+                      Badge Text
+                    </label>
+                    <input
+                      type="text"
+                      value={addon.badge || ""}
+                      onChange={(e) => updateAddon(idx, "badge", e.target.value)}
+                      placeholder="e.g. Complimentary or Upon Request"
+                      className="mt-1 w-full rounded-md border border-black/15 p-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-masaar-black uppercase tracking-wider">
+                    Description & Pilgrim Guidance
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={addon.description}
+                    onChange={(e) => updateAddon(idx, "description", e.target.value)}
+                    className="mt-1 w-full rounded-md border border-black/15 p-2 text-sm"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB E: TRANSPORT MANAGEMENT */}
       {activeTab === "transport" && (
         <div className="space-y-6">
           <div className="rounded-xl border border-pure-gold/30 bg-warm-ivory p-4 text-xs text-masaar-black/80">

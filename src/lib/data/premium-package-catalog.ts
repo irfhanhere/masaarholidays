@@ -92,6 +92,32 @@ export const DEFAULT_PREMIUM_PACKAGE: PremiumPackage = {
       is_train: true,
     },
   ],
+  addons: [
+    {
+      id: "addon-esim",
+      title: "Complimentary Saudi eSIM",
+      type: "complimentary",
+      description: "Provided complimentary for every pilgrim to ensure high-speed mobile data and connectivity upon landing in Saudi Arabia.",
+      badge: "Complimentary",
+      is_active: true,
+    },
+    {
+      id: "addon-wheelchair",
+      title: "Wheelchair Assistance",
+      type: "upon_request",
+      description: "Dedicated wheelchair assistance and mobility support during Tawaf, Sa'i, and Haram visits available upon request for elderly pilgrims.",
+      badge: "Upon Request",
+      is_active: true,
+    },
+    {
+      id: "addon-guide",
+      title: "Private Guide",
+      type: "upon_request",
+      description: "Dedicated 1-on-1 Umrah scholar or private guide available upon request for personalized ritual guidance and spiritual support.",
+      badge: "Upon Request",
+      is_active: true,
+    },
+  ],
   transport: [
     {
       id: "tr-1",

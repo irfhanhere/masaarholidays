@@ -49,6 +49,28 @@ async function runTests() {
   assert.strictEqual(trainInclusion.icon, "train", "Train inclusion uses dedicated train icon");
   console.log(`  ✓ PASS: Dedicated Train Inclusion confirmed with train icon: "${trainInclusion.title}"`);
 
+  // 2B. COMPLIMENTARY VALUE & ADD-ONS VERIFICATION
+  console.log("\n--- 2B. Value Add-ons Verification ---");
+  assert.ok(pkg.addons && pkg.addons.length >= 3, "Package has at least 3 add-ons configured");
+  
+  const esimAddon = pkg.addons.find((a) => a.id === "addon-esim" || a.title.toLowerCase().includes("esim"));
+  assert.ok(esimAddon, "Complimentary Saudi eSIM add-on exists");
+  assert.strictEqual(esimAddon.type, "complimentary", "eSIM is provided complimentary");
+  assert.strictEqual(esimAddon.is_active, true, "eSIM add-on is active");
+  console.log(`  ✓ PASS: Complimentary eSIM verified: "${esimAddon.title}" (Type: ${esimAddon.type})`);
+
+  const wheelchairAddon = pkg.addons.find((a) => a.title.toLowerCase().includes("wheelchair"));
+  assert.ok(wheelchairAddon, "Wheelchair Assistance add-on exists");
+  assert.strictEqual(wheelchairAddon.type, "upon_request", "Wheelchair Assistance is upon request");
+  assert.strictEqual(wheelchairAddon.is_active, true, "Wheelchair Assistance is active");
+  console.log(`  ✓ PASS: Wheelchair Assistance verified: "${wheelchairAddon.title}" (Type: ${wheelchairAddon.type})`);
+
+  const guideAddon = pkg.addons.find((a) => a.title.toLowerCase().includes("guide"));
+  assert.ok(guideAddon, "Private Guide add-on exists");
+  assert.strictEqual(guideAddon.type, "upon_request", "Private Guide is upon request");
+  assert.strictEqual(guideAddon.is_active, true, "Private Guide is active");
+  console.log(`  ✓ PASS: Private Guide verified: "${guideAddon.title}" (Type: ${guideAddon.type})`);
+
   // 3. ROOM PRICING VERIFICATION
   console.log("\n--- 3. Room Pricing Verification ---");
   const priceMap = new Map(pkg.pricing.map((p) => [p.room_type, p.price_aed]));

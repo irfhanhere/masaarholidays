@@ -113,6 +113,32 @@ export function MasaarPremiumUmrahSpotlight({ pkg = DEFAULT_PREMIUM_PACKAGE }: P
               </span>
             </div>
           </div>
+
+          {/* Complimentary eSIM & Add-Ons Available Upon Request */}
+          <div className="mt-4 rounded-xl border border-emerald-200/70 bg-emerald-50/50 p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-900">
+                <span className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">✓</span>
+                <span>Complimentary Saudi eSIM Included</span>
+              </span>
+              <span className="rounded-full bg-emerald-600/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                Free Connectivity
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-emerald-900/10 pt-2 text-[11px] text-masaar-black/80">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/50">
+                Add-Ons Upon Request:
+              </span>
+              <span className="inline-flex items-center gap-1 font-medium text-masaar-black">
+                <span className="text-deep-gold font-bold">♿</span>
+                <span>Wheelchair Assistance</span>
+              </span>
+              <span className="inline-flex items-center gap-1 font-medium text-masaar-black">
+                <span className="text-deep-gold font-bold">👤</span>
+                <span>Private Guide</span>
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Pricing Summary & Action */}

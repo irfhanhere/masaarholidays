@@ -72,7 +72,15 @@ export default async function MasaarPremiumUmrahPage() {
   const minPrice = Math.min(...pkg.pricing.filter((p) => p.is_active).map((p) => p.price_aed), 4600);
 
   const whatsappBaseUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
-    `Assalamu Alaikum Masaar Holidays, I would like to enquire about the ${pkg.title} (${pkg.duration_days} Days / ${pkg.duration_nights} Nights). Please share availability and package details.`
+    `Assalamu Alaikum Masaar Holidays, I would like to enquire about the ${pkg.title} (${pkg.duration_days} Days / ${pkg.duration_nights} Nights). Please share availability, optional add-ons (Wheelchair / Private Guide), and package details.`
+  )}`;
+
+  const whatsappWheelchairUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
+    `Assalamu Alaikum Masaar Holidays, I would like to enquire about adding Wheelchair Assistance to the ${pkg.title}. Please share the available arrangements and details.`
+  )}`;
+
+  const whatsappPrivateGuideUrl = `https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
+    `Assalamu Alaikum Masaar Holidays, I would like to enquire about adding a Private Guide to the ${pkg.title}. Please share the available arrangements and details.`
   )}`;
 
   // Product schema for SEO
@@ -158,6 +166,12 @@ export default async function MasaarPremiumUmrahPage() {
               </span>
               <span className="rounded-md bg-white/10 px-3 py-1.5 font-medium text-white backdrop-blur-xs">
                 🕌 Madinah: {madinahHotel.nights} Nights
+              </span>
+              <span className="rounded-md bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-300 border border-emerald-500/30">
+                📶 Complimentary Saudi eSIM
+              </span>
+              <span className="rounded-md bg-white/10 px-3 py-1.5 font-medium text-white/90 backdrop-blur-xs">
+                ♿ Wheelchair & Private Guide on Request
               </span>
               <span className="rounded-md bg-pure-gold/20 px-3 py-1.5 font-bold text-pure-gold border border-pure-gold/30">
                 Starting from AED {minPrice.toLocaleString()}
@@ -282,6 +296,142 @@ export default async function MasaarPremiumUmrahPage() {
               <p className="mt-2 text-xs leading-relaxed text-emerald-900/80">
                 Daily 5-star international buffet breakfast plus the iconic high-speed <strong>Haramain Speed Train journey</strong> from Jeddah to Madinah.
               </p>
+            </div>
+          </div>
+
+          {/* Complimentary Connectivity: Saudi eSIM */}
+          <div className="mt-8 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50/90 via-white to-emerald-50/50 p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                <span className="text-2xl">📶</span>
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                    Complimentary Bonus
+                  </span>
+                  <h4 className="font-bold text-emerald-950 text-base">
+                    Complimentary Saudi eSIM Provided
+                  </h4>
+                </div>
+                <p className="mt-1 text-xs text-emerald-900/85 leading-relaxed max-w-2xl">
+                  Every pilgrim traveling on this package is provided with a complimentary high-speed Saudi data eSIM upon confirmation. Enjoy instant internet access as soon as you land at Jeddah Airport for navigation, rides, and staying in touch with loved ones and your group guides.
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full border border-emerald-300 bg-white px-3.5 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs">
+              Included with Package
+            </span>
+          </div>
+        </Container>
+      </section>
+
+      {/* SECTION 2B — OPTIONAL ADD-ONS (UPON REQUEST) */}
+      <section className="py-16 bg-warm-ivory/30 border-b border-black/5">
+        <Container>
+          <div className="text-center max-w-2xl mx-auto">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#936E0F]">
+              Personalized Enhancements
+            </span>
+            <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-bold text-masaar-black sm:text-4xl">
+              Available Add-Ons (Upon Request)
+            </h2>
+            <p className="mt-2 text-xs text-masaar-black/60 sm:text-sm">
+              Customise your pilgrimage with dedicated personal assistance. Simply request these add-ons when speaking with our team.
+            </p>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {/* Add-On 1: Wheelchair Assistance */}
+            <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="flex size-11 items-center justify-center rounded-xl bg-warm-ivory text-deep-gold text-xl font-bold">
+                    ♿
+                  </span>
+                  <span className="rounded-full bg-pure-gold/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black border border-pure-gold/30">
+                    Available Upon Request
+                  </span>
+                </div>
+                <h3 className="mt-4 font-[family-name:var(--font-display)] text-xl font-bold text-masaar-black">
+                  Wheelchair Assistance
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-masaar-black/70">
+                  Dedicated wheelchair attendants arranged for elderly pilgrims or family members needing mobility support during Tawaf, Sa&apos;i, and prayer movements in Makkah and Madinah.
+                </p>
+                <ul className="mt-4 space-y-2 text-xs text-masaar-black/75 border-t border-black/5 pt-3">
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Tawaf & Sa&apos;i accompaniment with experienced assistants</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Comfortable and patient pacing for seniors</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Coordination directly from your hotel lobby</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-6 pt-2">
+                <a
+                  href={whatsappWheelchairUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-masaar-black py-2.5 px-4 text-xs font-semibold text-white hover:bg-black/85 transition-all"
+                >
+                  <span>Request Wheelchair Assistance</span>
+                  <span>→</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Add-On 2: Private Umrah Guide */}
+            <div className="rounded-2xl border border-black/10 bg-white p-6 sm:p-7 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="flex size-11 items-center justify-center rounded-xl bg-warm-ivory text-deep-gold text-xl font-bold">
+                    👤
+                  </span>
+                  <span className="rounded-full bg-pure-gold/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-masaar-black border border-pure-gold/30">
+                    Available Upon Request
+                  </span>
+                </div>
+                <h3 className="mt-4 font-[family-name:var(--font-display)] text-xl font-bold text-masaar-black">
+                  Private Guide
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-masaar-black/70">
+                  Dedicated 1-on-1 religious scholar to accompany you and your family exclusively throughout your Umrah rites, offering personalized guidance and complete spiritual peace of mind.
+                </p>
+                <ul className="mt-4 space-y-2 text-xs text-masaar-black/75 border-t border-black/5 pt-3">
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Personal 1-on-1 ritual guidance from Ihram to Tahallul</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Step-by-step Sunnah instruction and tailored family pace</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-deep-gold font-bold">✓</span>
+                    <span>Ideal for first-time pilgrims and private families</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-6 pt-2">
+                <a
+                  href={whatsappPrivateGuideUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-masaar-black py-2.5 px-4 text-xs font-semibold text-white hover:bg-black/85 transition-all"
+                >
+                  <span>Request Private Guide</span>
+                  <span>→</span>
+                </a>
+              </div>
             </div>
           </div>
         </Container>
