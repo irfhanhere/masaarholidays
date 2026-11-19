@@ -11,6 +11,7 @@ import {
 import {
   createTamaraCheckoutSession,
   isTamaraCheckoutEnabled,
+  checkTamaraAmountEligibility,
 } from "@/lib/tamara";
 import { isEsimVatEnabled, getEsimVatPct, getVatTrn, calculateVatMinor } from "@/lib/vat";
 import { verifyEsimAccess, ESIM_PREVIEW_COOKIE_NAME } from "@/lib/esim-launch-server";
@@ -379,6 +380,14 @@ export async function POST(request: NextRequest) {
     }
 
     const tamaraAmount = Math.round(amountUsd * 3.6725 * 100) / 100;
+    const eligibility = checkTamaraAmountEligibility(tamaraAmount, "AED");
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        { error: eligibility.reason || "This order amount is not eligible for Tamara Pay in 4. Please select card payment." },
+        { status: 400 }
+      );
+    }
+
     const tamaraSuccessUrl = `${siteOrigin}/esim/order/${order.public_token}?payment_id={order_id}&tamara=1`;
     const tamaraCancelUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}?cancelled=1`;
     const tamaraFailureUrl = `${siteOrigin}/esim/checkout/${encodeURIComponent(plan.plan_id)}?failed=1`;
@@ -390,6 +399,7 @@ export async function POST(request: NextRequest) {
 
       const tamaraSession = await createTamaraCheckoutSession({
         orderReferenceId: order.partner_ref,
+        orderNumber: order.partner_ref,
         amount: tamaraAmount,
         currency: "AED",
         description: `eSIM: ${plan.name} — ${planDataLabel} (${plan.validity_days} Days)`,
@@ -439,9 +449,13 @@ export async function POST(request: NextRequest) {
       });
     } catch (tamaraErr: unknown) {
       const msg = tamaraErr instanceof Error ? tamaraErr.message : "Tamara checkout initialization failed";
-      console.error("[esim-checkout] Tamara session creation failed:", msg);
+      console.error("[esim-checkout] Tamara session creation failed:", {
+        orderRef: order.partner_ref,
+        amount: tamaraAmount,
+        error: msg,
+      });
       return NextResponse.json(
-        { error: `Tamara payment error: ${msg}` },
+        { error: msg.startsWith("Tamara") ? msg : `Tamara payment error: ${msg}`, referenceId: order.partner_ref },
         { status: 500 }
       );
     }

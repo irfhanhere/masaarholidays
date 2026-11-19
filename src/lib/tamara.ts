@@ -72,6 +72,10 @@ export interface TamaraItem {
     amount: number;
     currency: TamaraSupportedCurrency;
   };
+  tax_amount?: {
+    amount: number;
+    currency: TamaraSupportedCurrency;
+  };
   discount_amount?: {
     amount: number;
     currency: TamaraSupportedCurrency;
@@ -80,6 +84,7 @@ export interface TamaraItem {
 
 export interface TamaraCheckoutParams {
   orderReferenceId: string;
+  orderNumber?: string;
   amount: number;
   currency: TamaraSupportedCurrency;
   description: string;
@@ -94,6 +99,9 @@ export interface TamaraCheckoutParams {
   billingAddress?: TamaraAddress;
   paymentType?: "PAY_BY_INSTALMENTS" | "PAY_BY_LATER";
   instalments?: number;
+  shippingAmount?: { amount: number; currency: TamaraSupportedCurrency };
+  taxAmount?: { amount: number; currency: TamaraSupportedCurrency };
+  discountAmount?: { amount: number; currency: TamaraSupportedCurrency };
 }
 
 export interface TamaraCheckoutResult {
@@ -284,6 +292,49 @@ export function convertUsdToTamaraCurrency(
   };
 }
 
+export interface TamaraEligibilityCheck {
+  eligible: boolean;
+  minLimit: number;
+  maxLimit: number;
+  reason?: string;
+}
+
+/**
+ * Validates order amount against official Tamara merchant account limits.
+ * Live UAE production limits: Minimum AED 1.00, Maximum AED 100,000.00 for Pay in 4.
+ */
+export function checkTamaraAmountEligibility(
+  amount: number,
+  currency: TamaraSupportedCurrency = "AED"
+): TamaraEligibilityCheck {
+  const minLimit = 1.0;
+  const maxLimit = 100000.0;
+
+  if (amount < minLimit) {
+    return {
+      eligible: false,
+      minLimit,
+      maxLimit,
+      reason: `Order amount (${amount.toFixed(2)} ${currency}) is below Tamara's minimum allowed threshold of ${minLimit.toFixed(2)} ${currency}. Please select Card payment.`,
+    };
+  }
+
+  if (amount > maxLimit) {
+    return {
+      eligible: false,
+      minLimit,
+      maxLimit,
+      reason: `Order amount (${amount.toFixed(2)} ${currency}) exceeds Tamara's maximum limit of ${maxLimit.toFixed(2)} ${currency}. Please choose Card payment or contact concierge.`,
+    };
+  }
+
+  return {
+    eligible: true,
+    minLimit,
+    maxLimit,
+  };
+}
+
 /**
  * Create a Tamara Checkout Session (POST /checkout)
  */
@@ -313,39 +364,66 @@ export async function createTamaraCheckoutSession(
   const phone = normalizeTamaraPhone(params.consumer.phone_number, params.countryCode === "SA" ? "966" : "971");
 
   const fallbackAddress: TamaraAddress = {
-    first_name: params.consumer.first_name || "Guest",
-    last_name: params.consumer.last_name || "Pilgrim",
+    first_name: params.consumer.first_name || "Valued",
+    last_name: params.consumer.last_name || "Guest",
     line1: "Masaar Holidays Client Booking",
     city: params.countryCode === "SA" ? "Riyadh" : "Dubai",
     country_code: params.countryCode,
     phone_number: phone,
   };
 
+  const roundedTotal = Math.round(params.amount * 100) / 100;
+
   const payload = {
     order_reference_id: params.orderReferenceId,
+    order_number: params.orderNumber || params.orderReferenceId,
     total_amount: {
-      amount: Math.round(params.amount * 100) / 100,
+      amount: roundedTotal,
       currency: params.currency,
     },
     description: params.description.slice(0, 250),
     country_code: params.countryCode,
     payment_type: params.paymentType || "PAY_BY_INSTALMENTS",
     instalments: params.instalments || 4,
-    items: params.items.map((item) => ({
-      reference_id: item.reference_id,
-      type: item.type || "digital",
-      name: item.name.slice(0, 120),
-      sku: item.sku || item.reference_id,
-      quantity: item.quantity,
-      unit_price: {
-        amount: Math.round(item.unit_price.amount * 100) / 100,
-        currency: item.unit_price.currency,
-      },
-      total_amount: {
-        amount: Math.round(item.total_amount.amount * 100) / 100,
-        currency: item.total_amount.currency,
-      },
-    })),
+    shipping_amount: params.shippingAmount || {
+      amount: 0,
+      currency: params.currency,
+    },
+    tax_amount: params.taxAmount || {
+      amount: 0,
+      currency: params.currency,
+    },
+    discount_amount: params.discountAmount || {
+      amount: 0,
+      currency: params.currency,
+    },
+    items: params.items.map((item) => {
+      const itemUnit = Math.round(item.unit_price.amount * 100) / 100;
+      const itemTotal = Math.round(item.total_amount.amount * 100) / 100;
+      return {
+        reference_id: item.reference_id,
+        type: item.type || "digital",
+        name: item.name.slice(0, 120),
+        sku: item.sku || item.reference_id,
+        quantity: item.quantity,
+        unit_price: {
+          amount: itemUnit,
+          currency: item.unit_price.currency,
+        },
+        total_amount: {
+          amount: itemTotal,
+          currency: item.total_amount.currency,
+        },
+        tax_amount: item.tax_amount || {
+          amount: 0,
+          currency: item.total_amount.currency,
+        },
+        discount_amount: item.discount_amount || {
+          amount: 0,
+          currency: item.total_amount.currency,
+        },
+      };
+    }),
     consumer: {
       first_name: params.consumer.first_name || "Valued",
       last_name: params.consumer.last_name || "Guest",
@@ -374,21 +452,66 @@ export async function createTamaraCheckoutSession(
     cache: "no-store",
   });
 
+  const correlationId =
+    response.headers.get("x-correlation-id") ||
+    response.headers.get("x-request-id") ||
+    response.headers.get("cf-ray") ||
+    "N/A";
+
   const responseText = await response.text();
-  let json: Record<string, unknown>;
+  let json: Record<string, unknown> = {};
   try {
     json = JSON.parse(responseText);
   } catch {
-    throw new Error(`Invalid JSON response from Tamara API (HTTP ${response.status}): ${responseText.slice(0, 200)}`);
+    console.error("[tamara-diagnostics] Checkout creation non-JSON response:", {
+      endpoint,
+      httpStatus: response.status,
+      orderReference: params.orderReferenceId,
+      currency: params.currency,
+      amount: params.amount,
+      correlationId,
+      timestamp: new Date().toISOString(),
+    });
+    throw new Error(`Tamara gateway temporarily unavailable (HTTP ${response.status}). Please choose Card payment.`);
   }
 
   if (!response.ok) {
-    const errorMsg =
+    const rawError =
       (typeof json.message === "string" && json.message) ||
-      (Array.isArray(json.errors) && json.errors.map((e: any) => e.error || e.message).join(", ")) ||
-      `Tamara checkout session creation failed with HTTP ${response.status}`;
-    console.error("[tamara] Checkout creation error:", errorMsg);
-    throw new Error(errorMsg);
+      (Array.isArray(json.errors) &&
+        json.errors
+          .map((e: any) => e.error || e.message || e.error_code)
+          .filter(Boolean)
+          .join(", ")) ||
+      "";
+
+    const errorCode =
+      (Array.isArray(json.errors) && json.errors[0]?.error_code) ||
+      (typeof json.error_code === "string" ? json.error_code : "") ||
+      (typeof json.code === "string" ? json.code : `HTTP_${response.status}`);
+
+    // Safe server-side diagnostic logging (strictly excludes API tokens, passwords, full card info, sensitive documents)
+    console.error("[tamara-diagnostics] Checkout session creation failed:", {
+      endpoint,
+      httpStatus: response.status,
+      tamaraErrorCode: errorCode,
+      sanitizedMessage: rawError ? rawError.slice(0, 300) : `HTTP ${response.status}`,
+      orderReference: params.orderReferenceId,
+      currency: params.currency,
+      amount: params.amount,
+      correlationId,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (rawError.toLowerCase().includes("something went wrong with us") || response.status >= 500) {
+      throw new Error("Tamara Pay in 4 is momentarily unavailable. Please complete your booking using Card payment or Tabby.");
+    }
+
+    if (rawError.toLowerCase().includes("total_amount") || rawError.toLowerCase().includes("limit")) {
+      throw new Error(`Tamara order limit error: ${rawError}`);
+    }
+
+    throw new Error(rawError || "Tamara checkout session creation could not be completed.");
   }
 
   return {
