@@ -7,6 +7,7 @@ import { buildWhatsAppLink } from "@/lib/contact";
 import { convertFromAed, formatCurrency } from "@/lib/currency";
 import { useCurrency } from "./CurrencyProvider";
 import { Price } from "./Price";
+import { TabbyBadge, TabbyCard } from "@/components/site/TabbyLogo";
 
 interface Props {
   route: EnrichedTransferRoute;
@@ -64,9 +65,45 @@ export function TransferEnquiryFlow({
 
   // Payment gateway selection state (Stripe, Tabby, or Tamara)
   const [paymentGateway, setPaymentGateway] = useState<"stripe" | "tabby" | "tamara">("stripe");
+  const [isTabbyRuntimeAvailable, setIsTabbyRuntimeAvailable] = useState<boolean>(tabbyEnabled);
   const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(tamaraEnabled);
 
+  // Phase 4: UAE Phone validation for Tabby Pay in 4
+  const isUaePhone =
+    !phone.trim() ||
+    phone.trim().startsWith("+971") ||
+    phone.trim().startsWith("05") ||
+    phone.trim().startsWith("971") ||
+    phone.trim().startsWith("00971");
+
   useEffect(() => {
+    if (!isUaePhone && phone.trim().length > 3 && paymentGateway === "tabby") {
+      setPaymentGateway("stripe");
+    }
+  }, [phone, isUaePhone, paymentGateway]);
+
+  useEffect(() => {
+    // Phase 3: Tabby redirect messages
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("cancelled") === "1") {
+        setPayError("Your Tabby payment was cancelled. You can retry or choose another payment method.");
+      } else if (urlParams.get("failed") === "1") {
+        setPayError("Sorry, Tabby was unable to approve this transaction. Please select Credit/Debit Card to complete your booking.");
+        setIsTabbyRuntimeAvailable(false);
+        setPaymentGateway("stripe");
+      }
+    }
+
+    fetch("/api/tabby/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data?.enabled === "boolean") {
+          setIsTabbyRuntimeAvailable(data.enabled);
+        }
+      })
+      .catch(() => {});
+
     fetch("/api/tamara/config")
       .then((res) => res.json())
       .then((data) => {
@@ -273,7 +310,7 @@ export function TransferEnquiryFlow({
           email: email.trim().toLowerCase(),
           phone: phone.trim(),
           currency,
-          paymentGateway: (paymentGateway === "tamara" && isTamaraAvailable) ? "tamara" : (paymentGateway === "tabby" && tabbyEnabled) ? "tabby" : "stripe",
+          paymentGateway: (paymentGateway === "tamara" && isTamaraAvailable) ? "tamara" : (paymentGateway === "tabby" && isTabbyRuntimeAvailable && isUaePhone) ? "tabby" : "stripe",
         }),
       });
 
@@ -285,6 +322,10 @@ export function TransferEnquiryFlow({
       }
 
       if (!response.ok || !data?.url) {
+        if (data?.isTabbyRejection) {
+          setIsTabbyRuntimeAvailable(false);
+          setPaymentGateway("stripe");
+        }
         throw new Error(data?.error || "Failed to initialize payment gateway. Please try again.");
       }
 
@@ -307,11 +348,10 @@ export function TransferEnquiryFlow({
             className="flex items-center gap-2 text-left"
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                currentStep >= 1
-                  ? "bg-masaar-black text-white"
-                  : "bg-black/10 text-masaar-black/50"
-              }`}
+              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${currentStep >= 1
+                ? "bg-masaar-black text-white"
+                : "bg-black/10 text-masaar-black/50"
+                }`}
             >
               1
             </span>
@@ -320,9 +360,8 @@ export function TransferEnquiryFlow({
                 Step 1
               </span>
               <span
-                className={`text-sm font-semibold ${
-                  currentStep === 1 ? "text-deep-gold" : "text-masaar-black"
-                }`}
+                className={`text-sm font-semibold ${currentStep === 1 ? "text-deep-gold" : "text-masaar-black"
+                  }`}
               >
                 Choose Vehicle
               </span>
@@ -330,9 +369,8 @@ export function TransferEnquiryFlow({
           </button>
 
           <div
-            className={`h-0.5 flex-1 mx-4 transition-colors ${
-              currentStep >= 2 ? "bg-deep-gold" : "bg-black/10"
-            }`}
+            className={`h-0.5 flex-1 mx-4 transition-colors ${currentStep >= 2 ? "bg-deep-gold" : "bg-black/10"
+              }`}
           />
 
           <button
@@ -343,11 +381,10 @@ export function TransferEnquiryFlow({
             className="flex items-center gap-2 text-left"
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                currentStep >= 2
-                  ? "bg-masaar-black text-white"
-                  : "bg-black/10 text-masaar-black/50"
-              }`}
+              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${currentStep >= 2
+                ? "bg-masaar-black text-white"
+                : "bg-black/10 text-masaar-black/50"
+                }`}
             >
               2
             </span>
@@ -356,9 +393,8 @@ export function TransferEnquiryFlow({
                 Step 2
               </span>
               <span
-                className={`text-sm font-semibold ${
-                  currentStep === 2 ? "text-deep-gold" : "text-masaar-black"
-                }`}
+                className={`text-sm font-semibold ${currentStep === 2 ? "text-deep-gold" : "text-masaar-black"
+                  }`}
               >
                 Journey Details
               </span>
@@ -366,9 +402,8 @@ export function TransferEnquiryFlow({
           </button>
 
           <div
-            className={`h-0.5 flex-1 mx-4 transition-colors ${
-              currentStep === 3 ? "bg-deep-gold" : "bg-black/10"
-            }`}
+            className={`h-0.5 flex-1 mx-4 transition-colors ${currentStep === 3 ? "bg-deep-gold" : "bg-black/10"
+              }`}
           />
 
           <button
@@ -379,11 +414,10 @@ export function TransferEnquiryFlow({
             className="flex items-center gap-2 text-left"
           >
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                currentStep === 3
-                  ? "bg-deep-gold text-white"
-                  : "bg-black/10 text-masaar-black/50"
-              }`}
+              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-colors ${currentStep === 3
+                ? "bg-deep-gold text-white"
+                : "bg-black/10 text-masaar-black/50"
+                }`}
             >
               3
             </span>
@@ -392,9 +426,8 @@ export function TransferEnquiryFlow({
                 Step 3
               </span>
               <span
-                className={`text-sm font-semibold ${
-                  currentStep === 3 ? "text-deep-gold" : "text-masaar-black"
-                }`}
+                className={`text-sm font-semibold ${currentStep === 3 ? "text-deep-gold" : "text-masaar-black"
+                  }`}
               >
                 Review &amp; Enquire
               </span>
@@ -428,11 +461,10 @@ export function TransferEnquiryFlow({
                 return (
                   <div
                     key={v.vehicleId}
-                    className={`relative flex flex-col justify-between overflow-hidden rounded-xl border bg-white p-5 transition-all duration-200 ${
-                      isSelected
-                        ? "border-deep-gold ring-2 ring-deep-gold shadow-md"
-                        : "border-black/10 hover:border-black/25 hover:shadow-sm"
-                    }`}
+                    className={`relative flex flex-col justify-between overflow-hidden rounded-xl border bg-white p-5 transition-all duration-200 ${isSelected
+                      ? "border-deep-gold ring-2 ring-deep-gold shadow-md"
+                      : "border-black/10 hover:border-black/25 hover:shadow-sm"
+                      }`}
                   >
                     {/* Vehicle Header & Image */}
                     <div>
@@ -503,11 +535,10 @@ export function TransferEnquiryFlow({
                       <button
                         type="button"
                         onClick={() => handleProceedToDetails(v.vehicleId)}
-                        className={`w-full rounded-lg py-2.5 text-xs font-bold transition-colors ${
-                          isSelected
-                            ? "bg-deep-gold text-white hover:bg-deep-gold/90"
-                            : "bg-masaar-black text-white hover:bg-deep-gold"
-                        }`}
+                        className={`w-full rounded-lg py-2.5 text-xs font-bold transition-colors ${isSelected
+                          ? "bg-deep-gold text-white hover:bg-deep-gold/90"
+                          : "bg-masaar-black text-white hover:bg-deep-gold"
+                          }`}
                       >
                         {isSelected ? "Selected — Continue →" : "Select Vehicle"}
                       </button>
@@ -1009,11 +1040,10 @@ export function TransferEnquiryFlow({
                 <button
                   type="button"
                   onClick={() => setPaymentGateway("stripe")}
-                  className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
-                    paymentGateway === "stripe"
-                      ? "border-masaar-black bg-white ring-2 ring-masaar-black/20 shadow-xs"
-                      : "border-black/10 bg-white hover:border-black/30"
-                  }`}
+                  className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${paymentGateway === "stripe"
+                    ? "border-masaar-black bg-white ring-2 ring-masaar-black/20 shadow-xs"
+                    : "border-black/10 bg-white hover:border-black/30"
+                    }`}
                 >
                   <div className="flex w-full items-center justify-between">
                     <span className="text-xs font-bold text-masaar-black">Credit / Debit Card</span>
@@ -1039,45 +1069,41 @@ export function TransferEnquiryFlow({
                 {/* Option 2: Tabby (Pay in 4) */}
                 <button
                   type="button"
-                  disabled={!tabbyEnabled}
+                  disabled={!isTabbyRuntimeAvailable || !isUaePhone}
                   onClick={() => {
-                    if (tabbyEnabled) setPaymentGateway("tabby");
+                    if (isTabbyRuntimeAvailable && isUaePhone) setPaymentGateway("tabby");
                   }}
                   className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
-                    !tabbyEnabled
-                      ? "border-black/10 bg-white/60 opacity-70 cursor-not-allowed"
+                    (!isTabbyRuntimeAvailable || !isUaePhone)
+                      ? "border-black/10 bg-white/60 opacity-60 cursor-not-allowed"
                       : paymentGateway === "tabby"
-                      ? "border-[#3EEDB4] bg-white ring-2 ring-[#3EEDB4]/50 shadow-xs"
-                      : "border-black/10 bg-white hover:border-black/30"
-                  }`}
+                      ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
+                      : "border-black/10 bg-white hover:border-black/30 cursor-pointer"
+                    }`}
                 >
                   <div className="flex w-full items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-sm bg-[#3EEDB4] px-1.5 py-0.5 text-[10px] font-black text-black">
-                        tabby
-                      </span>
-                      <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                      <span className="text-xs font-bold text-masaar-black">Tabby</span>
+                      <TabbyBadge className="h-4.5 w-auto" />
                     </div>
-                    {!tabbyEnabled ? (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                        Offline
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                        0% Interest · Sharia
-                      </span>
-                    )}
+                    <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-masaar-black">
+                      4 interest-free payments
+                    </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-masaar-black/70">
-                    {!tabbyEnabled
-                      ? "Tabby Pay in 4 is currently offline. Please use Card payment."
-                      : `4 monthly interest-free payments of AED ${Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}. No hidden fees.`}
-                  </p>
-                  {tabbyEnabled && (
-                    <div className="mt-3 text-xs font-bold text-masaar-black">
-                      <span>AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}</span>
-                      <span className="font-normal text-masaar-black/60 text-[10px]"> / month (4 payments)</span>
-                    </div>
+                  {paymentGateway === "tabby" ? (
+                    <TabbyCard priceAed={selectedVehicle?.priceAed || 0} className="mt-2 text-left" />
+                  ) : (
+                    <p className="mt-1 text-[11px] text-masaar-black/75 leading-relaxed">
+                      4 interest-free payments of AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}. No interest. No fees. Shariah-compliant.
+                    </p>
+                  )}
+                  <div className="mt-2 text-xs font-bold text-masaar-black">
+                    <span>Total: AED {selectedVehicle?.priceAed || 0}</span>
+                  </div>
+                  {!isUaePhone && phone.trim().length > 3 && (
+                    <p className="mt-1 text-[10px] font-medium text-amber-800">
+                      Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
+                    </p>
                   )}
                 </button>
 
@@ -1086,11 +1112,10 @@ export function TransferEnquiryFlow({
                   <button
                     type="button"
                     onClick={() => setPaymentGateway("tamara")}
-                    className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
-                      paymentGateway === "tamara"
-                        ? "border-[#F88D2A] bg-amber-50/40 ring-2 ring-[#F88D2A]/40 shadow-xs"
-                        : "border-black/10 bg-white hover:border-black/30"
-                    }`}
+                    className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${paymentGateway === "tamara"
+                      ? "border-[#F88D2A] bg-amber-50/40 ring-2 ring-[#F88D2A]/40 shadow-xs"
+                      : "border-black/10 bg-white hover:border-black/30"
+                      }`}
                   >
                     <div className="flex w-full items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1113,55 +1138,6 @@ export function TransferEnquiryFlow({
                   </button>
                 )}
               </div>
-
-              {/* Tabby breakdown schedule box when selected */}
-              {paymentGateway === "tabby" && tabbyEnabled && (
-                <div className="mt-4 rounded-xl border border-[#3EEDB4]/40 bg-[#3EEDB4]/10 p-4 text-xs">
-                  <div className="flex items-center justify-between border-b border-black/5 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#3EEDB4] text-[10px] font-bold text-black">
-                        4
-                      </span>
-                      <span className="font-semibold text-masaar-black">Tabby 4-Month Installment Plan (AED)</span>
-                    </div>
-                    <span className="text-[11px] text-emerald-700 font-semibold">0% APR · Sharia-Compliant</span>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
-                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                      <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
-                      <p className="mt-1 font-bold text-masaar-black text-xs">
-                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
-                      </p>
-                      <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
-                    </div>
-                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                      <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
-                      <p className="mt-1 font-bold text-masaar-black text-xs">
-                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
-                      </p>
-                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
-                    </div>
-                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                      <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
-                      <p className="mt-1 font-bold text-masaar-black text-xs">
-                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
-                      </p>
-                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
-                    </div>
-                    <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                      <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
-                      <p className="mt-1 font-bold text-masaar-black text-xs">
-                        AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}
-                      </p>
-                      <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[10px] text-masaar-black/60">
-                    You will be redirected securely to Tabby to verify your mobile number and UAE Emirates ID / GCC ID.
-                  </p>
-                </div>
-              )}
 
               {/* Tamara breakdown schedule box when selected */}
               {paymentGateway === "tamara" && isTamaraAvailable && (
@@ -1251,12 +1227,10 @@ export function TransferEnquiryFlow({
                       </svg>
                       <span>Connecting to Payment...</span>
                     </>
-                  ) : paymentGateway === "tabby" && tabbyEnabled ? (
+                  ) : paymentGateway === "tabby" && isTabbyRuntimeAvailable && isUaePhone ? (
                     <>
-                      <span className="inline-flex rounded-sm bg-black px-1.5 py-0.5 text-[10px] font-black text-[#3EEDB4]">
-                        tabby
-                      </span>
-                      <span>Pay AED {selectedVehicle?.priceAed || 0} in 4 Installments →</span>
+                      <TabbyBadge className="h-4 w-auto inline-block align-middle" />
+                      <span>Pay with Tabby · 4x AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100} →</span>
                     </>
                   ) : paymentGateway === "tamara" && isTamaraAvailable ? (
                     <>

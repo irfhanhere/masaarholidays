@@ -7,6 +7,7 @@ import {
   convertUsdToTabbyCurrency,
   isTabbyCheckoutEnabled,
   getTabbyConfig,
+  TabbyRejectionError,
 } from "@/lib/tabby";
 import {
   createTamaraCheckoutSession,
@@ -156,11 +157,11 @@ export async function POST(request: NextRequest) {
   const tabbyTargetCurrency: "AED" = "AED";
   const tabbyConverted = isSaudi
     ? {
-        amount: pricing.totalAmount, // AED 750 * applicants
-        currency: "AED" as const,
-        rate: 1,
-        installmentAmount: Math.round((pricing.totalAmount / 4) * 100) / 100,
-      }
+      amount: pricing.totalAmount, // AED 750 * applicants
+      currency: "AED" as const,
+      rate: 1,
+      installmentAmount: Math.round((pricing.totalAmount / 4) * 100) / 100,
+    }
     : convertUsdToTabbyCurrency(pricing.totalAmount, "AED");
 
   // Tamara uses AED merchant account (pegged 1 USD = 3.6725 AED)
@@ -375,9 +376,25 @@ export async function POST(request: NextRequest) {
         installmentAmount: tabbyConverted.installmentAmount,
       });
     } catch (tabbyErr: unknown) {
+      if (tabbyErr instanceof TabbyRejectionError) {
+        return NextResponse.json(
+          {
+            error: tabbyErr.approvedMessage,
+            rejectionCode: tabbyErr.rejectionCode,
+            isTabbyRejection: true,
+          },
+          { status: 400 }
+        );
+      }
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
       console.error("[visa-checkout] Tabby session creation failed:", msg);
-      return NextResponse.json({ error: msg }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.",
+          isTabbyRejection: true,
+        },
+        { status: 400 }
+      );
     }
   }
 

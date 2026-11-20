@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { getSiteOrigin } from "@/lib/site-url";
 import { getPublicTransferBySlug } from "@/lib/data/transfers";
-import { createTabbyCheckoutSession, isTabbyCheckoutEnabled } from "@/lib/tabby";
+import { createTabbyCheckoutSession, isTabbyCheckoutEnabled, TabbyRejectionError } from "@/lib/tabby";
 import { createTamaraCheckoutSession, isTamaraCheckoutEnabled } from "@/lib/tamara";
 
 export const dynamic = "force-dynamic";
@@ -273,9 +273,25 @@ export async function POST(request: NextRequest) {
         installmentAmount: Math.round((priceAed / 4) * 100) / 100,
       });
     } catch (tabbyErr: unknown) {
+      if (tabbyErr instanceof TabbyRejectionError) {
+        return NextResponse.json(
+          {
+            error: tabbyErr.approvedMessage,
+            rejectionCode: tabbyErr.rejectionCode,
+            isTabbyRejection: true,
+          },
+          { status: 400 }
+        );
+      }
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
       console.error("[transfers-checkout] Tabby session creation failed:", msg);
-      return NextResponse.json({ error: msg }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.",
+          isTabbyRejection: true,
+        },
+        { status: 400 }
+      );
     }
   }
 

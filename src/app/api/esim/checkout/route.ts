@@ -7,6 +7,7 @@ import {
   createTabbyCheckoutSession,
   isTabbyCheckoutEnabled,
   convertUsdToTabbyCurrency,
+  TabbyRejectionError,
 } from "@/lib/tabby";
 import {
   createTamaraCheckoutSession,
@@ -361,11 +362,24 @@ export async function POST(request: NextRequest) {
         referenceId: order.partner_ref,
       });
     } catch (tabbyErr: unknown) {
+      if (tabbyErr instanceof TabbyRejectionError) {
+        return NextResponse.json(
+          {
+            error: tabbyErr.approvedMessage,
+            rejectionCode: tabbyErr.rejectionCode,
+            isTabbyRejection: true,
+          },
+          { status: 400 }
+        );
+      }
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout initialization failed";
       console.error("[esim-checkout] Tabby session creation failed:", msg);
       return NextResponse.json(
-        { error: `Tabby payment error: ${msg}` },
-        { status: 500 }
+        {
+          error: "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.",
+          isTabbyRejection: true,
+        },
+        { status: 400 }
       );
     }
   }

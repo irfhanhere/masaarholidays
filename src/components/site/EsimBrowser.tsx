@@ -6,6 +6,7 @@ import { Container } from "./Container";
 import { CrossLinkServices } from "./CrossLinkServices";
 import { useCurrency } from "./CurrencyProvider";
 import { formatEsimPrice } from "@/lib/currency";
+import { TabbyPromo } from "@/components/site/TabbyLogo";
 import { buildWhatsAppLink } from "@/lib/contact";
 import {
   ESIM_DESTINATIONS,
@@ -1067,6 +1068,9 @@ export function EsimBrowser({
                                     Price includes {vatPct}% VAT
                                   </div>
                                 )}
+                                <div className="mt-1.5">
+                                  <TabbyPromo priceAed={Math.round(plan.sale_price_usd * 3.6725 * 100) / 100} />
+                                </div>
                               </div>
 
                               <Link
@@ -1272,6 +1276,9 @@ export function EsimBrowser({
                                     Price includes {vatPct}% VAT
                                   </div>
                                 )}
+                                <div className="mt-1.5">
+                                  <TabbyPromo priceAed={Math.round(plan.sale_price_usd * 3.6725 * 100) / 100} />
+                                </div>
                               </div>
 
                               <Link

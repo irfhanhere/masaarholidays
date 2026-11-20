@@ -7,6 +7,7 @@ import { useCurrency } from "./CurrencyProvider";
 import { formatEsimPrice, convertFromUsd, CURRENCY_PREFIX } from "@/lib/currency";
 import { buildWhatsAppLink } from "@/lib/contact";
 import { getDestinationByIso } from "@/lib/esim-config";
+import { TabbyBadge, TabbyProductSnippet, TabbyCard } from "@/components/site/TabbyLogo";
 
 export interface EsimCheckoutPlanData {
   plan_id: string;
@@ -71,6 +72,18 @@ export function EsimCheckoutClient({
   const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(true);
 
   useEffect(() => {
+    // Phase 3: Approved messages for redirects
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("cancelled") === "1") {
+        setApiError("Your Tabby payment was cancelled. You can retry or choose another payment method.");
+      } else if (urlParams.get("failed") === "1") {
+        setApiError("Sorry, Tabby was unable to approve this transaction. Please select Credit/Debit Card to complete your booking.");
+        setIsTabbyAvailable(false);
+        setPaymentGateway("stripe");
+      }
+    }
+
     fetch("/api/tabby/config")
       .then((res) => res.json())
       .then((data) => {
@@ -97,6 +110,20 @@ export function EsimCheckoutClient({
   const [email, setEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  // Phase 4: UAE Phone validation for Tabby Pay in 4
+  const isUaePhone =
+    !phone.trim() ||
+    phone.trim().startsWith("+971") ||
+    phone.trim().startsWith("05") ||
+    phone.trim().startsWith("971") ||
+    phone.trim().startsWith("00971");
+
+  useEffect(() => {
+    if (!isUaePhone && phone.trim().length > 3 && paymentGateway === "tabby") {
+      setPaymentGateway("stripe");
+    }
+  }, [phone, isUaePhone, paymentGateway]);
 
   const [checkDeviceUnlocked, setCheckDeviceUnlocked] = useState(false);
   const [checkDataOnlyRefund, setCheckDataOnlyRefund] = useState(false);
@@ -329,9 +356,12 @@ export function EsimCheckoutClient({
 
       if (!response.ok || !data?.url) {
         clearTimeout(timeoutId);
-        const errMessage = data?.referenceId
-          ? `${data?.error || "Failed to initialize checkout session."} (Reference: ${data.referenceId})`
-          : data?.error || (response.status === 429 ? "Too many attempts. Please wait a moment." : "Failed to initialize checkout session. Please try again.");
+        // Phase 2: If Tabby rejected, disable Tabby radio and auto-select Stripe
+        if (data?.isTabbyRejection) {
+          setIsTabbyAvailable(false);
+          setPaymentGateway("stripe");
+        }
+        const errMessage = data?.error || (response.status === 429 ? "Too many attempts. Please wait a moment." : "Failed to initialize checkout session. Please try again.");
         throw new Error(errMessage);
       }
 
@@ -713,13 +743,13 @@ export function EsimCheckoutClient({
                   {/* Option 2: Tabby (Pay in 4 installments) */}
                   <label
                     onClick={() => {
-                      if (isTabbyAvailable) setPaymentGateway("tabby");
+                      if (isTabbyAvailable && isUaePhone) setPaymentGateway("tabby");
                     }}
                     className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all ${
                       paymentGateway === "tabby"
-                        ? "border-[#C9A227] bg-[#FAF7F2] ring-2 ring-[#C9A227]/30 shadow-xs"
+                        ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
                         : "border-black/10 bg-white hover:border-black/20"
-                    } ${!isTabbyAvailable ? "opacity-60 cursor-not-allowed" : ""}`}
+                    } ${(!isTabbyAvailable || !isUaePhone) ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
@@ -727,22 +757,34 @@ export function EsimCheckoutClient({
                           type="radio"
                           name="paymentGateway"
                           value="tabby"
-                          disabled={!isTabbyAvailable}
+                          disabled={!isTabbyAvailable || !isUaePhone}
                           checked={paymentGateway === "tabby"}
                           onChange={() => {
-                            if (isTabbyAvailable) setPaymentGateway("tabby");
+                            if (isTabbyAvailable && isUaePhone) setPaymentGateway("tabby");
                           }}
-                          className="size-4 text-[#C9A227] focus:ring-[#C9A227]"
+                          className="size-4 text-[#0A0A08] focus:ring-[#0A0A08]"
                         />
-                        <span className="text-xs font-bold text-[#0A0A08]">Tabby · Pay in 4</span>
+                        <span className="text-xs font-bold text-[#0A0A08] flex items-center gap-2">
+                          <span>Tabby</span>
+                          <TabbyBadge className="h-4.5 w-auto" />
+                        </span>
                       </div>
-                      <span className="rounded-full bg-[#3EEDBF]/30 px-2 py-0.5 text-[10px] font-extrabold text-[#055743]">
-                        4x AED {tabbyInstallmentAed}
+                      <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-[#0A0A08]">
+                        4 interest-free payments
                       </span>
                     </div>
-                    <p className="mt-2 text-[11px] text-[#0A0A08]/65 leading-relaxed">
-                      Split into 4 interest-free monthly payments of AED {tabbyInstallmentAed}. Shariah-compliant.
-                    </p>
+                    {paymentGateway === "tabby" ? (
+                      <TabbyCard priceAed={tabbyTotalAed} className="mt-2 text-left" />
+                    ) : (
+                      <p className="mt-2 text-[11px] text-[#0A0A08]/75 leading-relaxed">
+                        4 interest-free payments of AED {tabbyInstallmentAed}. No interest. No fees. Shariah-compliant.
+                      </p>
+                    )}
+                    {!isUaePhone && phone.trim().length > 3 && (
+                      <p className="mt-1.5 text-[10px] font-medium text-amber-800">
+                        Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
+                      </p>
+                    )}
                   </label>
 
                   {/* Option 3: Tamara (Pay in 4 installments) */}
@@ -780,18 +822,6 @@ export function EsimCheckoutClient({
                     </label>
                   )}
                 </div>
-
-                {paymentGateway === "tabby" && (
-                  <div className="rounded-xl border border-[#3EEDBF]/40 bg-[#3EEDBF]/10 p-3.5 text-xs text-[#055743]">
-                    <div className="font-bold flex items-center gap-1.5">
-                      <span>✨</span>
-                      <span>Pay AED {tabbyInstallmentAed} today, and the rest over 3 months</span>
-                    </div>
-                    <p className="mt-1 text-[11px] text-[#055743]/80">
-                      Tabby automatically splits your total (AED {tabbyTotalAed}) into 4 equal interest-free installments. Valid UAE or GCC mobile number required.
-                    </p>
-                  </div>
-                )}
 
                 {paymentGateway === "tamara" && (
                   <div className="rounded-xl border border-[#F88D2A]/40 bg-amber-50/60 p-3.5 text-xs text-[#C86400]">
@@ -944,16 +974,11 @@ export function EsimCheckoutClient({
                 </div>
 
                 {/* BNPL 4 Installments Badge */}
-                {(isTabbyAvailable || isTamaraAvailable) && (
+                {isTabbyAvailable && isUaePhone && (
                   <div className="rounded-xl border border-black/5 bg-[#FAF7F2] p-3 text-xs text-[#0A0A08]/85 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[#0A0A08]">Split into 4 Monthly Payments</span>
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-[#8F6407]">
-                        0% Interest
-                      </span>
-                    </div>
+                    <TabbyProductSnippet installmentAed={tabbyInstallmentAed} />
                     <p className="text-[11px] text-[#0A0A08]/65">
-                      Pay <strong className="text-[#0A0A08]">AED {tabbyInstallmentAed}</strong> today with Tabby or Tamara, and the rest over 3 months. No hidden fees.
+                      No interest. No fees. Shariah-compliant.
                     </p>
                   </div>
                 )}

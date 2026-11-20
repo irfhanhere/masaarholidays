@@ -1,4 +1,5 @@
 import "server-only";
+import { getTabbyBuyerHistory } from "@/lib/tabby-history";
 
 /**
  * Tabby Payment Gateway Service (API v2)
@@ -64,6 +65,54 @@ export interface TabbyCheckoutParams {
     address?: string;
     zip?: string;
   };
+}
+
+export type TabbyRejectionCode =
+  | "not_available"
+  | "order_amount_too_low"
+  | "order_amount_too_high"
+  | "uae_phone_required"
+  | "rejected"
+  | "unknown";
+
+/**
+ * Tabby Rejection Error with official approved customer-facing messaging.
+ */
+export class TabbyRejectionError extends Error {
+  public readonly rejectionCode: TabbyRejectionCode;
+  public readonly approvedMessage: string;
+  public readonly isTabbyRejection = true;
+
+  constructor(code: TabbyRejectionCode, customMsg?: string) {
+    let message: string;
+    switch (code) {
+      case "not_available":
+        message =
+          "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.";
+        break;
+      case "order_amount_too_low":
+        message =
+          "The purchase amount is too low for Tabby Pay in 4. Please choose another payment method.";
+        break;
+      case "order_amount_too_high":
+        message =
+          "The purchase amount exceeds the maximum limit for Tabby Pay in 4. Please choose another payment method.";
+        break;
+      case "uae_phone_required":
+        message =
+          customMsg ||
+          "Tabby Pay in 4 is currently available for UAE phone numbers (+971) only. Please select Credit / Debit Card or enter a valid UAE phone number.";
+        break;
+      default:
+        message =
+          customMsg ||
+          "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.";
+    }
+    super(message);
+    this.name = "TabbyRejectionError";
+    this.rejectionCode = code;
+    this.approvedMessage = message;
+  }
 }
 
 export interface TabbyCheckoutResult {
@@ -232,12 +281,21 @@ export function convertUsdToTabbyCurrency(usdAmount: number, targetCurrency: "AE
 /**
  * Format phone numbers to E.164 international format required by Tabby.
  */
-function normalizeTabbyPhone(phone: string, defaultCountry = "971"): string {
+export function normalizeTabbyPhone(phone: string, defaultCountry = "971"): string {
   const cleaned = phone.replace(/[^\d+]/g, "");
   if (cleaned.startsWith("+")) return cleaned;
   if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
   if (cleaned.startsWith("0")) return `+${defaultCountry}${cleaned.slice(1)}`;
   return `+${cleaned}`;
+}
+
+/**
+ * Validates whether a phone number is a UAE number (+971).
+ */
+export function isUaePhoneNumber(phone: string): boolean {
+  if (!phone) return false;
+  const normalized = normalizeTabbyPhone(phone, "971");
+  return normalized.startsWith("+971");
 }
 
 /**
@@ -282,12 +340,37 @@ export async function createTabbyCheckoutSession(
     );
   }
 
+  // UAE Phone number check: merchant code 'mhae' is registered in UAE for AED transactions.
+  // Validate customer phone starts with +971.
   const normalizedPhone = normalizeTabbyPhone(params.buyer.phone, params.currency === "SAR" ? "966" : "971");
+  if (params.currency !== "SAR" && !normalizedPhone.startsWith("+971")) {
+    throw new TabbyRejectionError(
+      "uae_phone_required",
+      "Tabby Pay in 4 is currently available for UAE phone numbers (+971) only. Please select Credit / Debit Card or enter a valid UAE phone number."
+    );
+  }
 
   // Determine regional merchant code (e.g. TABBY_MERCHANT_CODE_SAR for Saudi Arabia if configured)
   const effectiveMerchantCode =
     (params.currency === "SAR" && process.env.TABBY_MERCHANT_CODE_SAR?.trim()) ||
     config.merchantCode;
+
+  // Retrieve genuine buyer history across prior completed orders
+  const history = await getTabbyBuyerHistory(
+    {
+      name: params.buyer.name,
+      email: params.buyer.email,
+      phone: normalizedPhone,
+    },
+    params.referenceId
+  );
+
+  const buyerHistoryPayload: Record<string, unknown> = {
+    loyalty_level: history.loyalty_level,
+  };
+  if (history.registered_since) {
+    buyerHistoryPayload.registered_since = history.registered_since;
+  }
 
   const payload = {
     payment: {
@@ -300,10 +383,7 @@ export async function createTabbyCheckoutSession(
         name: params.buyer.name,
         dob: params.buyer.dob || undefined,
       },
-      buyer_history: {
-        registered_since: new Date().toISOString(),
-        loyalty_level: 0,
-      },
+      buyer_history: buyerHistoryPayload,
       order: {
         tax_amount: "0.00",
         shipping_amount: "0.00",
@@ -319,7 +399,7 @@ export async function createTabbyCheckoutSession(
           reference_id: item.referenceId || params.referenceId,
         })),
       },
-      order_history: [],
+      order_history: history.order_history,
       shipping_address: {
         city: params.shippingAddress?.city || (params.currency === "SAR" ? "Riyadh" : "Dubai"),
         address: params.shippingAddress?.address || "Customer Residence",
@@ -357,6 +437,24 @@ export async function createTabbyCheckoutSession(
   const rawJson = await response.json();
 
   if (!response.ok) {
+    const rawReason = String(
+      rawJson.rejection_reason ||
+      rawJson.configuration?.products?.installments?.rejection_reason ||
+      rawJson.error ||
+      rawJson.message ||
+      ""
+    ).toLowerCase();
+
+    if (rawReason.includes("too_high") || rawReason.includes("exceed")) {
+      throw new TabbyRejectionError("order_amount_too_high");
+    }
+    if (rawReason.includes("too_low")) {
+      throw new TabbyRejectionError("order_amount_too_low");
+    }
+    if (rawReason.includes("not_available") || rawReason.includes("unavailable") || rawReason.includes("rejected")) {
+      throw new TabbyRejectionError("not_available");
+    }
+
     let errorMsg =
       rawJson.error ||
       rawJson.message ||
@@ -375,13 +473,22 @@ export async function createTabbyCheckoutSession(
   const webUrl = firstProduct?.web_url;
 
   if (!webUrl) {
-    // Check if Tabby provided a rejection reason (e.g. order amount out of bounds or unsupported country)
-    const rejectionReason =
+    // Check if Tabby provided a rejection reason
+    const rejectionReasonRaw = String(
       rawJson.configuration?.products?.installments?.rejection_reason ||
       rawJson.rejection_reason ||
-      "Installment plan is currently unavailable for this order.";
-    console.warn("[Tabby] No web_url returned. Rejection reason:", rejectionReason);
-    throw new Error(`Tabby Pay in 4 is not available: ${rejectionReason}`);
+      ""
+    ).toLowerCase();
+
+    console.warn("[Tabby] No web_url returned. Rejection reason:", rejectionReasonRaw || "None provided");
+
+    if (rejectionReasonRaw.includes("too_high") || rejectionReasonRaw.includes("exceed")) {
+      throw new TabbyRejectionError("order_amount_too_high");
+    }
+    if (rejectionReasonRaw.includes("too_low")) {
+      throw new TabbyRejectionError("order_amount_too_low");
+    }
+    throw new TabbyRejectionError("not_available");
   }
 
   return {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Container } from "@/components/site/Container";
+import { TabbyBadge } from "@/components/site/TabbyLogo";
 import { CONTACT } from "@/lib/contact";
 import type {
   VisaApplicationRow,
@@ -184,7 +185,7 @@ export function VisaTrackingView({
           <div className="space-y-6">
             {/* Tabby Verification Feedback */}
             {verifyingTabby && (
-              <div className="flex items-center gap-3 rounded-xl border border-[#3EEDB4]/50 bg-[#3EEDB4]/10 p-4 text-xs text-masaar-black">
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs text-masaar-black">
                 <div className="size-4 animate-spin rounded-full border-2 border-masaar-black border-t-transparent" />
                 <span className="font-medium">
                   Verifying your Tabby payment with the bank... Please wait a moment.
@@ -546,9 +547,9 @@ export function VisaTrackingView({
                         Tamara (Split in 4)
                       </span>
                     ) : application.payment_gateway === "tabby" ? (
-                      <span className="inline-flex items-center gap-1.5 rounded bg-[#3EEDB4]/20 px-2.5 py-1 text-xs font-semibold text-emerald-900">
-                        <span className="rounded bg-[#3EEDB4] px-1.5 py-0.2 text-[9px] font-black text-black">tabby</span>
-                        Tabby (Split in 4)
+                      <span className="inline-flex items-center gap-1.5 rounded bg-black/5 px-2.5 py-1 text-xs font-semibold text-masaar-black border border-black/10">
+                        <TabbyBadge className="h-3.5 w-auto" />
+                        <span>Tabby</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 rounded bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">

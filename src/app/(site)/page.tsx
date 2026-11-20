@@ -27,7 +27,6 @@ import {
 } from "@/lib/data/public";
 import { HomePrivateTrips } from "@/components/site/HomePrivateTrips";
 import { WhyMasaar } from "@/components/site/WhyMasaar";
-import { TabbyPromoBanner } from "@/components/site/TabbyPromoBanner";
 import { MasaarPremiumUmrahSpotlight } from "@/components/site/MasaarPremiumUmrahSpotlight";
 import { HomeAdditionalServices } from "@/components/site/HomeAdditionalServices";
 import { getHomepageAdditionalServices } from "@/lib/data/additional-services";
@@ -166,9 +165,6 @@ export default async function HomePage() {
           </div>
         </Container>
       </section>
-
-      {/* Tabby Promotional Banner */}
-      <TabbyPromoBanner />
 
       {/* Featured Umrah packages — exactly our 3 tiers, one card each */}
       <section className="bg-warm-ivory py-16">

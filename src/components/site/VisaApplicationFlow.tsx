@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { CONTACT } from "@/lib/contact";
 import { Price } from "@/components/site/Price";
+import { TabbyBadge, TabbyCard } from "@/components/site/TabbyLogo";
 import { calculateVisaPricing } from "@/lib/visa-pricing";
 import type { VisaTypeRow, VisaProductRow } from "@/lib/types/database";
 
@@ -96,6 +97,7 @@ export function VisaApplicationFlow({
   // Payment & Terms
   const isThreeStep = true;
   const [selectedGateway, setSelectedGateway] = useState<"stripe" | "tabby" | "tamara">("stripe");
+  const [isTabbyRuntimeAvailable, setIsTabbyRuntimeAvailable] = useState<boolean>(tabbyEnabled);
   const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(tamaraEnabled);
   const [paymentMethod, setPaymentMethod] = useState<string>("card");
   const [sameBillingAddress, setSameBillingAddress] = useState<boolean>(true);
@@ -103,6 +105,17 @@ export function VisaApplicationFlow({
   const [discretionAgreed, setDiscretionAgreed] = useState<boolean>(false);
   const [isSubmittingCheckout, setIsSubmittingCheckout] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Phase 3: Tabby redirect messages
+  useEffect(() => {
+    if (searchParams.get("cancelled") === "1") {
+      setCheckoutError("Your Tabby payment was cancelled. You can retry or choose another payment method.");
+    } else if (searchParams.get("failed") === "1") {
+      setCheckoutError("Sorry, Tabby was unable to approve this transaction. Please select Credit/Debit Card to complete your booking.");
+      setIsTabbyRuntimeAvailable(false);
+      setSelectedGateway("stripe");
+    }
+  }, [searchParams]);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || products[0];
 
@@ -186,7 +199,21 @@ export function VisaApplicationFlow({
   const tabbyRate = 1;
   const tabbyTotalAmount = isSaudi ? (750 * count) : Math.round(totalAmount * 3.6725 * 100) / 100;
   const tabbyInstallmentAmount = Math.round((tabbyTotalAmount / 4) * 100) / 100;
-  const isTabbyEligible = tabbyEnabled;
+  // Phase 4: UAE Phone validation for Tabby Pay in 4
+  const isUaePhone =
+    dialCode === "+971" ||
+    contactPhone.trim().startsWith("+971") ||
+    contactPhone.trim().startsWith("05") ||
+    contactPhone.trim().startsWith("971") ||
+    contactPhone.trim().startsWith("00971");
+
+  const isTabbyEligible = isTabbyRuntimeAvailable && isUaePhone;
+
+  useEffect(() => {
+    if (!isUaePhone && contactPhone.trim().length > 3 && selectedGateway === "tabby") {
+      setSelectedGateway("stripe");
+    }
+  }, [contactPhone, dialCode, isUaePhone, selectedGateway]);
 
   // Tamara calculations: AED merchant account (pegged USD to AED 3.6725)
   const tamaraTotalAmount = isSaudi ? (750 * count) : Math.round(totalAmount * 3.6725 * 100) / 100;
@@ -433,6 +460,10 @@ export function VisaApplicationFlow({
 
       const data = await res.json();
       if (!res.ok) {
+        if (data?.isTabbyRejection) {
+          setIsTabbyRuntimeAvailable(false);
+          setSelectedGateway("stripe");
+        }
         throw new Error(data.error || "Failed to initialize payment session");
       }
 
@@ -1274,37 +1305,43 @@ export function VisaApplicationFlow({
                     {/* Option 2: Tabby (Pay in 4) */}
                     <button
                       type="button"
-                      onClick={() => setSelectedGateway("tabby")}
+                      disabled={!isTabbyEligible}
+                      onClick={() => {
+                        if (isTabbyEligible) setSelectedGateway("tabby");
+                      }}
                       className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
-                        selectedGateway === "tabby"
-                          ? "border-[#3EEDB4] bg-[#3EEDB4]/5 ring-2 ring-[#3EEDB4]/40 shadow-xs"
-                          : "border-black/10 hover:border-black/30"
+                        !isTabbyEligible
+                          ? "border-black/10 bg-black/[0.02] opacity-60 cursor-not-allowed"
+                          : selectedGateway === "tabby"
+                          ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
+                          : "border-black/10 hover:border-black/30 cursor-pointer"
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center rounded-md bg-[#3EEDB4] px-2 py-0.5 font-[family-name:var(--font-display)] text-xs font-black text-black">
-                            tabby
-                          </span>
-                          <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                          <span className="text-xs font-bold text-masaar-black">Tabby</span>
+                          <TabbyBadge className="h-4.5 w-auto" />
                         </div>
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                          0% Interest · Sharia
+                        <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-masaar-black">
+                          4 interest-free payments
                         </span>
                       </div>
-                      <p className="mt-1 text-[11px] text-masaar-black/70">
-                        4 monthly payments of AED {tabbyInstallmentAmount}. No hidden fees.
-                      </p>
-                      <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
+                      {selectedGateway === "tabby" ? (
+                        <TabbyCard priceAed={tabbyTotalAmount} className="mt-2 text-left" />
+                      ) : (
+                        <p className="mt-1 text-[11px] text-masaar-black/75 leading-relaxed">
+                          4 interest-free payments of AED {tabbyInstallmentAmount}. No interest. No fees. Shariah-compliant.
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-baseline gap-1.5 text-xs font-bold text-masaar-black">
                         <span>Total:</span>
-                        <span className="text-emerald-700 font-bold">AED {tabbyTotalAmount}</span>
-                        <span className="text-[10px] text-masaar-black/50 font-normal">
-                          (AED {tabbyInstallmentAmount}/mo)
-                        </span>
+                        <span className="text-masaar-black font-bold">AED {tabbyTotalAmount}</span>
                       </div>
-                      <div className="mt-2 text-[10px] text-emerald-700 font-medium">
-                        <span>✓ 25% today, remainder over 3 months</span>
-                      </div>
+                      {!isUaePhone && contactPhone.trim().length > 3 && (
+                        <p className="mt-1.5 text-[10px] font-medium text-amber-800">
+                          Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
+                        </p>
+                      )}
                     </button>
 
                     {/* Option 3: Tamara (Pay in 4) */}
@@ -1345,50 +1382,6 @@ export function VisaApplicationFlow({
                       </button>
                     )}
                   </div>
-
-                  {/* Tabby breakdown schedule box when selected */}
-                  {selectedGateway === "tabby" && (
-                    <div className="mt-4 rounded-xl border border-[#3EEDB4]/40 bg-[#3EEDB4]/10 p-4 text-xs">
-                      <div className="flex items-center justify-between border-b border-black/5 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#3EEDB4] text-[10px] font-bold text-black">
-                            4
-                          </span>
-                          <span className="font-semibold text-masaar-black">Your Tabby Payment Plan</span>
-                        </div>
-                        <span className="text-[11px] text-masaar-black/60 font-medium">
-                          {isSaudi ? "Processed in AED (UAE Merchant Account)" : `Pegged Rate: 1 USD = ${tabbyRate} ${tabbyCurrency}`}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">AED {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
-                        </div>
-                      </div>
-
-                      <p className="mt-2.5 text-[11px] text-masaar-black/70">
-                        You will be redirected securely to Tabby to verify with your mobile number and National ID.
-                      </p>
-                    </div>
-                  )}
 
                   {/* Tamara breakdown schedule box when selected */}
                   {selectedGateway === "tamara" && isTamaraEligible && (
@@ -2248,51 +2241,36 @@ export function VisaApplicationFlow({
                       }}
                       className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
                         !isTabbyEligible
-                          ? "border-black/10 bg-black/[0.02] opacity-75 cursor-not-allowed"
+                          ? "border-black/10 bg-black/[0.02] opacity-60 cursor-not-allowed"
                           : selectedGateway === "tabby"
-                          ? "border-[#3EEDB4] bg-[#3EEDB4]/5 ring-2 ring-[#3EEDB4]/40 shadow-xs"
-                          : "border-black/10 hover:border-black/30"
+                          ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
+                          : "border-black/10 hover:border-black/30 cursor-pointer"
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center rounded-md bg-[#3EEDB4] px-2 py-0.5 font-[family-name:var(--font-display)] text-xs font-black text-black">
-                            tabby
-                          </span>
-                          <span className="text-xs font-bold text-masaar-black">Split in 4</span>
+                          <span className="text-xs font-bold text-masaar-black">Tabby</span>
+                          <TabbyBadge className="h-4.5 w-auto" />
                         </div>
-                        {!isTabbyEligible ? (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                            Unavailable
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                            0% Interest · Sharia
-                          </span>
-                        )}
+                        <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-masaar-black">
+                          4 interest-free payments
+                        </span>
                       </div>
-                      <p className="mt-1 text-[11px] text-masaar-black/70">
-                        {!isTabbyEligible
-                          ? "Tabby Pay in 4 is currently offline. Please use card payment."
-                          : `4 monthly payments of ${tabbyCurrency} ${tabbyInstallmentAmount}. No hidden fees.`}
-                      </p>
-                      {isTabbyEligible ? (
-                        <>
-                          <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
-                            <span>Total:</span>
-                            <span className="text-emerald-700 font-bold">{tabbyCurrency} {tabbyTotalAmount}</span>
-                            <span className="text-[10px] text-masaar-black/50 font-normal">
-                              ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
-                            </span>
-                          </div>
-                          <div className="mt-2 text-[10px] text-emerald-700 font-medium">
-                            <span>✓ 25% today, remainder over 3 months</span>
-                          </div>
-                        </>
+                      {selectedGateway === "tabby" ? (
+                        <TabbyCard priceAed={tabbyTotalAmount} className="mt-2 text-left" />
                       ) : (
-                        <div className="mt-3 text-[10px] font-medium text-amber-800">
-                          Please select Card Payment to proceed.
-                        </div>
+                        <p className="mt-1 text-[11px] text-masaar-black/75 leading-relaxed">
+                          4 interest-free payments of AED {tabbyInstallmentAmount}. No interest. No fees. Shariah-compliant.
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-baseline gap-1.5 text-xs font-bold text-masaar-black">
+                        <span>Total:</span>
+                        <span className="text-masaar-black font-bold">AED {tabbyTotalAmount}</span>
+                      </div>
+                      {!isUaePhone && contactPhone.trim().length > 3 && (
+                        <p className="mt-1.5 text-[10px] font-medium text-amber-800">
+                          Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
+                        </p>
                       )}
                     </button>
 
@@ -2334,50 +2312,6 @@ export function VisaApplicationFlow({
                       </button>
                     )}
                   </div>
-
-                  {/* Tabby breakdown schedule box when selected */}
-                  {selectedGateway === "tabby" && isTabbyEligible && (
-                    <div className="mt-4 rounded-xl border border-[#3EEDB4]/40 bg-[#3EEDB4]/10 p-4 text-xs">
-                      <div className="flex items-center justify-between border-b border-black/5 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#3EEDB4] text-[10px] font-bold text-black">
-                            4
-                          </span>
-                          <span className="font-semibold text-masaar-black">Your Tabby Payment Plan</span>
-                        </div>
-                        <span className="text-[11px] text-masaar-black/60 font-medium">
-                          Pegged Rate: 1 USD = {tabbyRate} {tabbyCurrency}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">1st Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">Due Today (25%)</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">2nd Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 1 Month</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">3rd Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 2 Months</p>
-                        </div>
-                        <div className="rounded-lg bg-white p-2.5 shadow-2xs border border-black/5">
-                          <p className="text-[10px] text-masaar-black/60 font-medium">4th Payment</p>
-                          <p className="mt-1 font-bold text-masaar-black text-xs">{tabbyCurrency} {tabbyInstallmentAmount}</p>
-                          <p className="text-[9px] text-masaar-black/50 mt-0.5">In 3 Months</p>
-                        </div>
-                      </div>
-
-                      <p className="mt-2.5 text-[11px] text-masaar-black/70">
-                        You will be redirected securely to Tabby to verify with your mobile number and National ID / Emirates ID.
-                      </p>
-                    </div>
-                  )}
 
                   {/* Tamara breakdown schedule box when selected */}
                   {selectedGateway === "tamara" && isTamaraEligible && (
@@ -2515,10 +2449,8 @@ export function VisaApplicationFlow({
                     <span>Connecting to Secure Payment...</span>
                   ) : selectedGateway === "tabby" && isTabbyEligible ? (
                     <>
-                      <span className="inline-flex rounded-sm bg-black px-1.5 py-0.5 text-[10px] font-black text-[#3EEDB4]">
-                        tabby
-                      </span>
-                      <span>Pay AED {tabbyTotalAmount} in 4 Installments →</span>
+                      <TabbyBadge className="h-4 w-auto inline-block align-middle" />
+                      <span>Pay with Tabby · 4x AED {tabbyInstallmentAmount} →</span>
                     </>
                   ) : selectedGateway === "tamara" && isTamaraEligible ? (
                     <>

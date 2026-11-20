@@ -9,6 +9,7 @@ import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { CONTACT } from "@/lib/contact";
 import { Price } from "@/components/site/Price";
+import { TabbyPromo } from "@/components/site/TabbyLogo";
 import type { VisaDocumentRow, VisaTypeRow, VisaProductRow } from "@/lib/types/database";
 
 interface VisaDetailTemplateProps {
@@ -603,9 +604,9 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
                               </span>
                               <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
                             </div>
-                            <p className="mt-2 rounded-md bg-warm-ivory px-2.5 py-1 text-[11px] font-medium text-masaar-black/75 border border-black/5">
-                              💳 Or 4 interest-free payments of <Price amountAed={187.5} /> with Tabby
-                            </p>
+                            <div className="mt-2">
+                              <TabbyPromo priceAed={750} />
+                            </div>
                           </div>
                         ) : (
                           <div className="mt-4 border-b border-black/5 pb-4">

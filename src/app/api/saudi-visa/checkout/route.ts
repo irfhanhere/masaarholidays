@@ -5,6 +5,7 @@ import { getStripe } from "@/lib/stripe";
 import {
   createTabbyCheckoutSession,
   isTabbyCheckoutEnabled,
+  TabbyRejectionError,
 } from "@/lib/tabby";
 import {
   createTamaraCheckoutSession,
@@ -399,9 +400,25 @@ export async function POST(request: NextRequest) {
         installmentAmount: Math.round((pricing.finalPayableAmount / 4) * 100) / 100,
       });
     } catch (tabbyErr: unknown) {
+      if (tabbyErr instanceof TabbyRejectionError) {
+        return NextResponse.json(
+          {
+            error: tabbyErr.approvedMessage,
+            rejectionCode: tabbyErr.rejectionCode,
+            isTabbyRejection: true,
+          },
+          { status: 400 }
+        );
+      }
       const msg = tabbyErr instanceof Error ? tabbyErr.message : "Tabby checkout error";
       console.error("[saudi-visa-checkout] Tabby checkout failed:", msg);
-      return NextResponse.json({ error: msg }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method.",
+          isTabbyRejection: true,
+        },
+        { status: 400 }
+      );
     }
   }
 

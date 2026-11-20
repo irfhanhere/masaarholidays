@@ -8,6 +8,7 @@ import { FaqSchema } from "@/components/site/FaqSchema";
 import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { Price } from "@/components/site/Price";
+import { TabbyBadge, TabbyPromo, TabbyCard } from "@/components/site/TabbyLogo";
 import { CONTACT, buildWhatsAppLink } from "@/lib/contact";
 import {
   FileCheck,
@@ -125,6 +126,7 @@ export function SaudiVisaLandingPage() {
   // Step 1: Details fields
   const [contactEmail, setContactEmail] = useState<string>("");
   const [contactPhone, setContactPhone] = useState<string>("");
+
   const [travelDate, setTravelDate] = useState<string>("");
   const [travelPurpose, setTravelPurpose] = useState<string>("Umrah / Tourism");
 
@@ -143,6 +145,20 @@ export function SaudiVisaLandingPage() {
   const [isTabbyAvailable, setIsTabbyAvailable] = useState<boolean>(false);
   const [isTamaraAvailable, setIsTamaraAvailable] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  // Phase 4: UAE Phone validation for Tabby Pay in 4
+  const isUaePhone =
+    !contactPhone.trim() ||
+    contactPhone.trim().startsWith("+971") ||
+    contactPhone.trim().startsWith("05") ||
+    contactPhone.trim().startsWith("971") ||
+    contactPhone.trim().startsWith("00971");
+
+  useEffect(() => {
+    if (!isUaePhone && contactPhone.trim().length > 3 && paymentGateway === "tabby") {
+      setPaymentGateway("stripe");
+    }
+  }, [contactPhone, isUaePhone, paymentGateway]);
   const [isSubmitting, startSubmission] = useTransition();
 
   // Active applicant tab for family applications
@@ -154,6 +170,18 @@ export function SaudiVisaLandingPage() {
 
   // Fire ViewContent on page mount and probe Tabby availability
   useEffect(() => {
+    // Phase 3: Approved messages for redirects
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("cancelled") === "1") {
+        setSubmissionError("Your Tabby payment was cancelled. You can retry or choose another payment method.");
+      } else if (urlParams.get("failed") === "1") {
+        setSubmissionError("Sorry, Tabby was unable to approve this transaction. Please select Credit/Debit Card to complete your booking.");
+        setIsTabbyAvailable(false);
+        setPaymentGateway("stripe");
+      }
+    }
+
     trackMetaPixel("ViewContent", {
       content_name: "Saudi 1-Year Multiple Entry Tourist Visa",
       content_category: "Saudi Visa Landing",
@@ -425,6 +453,10 @@ export function SaudiVisaLandingPage() {
 
         const data = await res.json();
         if (!res.ok) {
+          if (data?.isTabbyRejection) {
+            setIsTabbyAvailable(false);
+            setPaymentGateway("stripe");
+          }
           throw new Error(data.error || "Checkout failed");
         }
 
@@ -792,9 +824,9 @@ export function SaudiVisaLandingPage() {
                     </span>
                     <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
                   </div>
-                  <p className="mt-2 rounded-md bg-warm-ivory px-2.5 py-1 text-[11px] font-medium text-masaar-black/75 border border-black/5">
-                    💳 Or 4 interest-free payments of AED 187.50 with Tabby or Tamara
-                  </p>
+                  <div className="mt-2">
+                    <TabbyPromo priceAed={750} />
+                  </div>
                 </div>
 
                 <ul className="mt-5 space-y-2.5 text-xs text-masaar-black/80">
@@ -1653,24 +1685,39 @@ export function SaudiVisaLandingPage() {
                       {isTabbyAvailable && (
                         <button
                           type="button"
-                          onClick={() => setPaymentGateway("tabby")}
-                          className={`rounded-xl border p-4 text-left transition-all cursor-pointer ${paymentGateway === "tabby"
+                          disabled={!isUaePhone}
+                          onClick={() => {
+                            if (isUaePhone) setPaymentGateway("tabby");
+                          }}
+                          className={`rounded-xl border p-4 text-left transition-all ${
+                            !isUaePhone ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                          } ${
+                            paymentGateway === "tabby"
                               ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
                               : "border-black/10 bg-white hover:bg-neutral-50"
-                            }`}
+                          }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-masaar-black flex items-center gap-1.5">
-                              <span className="rounded bg-[#3EEDB4] px-1 py-0.2 text-[8px] font-black text-black">tabby</span>
-                              Tabby — Pay in 4
+                            <span className="text-xs font-bold text-masaar-black flex items-center gap-2">
+                              <span>Tabby</span>
+                              <TabbyBadge className="h-4.5 w-auto" />
                             </span>
                             {paymentGateway === "tabby" && (
                               <CheckCircle2 className="size-4 text-deep-gold" />
                             )}
                           </div>
-                          <p className="text-[11px] text-masaar-black/60 mt-1">
-                            Pay AED {(pricing.finalPayableAmount / 4).toFixed(2)} today, rest over 3 months. No interest.
-                          </p>
+                          {paymentGateway === "tabby" ? (
+                            <TabbyCard priceAed={pricing.finalPayableAmount} className="mt-2" />
+                          ) : (
+                            <p className="text-[11px] text-masaar-black/75 mt-1 leading-relaxed">
+                              4 interest-free payments of AED {(pricing.finalPayableAmount / 4).toFixed(2)}. No interest. No fees. Shariah-compliant.
+                            </p>
+                          )}
+                          {!isUaePhone && contactPhone.trim().length > 3 && (
+                            <p className="mt-1 text-[10px] font-medium text-amber-800">
+                              Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
+                            </p>
+                          )}
                         </button>
                       )}
 

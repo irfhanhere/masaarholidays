@@ -17,6 +17,7 @@ import {
   ArrowDownLeft,
 } from "@/components/admin/icons";
 import type { VisaPaymentRow } from "@/lib/types/database";
+import { TabbyBadge } from "@/components/site/TabbyLogo";
 import { processVisaRefund } from "./actions";
 
 interface PaymentItem {
@@ -506,9 +507,9 @@ export default function VisaPaymentsClient() {
                         Tamara
                       </span>
                     ) : p.payment_gateway === "tabby" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#3EEDB4]/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-950">
-                        <span className="rounded bg-[#3EEDB4] px-1 py-0.2 text-[9px] font-black text-black">tabby</span>
-                        Tabby
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-0.5 text-[11px] font-bold text-masaar-black border border-black/10">
+                        <TabbyBadge className="h-3.5 w-auto" />
+                        <span>Tabby</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
