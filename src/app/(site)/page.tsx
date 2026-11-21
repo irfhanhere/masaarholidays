@@ -32,6 +32,7 @@ import { HomeAdditionalServices } from "@/components/site/HomeAdditionalServices
 import { getHomepageAdditionalServices } from "@/lib/data/additional-services";
 import { getMasaarPremiumPackage } from "@/lib/data/premium-package";
 import { getMasaarBestSellingPackage } from "@/lib/data/best-selling-package";
+import { getHomepageCmsSettings } from "@/lib/data/homepage-cms";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
 
@@ -65,6 +66,7 @@ export default async function HomePage() {
     additionalServices,
     premiumPackage,
     bestSellingPackage,
+    cmsSettings,
   ] = await Promise.all([
     getPublishedTestimonials(),
     getHomeContent(),
@@ -72,6 +74,7 @@ export default async function HomePage() {
     getHomepageAdditionalServices(),
     getMasaarPremiumPackage(),
     getMasaarBestSellingPackage(),
+    getHomepageCmsSettings(),
   ]);
 
   const origin = getSiteOrigin();
@@ -118,29 +121,49 @@ export default async function HomePage() {
         </div>
       </Hero>
 
-      {/* 2. New Tamara payment highlight */}
-      <TamaraHighlight />
+      {/* 2. Tamara payment highlight */}
+      {cmsSettings.tamara_enabled && (
+        <TamaraHighlight
+          heading={cmsSettings.tamara_heading}
+          subtitle={cmsSettings.tamara_subtitle}
+          supportingText={cmsSettings.tamara_supporting_text}
+          bgStyle={cmsSettings.tamara_bg_style}
+          logoUrl={cmsSettings.tamara_logo_url}
+        />
+      )}
 
       {/* 3 & 4. Featured Umrah Packages Section: Premium & Best Selling */}
-      <section className="bg-warm-ivory py-16">
-        <Container>
-          <SectionHeading eyebrow="Featured Umrah Packages" title="Choose a Package That Suits Your Journey" />
-          <div className="mt-10 space-y-8">
-            {/* 3. Existing Masaar Premium Umrah Package */}
-            {premiumPackage.show_on_homepage && (
-              <MasaarPremiumUmrahSpotlight pkg={premiumPackage} />
-            )}
+      {(cmsSettings.featured_package_enabled || cmsSettings.best_selling_enabled) && (
+        <section className="bg-warm-ivory py-16">
+          <Container>
+            <SectionHeading
+              eyebrow="Featured Umrah Packages"
+              title={cmsSettings.featured_package_heading || "Choose a Package That Suits Your Journey"}
+            />
+            <div className="mt-10 space-y-8">
+              {/* 3. Existing Masaar Premium Umrah Package */}
+              {cmsSettings.featured_package_enabled && premiumPackage.show_on_homepage && (
+                <MasaarPremiumUmrahSpotlight pkg={premiumPackage} />
+              )}
 
-            {/* 4. New Masaar Best Selling Umrah Package */}
-            {bestSellingPackage.show_on_homepage && (
-              <MasaarBestSellingUmrahSpotlight pkg={bestSellingPackage} />
-            )}
-          </div>
-        </Container>
-      </section>
+              {/* 4. New Masaar Best Selling Umrah Package */}
+              {cmsSettings.best_selling_enabled && bestSellingPackage.show_on_homepage && (
+                <MasaarBestSellingUmrahSpotlight pkg={bestSellingPackage} />
+              )}
+            </div>
+          </Container>
+        </section>
+      )}
 
       {/* 5. New Explore More Umrah Packages section */}
-      <ExploreMoreUmrahSection />
+      {cmsSettings.explore_more_enabled && (
+        <ExploreMoreUmrahSection
+          heading={cmsSettings.explore_more_heading}
+          description={cmsSettings.explore_more_description}
+          buttonLabel={cmsSettings.explore_more_button_label}
+          buttonUrl={cmsSettings.explore_more_button_url}
+        />
+      )}
 
       {/* 6. Remaining existing homepage sections */}
       {/* Why Masaar */}

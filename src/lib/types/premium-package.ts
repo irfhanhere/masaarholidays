@@ -90,6 +90,12 @@ export interface PremiumPackage {
   transport: PremiumPackageTransport[];
   pricing: PremiumPackagePricing[];
   itinerary: PremiumPackageItineraryDay[];
+  package_badge?: string;
+  departure_country?: string;
+  currency?: string;
+  category?: string;
+  social_image?: string;
+  media_gallery?: string[];
   created_at?: string;
   updated_at?: string;
 }

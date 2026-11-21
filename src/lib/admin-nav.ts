@@ -20,6 +20,14 @@ export interface AdminNavGroup {
 export const ADMIN_NAV: AdminNavGroup[] = [
   { title: "", items: [{ label: "Dashboard", href: "/admin" }] },
   {
+    title: "WEBSITE MANAGEMENT",
+    items: [
+      { label: "Umrah Packages", href: "/admin/umrah-packages" },
+      { label: "Homepage Content", href: "/admin/homepage" },
+      { label: "Payment Display Settings", href: "/admin/payment-display" },
+    ],
+  },
+  {
     title: "Content",
     items: [
       {

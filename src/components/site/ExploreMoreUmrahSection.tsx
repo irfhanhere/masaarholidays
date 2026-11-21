@@ -3,7 +3,19 @@ import Link from "next/link";
 import { Container } from "./Container";
 import { CompassIcon } from "./icons";
 
-export function ExploreMoreUmrahSection() {
+interface ExploreMoreUmrahSectionProps {
+  heading?: string;
+  description?: string;
+  buttonLabel?: string;
+  buttonUrl?: string;
+}
+
+export function ExploreMoreUmrahSection({
+  heading = "Explore More Umrah Packages",
+  description = "Discover thoughtfully planned Umrah journeys designed around your comfort, accommodation preferences and travel needs.",
+  buttonLabel = "Explore All Umrah Packages",
+  buttonUrl = "/umrah",
+}: ExploreMoreUmrahSectionProps) {
   return (
     <section className="bg-warm-ivory py-16 border-t border-black/5">
       <Container>
@@ -18,19 +30,19 @@ export function ExploreMoreUmrahSection() {
             </div>
 
             <h2 className="font-[family-name:var(--font-display)] text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
-              Explore More Umrah Packages
+              {heading}
             </h2>
 
             <p className="text-sm sm:text-base text-white/75 leading-relaxed">
-              Discover thoughtfully planned Umrah journeys designed around your comfort, accommodation preferences and travel needs.
+              {description}
             </p>
 
             <div className="pt-4">
               <Link
-                href="/umrah"
+                href={buttonUrl}
                 className="inline-flex items-center justify-center rounded-lg bg-pure-gold hover:bg-deep-gold px-8 py-3.5 text-sm font-bold text-masaar-black hover:text-white transition-all shadow-md group"
               >
-                <span>Explore All Umrah Packages</span>
+                <span>{buttonLabel}</span>
                 <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
               </Link>
             </div>
