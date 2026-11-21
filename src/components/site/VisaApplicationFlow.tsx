@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Container } from "@/components/site/Container";
 import { CONTACT } from "@/lib/contact";
 import { Price } from "@/components/site/Price";
-import { TabbyBadge, TabbyCard } from "@/components/site/TabbyLogo";
+// Visa Application Types
 import { calculateVisaPricing } from "@/lib/visa-pricing";
 import type { VisaTypeRow, VisaProductRow } from "@/lib/types/database";
 
@@ -44,7 +44,7 @@ interface VisaApplicationFlowProps {
 export function VisaApplicationFlow({
   visaType,
   products,
-  tabbyEnabled = true,
+  tabbyEnabled = false,
   tabbySarAvailable = false,
   tamaraEnabled = true,
 }: VisaApplicationFlowProps) {
@@ -538,7 +538,7 @@ export function VisaApplicationFlow({
               <>
                 {currentStep === 1 && "Select your Saudi visa duration and enter traveller details exactly as shown on passports."}
                 {currentStep === 2 && "Please upload clear, valid documents according to the required checklist below."}
-                {currentStep === 3 && "Verify your application details and choose to pay in full or in 4 installments with Tabby."}
+                {currentStep === 3 && "Verify your application details and select your payment method."}
               </>
             ) : (
               <>
@@ -647,9 +647,6 @@ export function VisaApplicationFlow({
                         </div>
                         <p className="mt-1 text-[11px] text-masaar-black/60">
                           1 Year Validity · Multiple Entry · Up to 90 Days / Visit · ~2–3 Working Days Processing
-                        </p>
-                        <p className="mt-2 rounded-md bg-white p-2 text-[11px] font-medium text-masaar-black/80 border border-black/5">
-                          💳 Or 4 monthly installments of <Price amountAed={187.5} /> with Tabby
                         </p>
                       </div>
                     </div>
@@ -1257,7 +1254,7 @@ export function VisaApplicationFlow({
                     <div>
                       <h2 className="font-semibold text-masaar-black text-sm">Select Payment Method</h2>
                       <p className="text-[11px] text-masaar-black/60">
-                        Pay in full securely by Card, or split into 4 equal monthly installments with Tabby or Tamara.
+                        Pay in full securely by Card, or choose flexible payments with Tamara.
                       </p>
                     </div>
                     <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
@@ -1265,7 +1262,7 @@ export function VisaApplicationFlow({
                     </span>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Option 1: Credit / Debit Card (Stripe) */}
                     <button
                       type="button"
@@ -1302,49 +1299,7 @@ export function VisaApplicationFlow({
                       </div>
                     </button>
 
-                    {/* Option 2: Tabby (Pay in 4) */}
-                    <button
-                      type="button"
-                      disabled={!isTabbyEligible}
-                      onClick={() => {
-                        if (isTabbyEligible) setSelectedGateway("tabby");
-                      }}
-                      className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
-                        !isTabbyEligible
-                          ? "border-black/10 bg-black/[0.02] opacity-60 cursor-not-allowed"
-                          : selectedGateway === "tabby"
-                          ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
-                          : "border-black/10 hover:border-black/30 cursor-pointer"
-                      }`}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-masaar-black">Tabby</span>
-                          <TabbyBadge className="h-4.5 w-auto" />
-                        </div>
-                        <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-masaar-black">
-                          4 interest-free payments
-                        </span>
-                      </div>
-                      {selectedGateway === "tabby" ? (
-                        <TabbyCard priceAed={tabbyTotalAmount} className="mt-2 text-left" />
-                      ) : (
-                        <p className="mt-1 text-[11px] text-masaar-black/75 leading-relaxed">
-                          4 interest-free payments of AED {tabbyInstallmentAmount}. No interest. No fees. Shariah-compliant.
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-baseline gap-1.5 text-xs font-bold text-masaar-black">
-                        <span>Total:</span>
-                        <span className="text-masaar-black font-bold">AED {tabbyTotalAmount}</span>
-                      </div>
-                      {!isUaePhone && contactPhone.trim().length > 3 && (
-                        <p className="mt-1.5 text-[10px] font-medium text-amber-800">
-                          Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
-                        </p>
-                      )}
-                    </button>
-
-                    {/* Option 3: Tamara (Pay in 4) */}
+                    {/* Option 2: Tamara (Pay in 4) */}
                     {isTamaraEligible && (
                       <button
                         type="button"
@@ -1357,30 +1312,43 @@ export function VisaApplicationFlow({
                       >
                         <div className="flex w-full items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center rounded-md bg-[#F88D2A] px-2 py-0.5 text-xs font-black text-white uppercase tracking-wider">
+                            <span className="inline-flex items-center rounded-sm bg-[#F88D2A] px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
                               tamara
                             </span>
                             <span className="text-xs font-bold text-masaar-black">Split in 4</span>
                           </div>
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/60">
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-[#8F6407]">
                             0% Interest · Sharia
                           </span>
                         </div>
                         <p className="mt-1 text-[11px] text-masaar-black/70">
-                          4 monthly payments of AED {tamaraInstallmentAmount}. Zero fees.
+                          4 monthly payments of AED {tamaraInstallmentAmount}. Zero hidden fees.
                         </p>
-                        <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
-                          <span>Total:</span>
-                          <span className="text-[#C86400] font-bold">AED {tamaraTotalAmount}</span>
-                          <span className="text-[10px] text-masaar-black/50 font-normal">
-                            (AED {tamaraInstallmentAmount}/mo)
-                          </span>
-                        </div>
-                        <div className="mt-2 text-[10px] text-emerald-700 font-medium">
-                          <span>✓ 25% today, remainder over 3 months</span>
+                        <div className="mt-3 text-xs font-bold text-masaar-black">
+                          <span>AED {tamaraInstallmentAmount}</span>
+                          <span className="font-normal text-masaar-black/60 text-[10px]"> / month (4 payments)</span>
                         </div>
                       </button>
                     )}
+                  </div>
+
+                  {/* WhatsApp Tabby Assistance Notice */}
+                  <div className="mt-3 p-3 rounded-xl border border-black/10 bg-warm-ivory/50 text-xs text-masaar-black/75 flex items-start gap-2.5">
+                    <span className="text-sm">💬</span>
+                    <p>
+                      Interested in paying with Tabby?{" "}
+                      <a
+                        href={`https://wa.me/971557329320?text=${encodeURIComponent(
+                          "Hello Masaar Holidays, I am interested in paying with Tabby for my Visa application. Could you please assist me?"
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-masaar-black font-semibold underline hover:text-deep-gold transition-colors"
+                      >
+                        Contact our team on WhatsApp for assistance.
+                      </a>{" "}
+                      Tabby payment integration is currently being updated.
+                    </p>
                   </div>
 
                   {/* Tamara breakdown schedule box when selected */}
@@ -2189,7 +2157,7 @@ export function VisaApplicationFlow({
                     <div>
                       <h2 className="font-semibold text-masaar-black text-sm">Select Payment Method</h2>
                       <p className="text-[11px] text-masaar-black/60">
-                        Choose to pay in full securely by Card, or split into 4 equal monthly installments with Tabby or Tamara.
+                        Choose to pay in full securely by Card, or choose flexible payments with Tamara.
                       </p>
                     </div>
                     <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
@@ -2197,7 +2165,7 @@ export function VisaApplicationFlow({
                     </span>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Option 1: Credit / Debit Card (Stripe) */}
                     <button
                       type="button"
@@ -2232,49 +2200,7 @@ export function VisaApplicationFlow({
                       </div>
                     </button>
 
-                    {/* Option 2: Tabby (Pay in 4) */}
-                    <button
-                      type="button"
-                      disabled={!isTabbyEligible}
-                      onClick={() => {
-                        if (isTabbyEligible) setSelectedGateway("tabby");
-                      }}
-                      className={`relative flex flex-col items-start rounded-xl border p-4.5 text-left transition-all ${
-                        !isTabbyEligible
-                          ? "border-black/10 bg-black/[0.02] opacity-60 cursor-not-allowed"
-                          : selectedGateway === "tabby"
-                          ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
-                          : "border-black/10 hover:border-black/30 cursor-pointer"
-                      }`}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-masaar-black">Tabby</span>
-                          <TabbyBadge className="h-4.5 w-auto" />
-                        </div>
-                        <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-masaar-black">
-                          4 interest-free payments
-                        </span>
-                      </div>
-                      {selectedGateway === "tabby" ? (
-                        <TabbyCard priceAed={tabbyTotalAmount} className="mt-2 text-left" />
-                      ) : (
-                        <p className="mt-1 text-[11px] text-masaar-black/75 leading-relaxed">
-                          4 interest-free payments of AED {tabbyInstallmentAmount}. No interest. No fees. Shariah-compliant.
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-baseline gap-1.5 text-xs font-bold text-masaar-black">
-                        <span>Total:</span>
-                        <span className="text-masaar-black font-bold">AED {tabbyTotalAmount}</span>
-                      </div>
-                      {!isUaePhone && contactPhone.trim().length > 3 && (
-                        <p className="mt-1.5 text-[10px] font-medium text-amber-800">
-                          Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
-                        </p>
-                      )}
-                    </button>
-
-                    {/* Option 3: Tamara (Pay in 4) */}
+                    {/* Option 2: Tamara (Pay in 4) */}
                     {isTamaraEligible && (
                       <button
                         type="button"
@@ -2292,25 +2218,40 @@ export function VisaApplicationFlow({
                             </span>
                             <span className="text-xs font-bold text-masaar-black">Split in 4</span>
                           </div>
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/60">
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-[#8F6407]">
                             0% Interest · Sharia
                           </span>
                         </div>
                         <p className="mt-1 text-[11px] text-masaar-black/70">
-                          4 monthly payments of AED {tamaraInstallmentAmount}. Zero fees.
+                          4 monthly payments of AED {tamaraInstallmentAmount}. Zero hidden fees.
                         </p>
-                        <div className="mt-3 flex items-baseline gap-1.5 text-sm font-bold text-masaar-black">
-                          <span>Total:</span>
+                        <div className="mt-3 text-xs font-bold text-masaar-black">
                           <span className="text-[#C86400] font-bold">AED {tamaraTotalAmount}</span>
-                          <span className="text-[10px] text-masaar-black/50 font-normal">
-                            (AED {tamaraInstallmentAmount}/mo)
+                          <span className="font-normal text-masaar-black/60 text-[10px]">
+                            {" "}(AED {tamaraInstallmentAmount}/mo)
                           </span>
-                        </div>
-                        <div className="mt-2 text-[10px] text-emerald-700 font-medium">
-                          <span>✓ 25% today, remainder over 3 months</span>
                         </div>
                       </button>
                     )}
+                  </div>
+
+                  {/* WhatsApp Tabby Assistance Notice */}
+                  <div className="mt-3 p-3 rounded-xl border border-black/10 bg-warm-ivory/50 text-xs text-masaar-black/75 flex items-start gap-2.5">
+                    <span className="text-sm">💬</span>
+                    <p>
+                      Interested in paying with Tabby?{" "}
+                      <a
+                        href={`https://wa.me/971557329320?text=${encodeURIComponent(
+                          "Hello Masaar Holidays, I am interested in paying with Tabby for my Visa application. Could you please assist me?"
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-masaar-black font-semibold underline hover:text-deep-gold transition-colors"
+                      >
+                        Contact our team on WhatsApp for assistance.
+                      </a>{" "}
+                      Tabby payment integration is currently being updated.
+                    </p>
                   </div>
 
                   {/* Tamara breakdown schedule box when selected */}
@@ -2447,11 +2388,6 @@ export function VisaApplicationFlow({
                 >
                   {isSubmittingCheckout ? (
                     <span>Connecting to Secure Payment...</span>
-                  ) : selectedGateway === "tabby" && isTabbyEligible ? (
-                    <>
-                      <TabbyBadge className="h-4 w-auto inline-block align-middle" />
-                      <span>Pay with Tabby · 4x AED {tabbyInstallmentAmount} →</span>
-                    </>
                   ) : selectedGateway === "tamara" && isTamaraEligible ? (
                     <>
                       <span className="inline-flex rounded-sm bg-[#F88D2A] px-1.5 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
@@ -2483,7 +2419,7 @@ export function VisaApplicationFlow({
                 <div className="relative size-12 overflow-hidden rounded-lg bg-warm-ivory">
                   <Image
                     src={
-                      visaType.slug === "uae"
+                    visaType.slug === "uae"
                         ? "/brand/banners/uae.webp"
                         : visaType.hero_image_url || "/trips/destination-image.webp"
                     }
@@ -2524,11 +2460,6 @@ export function VisaApplicationFlow({
                         <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
                           AED {totalAmount}
                         </span>
-                        {selectedGateway === "tabby" && (
-                          <div className="mt-0.5 text-[11px] font-semibold text-emerald-700">
-                            = AED {tabbyTotalAmount} (AED {tabbyInstallmentAmount}/mo)
-                          </div>
-                        )}
                       </div>
                     </div>
                     <div className="rounded-md bg-warm-ivory p-2 text-[10px] text-masaar-black/70">
@@ -2563,11 +2494,6 @@ export function VisaApplicationFlow({
                         <span className="font-[family-name:var(--font-display)] text-lg text-deep-gold">
                           USD {totalAmount}
                         </span>
-                        {selectedGateway === "tabby" && (
-                          <div className="mt-0.5 text-[11px] font-semibold text-emerald-700">
-                            = {tabbyCurrency} {tabbyTotalAmount} ({tabbyCurrency} {tabbyInstallmentAmount}/mo)
-                          </div>
-                        )}
                         {selectedGateway === "tamara" && (
                           <div className="mt-0.5 text-[11px] font-semibold text-[#C86400]">
                             = AED {tamaraTotalAmount} (AED {tamaraInstallmentAmount}/mo)
@@ -2576,11 +2502,6 @@ export function VisaApplicationFlow({
                       </div>
                     </div>
 
-                    {selectedGateway === "tabby" && (
-                      <div className="rounded-md bg-emerald-50/70 p-2 text-[10px] text-emerald-800">
-                        <span className="font-semibold">Pegged Exchange Rate:</span> 1 USD = {tabbyRate} {tabbyCurrency}. No surcharge or interest applied.
-                      </div>
-                    )}
                     {selectedGateway === "tamara" && (
                       <div className="rounded-md bg-amber-50/70 p-2 text-[10px] text-amber-900 border border-amber-200/50">
                         <span className="font-semibold">Pegged Exchange Rate:</span> 1 USD = 3.6725 AED. 4 equal interest-free installments.
@@ -2606,7 +2527,7 @@ export function VisaApplicationFlow({
                 </div>
                 <div className="flex items-center gap-2 text-emerald-700 font-medium">
                   <span>✓</span>
-                  <span>Tabby & Tamara Pay in 4 installment options</span>
+                  <span>Tamara Pay in 4 installment option</span>
                 </div>
               </div>
 

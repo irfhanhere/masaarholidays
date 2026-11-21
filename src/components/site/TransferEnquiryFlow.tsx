@@ -7,7 +7,7 @@ import { buildWhatsAppLink } from "@/lib/contact";
 import { convertFromAed, formatCurrency } from "@/lib/currency";
 import { useCurrency } from "./CurrencyProvider";
 import { Price } from "./Price";
-import { TabbyBadge, TabbyCard } from "@/components/site/TabbyLogo";
+// Transfer vehicle & pricing types
 
 interface Props {
   route: EnrichedTransferRoute;
@@ -1066,55 +1066,14 @@ export function TransferEnquiryFlow({
                   </div>
                 </button>
 
-                {/* Option 2: Tabby (Pay in 4) */}
-                <button
-                  type="button"
-                  disabled={!isTabbyRuntimeAvailable || !isUaePhone}
-                  onClick={() => {
-                    if (isTabbyRuntimeAvailable && isUaePhone) setPaymentGateway("tabby");
-                  }}
-                  className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
-                    (!isTabbyRuntimeAvailable || !isUaePhone)
-                      ? "border-black/10 bg-white/60 opacity-60 cursor-not-allowed"
-                      : paymentGateway === "tabby"
-                      ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
-                      : "border-black/10 bg-white hover:border-black/30 cursor-pointer"
-                    }`}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-masaar-black">Tabby</span>
-                      <TabbyBadge className="h-4.5 w-auto" />
-                    </div>
-                    <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-masaar-black">
-                      4 interest-free payments
-                    </span>
-                  </div>
-                  {paymentGateway === "tabby" ? (
-                    <TabbyCard priceAed={selectedVehicle?.priceAed || 0} className="mt-2 text-left" />
-                  ) : (
-                    <p className="mt-1 text-[11px] text-masaar-black/75 leading-relaxed">
-                      4 interest-free payments of AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100}. No interest. No fees. Shariah-compliant.
-                    </p>
-                  )}
-                  <div className="mt-2 text-xs font-bold text-masaar-black">
-                    <span>Total: AED {selectedVehicle?.priceAed || 0}</span>
-                  </div>
-                  {!isUaePhone && phone.trim().length > 3 && (
-                    <p className="mt-1 text-[10px] font-medium text-amber-800">
-                      Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
-                    </p>
-                  )}
-                </button>
-
-                {/* Option 3: Tamara (Pay in 4) */}
+                {/* Option 2: Tamara (Pay in 4) */}
                 {isTamaraAvailable && (
                   <button
                     type="button"
                     onClick={() => setPaymentGateway("tamara")}
                     className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${paymentGateway === "tamara"
                       ? "border-[#F88D2A] bg-amber-50/40 ring-2 ring-[#F88D2A]/40 shadow-xs"
-                      : "border-black/10 bg-white hover:border-black/30"
+                      : "border-black/10 bg-white hover:border-black/30 cursor-pointer"
                       }`}
                   >
                     <div className="flex w-full items-center justify-between">
@@ -1137,6 +1096,25 @@ export function TransferEnquiryFlow({
                     </div>
                   </button>
                 )}
+              </div>
+
+              {/* WhatsApp Tabby Assistance Notice */}
+              <div className="mt-3 p-3 rounded-xl border border-black/10 bg-warm-ivory/50 text-xs text-masaar-black/75 flex items-start gap-2.5">
+                <span className="text-sm">💬</span>
+                <p>
+                  Interested in paying with Tabby?{" "}
+                  <a
+                    href={`https://wa.me/971557329320?text=${encodeURIComponent(
+                      "Hello Masaar Holidays, I am interested in paying with Tabby for my transfer booking. Could you please assist me?"
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-masaar-black font-semibold underline hover:text-deep-gold transition-colors"
+                  >
+                    Contact our team on WhatsApp for assistance.
+                  </a>{" "}
+                  Tabby payment integration is currently being updated.
+                </p>
               </div>
 
               {/* Tamara breakdown schedule box when selected */}
@@ -1197,7 +1175,7 @@ export function TransferEnquiryFlow({
               <div>
                 <strong className="font-semibold text-masaar-black">Instant Booking &amp; Live Dispatch:</strong>
                 <p className="mt-0.5 text-masaar-black/70">
-                  Pay securely online with card or Tabby / Tamara Pay in 4 to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
+                  Pay securely online with card or Tamara Pay in 4 to immediately reserve your chauffeur. Our 24/7 concierge will send your driver and vehicle details to your WhatsApp prior to travel.
                 </p>
               </div>
             </div>
@@ -1226,11 +1204,6 @@ export function TransferEnquiryFlow({
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
                       <span>Connecting to Payment...</span>
-                    </>
-                  ) : paymentGateway === "tabby" && isTabbyRuntimeAvailable && isUaePhone ? (
-                    <>
-                      <TabbyBadge className="h-4 w-auto inline-block align-middle" />
-                      <span>Pay with Tabby · 4x AED {Math.round(((selectedVehicle?.priceAed || 0) / 4) * 100) / 100} →</span>
                     </>
                   ) : paymentGateway === "tamara" && isTamaraAvailable ? (
                     <>

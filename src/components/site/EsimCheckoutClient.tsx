@@ -7,7 +7,7 @@ import { useCurrency } from "./CurrencyProvider";
 import { formatEsimPrice, convertFromUsd, CURRENCY_PREFIX } from "@/lib/currency";
 import { buildWhatsAppLink } from "@/lib/contact";
 import { getDestinationByIso } from "@/lib/esim-config";
-import { TabbyBadge, TabbyProductSnippet, TabbyCard } from "@/components/site/TabbyLogo";
+// Country & Network info helper
 
 export interface EsimCheckoutPlanData {
   plan_id: string;
@@ -740,54 +740,7 @@ export function EsimCheckoutClient({
                     </p>
                   </label>
 
-                  {/* Option 2: Tabby (Pay in 4 installments) */}
-                  <label
-                    onClick={() => {
-                      if (isTabbyAvailable && isUaePhone) setPaymentGateway("tabby");
-                    }}
-                    className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all ${
-                      paymentGateway === "tabby"
-                        ? "border-[#0A0A08] bg-[#FAF7F2] ring-2 ring-black/10 shadow-xs"
-                        : "border-black/10 bg-white hover:border-black/20"
-                    } ${(!isTabbyAvailable || !isUaePhone) ? "opacity-60 cursor-not-allowed" : ""}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="radio"
-                          name="paymentGateway"
-                          value="tabby"
-                          disabled={!isTabbyAvailable || !isUaePhone}
-                          checked={paymentGateway === "tabby"}
-                          onChange={() => {
-                            if (isTabbyAvailable && isUaePhone) setPaymentGateway("tabby");
-                          }}
-                          className="size-4 text-[#0A0A08] focus:ring-[#0A0A08]"
-                        />
-                        <span className="text-xs font-bold text-[#0A0A08] flex items-center gap-2">
-                          <span>Tabby</span>
-                          <TabbyBadge className="h-4.5 w-auto" />
-                        </span>
-                      </div>
-                      <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-bold text-[#0A0A08]">
-                        4 interest-free payments
-                      </span>
-                    </div>
-                    {paymentGateway === "tabby" ? (
-                      <TabbyCard priceAed={tabbyTotalAed} className="mt-2 text-left" />
-                    ) : (
-                      <p className="mt-2 text-[11px] text-[#0A0A08]/75 leading-relaxed">
-                        4 interest-free payments of AED {tabbyInstallmentAed}. No interest. No fees. Shariah-compliant.
-                      </p>
-                    )}
-                    {!isUaePhone && phone.trim().length > 3 && (
-                      <p className="mt-1.5 text-[10px] font-medium text-amber-800">
-                        Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
-                      </p>
-                    )}
-                  </label>
-
-                  {/* Option 3: Tamara (Pay in 4 installments) */}
+                  {/* Option 2: Tamara (Pay in 4 installments) */}
                   {isTamaraAvailable && (
                     <label
                       onClick={() => setPaymentGateway("tamara")}
@@ -823,6 +776,25 @@ export function EsimCheckoutClient({
                   )}
                 </div>
 
+                {/* WhatsApp Tabby Assistance Notice */}
+                <div className="mt-3 p-3 rounded-xl border border-black/10 bg-[#FAF7F2] text-xs text-[#0A0A08]/75 flex items-start gap-2.5">
+                  <span className="text-sm">💬</span>
+                  <p>
+                    Interested in paying with Tabby?{" "}
+                    <a
+                      href={buildWhatsAppLink(
+                        "Hello Masaar Holidays, I am interested in paying with Tabby for my eSIM checkout. Could you please assist me?"
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#0A0A08] font-semibold underline hover:text-[#C9A227] transition-colors"
+                    >
+                      Contact our team on WhatsApp for assistance.
+                    </a>{" "}
+                    Tabby payment integration is currently being updated.
+                  </p>
+                </div>
+
                 {paymentGateway === "tamara" && (
                   <div className="rounded-xl border border-[#F88D2A]/40 bg-amber-50/60 p-3.5 text-xs text-[#C86400]">
                     <div className="font-bold flex items-center gap-1.5">
@@ -852,17 +824,12 @@ export function EsimCheckoutClient({
                 {loading ? (
                   <>
                     <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    {paymentGateway === "tamara" ? "Connecting to Tamara..." : paymentGateway === "tabby" ? "Connecting to Tabby..." : "Connecting to Secure Payment..."}
+                    {paymentGateway === "tamara" ? "Connecting to Tamara..." : "Connecting to Secure Payment..."}
                   </>
                 ) : paymentGateway === "tamara" ? (
                   <>
                     <LockIcon className="size-4" />
                     Pay with Tamara · 4x AED {tamaraInstallmentAed}
-                  </>
-                ) : paymentGateway === "tabby" ? (
-                  <>
-                    <LockIcon className="size-4" />
-                    Pay with Tabby · 4x AED {tabbyInstallmentAed}
                   </>
                 ) : (
                   <>
@@ -972,16 +939,6 @@ export function EsimCheckoutClient({
                     </div>
                   )}
                 </div>
-
-                {/* BNPL 4 Installments Badge */}
-                {isTabbyAvailable && isUaePhone && (
-                  <div className="rounded-xl border border-black/5 bg-[#FAF7F2] p-3 text-xs text-[#0A0A08]/85 space-y-1">
-                    <TabbyProductSnippet installmentAed={tabbyInstallmentAed} />
-                    <p className="text-[11px] text-[#0A0A08]/65">
-                      No interest. No fees. Shariah-compliant.
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* WhatsApp Alternative CTA */}

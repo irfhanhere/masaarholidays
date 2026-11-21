@@ -9,7 +9,7 @@ import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { CONTACT } from "@/lib/contact";
 import { Price } from "@/components/site/Price";
-import { TabbyPromo } from "@/components/site/TabbyLogo";
+// Currency & Price helper
 import type { VisaDocumentRow, VisaTypeRow, VisaProductRow } from "@/lib/types/database";
 
 interface VisaDetailTemplateProps {
@@ -143,7 +143,7 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
         },
         {
           q: "What is the price and what payment options are accepted?",
-          a: "The approved commercial price is AED 750 per applicant. You can pay securely online via Debit/Credit Card or split your payment into 4 interest-free monthly installments of AED 187.50 using Tabby.",
+          a: "The approved commercial price is AED 750 per applicant. You can pay securely online via Debit/Credit Card through encrypted checkout, or choose flexible payments with Tamara.",
         },
         {
           q: "Does applying through Masaar Holidays guarantee visa approval?",
@@ -603,9 +603,6 @@ export function VisaDetailTemplate({ visaType, documents, products = [] }: VisaD
                                 <Price amountAed={750} />
                               </span>
                               <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
-                            </div>
-                            <div className="mt-2">
-                              <TabbyPromo priceAed={750} />
                             </div>
                           </div>
                         ) : (

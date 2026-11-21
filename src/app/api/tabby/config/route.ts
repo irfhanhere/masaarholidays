@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const config = getTabbyConfig();
+  // Tabby is temporarily removed from the customer-facing website while updates continue.
   return NextResponse.json({
-    enabled: isTabbyCheckoutEnabled(),
+    enabled: false,
     sarAvailable: config.isSarAvailable,
     environment: config.environment,
   });

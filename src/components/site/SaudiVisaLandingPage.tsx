@@ -8,7 +8,7 @@ import { FaqSchema } from "@/components/site/FaqSchema";
 import { Container } from "@/components/site/Container";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { Price } from "@/components/site/Price";
-import { TabbyBadge, TabbyPromo, TabbyCard } from "@/components/site/TabbyLogo";
+// Payment & Brand components
 import { CONTACT, buildWhatsAppLink } from "@/lib/contact";
 import {
   FileCheck,
@@ -510,7 +510,7 @@ export function SaudiVisaLandingPage() {
     },
     {
       q: "What payment options are accepted?",
-      a: "You can pay securely online via Debit/Credit Card (Visa, Mastercard, Amex) through encrypted Stripe checkout. When available, you can also split your payment into 4 interest-free monthly installments using Tabby or Tamara.",
+      a: "You can pay securely online via Debit/Credit Card (Visa, Mastercard, Amex) through encrypted Stripe checkout, or choose flexible payments with Tamara.",
     },
     {
       q: "Does applying through Masaar Holidays guarantee visa approval?",
@@ -823,9 +823,6 @@ export function SaudiVisaLandingPage() {
                       AED 750
                     </span>
                     <span className="text-xs text-masaar-black/60 font-medium">/ applicant</span>
-                  </div>
-                  <div className="mt-2">
-                    <TabbyPromo priceAed={750} />
                   </div>
                 </div>
 
@@ -1681,46 +1678,6 @@ export function SaudiVisaLandingPage() {
                         </div>
                       </button>
 
-                      {/* Tabby (If available) */}
-                      {isTabbyAvailable && (
-                        <button
-                          type="button"
-                          disabled={!isUaePhone}
-                          onClick={() => {
-                            if (isUaePhone) setPaymentGateway("tabby");
-                          }}
-                          className={`rounded-xl border p-4 text-left transition-all ${
-                            !isUaePhone ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                          } ${
-                            paymentGateway === "tabby"
-                              ? "border-pure-gold bg-pure-gold/5 ring-2 ring-pure-gold/30"
-                              : "border-black/10 bg-white hover:bg-neutral-50"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-masaar-black flex items-center gap-2">
-                              <span>Tabby</span>
-                              <TabbyBadge className="h-4.5 w-auto" />
-                            </span>
-                            {paymentGateway === "tabby" && (
-                              <CheckCircle2 className="size-4 text-deep-gold" />
-                            )}
-                          </div>
-                          {paymentGateway === "tabby" ? (
-                            <TabbyCard priceAed={pricing.finalPayableAmount} className="mt-2" />
-                          ) : (
-                            <p className="text-[11px] text-masaar-black/75 mt-1 leading-relaxed">
-                              4 interest-free payments of AED {(pricing.finalPayableAmount / 4).toFixed(2)}. No interest. No fees. Shariah-compliant.
-                            </p>
-                          )}
-                          {!isUaePhone && contactPhone.trim().length > 3 && (
-                            <p className="mt-1 text-[10px] font-medium text-amber-800">
-                              Tabby Pay in 4 is currently available for UAE phone numbers (+971) only.
-                            </p>
-                          )}
-                        </button>
-                      )}
-
                       {/* Tamara (If available) */}
                       {isTamaraAvailable && (
                         <button
@@ -1745,6 +1702,25 @@ export function SaudiVisaLandingPage() {
                           </p>
                         </button>
                       )}
+                    </div>
+
+                    {/* WhatsApp enquiry note for Tabby */}
+                    <div className="mt-3 p-3 rounded-xl border border-black/10 bg-warm-ivory/50 text-xs text-masaar-black/75 flex items-start gap-2.5">
+                      <span className="text-sm">💬</span>
+                      <p>
+                        Interested in paying with Tabby?{" "}
+                        <a
+                          href={`https://wa.me/${CONTACT.whatsappPhoneIntl}?text=${encodeURIComponent(
+                            "Hello Masaar Holidays, I am interested in paying with Tabby for my Saudi Visa application. Could you please assist me?"
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-masaar-black font-semibold underline hover:text-deep-gold transition-colors"
+                        >
+                          Contact our team on WhatsApp for assistance.
+                        </a>{" "}
+                        Tabby payment integration is currently being updated.
+                      </p>
                     </div>
                   </div>
 

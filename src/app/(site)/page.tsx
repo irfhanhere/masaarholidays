@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { EmptyState, SectionHeading } from "@/components/site/SectionHeading";
+import { SectionHeading } from "@/components/site/SectionHeading";
 import { Container } from "@/components/site/Container";
 import { Hero } from "@/components/site/Hero";
-import { FeaturedPackageCard } from "@/components/site/FeaturedPackageCard";
 import { TestimonialsMarquee } from "@/components/site/TestimonialsMarquee";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import {
@@ -23,17 +21,19 @@ import {
   getPublishedPrivateTrips,
   getPublishedTestimonials,
   getPublishedUmrahInventoryConfigurations,
-  type PublicUmrahInventoryConfig,
 } from "@/lib/data/public";
 import { HomePrivateTrips } from "@/components/site/HomePrivateTrips";
 import { WhyMasaar } from "@/components/site/WhyMasaar";
 import { MasaarPremiumUmrahSpotlight } from "@/components/site/MasaarPremiumUmrahSpotlight";
+import { MasaarBestSellingUmrahSpotlight } from "@/components/site/MasaarBestSellingUmrahSpotlight";
+import { TamaraHighlight } from "@/components/site/TamaraHighlight";
+import { ExploreMoreUmrahSection } from "@/components/site/ExploreMoreUmrahSection";
 import { HomeAdditionalServices } from "@/components/site/HomeAdditionalServices";
 import { getHomepageAdditionalServices } from "@/lib/data/additional-services";
 import { getMasaarPremiumPackage } from "@/lib/data/premium-package";
+import { getMasaarBestSellingPackage } from "@/lib/data/best-selling-package";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { getSiteOrigin } from "@/lib/site-url";
-import type { PackageTier } from "@/lib/types/database";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -57,43 +57,23 @@ const SERVICES = [
   { icon: SuitcaseIcon, label: "Luggage", note: "Travel with ease", href: "/contact" },
 ];
 
-const TIER_ORDER: PackageTier[] = ["essential", "signature", "exclusive"];
-
-/** One representative inventory configuration per tier for the Home page teaser —
- *  real duration + pricing from umrah_inventory_configurations, never the legacy
- *  packages/package_room_prices placeholder rows. Prefers the evergreen
- *  (month-agnostic) Makkah+Madinah configuration, shortest duration first, matching
- *  the default shown on /umrah itself; falls back to Makkah Only, then to any month,
- *  so a tier is only omitted if it truly has no published configuration yet. */
-function pickFeaturedUmrahConfigs(configs: PublicUmrahInventoryConfig[]): PublicUmrahInventoryConfig[] {
-  return TIER_ORDER.map((tier) => {
-    const tierConfigs = configs.filter((c) => c.package.tier === tier);
-    const shortestMatch = (journeyType: PublicUmrahInventoryConfig["journey_type"], genericOnly: boolean) =>
-      tierConfigs
-        .filter((c) => c.journey_type === journeyType && (!genericOnly || c.month_id === null))
-        .sort((a, b) => a.duration_nights - b.duration_nights)[0];
-
-    return (
-      shortestMatch("makkah_madinah", true) ??
-      shortestMatch("makkah_madinah", false) ??
-      shortestMatch("makkah_only", true) ??
-      shortestMatch("makkah_only", false) ??
-      null
-    );
-  }).filter((c): c is PublicUmrahInventoryConfig => Boolean(c));
-}
-
 export default async function HomePage() {
-  const [inventoryConfigs, testimonials, homeContent, privateTrips, additionalServices, premiumPackage] = await Promise.all([
-    getPublishedUmrahInventoryConfigurations(),
+  const [
+    testimonials,
+    homeContent,
+    privateTrips,
+    additionalServices,
+    premiumPackage,
+    bestSellingPackage,
+  ] = await Promise.all([
     getPublishedTestimonials(),
     getHomeContent(),
     getPublishedPrivateTrips(),
     getHomepageAdditionalServices(),
     getMasaarPremiumPackage(),
+    getMasaarBestSellingPackage(),
   ]);
 
-  const featuredConfigs = pickFeaturedUmrahConfigs(inventoryConfigs);
   const origin = getSiteOrigin();
 
   const websiteSchema = {
@@ -113,6 +93,8 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
+
+      {/* 1. Existing homepage hero section */}
       <Hero
         eyebrow="Masaar Holidays"
         h1="Thoughtfully Planned Umrah Journeys from"
@@ -136,6 +118,31 @@ export default async function HomePage() {
         </div>
       </Hero>
 
+      {/* 2. New Tamara payment highlight */}
+      <TamaraHighlight />
+
+      {/* 3 & 4. Featured Umrah Packages Section: Premium & Best Selling */}
+      <section className="bg-warm-ivory py-16">
+        <Container>
+          <SectionHeading eyebrow="Featured Umrah Packages" title="Choose a Package That Suits Your Journey" />
+          <div className="mt-10 space-y-8">
+            {/* 3. Existing Masaar Premium Umrah Package */}
+            {premiumPackage.show_on_homepage && (
+              <MasaarPremiumUmrahSpotlight pkg={premiumPackage} />
+            )}
+
+            {/* 4. New Masaar Best Selling Umrah Package */}
+            {bestSellingPackage.show_on_homepage && (
+              <MasaarBestSellingUmrahSpotlight pkg={bestSellingPackage} />
+            )}
+          </div>
+        </Container>
+      </section>
+
+      {/* 5. New Explore More Umrah Packages section */}
+      <ExploreMoreUmrahSection />
+
+      {/* 6. Remaining existing homepage sections */}
       {/* Why Masaar */}
       <WhyMasaar />
 
@@ -166,48 +173,13 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      {/* Featured Umrah packages — exactly our 3 tiers, one card each */}
-      <section className="bg-warm-ivory py-16">
-        <Container>
-          <SectionHeading eyebrow="Featured Umrah Packages" title="Choose a Package That Suits Your Journey" />
-          <div className="mt-10">
-            {/* Spotlight: Masaar Premium Umrah Package (6 Days / 5 Nights) */}
-            {premiumPackage.show_on_homepage && (
-              <MasaarPremiumUmrahSpotlight pkg={premiumPackage} />
-            )}
-            {featuredConfigs.length > 0 ? (
-              <div className="space-y-6">
-                {featuredConfigs.map((config) => (
-                  <FeaturedPackageCard
-                    key={config.id}
-                    pkg={config.package}
-                    roomPrices={config.room_prices.map((rp) => ({
-                      room_type: rp.occupancy_type,
-                      price_aed: rp.price_aed,
-                    }))}
-                    durationLabel={config.duration_label}
-                    fallbackImageUrl="/brand/banners/umrah.webp"
-                    makkahHotel={config.makkah_hotel ?? null}
-                    madinahHotel={config.madinah_hotel ?? null}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                title="No packages published yet"
-                note="Add Umrah packages from Admin → Packages once pricing is confirmed."
-              />
-            )}
-          </div>
-        </Container>
-      </section>
-
       {/* Additional Services: Enhance Your Umrah Journey */}
       <HomeAdditionalServices services={additionalServices} />
 
       {/* Unified Services & Private Trips Section */}
       <HomePrivateTrips trips={privateTrips} />
 
+      {/* Testimonials */}
       <TestimonialsMarquee testimonials={testimonials} />
 
       {/* CTA banner */}
