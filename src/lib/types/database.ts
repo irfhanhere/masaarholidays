@@ -1247,6 +1247,13 @@ export interface Database {
       visa_application_documents: Table<VisaApplicationDocumentRowShape, "application_id" | "document_type" | "file_path" | "file_name">;
       visa_payments: Table<VisaPaymentRowShape, "application_id" | "transaction_reference" | "amount">;
       email_notifications: Table<EmailNotificationRowShape, "idempotency_key" | "recipient" | "subject" | "template_type">;
+      customers: Table<CustomerRowShape, "customer_number" | "full_name" | "phone">;
+      travellers: Table<TravellerRowShape, "full_name">;
+      bookings: Table<BookingRowShape, "booking_reference" | "package_name">;
+      suppliers: Table<SupplierRowShape, "name" | "category">;
+      booking_supplier_costs: Table<BookingSupplierCostRowShape, "booking_id" | "service_description">;
+      payments: Table<PaymentRowShape, "payment_number" | "amount" | "payment_method">;
+      document_sequences: Table<DocumentSequenceRowShape, "document_type" | "prefix" | "year">;
       payment_webhook_events: Table<PaymentWebhookEventRowShape, "gateway" | "external_id" | "event_type">;
     };
     Views: {
@@ -1255,6 +1262,10 @@ export interface Database {
     Functions: {
       generate_document_number: {
         Args: { p_document_type: string };
+        Returns: string;
+      };
+      generate_next_document_number: {
+        Args: { p_doc_type: string; p_year?: number };
         Returns: string;
       };
     };
@@ -1600,5 +1611,140 @@ export type EsimCatalogueMetaRow = Database["public"]["Tables"]["esim_catalogue_
 export type EsimOrderRow = Database["public"]["Tables"]["esim_orders"]["Row"];
 export type EsimWebhookEventRow = Database["public"]["Tables"]["esim_webhook_events"]["Row"];
 export type TransferBookingRow = Database["public"]["Tables"]["transfer_bookings"]["Row"];
+
+export type CustomerRowShape = {
+  id: string;
+  customer_number: string;
+  full_name: string;
+  email: string | null;
+  phone: string;
+  whatsapp: string | null;
+  country: string | null;
+  nationality: string | null;
+  address: string | null;
+  customer_type: string;
+  customer_source: string;
+  internal_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TravellerRowShape = {
+  id: string;
+  customer_id: string | null;
+  full_name: string;
+  date_of_birth: string | null;
+  nationality: string | null;
+  passport_number: string | null;
+  passport_expiry: string | null;
+  gender: string | null;
+  document_urls: any;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BookingRowShape = {
+  id: string;
+  booking_reference: string;
+  customer_id: string | null;
+  quotation_id: string | null;
+  package_id: string | null;
+  package_name: string;
+  room_category: string | null;
+  travel_date: string | null;
+  return_date: string | null;
+  adults: number;
+  children: number;
+  infants: number;
+  total_travellers: number;
+  departure_city: string;
+  destination: string;
+  booking_status: string;
+  payment_status: string;
+  fulfilment_status: string;
+  currency: string;
+  total_amount: number;
+  paid_amount: number;
+  balance_due: number;
+  assigned_staff: string | null;
+  internal_notes: string | null;
+  hotel_arrangements: any;
+  flight_arrangements: any;
+  transfer_arrangements: any;
+  visa_arrangements: any;
+  esim_arrangements: any;
+  package_snapshot: any;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SupplierRowShape = {
+  id: string;
+  name: string;
+  category: string;
+  contact_person: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  currency: string;
+  payment_terms: string | null;
+  supplier_reference: string | null;
+  internal_notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BookingSupplierCostRowShape = {
+  id: string;
+  booking_id: string;
+  supplier_id: string | null;
+  service_description: string;
+  estimated_cost: number;
+  actual_cost: number;
+  currency: string;
+  payment_status: string;
+  invoice_reference: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaymentRowShape = {
+  id: string;
+  payment_number: string;
+  receipt_id: string | null;
+  booking_id: string | null;
+  invoice_id: string | null;
+  customer_id: string | null;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  payment_date: string;
+  transaction_reference: string | null;
+  received_by: string | null;
+  status: string;
+  notes: string | null;
+  gateway_response: any;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentSequenceRowShape = {
+  id: string;
+  document_type: string;
+  prefix: string;
+  year: number;
+  current_sequence: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CustomerDbRow = Database["public"]["Tables"]["customers"]["Row"];
+export type TravellerDbRow = Database["public"]["Tables"]["travellers"]["Row"];
+export type BookingDbRow = Database["public"]["Tables"]["bookings"]["Row"];
+export type SupplierDbRow = Database["public"]["Tables"]["suppliers"]["Row"];
+export type PaymentDbRow = Database["public"]["Tables"]["payments"]["Row"];
 
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Badge, EmptyRow } from "@/components/admin/ui";
 import { ShareQuotationModal } from "@/components/documents/ShareQuotationModal";
+import { convertQuotationAction } from "@/app/admin/(dashboard)/bookings/actions";
 import type { DocumentRow } from "@/lib/types/database";
 
 function statusTone(status?: string | null): "green" | "amber" | "gray" | "blue" | "gold" {
@@ -112,6 +113,23 @@ export function QuotationsClientList({
     } catch (err: any) {
       alert(err instanceof Error ? err.message : "Network error occurred.");
     } finally {
+      setIsPending(false);
+    }
+  }
+
+  async function handleConvert(q: DocumentRow) {
+    if (!confirm(`Convert quotation ${q.document_number} into a confirmed booking?`)) return;
+    setIsPending(true);
+    try {
+      const res = await convertQuotationAction(q.id);
+      if (res.success && 'bookingId' in res && res.bookingId) {
+        router.push(`/admin/bookings/${res.bookingId}`);
+      } else {
+        alert(('error' in res && res.error) || "Failed to convert quotation");
+        setIsPending(false);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to convert quotation");
       setIsPending(false);
     }
   }
@@ -301,6 +319,15 @@ export function QuotationsClientList({
                           className="font-medium text-[#b37e28] hover:underline cursor-pointer"
                         >
                           Share
+                        </button>
+                        <span className="text-black/20">|</span>
+                        <button
+                          type="button"
+                          onClick={() => handleConvert(q)}
+                          disabled={isPending}
+                          className="font-semibold text-deep-gold hover:underline cursor-pointer"
+                        >
+                          Convert
                         </button>
                         <span className="text-black/20">|</span>
                         <button

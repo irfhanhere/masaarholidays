@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getNextDocumentNumber } from "@/lib/documents/numbering";
 import type {
   DocumentItemRow,
   DocumentItemType,
@@ -69,16 +70,7 @@ export async function createManualQuotationCore(input: CreateManualQuotationInpu
       return { success: false, error: "Client name is required." };
     }
 
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
-      p_document_type: "quotation",
-    });
-    // Fallback: generate a timestamp-based number if the RPC is unavailable (e.g. cold-start / RLS on live)
-    const docNumber: string = numberResult
-      ? (numberResult as string)
-      : `MH-QT-${Date.now().toString().slice(-6)}`;
-    if (numberError && !numberResult) {
-      console.warn("[createManualQuotationCore] RPC fallback used:", numberError?.message, "=>", docNumber);
-    }
+    const docNumber = await getNextDocumentNumber("quotation");
 
     const { data: template } = await supabase
       .from("document_templates")

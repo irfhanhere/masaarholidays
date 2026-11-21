@@ -18,7 +18,21 @@ export interface AdminNavGroup {
 }
 
 export const ADMIN_NAV: AdminNavGroup[] = [
-  { title: "", items: [{ label: "Dashboard", href: "/admin" }] },
+  {
+    title: "BUSINESS OPERATIONS",
+    items: [
+      { label: "Dashboard", href: "/admin" },
+      { label: "Customers", href: "/admin/customers" },
+      { label: "Quotations", href: "/admin/quotations" },
+      { label: "Bookings", href: "/admin/bookings" },
+      { label: "Invoices", href: "/admin/invoices" },
+      { label: "Receipts", href: "/admin/receipts" },
+      { label: "Travel Vouchers", href: "/admin/vouchers" },
+      { label: "Suppliers", href: "/admin/suppliers" },
+      { label: "Payments", href: "/admin/payments" },
+      { label: "Reports", href: "/admin/reports" },
+    ],
+  },
   {
     title: "WEBSITE MANAGEMENT",
     items: [

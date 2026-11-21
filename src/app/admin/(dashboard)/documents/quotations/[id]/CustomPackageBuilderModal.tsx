@@ -41,22 +41,24 @@ export function CustomPackageBuilderModal({
 }: CustomPackageBuilderModalProps) {
   const isHajj = journeyType === "hajj";
 
-  // Tier selection: Essential, Signature, Exclusive (selectable and unselectable)
-  const [selectedTier, setSelectedTier] = useState<"essential" | "signature" | "exclusive" | null>("signature");
+  // Tier selection: Best Selling, Essential, Signature, Exclusive
+  const [selectedTier, setSelectedTier] = useState<"best_selling" | "essential" | "signature" | "exclusive" | null>("best_selling");
   const tierPricing = isHajj
-    ? { essential: 12500, signature: 15500, exclusive: 19500 }
-    : { essential: 4950, signature: 6950, exclusive: 8950 };
+    ? { best_selling: 14500, essential: 12500, signature: 15500, exclusive: 19500 }
+    : { best_selling: 3900, essential: 4950, signature: 6950, exclusive: 8950 };
 
   // Hotels (selectable and unselectable)
-  const [selectedMakkah, setSelectedMakkah] = useState<string | null>("Swissôtel Makkah");
+  const [selectedMakkah, setSelectedMakkah] = useState<string | null>("DoubleTree by Hilton Makkah");
   const makkahHotels = [
+    { name: "DoubleTree by Hilton Makkah", stars: 4, price: 1800, distance: "Jabal Omar (Best Selling)" },
     { name: "Swissôtel Makkah", stars: 5, price: isHajj ? 4200 : 2500, distance: "Near Haram" },
     { name: "Fairmont Makkah", stars: 5, price: isHajj ? 4800 : 3200, distance: "Clock Tower" },
     { name: "Raffles Makkah", stars: 5, price: isHajj ? 5500 : 4200, distance: "Direct Haram View" },
   ];
 
-  const [selectedMadinah, setSelectedMadinah] = useState<string | null>("Anwar Al Madinah");
+  const [selectedMadinah, setSelectedMadinah] = useState<string | null>("Worth Tharawat Hotel");
   const madinahHotels = [
+    { name: "Worth Tharawat Hotel", stars: 4, price: 1200, distance: "Central Northern Area (Best Selling)" },
     { name: "Anwar Al Madinah", stars: 5, price: isHajj ? 2800 : 1800, distance: "Near Haram Courtyard" },
     { name: "Madinah Hilton", stars: 5, price: isHajj ? 3200 : 2200, distance: "Facing Prophet's Mosque" },
   ];
@@ -234,7 +236,36 @@ export function CustomPackageBuilderModal({
                   <span className="text-xs text-[#916d28] font-semibold">Select tier</span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* Best Selling */}
+                  <div
+                    onClick={() => setSelectedTier((prev) => (prev === "best_selling" ? null : "best_selling"))}
+                    className={`cursor-pointer rounded-xl border p-4 transition-all relative ${
+                      selectedTier === "best_selling"
+                        ? "border-[#b37e28] bg-[#FAF8F5] ring-2 ring-[#b37e28] shadow-sm"
+                        : "border-black/10 hover:border-black/25 bg-white"
+                    }`}
+                  >
+                    <span className="absolute -top-2 left-3 text-[9px] font-bold bg-[#b37e28] text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Best Selling
+                    </span>
+                    {selectedTier === "best_selling" && (
+                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-[#b37e28] text-white px-1.5 py-0.5 rounded-full">
+                        ✓ Selected
+                      </span>
+                    )}
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="font-serif font-bold text-sm text-masaar-black">Best Selling</span>
+                      <span className="text-xs text-[#916d28] font-bold">AED {tierPricing.best_selling.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[11px] text-masaar-black/50">Quad basis • DoubleTree + Worth</p>
+                    <ul className="mt-2 text-[11px] text-masaar-black/70 space-y-1">
+                      <li>• DoubleTree Makkah (3N)</li>
+                      <li>• Worth Tharawat Madinah (2N)</li>
+                      <li>• Flights, Visa & Transfers</li>
+                    </ul>
+                  </div>
+
                   {/* Essential */}
                   <div
                     onClick={() => setSelectedTier((prev) => (prev === "essential" ? null : "essential"))}

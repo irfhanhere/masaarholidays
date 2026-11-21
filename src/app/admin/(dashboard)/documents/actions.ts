@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendDocumentEmail } from "@/lib/documents/mailer";
 import { generateDocumentPdf } from "@/lib/documents/generate-pdf";
+import { getNextDocumentNumber, type OperativeDocType } from "@/lib/documents/numbering";
 import type { DocumentItemRow, DocumentItemType, DocumentRow, DocumentTemplateRowShape, DocumentType } from "@/lib/types/database";
 
 async function getClient() {
@@ -27,27 +28,17 @@ async function getClient() {
 }
 
 async function generateDocNumber(supabase: any, documentType: string): Promise<string> {
-  const prefixMap: Record<string, string> = {
-    quotation: "MH-QT",
-    invoice: "MH-INV",
-    receipt: "MH-RCT",
-    booking_voucher: "MH-BKG",
-  };
   try {
-    const { data: numberResult, error: numberError } = await supabase.rpc("generate_document_number", {
-      p_document_type: documentType,
-    });
-    if (!numberError && numberResult) {
-      return numberResult as string;
-    }
-    if (numberError) {
-      console.warn(`[generateDocNumber] RPC fallback used for ${documentType}:`, numberError?.message);
-    }
+    const validTypes: OperativeDocType[] = ["quotation", "invoice", "receipt", "booking_voucher"];
+    const docType: OperativeDocType = validTypes.includes(documentType as OperativeDocType)
+      ? (documentType as OperativeDocType)
+      : "quotation";
+    return await getNextDocumentNumber(docType);
   } catch (err: any) {
-    console.warn(`[generateDocNumber] RPC exception fallback for ${documentType}:`, err?.message);
+    console.warn(`[generateDocNumber] numbering fallback for ${documentType}:`, err?.message);
+    const prefix = documentType === "quotation" ? "MAS-QT" : documentType === "invoice" ? "MAS-INV" : documentType === "receipt" ? "MAS-RC" : "MAS-BV";
+    return `${prefix}-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
   }
-  const prefix = prefixMap[documentType] || "MH-DOC";
-  return `${prefix}-${Date.now().toString().slice(-6)}`;
 }
 
 const VAT_RATE = 0.05;

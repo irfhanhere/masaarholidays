@@ -134,15 +134,17 @@ export function Field({
   hint,
   required,
   className = "",
+  htmlFor,
 }: {
   label: string;
   children: ReactNode;
   hint?: string;
   required?: boolean;
   className?: string;
+  htmlFor?: string;
 }) {
   return (
-    <label className={`block ${className}`}>
+    <label htmlFor={htmlFor} className={`block ${className}`}>
       <span className="mb-1 block text-sm font-medium text-masaar-black">
         {label}
         {required && <span className="text-red-500"> *</span>}
