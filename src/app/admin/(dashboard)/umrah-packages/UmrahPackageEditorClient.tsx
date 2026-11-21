@@ -992,47 +992,292 @@ export function UmrahPackageEditorClient({ initialPackage, isNew = false }: Prop
 
         {/* TAB H: SEO SETTINGS */}
         {activeTab === "seo" && (
-          <Card className="space-y-4">
-            <h2 className="text-base font-bold text-masaar-black border-b border-black/5 pb-2">
-              Section H: SEO & Social Sharing Settings
-            </h2>
+          <div className="space-y-6">
+            <Card className="space-y-4">
+              <h2 className="text-base font-bold text-masaar-black border-b border-black/5 pb-2">
+                Section H: Search Engine Optimization (SEO)
+              </h2>
 
-            <Field label="SEO Meta Title" hint="Optimal length: 50-60 characters">
-              <input
-                type="text"
-                value={pkg.seo_title}
-                onChange={(e) => updateField("seo_title", e.target.value)}
-                className={inputClass}
-              />
-            </Field>
+              {/* Warning if package is published but marked noindex */}
+              {pkg.noindex && pkg.status === "published" && (
+                <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-xs text-amber-950 flex items-start gap-3">
+                  <span className="text-lg">⚠️</span>
+                  <div>
+                    <strong className="font-bold block text-sm">Indexing Warning: Noindex Directive Active</strong>
+                    <span>
+                      This package is currently marked as <strong>Published</strong>, but robots indexing is set to <strong>Noindex</strong>.
+                      Search engines like Google will be instructed NOT to index this package in search results.
+                    </span>
+                  </div>
+                </div>
+              )}
 
-            <Field label="SEO Meta Description" hint="Optimal length: 140-160 characters">
-              <textarea
-                rows={3}
-                value={pkg.meta_description}
-                onChange={(e) => updateField("meta_description", e.target.value)}
-                className={inputClass}
-              />
-            </Field>
+              {/* SEO Meta Title */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-masaar-black">SEO Meta Title</label>
+                  <span
+                    className={`text-[11px] font-medium ${
+                      (pkg.seo_title?.length || 0) >= 50 && (pkg.seo_title?.length || 0) <= 60
+                        ? "text-emerald-600 font-bold"
+                        : (pkg.seo_title?.length || 0) > 60
+                        ? "text-amber-600"
+                        : "text-masaar-black/50"
+                    }`}
+                  >
+                    {pkg.seo_title?.length || 0} / 60 characters (Optimal: 50–60)
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={pkg.seo_title}
+                  onChange={(e) => updateField("seo_title", e.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. Best Selling Umrah Package from UAE | 6 Days & 5 Nights | Masaar Holidays"
+                />
+              </div>
 
-            <Field label="Canonical URL">
-              <input
-                type="text"
-                value={pkg.canonical_url}
-                onChange={(e) => updateField("canonical_url", e.target.value)}
-                className={inputClass}
-              />
-            </Field>
+              {/* SEO Meta Description */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-masaar-black">SEO Meta Description</label>
+                  <span
+                    className={`text-[11px] font-medium ${
+                      (pkg.meta_description?.length || 0) >= 140 && (pkg.meta_description?.length || 0) <= 160
+                        ? "text-emerald-600 font-bold"
+                        : (pkg.meta_description?.length || 0) > 160
+                        ? "text-amber-600"
+                        : "text-masaar-black/50"
+                    }`}
+                  >
+                    {pkg.meta_description?.length || 0} / 160 characters (Optimal: 140–160)
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={pkg.meta_description}
+                  onChange={(e) => updateField("meta_description", e.target.value)}
+                  className={inputClass}
+                  placeholder="Summarize package inclusions, duration, hotel stays, and verified features accurately..."
+                />
+              </div>
 
-            <Field label="Social Sharing Image URL (og:image)">
-              <input
-                type="text"
-                value={pkg.social_image || pkg.featured_image}
-                onChange={(e) => updateField("social_image", e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-          </Card>
+              {/* Canonical URL & Breadcrumb Title */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Canonical URL" hint="Self-referencing HTTPS URL">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={pkg.canonical_url}
+                      onChange={(e) => updateField("canonical_url", e.target.value)}
+                      className={inputClass}
+                      placeholder="https://www.masaarholidays.com/umrah/..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateField("canonical_url", `https://www.masaarholidays.com/umrah/${pkg.slug}`)
+                      }
+                      className="whitespace-nowrap px-2.5 py-1 text-[11px] font-semibold rounded border border-black/15 bg-warm-ivory/50 hover:bg-warm-ivory"
+                    >
+                      Default
+                    </button>
+                  </div>
+                </Field>
+
+                <Field label="Breadcrumb Title" hint="Display label in breadcrumb trail">
+                  <input
+                    type="text"
+                    value={pkg.breadcrumb_title || ""}
+                    onChange={(e) => updateField("breadcrumb_title", e.target.value)}
+                    className={inputClass}
+                    placeholder={pkg.title}
+                  />
+                </Field>
+              </div>
+
+              {/* Robots Crawling Directives */}
+              <div className="border-t border-black/5 pt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-masaar-black/70 mb-3">
+                  Robots Indexing &amp; Crawling Directives
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-black/10 bg-warm-ivory/30 p-3 space-y-2">
+                    <span className="text-xs font-semibold text-masaar-black block">Indexing Directive</span>
+                    <label className="flex items-center gap-2 text-xs text-masaar-black/80 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="robots_index"
+                        checked={!pkg.noindex}
+                        onChange={() => updateField("noindex", false)}
+                        className="text-deep-gold"
+                      />
+                      <span>Index (Allow search engines to index this package)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-masaar-black/80 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="robots_index"
+                        checked={Boolean(pkg.noindex)}
+                        onChange={() => updateField("noindex", true)}
+                        className="text-deep-gold"
+                      />
+                      <span>Noindex (Instruct search engines NOT to index)</span>
+                    </label>
+                  </div>
+
+                  <div className="rounded-lg border border-black/10 bg-warm-ivory/30 p-3 space-y-2">
+                    <span className="text-xs font-semibold text-masaar-black block">Follow Directive</span>
+                    <label className="flex items-center gap-2 text-xs text-masaar-black/80 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="robots_follow"
+                        checked={!pkg.nofollow}
+                        onChange={() => updateField("nofollow", false)}
+                        className="text-deep-gold"
+                      />
+                      <span>Follow (Allow crawlers to follow links)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-masaar-black/80 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="robots_follow"
+                        checked={Boolean(pkg.nofollow)}
+                        onChange={() => updateField("nofollow", true)}
+                        className="text-deep-gold"
+                      />
+                      <span>Nofollow (Instruct crawlers NOT to follow links)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Structured Data / Schema.org Setting */}
+              <div className="border-t border-black/5 pt-4">
+                <label className="flex items-center gap-3 p-3 rounded-lg border border-black/10 bg-admin-surface/50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pkg.schema_enabled !== false}
+                    onChange={(e) => updateField("schema_enabled", e.target.checked)}
+                    className="size-4 rounded text-deep-gold"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-masaar-black block">
+                      Enable System-Generated Schema.org TouristTrip Structured Data (Recommended)
+                    </span>
+                    <span className="text-[11px] text-masaar-black/60">
+                      Generates validated TouristTrip JSON-LD containing per-occupancy room prices, day-by-day itinerary,
+                      hotels, and verified Masaar Holidays travel agency provider credentials.
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </Card>
+
+            {/* OPEN GRAPH & SOCIAL SHARING */}
+            <Card className="space-y-4">
+              <h2 className="text-base font-bold text-masaar-black border-b border-black/5 pb-2">
+                Open Graph &amp; Social Sharing Metadata
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Open Graph Title (og:title)" hint="Defaults to SEO Title if left blank">
+                  <input
+                    type="text"
+                    value={pkg.og_title || ""}
+                    onChange={(e) => updateField("og_title", e.target.value)}
+                    className={inputClass}
+                    placeholder={pkg.seo_title}
+                  />
+                </Field>
+
+                <Field label="Social Sharing Image URL (og:image)" hint="Recommended: 1200x630px">
+                  <input
+                    type="text"
+                    value={pkg.social_image || ""}
+                    onChange={(e) => updateField("social_image", e.target.value)}
+                    className={inputClass}
+                    placeholder="/brand/banners/umrah.webp"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Open Graph Description (og:description)" hint="Defaults to SEO Description if blank">
+                <textarea
+                  rows={2}
+                  value={pkg.og_description || ""}
+                  onChange={(e) => updateField("og_description", e.target.value)}
+                  className={inputClass}
+                  placeholder={pkg.meta_description}
+                />
+              </Field>
+            </Card>
+
+            {/* PREVIEWS: GOOGLE SERP & SOCIAL CARD */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Google SERP Snippet Preview */}
+              <Card className="space-y-3">
+                <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-masaar-black/70">
+                    Google Search Result Preview
+                  </span>
+                  <span className="text-[10px] text-masaar-black/50">Desktop SERP</span>
+                </div>
+
+                <div className="rounded-lg border border-black/10 bg-white p-4 font-sans text-left space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-[#202124]">
+                    <span className="size-4 rounded-full bg-warm-ivory text-[10px] font-bold flex items-center justify-center text-deep-gold">
+                      M
+                    </span>
+                    <span className="text-xs text-[#202124]">Masaar Holidays</span>
+                    <span className="text-[#5f6368] text-xs">
+                      › umrah › {pkg.slug || "package"}
+                    </span>
+                  </div>
+
+                  <h4 className="text-base font-normal text-[#1a0dab] hover:underline cursor-pointer leading-tight pt-0.5">
+                    {pkg.seo_title || `${pkg.title} | Masaar Holidays`}
+                  </h4>
+
+                  <p className="text-xs text-[#4d5156] leading-relaxed pt-1">
+                    {pkg.meta_description || pkg.short_description || "Explore this thoughtfully planned Umrah package from the UAE with Masaar Holidays."}
+                  </p>
+                </div>
+              </Card>
+
+              {/* Social Card Preview */}
+              <Card className="space-y-3">
+                <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-masaar-black/70">
+                    Social Sharing Card Preview
+                  </span>
+                  <span className="text-[10px] text-masaar-black/50">Facebook / LinkedIn / Twitter</span>
+                </div>
+
+                <div className="rounded-lg border border-black/10 bg-white overflow-hidden text-left shadow-2xs">
+                  <div className="relative h-36 w-full bg-warm-ivory flex items-center justify-center text-xs text-masaar-black/50">
+                    <img
+                      src={pkg.social_image || pkg.featured_image || "/brand/banners/umrah.webp"}
+                      alt={pkg.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-neutral-50/70 border-t border-black/5 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-masaar-black/50">
+                      masaarholidays.com
+                    </span>
+                    <h5 className="text-xs font-bold text-masaar-black line-clamp-1">
+                      {pkg.og_title || pkg.seo_title || pkg.title}
+                    </h5>
+                    <p className="text-[11px] text-masaar-black/65 line-clamp-2 leading-relaxed">
+                      {pkg.og_description || pkg.meta_description || pkg.short_description}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
         )}
       </div>
     </div>

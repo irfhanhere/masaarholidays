@@ -22,6 +22,7 @@ import { getActiveVisaTypes, getVisaLandingContent } from "@/lib/data/public";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { FaqSection } from "@/components/site/FaqSection";
+import { ServiceSchema } from "@/components/site/ServiceSchema";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -113,6 +114,12 @@ export default async function VisaPage() {
 
   return (
     <>
+      <ServiceSchema
+        name="Saudi & UAE Visa Assistance"
+        serviceType="Visa Consultation & Processing Assistance"
+        description="Reliable visa and travel document assistance from the UAE. Transparent guidance and processing for Saudi Visa, UAE Visa, and UAE Golden Visa."
+        path="/visa"
+      />
       <Breadcrumbs items={[{ label: "Visa" }]} />
 
       {/* Hero Section matching V01.png */}

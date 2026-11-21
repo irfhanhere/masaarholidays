@@ -56,6 +56,13 @@ export async function getUmrahPackagesAction(): Promise<{
             departure_country: d.departure_country || "UAE",
             currency: d.currency || "AED",
             category: d.category || "Umrah",
+            social_image: d.social_image || d.featured_image || "/brand/banners/umrah.webp",
+            og_title: d.og_title || d.seo_title || d.title,
+            og_description: d.og_description || d.meta_description || d.short_description || "",
+            noindex: d.noindex !== undefined ? Boolean(d.noindex) : false,
+            nofollow: d.nofollow !== undefined ? Boolean(d.nofollow) : false,
+            schema_enabled: d.schema_enabled !== undefined ? Boolean(d.schema_enabled) : true,
+            breadcrumb_title: d.breadcrumb_title || d.title,
             created_at: d.created_at,
             updated_at: d.updated_at,
           })),
@@ -120,6 +127,13 @@ export async function getUmrahPackageByIdAction(idOrSlug: string): Promise<{
             departure_country: data.departure_country || "UAE",
             currency: data.currency || "AED",
             category: data.category || "Umrah",
+            social_image: data.social_image || data.featured_image || "/brand/banners/umrah.webp",
+            og_title: data.og_title || data.seo_title || data.title,
+            og_description: data.og_description || data.meta_description || data.short_description || "",
+            noindex: data.noindex !== undefined ? Boolean(data.noindex) : false,
+            nofollow: data.nofollow !== undefined ? Boolean(data.nofollow) : false,
+            schema_enabled: data.schema_enabled !== undefined ? Boolean(data.schema_enabled) : true,
+            breadcrumb_title: data.breadcrumb_title || data.title,
             created_at: data.created_at,
             updated_at: data.updated_at,
           },
@@ -189,6 +203,7 @@ export async function saveUmrahPackageAction(
       show_on_umrah_page: Boolean(pkgData.show_on_umrah_page),
       display_order: Number(pkgData.display_order) || 1,
       featured_image: pkgData.featured_image || "/brand/banners/umrah.webp",
+      social_image: pkgData.social_image || pkgData.featured_image || "/brand/banners/umrah.webp",
       seo_title: pkgData.seo_title?.trim() || `${pkgData.title} | Masaar Holidays`,
       meta_description: pkgData.meta_description?.trim() || pkgData.short_description?.trim() || "",
       canonical_url: pkgData.canonical_url?.trim() || `https://www.masaarholidays.com/umrah/${slug}`,
@@ -198,6 +213,10 @@ export async function saveUmrahPackageAction(
       transport: Array.isArray(pkgData.transport) ? pkgData.transport : [],
       pricing: Array.isArray(pkgData.pricing) ? pkgData.pricing : [],
       itinerary: Array.isArray(pkgData.itinerary) ? pkgData.itinerary : [],
+      package_badge: pkgData.package_badge || (slug === "masaar-best-selling-umrah" ? "BEST SELLING" : "PREMIUM"),
+      departure_country: pkgData.departure_country || "UAE",
+      currency: pkgData.currency || "AED",
+      category: pkgData.category || "Umrah",
       updated_at: now,
     };
 
@@ -206,11 +225,34 @@ export async function saveUmrahPackageAction(
     }
 
     if (isSupabaseConfigured()) {
-      const { data, error } = await (supabase as any)
+      // First attempt full upsert with native SEO columns if supported
+      const fullRecord = {
+        ...recordToSave,
+        og_title: pkgData.og_title?.trim() || pkgData.seo_title?.trim() || pkgData.title.trim(),
+        og_description: pkgData.og_description?.trim() || pkgData.meta_description?.trim() || pkgData.short_description?.trim() || "",
+        noindex: Boolean(pkgData.noindex),
+        nofollow: Boolean(pkgData.nofollow),
+        schema_enabled: pkgData.schema_enabled !== false,
+        breadcrumb_title: pkgData.breadcrumb_title?.trim() || pkgData.title.trim(),
+      };
+
+      let { data, error } = await (supabase as any)
         .from("premium_umrah_packages")
-        .upsert(recordToSave, { onConflict: "slug" })
+        .upsert(fullRecord, { onConflict: "slug" })
         .select()
         .single();
+
+      // If database reports missing column before migration 0105 runs, retry with standard record
+      if (error && error.message?.includes("column")) {
+        console.warn("Retrying package upsert with standard record columns:", error.message);
+        const retry = await (supabase as any)
+          .from("premium_umrah_packages")
+          .upsert(recordToSave, { onConflict: "slug" })
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error("Supabase upsert package error:", error);
@@ -238,6 +280,8 @@ export async function saveUmrahPackageAction(
         revalidatePath("/");
         revalidatePath("/umrah");
         revalidatePath(`/umrah/${slug}`);
+        revalidatePath("/sitemap.xml");
+        revalidatePath("/robots.txt");
         revalidatePath("/admin/umrah-packages");
         revalidatePath("/admin/homepage");
       } catch {
@@ -367,6 +411,7 @@ export async function togglePublishPackageAction(
       revalidatePath("/");
       revalidatePath("/umrah");
       revalidatePath(`/umrah/${data.slug}`);
+      revalidatePath("/sitemap.xml");
       revalidatePath("/admin/umrah-packages");
     } catch {}
 

@@ -9,6 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         "/admin/",
         "/api/",
+        "/qa/",
         "/quote/",
         "/doc-render/",
         "/esim/checkout/",

@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
 import { Sidebar } from "@/components/admin/Sidebar";
 import { Topbar } from "@/components/admin/Topbar";
 import { WhatsAppTemplatesProvider } from "@/components/site/WhatsAppTemplatesProvider";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function AdminDashboardLayout({
   children,

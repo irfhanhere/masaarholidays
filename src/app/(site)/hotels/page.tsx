@@ -9,6 +9,7 @@ import { getActiveHotelRoomPriceSummaries, getActiveHotels } from "@/lib/data/pu
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { FaqSection } from "@/components/site/FaqSection";
+import { ServiceSchema } from "@/components/site/ServiceSchema";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -41,6 +42,13 @@ export default async function HotelsPage() {
 
   return (
     <>
+      <ServiceSchema
+        name="Makkah & Madinah Hotel Booking Arrangements"
+        serviceType="Pilgrimage Accommodation Arrangements"
+        description="Curated hotel booking and accommodation arrangements in Makkah and Madinah close to the Haram for Umrah and Hajj pilgrims."
+        path="/hotels"
+        areaServed={["Makkah", "Madinah"]}
+      />
       <Breadcrumbs items={[{ label: "Hotels" }]} />
       <Hero
         eyebrow="Hotels"

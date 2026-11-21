@@ -17,11 +17,15 @@ import {
 import { CONTACT } from "@/lib/contact";
 import { getMasaarPremiumPackage } from "@/lib/data/premium-package";
 import { PremiumItineraryAccordion } from "@/components/site/PremiumItineraryAccordion";
+import { UmrahPackageSchema } from "@/components/site/UmrahPackageSchema";
 import { getSiteOrigin } from "@/lib/site-url";
 
 export async function generateMetadata(): Promise<Metadata> {
   const pkg = await getMasaarPremiumPackage();
   const origin = getSiteOrigin();
+  const canonicalUrl = pkg.canonical_url || `${origin}/umrah/masaar-premium-umrah`;
+  const resolvedImage = pkg.social_image || pkg.featured_image || "/brand/banners/umrah.webp";
+  const absoluteImage = resolvedImage.startsWith("http") ? resolvedImage : `${origin}${resolvedImage}`;
 
   return {
     title: pkg.seo_title,
@@ -36,16 +40,19 @@ export async function generateMetadata(): Promise<Metadata> {
       "Umrah with Ziyarah from UAE",
     ],
     alternates: {
-      canonical: pkg.canonical_url || `${origin}/umrah/masaar-premium-umrah`,
+      canonical: canonicalUrl,
     },
+    robots: pkg.noindex
+      ? { index: false, follow: !pkg.nofollow }
+      : { index: true, follow: true },
     openGraph: {
-      title: pkg.seo_title,
-      description: pkg.meta_description,
-      url: pkg.canonical_url || `${origin}/umrah/masaar-premium-umrah`,
+      title: pkg.og_title || pkg.seo_title,
+      description: pkg.og_description || pkg.meta_description,
+      url: canonicalUrl,
       siteName: "Masaar Holidays",
       images: [
         {
-          url: `${origin}${pkg.featured_image}`,
+          url: absoluteImage,
           width: 1200,
           height: 630,
           alt: pkg.title,
@@ -55,9 +62,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: pkg.seo_title,
-      description: pkg.meta_description,
-      images: [`${origin}${pkg.featured_image}`],
+      title: pkg.og_title || pkg.seo_title,
+      description: pkg.og_description || pkg.meta_description,
+      images: [absoluteImage],
     },
   };
 }
@@ -83,49 +90,18 @@ export default async function MasaarPremiumUmrahPage() {
     `Assalamu Alaikum Masaar Holidays, I would like to enquire about adding a Private Guide to the ${pkg.title}. Please share the available arrangements and details.`
   )}`;
 
-  // Product schema for SEO
-  const productSchema = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: pkg.title,
-    description: pkg.meta_description,
-    image: `${origin}${pkg.featured_image}`,
-    brand: {
-      "@type": "Brand",
-      name: "Masaar Holidays",
-    },
-    offers: {
-      "@type": "AggregateOffer",
-      priceCurrency: "AED",
-      lowPrice: minPrice,
-      highPrice: Math.max(...pkg.pricing.map((p) => p.price_aed), 6900),
-      offerCount: pkg.pricing.length,
-      offers: pkg.pricing.map((p) => ({
-        "@type": "Offer",
-        name: `${pkg.title} - ${p.room_type}`,
-        price: p.price_aed,
-        priceCurrency: p.currency,
-        availability: "https://schema.org/InStock",
-        url: `${origin}/umrah/masaar-premium-umrah#pricing`,
-      })),
-    },
-  };
-
   return (
     <div className="min-h-screen bg-warm-ivory/30 text-masaar-black">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-      />
+      {/* Schema.org TouristTrip Structured Data */}
+      <UmrahPackageSchema pkg={pkg} />
 
       {/* Top Breadcrumb */}
       <div className="border-b border-black/5 bg-warm-ivory/60 py-2.5">
         <Container>
           <Breadcrumbs
             items={[
-              { label: "Home", href: "/" },
-              { label: "Umrah Packages", href: "/umrah" },
-              { label: pkg.title },
+              { label: "Umrah", href: "/umrah" },
+              { label: pkg.breadcrumb_title || pkg.title },
             ]}
           />
         </Container>

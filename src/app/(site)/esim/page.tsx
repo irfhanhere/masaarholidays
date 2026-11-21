@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { ServiceSchema } from "@/components/site/ServiceSchema";
 import { EsimBrowser } from "@/components/site/EsimBrowser";
 import { getEsimPlans } from "@/lib/data/esim";
 import { buildStaticPageMetadata } from "@/lib/i18n";
@@ -52,6 +53,12 @@ export default async function EsimPage({
 
   return (
     <>
+      <ServiceSchema
+        name="Saudi Arabia Travel eSIM"
+        serviceType="Prepaid Mobile Data eSIM"
+        description="Prepaid high-speed Saudi Arabia mobile data eSIM packages for Umrah and Hajj travellers with instant digital delivery and WhatsApp activation."
+        path="/esim"
+      />
       <Breadcrumbs items={[{ label: "eSIM" }]} />
       <Suspense
         fallback={

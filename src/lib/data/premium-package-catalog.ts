@@ -16,10 +16,18 @@ export const DEFAULT_PREMIUM_PACKAGE: PremiumPackage = {
   show_on_umrah_page: true,
   display_order: 1,
   featured_image: "/brand/banners/umrah.webp",
-  seo_title: "Premium Umrah Package from UAE | Masaar Holidays",
+  seo_title: "Premium Umrah Package from UAE | 6 Days & 5 Nights | Masaar Holidays",
   meta_description:
-    "Explore Masaar Holidays' 6-day, 5-night Umrah package from the UAE, featuring accommodation in Makkah and Madinah, Saudi Airlines flights, the Haramain Speed Train and guided Ziyarah.",
+    "Explore Masaar Holidays' 6-day, 5-night Premium Umrah package from the UAE, featuring accommodation in Makkah and Madinah, Saudi Airlines flights, the Haramain Speed Train and guided Ziyarah.",
   canonical_url: "https://www.masaarholidays.com/umrah/masaar-premium-umrah",
+  og_title: "Premium Umrah Package from UAE | 6 Days & 5 Nights | Masaar Holidays",
+  og_description:
+    "Explore Masaar Holidays' 6-day, 5-night Premium Umrah package from the UAE, featuring accommodation in Makkah and Madinah, Saudi Airlines flights, the Haramain Speed Train and guided Ziyarah.",
+  social_image: "/brand/banners/umrah.webp",
+  noindex: false,
+  nofollow: false,
+  schema_enabled: true,
+  breadcrumb_title: "Masaar Premium Umrah Package",
   hotels: [
     {
       city: "Makkah",

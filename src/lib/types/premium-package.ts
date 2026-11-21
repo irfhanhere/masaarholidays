@@ -96,6 +96,12 @@ export interface PremiumPackage {
   category?: string;
   social_image?: string;
   media_gallery?: string[];
+  og_title?: string;
+  og_description?: string;
+  noindex?: boolean;
+  nofollow?: boolean;
+  schema_enabled?: boolean;
+  breadcrumb_title?: string;
   created_at?: string;
   updated_at?: string;
 }

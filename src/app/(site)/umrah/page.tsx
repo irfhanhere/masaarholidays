@@ -10,14 +10,15 @@ import { getMasaarPremiumPackage } from "@/lib/data/premium-package";
 import { getMasaarBestSellingPackage } from "@/lib/data/best-selling-package";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { UmrahLandingClient } from "@/components/site/UmrahLandingClient";
+import { ServiceSchema } from "@/components/site/ServiceSchema";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
   return buildStaticPageMetadata({
     path: "/umrah",
-    fallbackTitle: "Umrah Packages UAE | Masaar Holidays",
+    fallbackTitle: "Umrah Packages from UAE | Makkah & Madinah Packages | Masaar Holidays",
     fallbackDescription:
-      "Umrah packages from the UAE, thoughtfully planned around your family — accommodation, transfers and personal support at every level of comfort.",
+      "Explore thoughtfully planned Umrah packages from the UAE with Makkah and Madinah accommodation, flights, transfers and travel assistance. Find the right journey with Masaar Holidays.",
   });
 }
 
@@ -47,15 +48,23 @@ export default async function UmrahPage() {
   const defaultMonthSlug = activeMonths[0]?.slug ?? null;
 
   return (
-    <UmrahLandingClient
-      packages={packages}
-      inventoryConfigs={inventoryConfigs}
-      faqs={faqs}
-      addons={addons}
-      defaultMonthSlug={defaultMonthSlug}
-      departureMonths={activeMonths}
-      premiumPackage={premiumPackage}
-      bestSellingPackage={bestSellingPackage}
-    />
+    <>
+      <ServiceSchema
+        name="Umrah Travel Packages from UAE"
+        serviceType="Umrah Pilgrimage Arrangements"
+        description="Thoughtfully planned Umrah journeys and packages from the UAE with handpicked hotels in Makkah and Madinah, transport, and personal support."
+        path="/umrah"
+      />
+      <UmrahLandingClient
+        packages={packages}
+        inventoryConfigs={inventoryConfigs}
+        faqs={faqs}
+        addons={addons}
+        defaultMonthSlug={defaultMonthSlug}
+        departureMonths={activeMonths}
+        premiumPackage={premiumPackage}
+        bestSellingPackage={bestSellingPackage}
+      />
+    </>
   );
 }

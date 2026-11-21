@@ -14,6 +14,7 @@ import {
   BedIcon,
   CarIcon,
 } from "@/components/site/icons";
+import { UmrahPackageSchema } from "@/components/site/UmrahPackageSchema";
 import { CONTACT } from "@/lib/contact";
 import { getMasaarBestSellingPackage } from "@/lib/data/best-selling-package";
 import { getSiteOrigin } from "@/lib/site-url";
@@ -21,29 +22,34 @@ import { getSiteOrigin } from "@/lib/site-url";
 export async function generateMetadata(): Promise<Metadata> {
   const pkg = await getMasaarBestSellingPackage();
   const origin = getSiteOrigin();
+  const canonicalUrl = pkg.canonical_url || `${origin}/umrah/masaar-best-selling-umrah`;
+  const resolvedImage = pkg.social_image || pkg.featured_image || "/brand/banners/umrah.webp";
+  const absoluteImage = resolvedImage.startsWith("http") ? resolvedImage : `${origin}${resolvedImage}`;
 
   return {
     title: pkg.seo_title,
     description: pkg.meta_description,
     keywords: [
       "Best Selling Umrah package UAE",
-      "Umrah package from UAE",
-      "Umrah package from Dubai",
-      "Makkah DoubleTree Hilton Umrah",
-      "Worth Tharawat Hotel Madinah Umrah",
-      "Umrah packages Dubai",
+      "Umrah packages from UAE",
+      "6 days 5 nights Umrah package",
+      "Umrah package Makkah Madinah",
+      "Umrah travel agency UAE",
     ],
     alternates: {
-      canonical: pkg.canonical_url || `${origin}/umrah/masaar-best-selling-umrah`,
+      canonical: canonicalUrl,
     },
+    robots: pkg.noindex
+      ? { index: false, follow: !pkg.nofollow }
+      : { index: true, follow: true },
     openGraph: {
-      title: pkg.seo_title,
-      description: pkg.meta_description,
-      url: pkg.canonical_url || `${origin}/umrah/masaar-best-selling-umrah`,
+      title: pkg.og_title || pkg.seo_title,
+      description: pkg.og_description || pkg.meta_description,
+      url: canonicalUrl,
       siteName: "Masaar Holidays",
       images: [
         {
-          url: `${origin}${pkg.featured_image}`,
+          url: absoluteImage,
           width: 1200,
           height: 630,
           alt: pkg.title,
@@ -53,9 +59,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: pkg.seo_title,
-      description: pkg.meta_description,
-      images: [`${origin}${pkg.featured_image}`],
+      title: pkg.og_title || pkg.seo_title,
+      description: pkg.og_description || pkg.meta_description,
+      images: [absoluteImage],
     },
   };
 }
@@ -79,49 +85,18 @@ export default async function MasaarBestSellingUmrahPage() {
     `Assalamu Alaikum Masaar Holidays, I would like to enquire about the ${pkg.title} (6 Days / 5 Nights). Please share current departure availability, room category options, and booking details.`
   )}`;
 
-  // Product schema for SEO
-  const productSchema = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: pkg.title,
-    description: pkg.meta_description,
-    image: `${origin}${pkg.featured_image}`,
-    brand: {
-      "@type": "Brand",
-      name: "Masaar Holidays",
-    },
-    offers: {
-      "@type": "AggregateOffer",
-      priceCurrency: "AED",
-      lowPrice: minPrice,
-      highPrice: Math.max(...pkg.pricing.map((p) => p.price_aed), 6400),
-      offerCount: pkg.pricing.length,
-      offers: pkg.pricing.map((p) => ({
-        "@type": "Offer",
-        name: `${pkg.title} - ${p.room_type}`,
-        price: p.price_aed,
-        priceCurrency: p.currency,
-        availability: "https://schema.org/InStock",
-        url: `${origin}/umrah/masaar-best-selling-umrah#pricing`,
-      })),
-    },
-  };
-
   return (
     <div className="min-h-screen bg-warm-ivory/30 text-masaar-black">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-      />
+      {/* Schema.org TouristTrip Structured Data */}
+      <UmrahPackageSchema pkg={pkg} />
 
       {/* Top Breadcrumb */}
       <div className="border-b border-black/5 bg-warm-ivory/60 py-2.5">
         <Container>
           <Breadcrumbs
             items={[
-              { label: "Home", href: "/" },
-              { label: "Umrah Packages", href: "/umrah" },
-              { label: pkg.title },
+              { label: "Umrah", href: "/umrah" },
+              { label: pkg.breadcrumb_title || pkg.title },
             ]}
           />
         </Container>

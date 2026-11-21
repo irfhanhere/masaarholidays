@@ -16,10 +16,18 @@ export const DEFAULT_BEST_SELLING_PACKAGE: PremiumPackage = {
   show_on_umrah_page: true,
   display_order: 2,
   featured_image: "/brand/banners/umrah.webp",
-  seo_title: "Best Selling Umrah Package from UAE | Masaar Holidays",
+  seo_title: "Best Selling Umrah Package from UAE | 6 Days & 5 Nights | Masaar Holidays",
   meta_description:
-    "Book the Masaar Best Selling Umrah Package from the UAE: 6 Days / 5 Nights with DoubleTree by Hilton Makkah & Worth Tharawat Hotel Madinah, flights, transfers, visa, and complimentary eSIM.",
+    "Explore Masaar's 6-day, 5-night Umrah package from the UAE with 3 nights in Makkah, 2 nights in Madinah, hotel accommodation, flights and travel assistance. Enquire on WhatsApp.",
   canonical_url: "https://www.masaarholidays.com/umrah/masaar-best-selling-umrah",
+  og_title: "Best Selling Umrah Package from UAE | 6 Days & 5 Nights | Masaar Holidays",
+  og_description:
+    "Explore Masaar's 6-day, 5-night Umrah package from the UAE with 3 nights in Makkah, 2 nights in Madinah, hotel accommodation, flights and travel assistance. Enquire on WhatsApp.",
+  social_image: "/brand/banners/umrah.webp",
+  noindex: false,
+  nofollow: false,
+  schema_enabled: true,
+  breadcrumb_title: "Masaar Best Selling Umrah Package",
   hotels: [
     {
       city: "Makkah",

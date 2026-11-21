@@ -17,17 +17,19 @@ import {
   SEO_ENABLED_LOCALES,
   localizedPath,
 } from "@/lib/locale-constants";
+import { DEFAULT_PREMIUM_PACKAGE } from "@/lib/data/premium-package-catalog";
+import { DEFAULT_BEST_SELLING_PACKAGE } from "@/lib/data/best-selling-package-catalog";
 
 import { isEsimLive } from "@/lib/esim-launch";
 
 /**
  * Top-level static pages on the site that are published and indexable.
  * Note: /cookie-preferences is intentionally omitted because it is marked noindex.
+ * Note: /umrah/* dynamic packages are loaded directly from the database.
  */
 const STATIC_ROUTES = [
   "/",
   "/umrah",
-  "/umrah/masaar-premium-umrah",
   "/umrah/sharjah",
   "/umrah/dubai",
   "/hajj",
@@ -95,6 +97,53 @@ async function getSitemapVisibleBlogPosts() {
   return data ?? [];
 }
 
+/**
+ * Loads published Umrah packages from the authoritative premium_umrah_packages table.
+ * Strictly respects package publication status, noindex flag, and actual updated_at timestamps.
+ */
+async function getPublishedPremiumUmrahPackages(): Promise<Array<{ slug: string; updated_at: string }>> {
+  if (!isSupabaseConfigured()) {
+    return [DEFAULT_PREMIUM_PACKAGE, DEFAULT_BEST_SELLING_PACKAGE]
+      .filter((p) => p.status === "published" && !p.noindex)
+      .map((p) => ({
+        slug: p.slug,
+        updated_at: p.updated_at || "2026-11-21T16:39:12.736Z",
+      }));
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await (supabase as any)
+      .from("premium_umrah_packages")
+      .select("slug, status, updated_at, noindex")
+      .eq("status", "published");
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      return [DEFAULT_PREMIUM_PACKAGE, DEFAULT_BEST_SELLING_PACKAGE]
+        .filter((p) => p.status === "published" && !p.noindex)
+        .map((p) => ({
+          slug: p.slug,
+          updated_at: p.updated_at || "2026-11-21T16:39:12.736Z",
+        }));
+    }
+
+    return data
+      .filter((p: any) => !p.noindex)
+      .map((p: any) => ({
+        slug: p.slug,
+        updated_at: p.updated_at || new Date().toISOString(),
+      }));
+  } catch (err) {
+    console.error("sitemap getPublishedPremiumUmrahPackages", err);
+    return [DEFAULT_PREMIUM_PACKAGE, DEFAULT_BEST_SELLING_PACKAGE]
+      .filter((p) => p.status === "published" && !p.noindex)
+      .map((p) => ({
+        slug: p.slug,
+        updated_at: p.updated_at || "2026-11-21T16:39:12.736Z",
+      }));
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = getSiteOrigin();
 
@@ -124,7 +173,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   // 2. Data-driven published content
-  const [umrahPackages, hajjPackages, hotels, visaTypes, departureMonths, blogPosts, privateTrips, transfers, additionalServices] = await Promise.all([
+  const [
+    publishedPremiumPackages,
+    umrahPackages,
+    hajjPackages,
+    hotels,
+    visaTypes,
+    departureMonths,
+    blogPosts,
+    privateTrips,
+    transfers,
+    additionalServices,
+  ] = await Promise.all([
+    getPublishedPremiumUmrahPackages(),
     getPublishedPackages("umrah"),
     getPublishedPackages("hajj"),
     getActiveHotels(),
@@ -135,6 +196,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     (await import("@/lib/data/transfers")).getPublicTransfers(),
     getAllPublishedAdditionalServices(),
   ]);
+
+  // Premium / Best Selling Umrah Packages managed through Admin CMS
+  const premiumPackageEntries: MetadataRoute.Sitemap = publishedPremiumPackages.flatMap((pkg) =>
+    createSitemapEntries(`/umrah/${pkg.slug}`, new Date(pkg.updated_at), origin)
+  );
 
   // Exclude any internal/admin placeholder slugs (e.g. umrah-*-placeholder, hajj-*-placeholder)
   const validPackages = [...umrahPackages, ...hajjPackages].filter(
@@ -199,6 +265,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const allEntries = [
     ...staticEntries,
+    ...premiumPackageEntries,
     ...packageEntries,
     ...hotelEntries,
     ...visaTypeEntries,
@@ -213,6 +280,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const seenUrls = new Set<string>();
   const deduplicated: MetadataRoute.Sitemap = [];
   for (const entry of allEntries) {
+    // Strictly exclude any private, admin, checkout, or testing routes
+    if (
+      entry.url.includes("/admin") ||
+      entry.url.includes("/api/") ||
+      entry.url.includes("/qa/") ||
+      entry.url.includes("/quote") ||
+      entry.url.includes("/doc-render") ||
+      entry.url.includes("/esim/checkout") ||
+      entry.url.includes("/visa/application")
+    ) {
+      continue;
+    }
+
     if (!seenUrls.has(entry.url)) {
       seenUrls.add(entry.url);
       deduplicated.push(entry);

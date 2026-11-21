@@ -10,6 +10,7 @@ import { getPublishedPackages } from "@/lib/data/public";
 import { buildStaticPageMetadata } from "@/lib/i18n";
 import { CrossLinkServices } from "@/components/site/CrossLinkServices";
 import { FaqSection } from "@/components/site/FaqSection";
+import { ServiceSchema } from "@/components/site/ServiceSchema";
 
 // Admin-editable via Admin → Page SEO (page_seo table) — see buildStaticPageMetadata.
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,6 +27,12 @@ export default async function HajjPage() {
 
   return (
     <>
+      <ServiceSchema
+        name="Hajj Travel Services from UAE"
+        serviceType="Hajj Pilgrimage Arrangements"
+        description="Official Hajj travel packages and pilgrimage arrangements from the UAE, including shifting and non-shifting packages, flights, Mina tents, and dedicated guidance."
+        path="/hajj"
+      />
       <Breadcrumbs items={[{ label: "Hajj Packages from UAE" }]} />
       <HajjHero />
 
